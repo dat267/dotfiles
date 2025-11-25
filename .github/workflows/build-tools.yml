@@ -1,0 +1,105 @@
+name: Build and Release Tools
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "dot_local/src/**"
+      - ".github/workflows/build-tools.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      tools: ${{ steps.find.outputs.tools }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Discover tools (dirs containing a Makefile)
+        id: find
+        run: |
+          tools=$(
+            find dot_local/src -maxdepth 2 -name "Makefile" \
+              | xargs -I{} dirname {} \
+              | xargs -I{} basename {} \
+              | sort \
+              | jq -R . | jq -sc .
+          )
+          echo "Discovered tools: $tools"
+          echo "tools=$tools" >> "$GITHUB_OUTPUT"
+
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.gen.outputs.tag }}
+    steps:
+      - name: Generate timestamp tag
+        id: gen
+        run: |
+          TAG="tools/$(date -u +'%Y%m%d-%H%M%S')"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+
+      - name: Create and push tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.gen.outputs.tag }}"
+          git push origin "${{ steps.gen.outputs.tag }}"
+
+  build:
+    needs: [discover, tag]
+    name: Build ${{ matrix.tool }} ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: ${{ fromJson(needs.discover.outputs.tools) }}
+        goos: [linux, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build via Makefile
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          VERSION: ${{ needs.tag.outputs.tag }}
+        run: |
+          SUFFIX=""
+          [ "${{ matrix.goos }}" = "windows" ] && SUFFIX=".exe"
+          OUT="$GITHUB_WORKSPACE/${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}${SUFFIX}"
+          make -C "dot_local/src/${{ matrix.tool }}" build OUT="$OUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}*
+
+  release:
+    needs: [tag, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.tag.outputs.tag }}
+          name: "Tools ${{ needs.tag.outputs.tag }}"
+          files: "*"

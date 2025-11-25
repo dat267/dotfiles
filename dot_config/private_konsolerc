@@ -1,0 +1,28 @@
+MenuBar=Disabled
+
+[Desktop Entry]
+DefaultProfile=
+
+[General]
+ConfigVersion=1
+
+[KonsoleWindow]
+AllowMenuAccelerators=true
+ShowWindowTitleOnTitleBar=true
+UseSingleInstance=true
+
+[Notification Messages]
+CloseAllEmptyTabs=true
+
+[SearchSettings]
+SearchRegExpression=true
+
+[TabBar]
+CloseTabButton=None
+CloseTabOnMiddleMouseButton=true
+NewTabButton=true
+TabBarPosition=Left
+TabBarVisibility=AlwaysShowTabBar
+
+[UiSettings]
+ColorScheme=

@@ -1,0 +1,376 @@
+{
+    "add to PATH": {
+        "body": [
+            "[[ \":\\$PATH:\" != *\":${1:path_to_add}:\"* ]] && export PATH=\"${1:path_to_add}:\\$PATH\""
+        ],
+        "prefix": [
+            "path",
+            "add path"
+        ]
+    },
+    "bash for i loop": {
+        "body": [
+            "for((i=0;i<${1:n};i++)); do",
+            "\t${2:echo \"\\${i\\}\"}",
+            "done\n"
+        ],
+        "prefix": "for i"
+    },
+    "bash for in collection": {
+        "body": [
+            "for ${1:item} in {${2:\"Hello World!\",a,bc,1372}}; do",
+            "\techo \"\\${${1:item}\\}\"",
+            "done\n"
+        ],
+        "prefix": "for in collection"
+    },
+    "bash for in range": {
+        "body": [
+            "for ${1:item} in ${2|{a..z},{0..20}|}; do",
+            "\techo \"\\${${1:item}\\}\"",
+            "done\n"
+        ],
+        "prefix": "for in range"
+    },
+    "bash if elif else": {
+        "body": [
+            "if [[ ${1:-n \\$not_empty} ]]; then",
+            "\t${2::}",
+            "elif [[ ${3:-n \\$not_empty} ]]; then",
+            "\t${4::}",
+            "else",
+            "\t${5::}",
+            "fi"
+        ],
+        "prefix": [
+            "if elif else"
+        ]
+    },
+    "bash if else": {
+        "body": [
+            "if [[ ${1:-n \\$not_empty} ]]; then",
+            "\t${2::}",
+            "else",
+            "\t${3::}",
+            "fi"
+        ],
+        "prefix": [
+            "if else"
+        ]
+    },
+    "check architecture script": {
+        "body": [
+            "if [ \"$(uname -m)\" = \"x86_64\" ]; then",
+            "\t:",
+            "elif [ \"$(uname -m)\" = \"aarch64\" ]; then",
+            "\t:",
+            "else",
+            "\techo \"Error: Architecture $(uname -m) not supported by this script\"",
+            "\texit 1",
+            "fi"
+        ],
+        "prefix": "archcheck script"
+    },
+    "check if command not found script": {
+        "body": [
+            "[ ! \"\\$(command -v ${1:command})\" ] && echo \"command '${1:command}' not found\" && exit 1"
+        ],
+        "prefix": [
+            "command not found script",
+            "cmd not found script"
+        ]
+    },
+    "confirmation Prompt": {
+        "body": [
+            "read -r -p \"Are you sure you want to ${1:proceed}? (y/n): \" choice",
+            "case \"\\$choice\" in",
+            "[Yy])",
+            "\techo \"Proceeding...\"",
+            "\t${2:# Code when yes}",
+            "\t;;",
+            "[Nn])",
+            "\techo \"Cancelled.\"",
+            "\t${3:# Code when no}",
+            "\t;;",
+            "*)",
+            "\techo \"Invalid choice. Please enter 'y' or 'n'.\"",
+            "\t;;",
+            "esac"
+        ],
+        "prefix": [
+            "confirmation prompt",
+            "prompt"
+        ]
+    },
+    "create multiline string variable": {
+        "body": [
+            "multiline_string=$(",
+            "\tcat <<EOF",
+            "${1:multiline content}",
+            "EOF",
+            ")"
+        ],
+        "prefix": "multiline string"
+    },
+    "current script dir": {
+        "body": "current_script_dir=\"\\$(cd \"\\$(dirname \"\\${BASH_SOURCE[0]}\")\" &>/dev/null && pwd)\"",
+        "prefix": "current script dir"
+    },
+    "current script path": {
+        "body": "current_script_path=\"\\$(cd \"\\$(dirname \"\\${BASH_SOURCE[0]}\")\" &>/dev/null && pwd)/\\$(basename \"\\${BASH_SOURCE[0]}\")\"",
+        "prefix": "current script path"
+    },
+    "declare local variable": {
+        "body": [
+            "local ${1:var}",
+            "${1:var}=${2:value}"
+        ],
+        "prefix": "local"
+    },
+    "declare long string": {
+        "body": [
+            "${1:long_string}=$(",
+            "\tcat <<END",
+            "I am an exceptionally long",
+            "string.",
+            "END",
+            ")"
+        ],
+        "prefix": [
+            "long string"
+        ]
+    },
+    "generate a directory in /tmp": {
+        "body": [
+            "${1:tmp_dir}=$(mktemp -d)"
+        ],
+        "prefix": [
+            "tmp dir",
+            "temp dir"
+        ]
+    },
+    "generate a file in /tmp": {
+        "body": [
+            "${1:tmp_file}=$(mktemp)"
+        ],
+        "prefix": [
+            "tmp file",
+            "temp file"
+        ]
+    },
+    "get current working dir": {
+        "body": [
+            "${1:current_working_dir}=$(pwd)"
+        ],
+        "prefix": [
+            "current working dir",
+            "pwd"
+        ]
+    },
+    "if elif else": {
+        "body": [
+            "if [ ${1:-z \"\\$empty\"} ]; then",
+            "\t${2::}",
+            "elif [ ${3:-z \"\\$empty\"} ]; then",
+            "\t${4::}",
+            "else",
+            "\t${5::}",
+            "fi"
+        ],
+        "prefix": [
+            "if elif else"
+        ]
+    },
+    "if else": {
+        "body": [
+            "if [ ${1:-z \"\\$empty\"} ]; then",
+            "\t${2::}",
+            "else",
+            "\t${3::}",
+            "fi"
+        ],
+        "prefix": [
+            "if else"
+        ]
+    },
+    "infinite loop": {
+        "body": [
+            "while true; do",
+            "${1:\techo \"infinite loop\"\n\tsleep 1s}",
+            "done\n"
+        ],
+        "prefix": [
+            "loop infinite",
+            "infinite loop"
+        ]
+    },
+    "let": {
+        "body": "let \"${1:result} = ${2:int1} ${3|+,-,*,/,%|} ${4:int2}\"\n",
+        "prefix": "let"
+    },
+    "loop until": {
+        "body": [
+            "until [ ${1:-z \"\\$zero\"} ]; do",
+            "\t${2::}",
+            "done\n"
+        ],
+        "prefix": "loop until"
+    },
+    "math addition": {
+        "body": "${1:result}=\\$((${2:int1} + ${3:int2}))\n",
+        "prefix": "math +"
+    },
+    "math decrement": {
+        "body": "((${1|int--,--int|}))\n",
+        "prefix": "math --"
+    },
+    "math divide": {
+        "body": "${1:result}=\\$((${2:int1} / ${3:int2}))\n",
+        "prefix": "math /"
+    },
+    "math divideEqual": {
+        "body": "((${1:int1} /= ${2:int2}))\n",
+        "prefix": "math /="
+    },
+    "math expr": {
+        "body": "${1:result}=\\$(expr \\${${2:int1}\\} ${3|+,-,\\*,/,%|} \\${${4:int2}\\})\n",
+        "prefix": [
+            "expr",
+            "arithmetic"
+        ]
+    },
+    "math gammaConstant": {
+        "body": "MATH_GAMMA='0.57721566490153286060651209008240243'\n",
+        "prefix": "math const 𝛾"
+    },
+    "math increment": {
+        "body": "((${1|int++,++int|}))\n",
+        "prefix": "math ++"
+    },
+    "math minusEqual": {
+        "body": "((${1:int1} -= ${2:int2}))\n",
+        "prefix": "math -="
+    },
+    "math modulus": {
+        "body": "${1:result}=\\$((${2:int1} % ${3:int2}))\n",
+        "prefix": "math %"
+    },
+    "math modulusEqual": {
+        "body": "((${1:int1} %= ${2:int2}))\n",
+        "prefix": "math %="
+    },
+    "math multiply": {
+        "body": "${1:result}=\\$((${2:int1} * ${3:int2}))\n",
+        "prefix": "math *"
+    },
+    "math multiplyEqual": {
+        "body": "((${1:int1} *= ${2:int2}))\n",
+        "prefix": "math *="
+    },
+    "math napierConstant": {
+        "body": "MATH_NAPIER='2.71828182845904523536028747135266249'\n",
+        "prefix": "math const e"
+    },
+    "math omegaConstant": {
+        "body": "MATH_OMEGA='0.56714329040978387299996866221035554'\n",
+        "prefix": "math const Ω"
+    },
+    "math phiConstant": {
+        "body": "MATH_GOLDEN_RATIO='1.61803398874989484820458683436563811'\n",
+        "prefix": "math const ϕ"
+    },
+    "math piConstant": {
+        "body": "MATH_PI='3.14159265358979323846264338327950288'\n",
+        "prefix": "math const π"
+    },
+    "math plusEqual": {
+        "body": "((${1:int1} += ${2:int2}))\n",
+        "prefix": "math +="
+    },
+    "math power": {
+        "body": "${1:result}=\\$((${2:base} ** ${3:power}))\n",
+        "prefix": "math ^"
+    },
+    "math precision": {
+        "body": "${1:result}=\\$(echo \"scale=${2|0,1,2,3,4,5,6,7,8,9|};(\\${${3:num1}\\} ${4|+,-,*,/,^|} \\${${5:num2}\\})\" | bc)\n",
+        "prefix": "math 0.00"
+    },
+    "math randomNumber": {
+        "body": "${1:result}=\\$((${2:min} + RANDOM % \\$((${3:max}-${2:min}))))\n",
+        "prefix": "math random"
+    },
+    "math sqrt": {
+        "body": "${1:result}=\\$(echo \"scale=${2|0,1,2,3,4,5,6,7,8,9|};sqrt(${3|num,${num}|})\" | bc)\n",
+        "prefix": [
+            "math √",
+            "math sqrt"
+        ]
+    },
+    "math subtract": {
+        "body": "${1:result}=\\$((${2:int1} - ${3:int2}))\n",
+        "prefix": "math -"
+    },
+    "new alias": {
+        "body": [
+            "alias $1='$2'"
+        ],
+        "prefix": [
+            "alias"
+        ]
+    },
+    "one line if": {
+        "body": [
+            "[ ${1:-f file_path} ] && ${0:command}"
+        ],
+        "prefix": [
+            "iff"
+        ]
+    },
+    "one line if fail": {
+        "body": [
+            "[ ${1:-f file_path} ] || ${0:command_when_fail}"
+        ],
+        "prefix": [
+            "ifn"
+        ]
+    },
+    "source file": {
+        "body": [
+            "[ -f ${1:file_path} ] && . ${1:file_path}"
+        ],
+        "prefix": [
+            "source",
+            "src"
+        ]
+    },
+    "switch case": {
+        "body": [
+            "case \"\\${${1:item}\\}\" in",
+            "\t${2:1})",
+            "\t\t${3:echo \"item = 1\"}",
+            "\t;;",
+            "\t${4:2|3})",
+            "\t\t${5:echo \"item = 2 or item = 3\"}",
+            "\t;;",
+            "\t*)",
+            "\t\t${6:echo \"default (none of above)\"}",
+            "\t;;",
+            "esac\n"
+        ],
+        "prefix": [
+            "switch case",
+            "case"
+        ]
+    },
+    "while loop": {
+        "body": [
+            "while [ ${1:-z \"\\$zero\"} ]; do",
+            "\t${2::}",
+            "done\n"
+        ],
+        "prefix": [
+            "while",
+            "loop while"
+        ]
+    }
+}

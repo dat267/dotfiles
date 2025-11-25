@@ -1,0 +1,58 @@
+{
+	"Create Table": {
+		"body": [
+			"CREATE TABLE ${1:table_name} (",
+			"  ${2:column1} ${3:data_type},",
+			"  ${4:column2} ${5:data_type}",
+			")"
+		],
+		"description": "Create a new table",
+		"prefix": "sql_create_table"
+	},
+	"Delete from Table": {
+		"body": [
+			"DELETE FROM ${1:table_name}",
+			"WHERE ${2:condition}"
+		],
+		"description": "Delete rows from a table",
+		"prefix": "sql_delete"
+	},
+	"Insert Into Table": {
+		"body": [
+			"INSERT INTO ${1:table_name} (${2:column1}, ${3:column2})",
+			"VALUES (${4:value1}, ${5:value2})"
+		],
+		"description": "Insert values into a table",
+		"prefix": "sql_insert"
+	},
+	"Select All Columns": {
+		"body": [
+			"SELECT * FROM ${1:table_name}"
+		],
+		"description": "Select all columns from a table",
+		"prefix": "sql_select_all"
+	},
+	"Select Specific Columns": {
+		"body": [
+			"SELECT ${1:column1}, ${2:column2} FROM ${3:table_name}"
+		],
+		"description": "Select specific columns from a table",
+		"prefix": "sql_select"
+	},
+	"Select with WHERE Clause": {
+		"body": [
+			"SELECT * FROM ${1:table_name} WHERE ${2:condition}"
+		],
+		"description": "Select with a WHERE clause",
+		"prefix": "sql_select_where"
+	},
+	"Update Table": {
+		"body": [
+			"UPDATE ${1:table_name}",
+			"SET ${2:column1} = ${3:new_value}",
+			"WHERE ${4:condition}"
+		],
+		"description": "Update values in a table",
+		"prefix": "sql_update"
+	}
+}

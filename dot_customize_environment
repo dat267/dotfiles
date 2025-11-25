@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# This script is executed as root
+
+# # Update /etc/hosts
+# currentHostname=$(hostname) # Get the current hostname
+# sed -i "s/$currentHostname/skyportal/g" /etc/hosts
+# 
+# # Update hostname
+# echo "skyportal" >/etc/hostname
+# hostname -F /etc/hostname # Set hostname immediately for the current session
+
+# Package management
+apt-get update
+apt-get install -y nasm pngquant flac lame libegl1 libopengl0
+
+# # Run a script as sudo user, not as root
+# runuser -l "$SUDO_USER" -c ". $DOTFILES/.scripts/bash/cloudshell_customize.bash"

@@ -1,0 +1,82 @@
+zstyle ':completion:*' menu select
+[[ -f ~/.profile ]] && . ~/.profile
+autoload -Uz compinit
+compinit
+HISTSIZE=10000
+SAVEHIST=10000
+HISTFILE=~/.zsh_history
+setopt SHARE_HISTORY
+setopt APPEND_HISTORY
+setopt INC_APPEND_HISTORY
+setopt HIST_IGNORE_DUPS
+if [ -f "$HOME/.local/opt/google-cloud-sdk/path.zsh.inc" ]; then
+	. "$HOME/.local/opt/google-cloud-sdk/path.zsh.inc"
+fi
+if [ -f "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc" ]; then
+	. "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc"
+fi
+for f in \
+	/usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+	/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+	"${PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
+	/opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+do
+	if [ -f "$f" ]; then
+		source "$f"
+		break
+	fi
+done
+for f in \
+	/usr/share/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh \
+	/usr/share/zsh-history-substring-search/zsh-history-substring-search.zsh \
+	"${PREFIX}/share/zsh-history-substring-search/zsh-history-substring-search.zsh" \
+	/opt/homebrew/share/zsh-history-substring-search/zsh-history-substring-search.zsh
+do
+	if [ -f "$f" ]; then
+		source "$f"
+		bindkey '^[[A' history-substring-search-up
+		bindkey '^[[B' history-substring-search-down
+		break
+	fi
+done
+PROMPT='%F{cyan}%~%f %F{yellow}%#%f '
+if [[ -d "$HOME/.sdkman" ]] && [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
+	export SDKMAN_DIR="$HOME/.sdkman"
+	source "$HOME/.sdkman/bin/sdkman-init.sh"
+fi
+export PATH="$HOME/.local/bin:$PATH"
+bindkey '^[[H' beginning-of-line
+bindkey '^[[F' end-of-line
+bindkey '^[OH' beginning-of-line
+bindkey '^[OF' end-of-line
+bindkey '^[[1~' beginning-of-line
+bindkey '^[[4~' end-of-line
+bindkey '^[[3~' delete-char
+bindkey '^[[1;5D' backward-word
+bindkey '^[[1;5C' forward-word
+zmodload zsh/terminfo 2>/dev/null
+typeset -g -A key
+key[Home]="${terminfo[khome]}"
+key[End]="${terminfo[kend]}"
+key[Insert]="${terminfo[kich1]}"
+key[Delete]="${terminfo[kdch1]}"
+key[PageUp]="${terminfo[kpp]}"
+key[PageDown]="${terminfo[knp]}"
+key[BackTab]="${terminfo[kcbt]}"
+[[ -n "${key[Home]}" ]] && bindkey -- "${key[Home]}" beginning-of-line
+[[ -n "${key[End]}" ]] && bindkey -- "${key[End]}" end-of-line
+[[ -n "${key[Insert]}" ]] && bindkey -- "${key[Insert]}" overwrite-mode
+[[ -n "${key[Delete]}" ]] && bindkey -- "${key[Delete]}" delete-char
+[[ -n "${key[PageUp]}" ]] && bindkey -- "${key[PageUp]}" beginning-of-buffer-or-history
+[[ -n "${key[PageDown]}" ]] && bindkey -- "${key[PageDown]}" end-of-buffer-or-history
+[[ -n "${key[BackTab]}" ]] && bindkey -- "${key[BackTab]}" reverse-menu-complete
+bindkey '^[[2~' overwrite-mode
+bindkey '^[[5~' beginning-of-buffer-or-history
+bindkey '^[[6~' end-of-buffer-or-history
+bindkey '^[[Z' reverse-menu-complete
+bindkey '^[^[[D' backward-word
+bindkey '^[^[[C' forward-word
+bindkey '^[^?' backward-kill-word
+bindkey '^[[3;5~' kill-word
+
+

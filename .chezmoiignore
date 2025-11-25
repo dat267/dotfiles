@@ -1,0 +1,29 @@
+README.md
+AGENTS.md
+
+{{- if ne .chezmoi.hostname "cs-600338902910-default" }}
+.customize_environment
+{{- end }}
+
+{{- if ne .chezmoi.os "android" }}
+.termux
+{{- end }}
+
+{{- if ne .chezmoi.os "windows" }}
+AppData
+run_once_before_bootstrap-local-configs.ps1.tmpl
+run_onchange_after_create-junctions.ps1.tmpl
+{{- end }}
+
+{{- if eq .chezmoi.os "windows" }}
+.bash_aliases
+.bash_login
+.bash_logout
+.bash_profile
+.bashrc
+.profile
+.zprofile
+.zshrc
+run_once_before_bootstrap-local-configs.sh.tmpl
+run_onchange_after_create-symlinks.sh.tmpl
+{{- end }}

@@ -1,0 +1,13 @@
+# ~/.gitconfig.local — machine-specific git settings
+# Loaded via [include] in ~/.gitconfig.
+# This file is NOT tracked in git. Copy from ~/.gitconfig.local.example and fill in values.
+
+# [http]
+# 	proxy = http://user:password@proxy-host:port
+# 	schannelCheckRevoke = false   # Windows: disable if corporate proxy causes revocation errors
+
+# [user]
+# 	email = work@company.com      # Override the default email for work machines
+
+# [credential]
+# 	helper = manager              # Windows Credential Manager
