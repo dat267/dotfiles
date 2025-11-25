@@ -1,0 +1,48 @@
+{{ if eq .chezmoi.os "windows" -}}
+$docsDir = [System.Environment]::GetFolderPath('MyDocuments')
+$folderMap = @{
+    "$env:LOCALAPPDATA\nvim"        = "{{ .chezmoi.homeDir }}/.config/nvim"
+    "$env:LOCALAPPDATA\aria2"       = "{{ .chezmoi.homeDir }}/.config/aria2"
+    "$env:APPDATA\Code\User"        = "{{ .chezmoi.homeDir }}/.config/Code/User"
+    "$env:APPDATA\Code - OSS\User"  = "{{ .chezmoi.homeDir }}/.config/Code/User"
+    "$env:APPDATA\yazi\config"      = "{{ .chezmoi.homeDir }}/.config/yazi"
+}
+
+foreach ($pair in $folderMap.GetEnumerator()) {
+    $link   = $pair.Name
+    $target = $pair.Value.Replace('/', '\')
+
+    $item = Get-Item -Force $link -ErrorAction SilentlyContinue
+    if ($item) {
+        # Already a junction pointing to the right place — skip
+        if ($item.Attributes -match "ReparsePoint" -and $item.Target -eq $target) { continue }
+        # Otherwise remove so we can re-create
+        Remove-Item -Recurse -Force $link -ErrorAction SilentlyContinue
+    }
+
+    $parentDir = Split-Path -Parent $link
+    if (-not (Test-Path $parentDir)) {
+        New-Item -ItemType Directory -Force -Path $parentDir | Out-Null
+    }
+
+    New-Item -ItemType Junction -Path $link -Target $target -Force | Out-Null
+}
+
+# PS7: write a stub $PROFILE that sources the chezmoi-managed profile.
+# Avoids fighting OneDrive over the PowerShell dir (which has synced modules).
+$ps7Profile = "$docsDir\PowerShell\Microsoft.PowerShell_profile.ps1"
+$ps7Stub    = ". `"{{ .chezmoi.homeDir }}/.config/powershell/Microsoft.PowerShell_profile.ps1`""
+$ps7Stub    = $ps7Stub.Replace('/', '\')
+if (-not (Test-Path $ps7Profile) -or (Get-Content $ps7Profile -Raw).Trim() -ne $ps7Stub.Trim()) {
+    New-Item -ItemType Directory -Force -Path (Split-Path $ps7Profile) | Out-Null
+    Set-Content -Path $ps7Profile -Value $ps7Stub -Encoding UTF8
+}
+
+# WezTerm: write a stub .wezterm.lua in $HOME that delegates to the XDG config
+$weztermStubPath = "{{ .chezmoi.homeDir }}/.wezterm.lua"
+$weztermStubPath = $weztermStubPath.Replace('/', '\')
+$weztermStubVal  = "return dofile(os.getenv('USERPROFILE') .. '/.config/wezterm/wezterm.lua')"
+if (-not (Test-Path $weztermStubPath) -or (Get-Content $weztermStubPath -Raw).Trim() -ne $weztermStubVal.Trim()) {
+    Set-Content -Path $weztermStubPath -Value $weztermStubVal -Encoding UTF8
+}
+{{ end -}}

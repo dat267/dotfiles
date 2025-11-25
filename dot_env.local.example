@@ -1,0 +1,18 @@
+# ~/.env.local — machine-specific environment variables
+# This file is loaded by ~/.profile (bash/zsh) and the PowerShell profile.
+# It is NOT tracked in git. Copy from ~/.env.local.example and fill in values.
+
+# Corporate / office proxy (with auth)
+# HTTP_PROXY=http://user:password@proxy-host:port
+# HTTPS_PROXY=http://user:password@proxy-host:port
+# http_proxy=http://user:password@proxy-host:port
+# https_proxy=http://user:password@proxy-host:port
+# NO_PROXY=localhost,127.0.0.1,10.*.*,*.internal
+
+# API keys / tokens
+# GITHUB_TOKEN=ghp_...
+# OPENAI_API_KEY=sk-...
+
+# Machine-specific overrides
+# AWS_PROFILE=work
+# KUBECONFIG=~/.kube/config

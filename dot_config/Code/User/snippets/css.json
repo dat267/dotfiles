@@ -1,0 +1,25 @@
+{
+	"Keyframe Animation": {
+		"body": [
+			"@keyframes ${1:animation-name} {",
+			"\t0% {",
+			"\t\t$2",
+			"\t}",
+			"\t100% {",
+			"\t\t$3",
+			"\t}",
+			"}"
+		],
+		"description": "Keyframe Animation",
+		"prefix": "keyframe"
+	},
+	"Media Query": {
+		"body": [
+			"@media screen and (max-width: ${1:600px}) {",
+			"\t${0:/* Add your styles here */}",
+			"}"
+		],
+		"description": "Creates a media query",
+		"prefix": "mq"
+	}
+}

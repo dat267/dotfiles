@@ -1,0 +1,57 @@
+{
+    // "shebang": {
+    //     "body": [
+    //         "#!/usr/bin/env ${1|bash,sh,zsh,lua,node,php,perl,python,python3,ruby|}",
+    //         "$0"
+    //     ],
+    //     "prefix": [
+    //         "shebang"
+    //     ]
+    // },
+    // "init install script": {
+    //     "prefix": "init installer",
+    //     "body": [
+    //         "#!/usr/bin/env sh",
+    //         "",
+    //         "[ ! \"$(command -v uname)\" ] && echo \"command 'uname' not found\" && exit 1",
+    //         "[ ! \"$(command -v pgrep)\" ] && echo \"command 'pgrep' not found\" && exit 1",
+    //         "[ ! \"$(command -v curl)\" ] && echo \"command 'curl' not found\" && exit 1",
+    //         "",
+    //         "arch=$(uname -m)",
+    //         "case \\$arch in",
+    //         "\t\"x86_64\")",
+    //         "\t\tarch=\"amd64\"",
+    //         "\t\t;;",
+    //         "\t\"aarch64\")",
+    //         "\t\tarch=\"arm64\"",
+    //         "\t\t;;",
+    //         "\t*)",
+    //         "\t\techo \"Error: Architecture \\$arch not supported by this script\"",
+    //         "\t\texit 1",
+    //         "\t\t;;",
+    //         "esac",
+    //         "",
+    //         "install_dir=${2:\"$(mktemp -d)\"}",
+    //         "download_url=\"$3\"",
+    //         "",
+    //         "# Check for running processes in the installation directory",
+    //         "if pgrep -f \"\\$install_dir\" >/dev/null; then",
+    //         "\techo \"Error: Processes are running in \\$install_dir. Please close them before proceeding.\"",
+    //         "\texit 1",
+    //         "fi",
+    //         "",
+    //         "tmp_dir=$(mktemp -d)",
+    //         "cd \"\\$tmp_dir\" || exit",
+    //         "curl -SL \"\\$download_url\" -o ${4:archive.tgz}",
+    //         "tar xzvf \"${4:archive.tgz}\"",
+    //         "# Make sure installation dir exist",
+    //         "# mkdir -p \"\\$install_dir\"",
+    //         "# Clean up previous installation",
+    //         "# rm -rf \"\\$install_dir\"",
+    //         "cp -rf \"${5:extracted_files}\" \"\\$install_dir\"",
+    //         "# Add more copy commands if needed",
+    //         "rm -rf \"\\$tmp_dir\"",
+    //         ""
+    //     ]
+    // },
+}

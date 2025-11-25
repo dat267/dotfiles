@@ -1,0 +1,259 @@
+{
+  "Array Every Method": {
+    "body": ["${1:array}.every((${2:item}) => {", "\t$0", "});"],
+    "description": "Create an array every method",
+    "prefix": "every"
+  },
+  "Node.js Standalone Script": {
+    "prefix": "nodescript",
+    "body": [
+      "#!/usr/bin/env node",
+      "",
+      "// Import necessary modules",
+      "import fs from \"fs\"",
+      "const readline = require('readline').createInterface({",
+      "  input: process.stdin,",
+      "  output: process.stdout",
+      "});",
+      "",
+      "// Main function",
+      "async function main() {",
+      "  try {",
+      "    // Your core script logic goes here",
+      "  } catch (error) {",
+      "    console.error('An error occurred:', error);",
+      "  }",
+      "}",
+      "",
+      "// Execute the main function",
+      "main();"
+    ],
+    "description": "Boilerplate for a Node.js standalone script"
+  },
+  "Array Filter Method": {
+    "body": ["${1:array}.filter((${2:item}) => {", "\t$0", "});"],
+    "description": "Create an array filter method",
+    "prefix": "filter"
+  },
+  "Array Find Method": {
+    "body": ["${1:array}.find((${2:item}) => {", "\t$0", "});"],
+    "description": "Create an array find method",
+    "prefix": "find"
+  },
+  "Async Anonymous Arrow Function": {
+    "body": ["async (${1:params}) => {", "\t$0", "}"],
+    "description": "Create an async anonymous arrow function",
+    "prefix": "async anonymous arrow function"
+  },
+  "Anonymous Arrow Function": {
+    "body": ["(${1:params}) => {", "\t$0", "}"],
+    "description": "Create an anonymous arrow function",
+    "prefix": "anonymous arrow function"
+  },
+  "Array Includes Method": {
+    "body": ["${1:array}.includes(${2:element});"],
+    "description": "Create an array includes method",
+    "prefix": "includes"
+  },
+  "Array Reduce Method": {
+    "body": [
+      "${1:array}.reduce((${2:accumulator}, ${3:item}) => {",
+      "\t$4",
+      "}, ${5:initialValue});"
+    ],
+    "description": "Create an array reduce method",
+    "prefix": "reduce"
+  },
+  "Array Some Method": {
+    "body": ["${1:array}.some((${2:item}) => {", "\t$0", "});"],
+    "description": "Create an array some method",
+    "prefix": "some"
+  },
+  "Array Sort Method": {
+    "body": ["${1:array}.sort((${2:a}, ${3:b}) => {", "\t$0", "});"],
+    "description": "Create an array sort method",
+    "prefix": "sort"
+  },
+  "Arrow Function": {
+    "body": ["const ${1:functionName} = (${2:arguments}) => {", "\t$0", "};"],
+    "description": "Create an arrow function",
+    "prefix": "arrow function"
+  },
+  "Async Arrow Function": {
+    "body": [
+      "const ${1:functionName} = async (${2:arguments}) => {",
+      "\t$0",
+      "};"
+    ],
+    "description": "Create an async arrow function",
+    "prefix": "async arrow function"
+  },
+  "Async Function": {
+    "body": ["async function ${1:functionName}(${2:arguments}) {", "\t$0", "}"],
+    "description": "Create an async function",
+    "prefix": "async function"
+  },
+  "Await Keyword": {
+    "body": ["await $0"],
+    "description": "Use the await keyword",
+    "prefix": "await"
+  },
+  "Class Declaration": {
+    "body": [
+      "class ${1:ClassName} {",
+      "\tconstructor(${2:arguments}) {",
+      "\t\t$3",
+      "\t}",
+      "\t$0",
+      "}"
+    ],
+    "description": "Create a class declaration",
+    "prefix": "class"
+  },
+  "Const Variable Declaration": {
+    "body": ["const ${1:variableName} = ${2:value};"],
+    "description": "Declare a variable using const",
+    "prefix": "const"
+  },
+  "Export Statement": {
+    "body": ["export ${1:default} ${2:moduleName};"],
+    "description": "Create an export statement",
+    "prefix": "export"
+  },
+  "Fetch DELETE Request": {
+    "body": [
+      "try {",
+      "\tconst response = await fetch('${1:url}', {",
+      "\t\tmethod: 'DELETE'",
+      "\t});",
+      "\tif (response.ok) {",
+      "\t\tconst result = await response.json();",
+      "\t\t$2",
+      "\t} else {",
+      "\t\tthrow new Error(response.status);",
+      "\t}",
+      "} catch (error) {",
+      "\tconsole.error(error);",
+      "}"
+    ],
+    "description": "Create a fetch DELETE request using await",
+    "prefix": "fetchdelete"
+  },
+  "Fetch GET Request": {
+    "body": [
+      "try {",
+      "\tconst response = await fetch('${1:url}');",
+      "\tif (response.ok) {",
+      "\t\tconst data = await response.json();",
+      "\t\t$2",
+      "\t} else {",
+      "\t\tthrow new Error(response.status);",
+      "\t}",
+      "} catch (error) {",
+      "\tconsole.error(error);",
+      "}"
+    ],
+    "description": "Create a fetch GET request using await",
+    "prefix": "fetchget"
+  },
+  "Fetch POST Request": {
+    "body": [
+      "try {",
+      "\tconst response = await fetch('${1:url}', {",
+      "\t\tmethod: 'POST',",
+      "\t\theaders: { 'Content-Type': 'application/json' },",
+      "\t\tbody: JSON.stringify(${2:data})",
+      "\t});",
+      "\tif (response.ok) {",
+      "\t\tconst result = await response.json();",
+      "\t\t$3",
+      "\t} else {",
+      "\t\tthrow new Error(response.status);",
+      "\t}",
+      "} catch (error) {",
+      "\tconsole.error(error);",
+      "}"
+    ],
+    "description": "Create a fetch POST request using await",
+    "prefix": "fetchpost"
+  },
+  "Fetch PUT Request": {
+    "body": [
+      "try {",
+      "\tconst response = await fetch('${1:url}', {",
+      "\t\tmethod: 'PUT',",
+      "\t\theaders: { 'Content-Type': 'application/json' },",
+      "\t\tbody: JSON.stringify(${2:data})",
+      "\t});",
+      "\tif (response.ok) {",
+      "\t\tconst result = await response.json();",
+      "\t\t$3",
+      "\t} else {",
+      "\t\tthrow new Error(response.status);",
+      "\t}",
+      "} catch (error) {",
+      "\tconsole.error(error);",
+      "}"
+    ],
+    "description": "Create a fetch PUT request using await",
+    "prefix": "fetchput"
+  },
+  "Let Variable Declaration": {
+    "body": ["let ${1:variableName} = ${2:value};"],
+    "description": "Declare a variable using let",
+    "prefix": "let"
+  },
+  "Map Function": {
+    "body": ["${1:array}.map((${2:item}) => {", "\t$0", "});"],
+    "description": "Create a map function",
+    "prefix": "map"
+  },
+  "Object Literal": {
+    "body": [
+      "const ${1:objectName} = {",
+      "\t${2:key}: ${3:value},",
+      "\t$0",
+      "};"
+    ],
+    "description": "Create an object literal",
+    "prefix": "obj"
+  },
+  "Object Method Shorthand": {
+    "body": ["${1:methodName}(${2:arguments}) {", "\t$0", "}"],
+    "description": "Create an object method shorthand",
+    "prefix": "method"
+  },
+  "Promise": {
+    "body": ["new Promise((${1:resolve}, ${2:reject}) => {", "\t$0", "})"],
+    "description": "Create a Promise",
+    "prefix": "promise"
+  },
+  "Set Timeout": {
+    "body": ["setTimeout(() => {", "\t$1", "}, ${2:delay});"],
+    "description": "Create a setTimeout function",
+    "prefix": "timeout"
+  },
+  "Template Literal": {
+    "body": ["const ${1:result} = `${2:string}`;"],
+    "description": "Create a template literal",
+    "prefix": "template"
+  },
+  "Try-Catch-Finally Block": {
+    "body": [
+      "try {",
+      "\t$1",
+      "} catch (${2:error}) {",
+      "\t$3",
+      "} finally {",
+      "\t$4",
+      "}"
+    ],
+    "description": "Create a try-catch-finally block",
+    "prefix": "trycf"
+  },
+  "Var Variable Declaration": {
+    "body": ["var ${1:variableName} = ${2:value};"],
+    "description": "Declare a variable using var",
+    "prefix": "var"
+  }
+}

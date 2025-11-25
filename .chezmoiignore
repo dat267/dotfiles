@@ -1,0 +1,24 @@
+README.md
+
+{{- if ne .chezmoi.hostname "cs-600338902910-default" }}
+.customize_environment
+{{- end }}
+
+{{- if ne .chezmoi.os "android" }}
+.termux
+{{- end }}
+
+{{- if ne .chezmoi.os "windows" }}
+AppData
+{{- end }}
+
+{{- if eq .chezmoi.os "windows" }}
+.bash_aliases
+.bash_login
+.bash_logout
+.bash_profile
+.bashrc
+.profile
+.zprofile
+.zshrc
+{{- end }}

@@ -1,0 +1,26 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+
+# Define source and target pairs
+# Syntax: ["target_link"]="source_directory"
+declare -A folderMap=(
+    ["$HOME/.config/Code - OSS/User"]="{{ .chezmoi.homeDir }}/.config/Code/User"
+)
+
+for target in "${!folderMap[@]}"; do
+    source="${folderMap[$target]}"
+
+    # If it is a real directory and not a symbolic link, remove it
+    if [ -d "$target" ] && [ ! -L "$target" ]; then
+        echo "Removing existing directory: $target"
+        rm -rf "$target"
+    fi
+
+    # Create link if it doesn't exist
+    if [ ! -L "$target" ]; then
+        mkdir -p "$(dirname "$target")"
+        echo "Linking: $target -> $source"
+        ln -s "$source" "$target"
+    fi
+done
+{{ end -}}

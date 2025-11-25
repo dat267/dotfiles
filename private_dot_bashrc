@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC1091
+[[ -f ~/.profile ]] && . ~/.profile
+[[ $- != *i* ]] && return
+HISTTIMEFORMAT="%F %T "
+HISTCONTROL=ignoredups
+HISTSIZE=10000
+HISTFILESIZE=10000
+shopt -s histappend
+[ -f "/usr/share/doc/pkgfile/command-not-found.bash" ] && source /usr/share/doc/pkgfile/command-not-found.bash
+if [ -n "$NVM_DIR" ] && [ -s "$NVM_DIR/bash_completion" ]; then
+	. "$NVM_DIR/bash_completion"
+fi
+if [ -f "$HOME/.local/opt/google-cloud-sdk/path.bash.inc" ]; then
+	. "$HOME/.local/opt/google-cloud-sdk/path.bash.inc"
+fi
+if [ -f "$HOME/.local/opt/google-cloud-sdk/completion.bash.inc" ]; then
+	. "$HOME/.local/opt/google-cloud-sdk/completion.bash.inc"
+fi
+if [ -f "/google/devshell/bashrc.google" ]; then
+	source "/google/devshell/bashrc.google"
+fi
+if [ -f "$HOME/lib/azure-cli/az.completion" ]; then
+	source "$HOME/lib/azure-cli/az.completion"
+fi
+export PS1='\[$(if [[ $? -eq 0 ]]; then printf "\e[0;32m"; else printf "\e[0;31m"; fi)\]\w\[\e[0m\] \$ '
+if [[ -d "$HOME/.sdkman" ]] && [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
+	export SDKMAN_DIR="$HOME/.sdkman"
+	source "$HOME/.sdkman/bin/sdkman-init.sh"
+fi
+export PATH="/home/dat/.local/bin:$PATH"
