@@ -25,6 +25,18 @@ open = [
 	{ run = 'xdg-open "$@"', orphan = true, desc = "Open", for = "linux" },
 	{ run = 'open "$@"', orphan = true, desc = "Open", for = "macos" },
 ]
+extract = [
+	{ run = '7z x "$@"', desc = "Extract here", for = "unix" },
+	{ run = '7z x "%1"', desc = "Extract here", for = "windows" },
+]
+compress_7z = [
+	{ run = '7z a -t7z -mx=9 -mmt=on -ms=on "$1.7z" "$@"', desc = "Compress to 7z", for = "unix" },
+	{ run = '7z a -t7z -mx=9 -mmt=on -ms=on "%1.7z" %*', desc = "Compress to 7z", for = "windows" },
+]
+compress_zip = [
+	{ run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "$1.zip" "$@"', desc = "Compress to Zip", for = "unix" },
+	{ run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%1.zip" %*', desc = "Compress to Zip", for = "windows" },
+]
 
 [open]
 rules = [
@@ -32,8 +44,14 @@ rules = [
 	{ mime = "application/{json,ndjson,toml,yaml,xml,javascript,x-sh,x-bash,x-perl,x-python}", use = "edit" },
 	{ mime = "image/*", use = "open" },
 	{ mime = "{audio,video}/*", use = "open" },
-	{ mime = "application/{,g}zip", use = "open" },
-	{ mime = "application/x-{tar,bzip*,7z-compressed,xz,rar}", use = "open" },
+	{ mime = "application/{,g}zip", use = [
+		"extract",
+		"open",
+	] },
+	{ mime = "application/x-{tar,bzip*,7z-compressed,xz,rar}", use = [
+		"extract",
+		"open",
+	] },
 	{ mime = "*", use = [
 		"open",
 		"edit",
