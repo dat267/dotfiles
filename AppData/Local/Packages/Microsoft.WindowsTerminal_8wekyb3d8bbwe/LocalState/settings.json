@@ -6,8 +6,7 @@
     "copyFormatting": "none",
     "copyOnSelect": false,
     "defaultProfile": "{fd6f7640-6605-41e4-a877-6d6e5686ad07}",
-    "keybindings": 
-    [
+    "keybindings": [
         {
             "id": "Terminal.CopyToClipboard",
             "keys": "ctrl+c"
@@ -22,30 +21,24 @@
         }
     ],
     "launchMode": "maximized",
-    "newTabMenu": 
-    [
+    "newTabMenu": [
         {
             "type": "remainingProfiles"
         }
     ],
-    "profiles": 
-    {
-        "defaults": 
-        {
+    "profiles": {
+        "defaults": {
             "closeOnExit": "automatic",
-            "colorScheme": 
-            {
+            "colorScheme": {
                 "dark": "One Dark",
                 "light": "One Light"
             },
-            "font": 
-            {
+            "font": {
                 "face": "FiraCode Nerd Font"
             },
             "suppressApplicationTitle": false
         },
-        "list": 
-        [
+        "list": [
             {
                 "commandline": "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
                 "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
@@ -68,8 +61,7 @@
             }
         ]
     },
-    "schemes": 
-    [
+    "schemes": [
         {
             "background": "#282C34",
             "black": "#000000",
