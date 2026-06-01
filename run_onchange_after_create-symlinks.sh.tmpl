@@ -1,15 +1,13 @@
 {{ if or (eq .chezmoi.os "linux") (eq .chezmoi.os "android") -}}
-#!/usr/bin/env bash
+#!/bin/sh
 
-# Define source and target pairs
-# Syntax: ["target_link"]="source_directory"
-declare -A folderMap=(
-    ["$HOME/.config/Code - OSS/User"]="{{ .chezmoi.homeDir }}/.config/Code/User"
-    ["$HOME/#chezmoi"]="{{ .chezmoi.sourceDir }}"
-)
-
-for target in "${!folderMap[@]}"; do
-    source="${folderMap[$target]}"
+# Define source and target pairs: "target_link|source_directory"
+for pair in \
+    "$HOME/.config/Code - OSS/User|{{ .chezmoi.homeDir }}/.config/Code/User" \
+    "$HOME/#chezmoi|{{ .chezmoi.sourceDir }}"
+do
+    target="${pair%%|*}"
+    source="${pair#*|}"
 
     # If it is a real directory and not a symbolic link, remove it
     if [ -d "$target" ] && [ ! -L "$target" ]; then
