@@ -5,6 +5,7 @@
 # Syntax: ["target_link"]="source_directory"
 declare -A folderMap=(
     ["$HOME/.config/Code - OSS/User"]="{{ .chezmoi.homeDir }}/.config/Code/User"
+    ["$HOME/#chezmoi"]="{{ .chezmoi.sourceDir }}"
 )
 
 for target in "${!folderMap[@]}"; do
