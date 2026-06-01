@@ -1,7 +1,7 @@
 {{ if eq .chezmoi.os "windows" -}}
 $docsDir = [System.Environment]::GetFolderPath('MyDocuments')
 $folderMap = @{
-    "$HOME\#chezmoi"                = "{{ .chezmoi.sourceDir }}"
+    "$HOME\-chezmoi"                = "{{ .chezmoi.sourceDir }}"
     "$env:LOCALAPPDATA\nvim"        = "{{ .chezmoi.homeDir }}/.config/nvim"
     "$env:LOCALAPPDATA\aria2"       = "{{ .chezmoi.homeDir }}/.config/aria2"
     "$env:APPDATA\Code\User"        = "{{ .chezmoi.homeDir }}/.config/Code/User"
