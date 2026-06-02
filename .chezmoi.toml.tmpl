@@ -1,13 +1,23 @@
 
 # Reference: https://github.com/twpayne/chezmoi/blob/master/assets/chezmoi.io/docs/reference/configuration-file/variables.md.yaml
+{{- $ephemeral := false -}}
+{{- if (hasKey . "ephemeral") -}}
+{{-   $ephemeral = .ephemeral -}}
+{{- else -}}
+{{-   $ephemeral = promptBoolOnce . "ephemeral" "Is this an ephemeral machine (e.g. random work machine)" false -}}
+{{- end -}}
 
 {{ if eq .chezmoi.os "windows" -}}
 sourceDir = {{ printf "%s/AppData/Roaming/chezmoi" .chezmoi.homeDir | quote }}
 {{ end -}}
+
+[data]
+    ephemeral = {{ $ephemeral }}
+
 [interpreters.sh]
 command = "sh"
 
 [git]
 autoAdd = true
 autoCommit = true
-autoPush = true
+autoPush = {{ not $ephemeral }}
