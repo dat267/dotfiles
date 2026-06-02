@@ -8,6 +8,7 @@ This repository contains my personal dotfiles and configuration for various tool
 
 ## Quick Start
 
+### Standard Installation (Primary Machine)
 ```bash
 # Install chezmoi
 curl -sfL https://chezmoi.io/get | sh
@@ -15,11 +16,15 @@ curl -sfL https://chezmoi.io/get | sh
 # Initialize with this repository
 chezmoi init --source=https://github.com/dat267/dotfiles
 
-# Preview changes
-chezmoi diff
-
 # Apply changes
 chezmoi apply
+```
+
+### One-Way Deployment (Random/Work Machine)
+For machines where you only want to pull configurations without syncing back (e.g., no write access to GitHub), use the `ephemeral` flag to disable auto-push:
+
+```bash
+sh -c "$(curl -fsLS https://chezmoi.io/get)" -- init --source=https://github.com/dat267/dotfiles --data ephemeral=true
 ```
 
 ## What's Included
