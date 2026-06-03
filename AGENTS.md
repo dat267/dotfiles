@@ -33,8 +33,9 @@ Chezmoi uses filename prefixes to control how files are deployed — understand 
 | `dot_config/wezterm/`                        | WezTerm terminal config                        |
 | `dot_config/yazi/`                           | Yazi file manager config                       |
 | `dot_local/`                                 | Local scripts and installation helpers         |
-| `dot_local/src/tools/`                       | Go source for custom compiled tools            |
-| `.github/workflows/build-tools.yml`          | CI: builds & releases Go binaries on tag push  |
+| `dot_local/src/{tool}/`                      | Source for custom compiled tools (any language) |
+| `dot_local/src/{tool}/Makefile`              | **Required** build contract (see Custom Tools) |
+| `.github/workflows/build-tools.yml`          | CI: auto-discovers tools, builds & releases    |
 | `run_once_before_bootstrap-local-configs.*`  | First-run bootstrap (local config stubs)       |
 | `run_onchange_after_create-symlinks.sh.tmpl` | Post-apply symlink creation (Linux)            |
 | `run_onchange_after_create-junctions.ps1.tmpl` | Post-apply junction creation (Windows)       |
@@ -67,6 +68,70 @@ Platform-specific blocks in `.tmpl` files use `{{ if eq .chezmoi.os "..." }}` gu
 The `ephemeral` data flag (set in `.chezmoi.toml.tmpl`) controls whether `autoPush` is enabled.
 - **Primary machine**: `ephemeral = false` → changes are auto-committed and pushed to GitHub
 - **Ephemeral/work machine**: `ephemeral = true` → pull-only, no auto-push
+
+## Custom Tools (`dot_local/src/`)
+
+Each subdirectory under `dot_local/src/` containing a `Makefile` is auto-discovered by CI and built for all supported platforms.
+
+### Adding a New Tool
+
+1. Create `dot_local/src/{toolname}/` with your source code
+2. Add a `Makefile` implementing the build contract below
+3. Push to `main` — CI does the rest (no config files to edit)
+
+### Makefile Build Contract
+
+CI calls your Makefile as:
+```sh
+make -C dot_local/src/{tool} build OUT=/absolute/path/to/binary
+```
+
+With these environment variables set:
+
+| Variable      | Example value               | Meaning                          |
+| ------------- | --------------------------- | -------------------------------- |
+| `GOOS`        | `linux`, `windows`          | Target OS                        |
+| `GOARCH`      | `amd64`, `arm64`            | Target architecture              |
+| `VERSION`     | `tools/20260604-032500`     | Release tag (embed if desired)   |
+| `OUT`         | `/abs/path/tool-linux-amd64`| Where to write the binary        |
+| `CGO_ENABLED` | `0`                         | Always disabled                  |
+
+Your `Makefile` **must** write an executable to `$(OUT)`. Language examples:
+
+**Go:**
+```makefile
+build:
+	go build -ldflags="-s -w -X main.version=$(VERSION)" -o "$(OUT)" .
+```
+
+**Rust:**
+```makefile
+build:
+	cargo build --release --target $(RUST_TARGET)
+	cp target/$(RUST_TARGET)/release/$(BINARY) "$(OUT)"
+```
+
+**Python (PyInstaller):**
+```makefile
+build:
+	pyinstaller --onefile --distpath "$(dir $(OUT))" --name "$(notdir $(OUT))" main.py
+```
+
+### Supported Platforms
+
+| `GOOS`    | `GOARCH`         |
+| --------- | ---------------- |
+| `linux`   | `amd64`, `arm64` |
+| `windows` | `amd64`          |
+
+### Install / Uninstall
+
+```sh
+~/.local/scripts/sh/install_tools.sh    # downloads all tools for current platform
+~/.local/scripts/sh/uninstall_tools.sh  # removes them from ~/.local/bin
+```
+
+Both scripts auto-detect available tools from the latest GitHub Release assets — no config needed.
 
 ## Out of Scope
 

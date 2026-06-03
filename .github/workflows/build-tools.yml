@@ -20,11 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Discover tools
+      - name: Discover tools (dirs containing a Makefile)
         id: find
         run: |
           tools=$(
-            find dot_local/src -maxdepth 2 -name "go.mod" \
+            find dot_local/src -maxdepth 2 -name "Makefile" \
               | xargs -I{} dirname {} \
               | xargs -I{} basename {} \
               | sort \
@@ -70,26 +70,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: dot_local/src/${{ matrix.tool }}/go.mod
-          cache-dependency-path: dot_local/src/${{ matrix.tool }}/go.sum
-
-      - name: Build
+      - name: Build via Makefile
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+          VERSION: ${{ needs.tag.outputs.tag }}
         run: |
-          VERSION="${{ needs.tag.outputs.tag }}"
           SUFFIX=""
           [ "${{ matrix.goos }}" = "windows" ] && SUFFIX=".exe"
-          OUT="${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}${SUFFIX}"
-          go build \
-            -C "dot_local/src/${{ matrix.tool }}" \
-            -ldflags="-s -w -X main.version=${VERSION}" \
-            -o "$GITHUB_WORKSPACE/$OUT" \
-            .
+          OUT="$GITHUB_WORKSPACE/${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}${SUFFIX}"
+          make -C "dot_local/src/${{ matrix.tool }}" build OUT="$OUT"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
