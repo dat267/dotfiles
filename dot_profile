@@ -59,11 +59,9 @@ elif command -v docker >/dev/null 2>&1 && [ -S "$XDG_RUNTIME_DIR/docker.sock" ];
 	export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/docker.sock"
 fi
 if [ -f "$HOME/.env.local" ]; then
-	while IFS= read -r line; do
-		if [ -n "$line" ]; then
-			export "${line?}"
-		fi
-	done <"$HOME/.env.local"
+	set -a
+	. "$HOME/.env.local"
+	set +a
 fi
 ensure_directories_exist \
 	"$HOME/.cargo/bin" \
@@ -79,7 +77,7 @@ prepend_paths \
 	"$HOME/.local/scripts/sh" \
 	"$HOME/.local/scripts/ps1" \
 	"$HOME/.local/opt/go/bin" \
-	"$HOME/.local/opt/VSCode-linux-x64/bin" \
+	"$HOME/.local/opt/VSCode-linux/bin" \
 	"$HOME/.local/bin" \
 	"$HOME/.cargo/bin" \
 	"$HOME/gopath/bin" \

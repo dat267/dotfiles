@@ -136,69 +136,67 @@ cmd compress_zip ${{
 }}
 
 cmd compress_tgz ${{
-    set -f
+    bash -c '
+        set -f
+        if [ -n "$fx" ]; then
+            IFS="
+"
+            set -- $fx
+            unset IFS
+            count=$#
+        else
+            set -- "$f"
+            count=1
+        fi
 
-    if [ -n "$fx" ]; then
-        IFS='
-'
-        set -- $fx
-        unset IFS
-        count=$#
-    else
-        set -- "$f"
-        count=1
-    fi
+        rel=()
+        for p in "$@"; do
+            rel+=( "${p##$PWD/}" )
+        done
 
-    # convert absolute paths → relative to PWD
-    rel=()
-    for p in "$@"; do
-        rel+=( "${p##$PWD/}" )
-    done
+        if [ "$count" -eq 1 ]; then
+            out="$(basename "${rel[0]}")"
+        else
+            out="$(basename "$PWD")"
+        fi
 
-    if [ "$count" -eq 1 ]; then
-        out="$(basename "${rel[0]}")"
-    else
-        out="$(basename "$PWD")"
-    fi
+        [ -z "$out" ] && out="archive"
+        out="${out%.*}.tgz"
 
-    [ -z "$out" ] && out="archive"
-    out="${out%.*}.tgz"
-
-    tar -C "$PWD" -cvzf "$out" -- "${rel[@]}"
+        tar -C "$PWD" -cvzf "$out" -- "${rel[@]}"
+    ' _ "$@"
 }}
 
 cmd compress_txz ${{
-    set -f
+    bash -c '
+        set -f
+        if [ -n "$fx" ]; then
+            IFS="
+"
+            set -- $fx
+            unset IFS
+            count=$#
+        else
+            set -- "$f"
+            count=1
+        fi
 
-    if [ -n "$fx" ]; then
-        IFS='
-'
-        set -- $fx
-        unset IFS
-        count=$#
-    else
-        set -- "$f"
-        count=1
-    fi
+        rel=()
+        for p in "$@"; do
+            rel+=( "${p##$PWD/}" )
+        done
 
-    # convert absolute paths → relative to PWD
-    rel=()
-    for p in "$@"; do
-        rel+=( "${p##$PWD/}" )
-    done
+        if [ "$count" -eq 1 ]; then
+            out="$(basename "${rel[0]}")"
+        else
+            out="$(basename "$PWD")"
+        fi
 
-    if [ "$count" -eq 1 ]; then
-        out="$(basename "${rel[0]}")"
-    else
-        out="$(basename "$PWD")"
-    fi
+        [ -z "$out" ] && out="archive"
+        out="${out%.*}.txz"
 
-    # safety net
-    [ -z "$out" ] && out="archive"
-
-    out="${out%.*}.txz"
-
-    tar -C "$PWD" -cvJf "$out" -- "${rel[@]}"
+        tar -C "$PWD" -cvJf "$out" -- "${rel[@]}"
+    ' _ "$@"
 }}
 
 

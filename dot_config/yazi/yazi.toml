@@ -13,7 +13,7 @@ image_quality = 75
 [tasks]
 micro_workers = 10
 macro_workers = 25
-barier_workers = 10
+barrier_workers = 10
 
 [opener]
 edit = [

@@ -88,7 +88,7 @@
     "powershell.codeFormatting.whitespaceBetweenParameters": true,
     "powershell.integratedConsole.startInBackground": true,
     "powershell.powerShellAdditionalExePaths": {
-        "linux": "~/.local/bin/pwsh"
+        "linux": "${env:HOME}/.local/bin/pwsh"
     },
     "python.analysis.autoFormatStrings": true,
     "python.analysis.autoImportCompletions": true,
