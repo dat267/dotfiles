@@ -1,4 +1,5 @@
 README.md
+AGENTS.md
 
 {{- if ne .chezmoi.hostname "cs-600338902910-default" }}
 .customize_environment
