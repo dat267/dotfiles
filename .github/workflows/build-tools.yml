@@ -12,11 +12,27 @@ on:
 permissions:
   contents: write
 
-# ── Add new tools to this list ──────────────────────────────────────────────
-env:
-  TOOLS: tools
-
 jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      tools: ${{ steps.find.outputs.tools }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Discover tools
+        id: find
+        run: |
+          tools=$(
+            find dot_local/src -maxdepth 2 -name "go.mod" \
+              | xargs -I{} dirname {} \
+              | xargs -I{} basename {} \
+              | sort \
+              | jq -R . | jq -sc .
+          )
+          echo "Discovered tools: $tools"
+          echo "tools=$tools" >> "$GITHUB_OUTPUT"
+
   tag:
     runs-on: ubuntu-latest
     outputs:
@@ -38,18 +54,18 @@ jobs:
           git push origin "${{ steps.gen.outputs.tag }}"
 
   build:
-    needs: tag
+    needs: [discover, tag]
     name: Build ${{ matrix.tool }} ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        tool: [tools]   # ← mirror TOOLS env above (one entry per tool)
+        tool: ${{ fromJson(needs.discover.outputs.tools) }}
         goos: [linux, windows]
         goarch: [amd64, arm64]
         exclude:
           - goos: windows
-            goarch: arm64  # no Windows/arm64 runner available
+            goarch: arm64
 
     steps:
       - uses: actions/checkout@v4

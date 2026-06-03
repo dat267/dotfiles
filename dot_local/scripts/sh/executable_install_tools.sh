@@ -1,9 +1,6 @@
 #!/usr/bin/env sh
 set -e
 
-# ── Add new tool names here (space-separated) ─────────────────────────────
-TOOLS="tools"
-
 REPO="dat267/dotfiles"
 INSTALL_DIR="$HOME/.local/bin"
 TMP_DIR="$(mktemp -d)"
@@ -29,18 +26,24 @@ esac
 echo "Platform: $os/$arch"
 
 echo "Fetching latest tools release from $REPO..."
-API_URL="https://api.github.com/repos/$REPO/releases"
-TAG=$(curl -sSL "$API_URL" \
-    | jq -r '[.[] | select(.tag_name | startswith("tools/"))] | sort_by(.created_at) | last | .tag_name')
+RELEASE=$(curl -sSL "https://api.github.com/repos/$REPO/releases" \
+    | jq '[.[] | select(.tag_name | startswith("tools/"))] | sort_by(.created_at) | last')
+TAG=$(echo "$RELEASE" | jq -r '.tag_name')
 [ -z "$TAG" ] || [ "$TAG" = "null" ] && { echo "Error: No tools release found"; exit 1; }
 echo "Latest release: $TAG"
 
+# Find all assets for the current platform (strips the -{os}-{arch} suffix to get tool name)
+ASSETS=$(echo "$RELEASE" | jq -r --arg suffix "-${os}-${arch}" \
+    '.assets[].name | select(endswith($suffix))')
+
+[ -z "$ASSETS" ] && { echo "Error: No binaries found for ${os}/${arch} in $TAG"; exit 1; }
+
 mkdir -p "$INSTALL_DIR"
 
-for tool in $TOOLS; do
-    ASSET="${tool}-${os}-${arch}"
-    DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/$ASSET"
-    echo "Downloading $ASSET..."
+for asset in $ASSETS; do
+    tool="${asset%-${os}-${arch}}"   # strip platform suffix → binary name
+    DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/$asset"
+    echo "Downloading $asset..."
     curl -fSL "$DOWNLOAD_URL" -o "$TMP_DIR/$tool"
     chmod +x "$TMP_DIR/$tool"
     mv -f "$TMP_DIR/$tool" "$INSTALL_DIR/$tool"
