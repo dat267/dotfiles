@@ -5,12 +5,16 @@ on:
     branches:
       - main
     paths:
-      - "dot_local/src/tools/**"
+      - "dot_local/src/**"
       - ".github/workflows/build-tools.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
+
+# ── Add new tools to this list ──────────────────────────────────────────────
+env:
+  TOOLS: tools
 
 jobs:
   tag:
@@ -35,28 +39,25 @@ jobs:
 
   build:
     needs: tag
-    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    name: Build ${{ matrix.tool }} ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-            suffix: ""
-          - goos: linux
-            goarch: arm64
-            suffix: ""
+        tool: [tools]   # ← mirror TOOLS env above (one entry per tool)
+        goos: [linux, windows]
+        goarch: [amd64, arm64]
+        exclude:
           - goos: windows
-            goarch: amd64
-            suffix: ".exe"
+            goarch: arm64  # no Windows/arm64 runner available
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: dot_local/src/tools/go.mod
-          cache-dependency-path: dot_local/src/tools/go.sum
+          go-version-file: dot_local/src/${{ matrix.tool }}/go.mod
+          cache-dependency-path: dot_local/src/${{ matrix.tool }}/go.sum
 
       - name: Build
         env:
@@ -65,9 +66,11 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           VERSION="${{ needs.tag.outputs.tag }}"
-          OUT="tools-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
+          SUFFIX=""
+          [ "${{ matrix.goos }}" = "windows" ] && SUFFIX=".exe"
+          OUT="${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}${SUFFIX}"
           go build \
-            -C dot_local/src/tools \
+            -C "dot_local/src/${{ matrix.tool }}" \
             -ldflags="-s -w -X main.version=${VERSION}" \
             -o "$GITHUB_WORKSPACE/$OUT" \
             .
@@ -75,8 +78,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tools-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: tools-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}
+          name: ${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}*
 
   release:
     needs: [tag, build]
@@ -92,4 +95,4 @@ jobs:
         with:
           tag_name: ${{ needs.tag.outputs.tag }}
           name: "Tools ${{ needs.tag.outputs.tag }}"
-          files: tools-*
+          files: "*"

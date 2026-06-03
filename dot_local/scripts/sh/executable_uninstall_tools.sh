@@ -1,13 +1,19 @@
 #!/usr/bin/env sh
 set -e
 
-BINARY="tools"
-INSTALL_DIR="$HOME/.local/bin"
-TARGET="$INSTALL_DIR/$BINARY"
+# ── Add new tool names here (space-separated) ─────────────────────────────
+TOOLS="tools"
 
-if [ -f "$TARGET" ]; then
-    rm -f "$TARGET"
-    echo "Removed $TARGET"
-else
-    echo "$TARGET not found — nothing to uninstall"
-fi
+INSTALL_DIR="$HOME/.local/bin"
+
+for tool in $TOOLS; do
+    TARGET="$INSTALL_DIR/$tool"
+    if [ -f "$TARGET" ]; then
+        rm -f "$TARGET"
+        echo "Removed $TARGET"
+    else
+        echo "$TARGET not found — skipping"
+    fi
+done
+
+echo "Done."
