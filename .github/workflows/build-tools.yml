@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "dot_local/src/tools/**"
+      - ".github/workflows/build-tools.yml"
   workflow_dispatch:
 
 permissions:
@@ -66,10 +67,9 @@ jobs:
           VERSION="${{ needs.tag.outputs.tag }}"
           OUT="tools-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}"
           go build \
-            -C dot_local/src/tools \
             -ldflags="-s -w -X main.version=${VERSION}" \
-            -o "$GITHUB_WORKSPACE/$OUT" \
-            .
+            -o "$OUT" \
+            ./dot_local/src/tools
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
