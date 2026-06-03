@@ -68,7 +68,7 @@ jobs:
           go build \
             -C dot_local/src/tools \
             -ldflags="-s -w -X main.version=${VERSION}" \
-            -o "$OUT" \
+            -o "$GITHUB_WORKSPACE/$OUT" \
             .
 
       - name: Upload artifact
