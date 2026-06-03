@@ -247,4 +247,4 @@ if [ -d "$FNM_PATH" ]; then
 		eval "$(fnm env)"
 	fi
 fi
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="/home/dat/.local/bin:$PATH"
