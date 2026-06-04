@@ -1,0 +1,14 @@
+
+# Reference: https://github.com/twpayne/chezmoi/blob/master/assets/chezmoi.io/docs/reference/configuration-file/variables.md.yaml
+
+{{ if eq .chezmoi.os "windows" -}}
+sourceDir = {{ printf "%s/AppData/Roaming/chezmoi" .chezmoi.homeDir | quote }}
+{{ end -}}
+
+[interpreters.sh]
+command = "sh"
+
+[git]
+autoAdd = true
+autoCommit = true
+autoPush = true

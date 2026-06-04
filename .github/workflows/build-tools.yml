@@ -1,0 +1,125 @@
+name: Build and Release Tools
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "dot_local/src/**"
+      - ".github/workflows/build-tools.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      tools: ${{ steps.find.outputs.tools }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Discover tools (dirs containing a Makefile)
+        id: find
+        run: |
+          tools=$(
+            find dot_local/src -maxdepth 2 -name "Makefile" \
+              | xargs -I{} dirname {} \
+              | xargs -I{} basename {} \
+              | sort \
+              | jq -R . | jq -sc .
+          )
+          echo "Discovered tools: $tools"
+          echo "tools=$tools" >> "$GITHUB_OUTPUT"
+
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.gen.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate commit-hash tag
+        id: gen
+        run: |
+          TAG="max/$(git rev-parse --short HEAD)"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.gen.outputs.tag }}"
+          git push origin "${{ steps.gen.outputs.tag }}"
+
+  build:
+    needs: [discover, tag]
+    name: Build ${{ matrix.tool }} ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: ${{ fromJson(needs.discover.outputs.tools) }}
+        goos: [linux, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build via Makefile
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          VERSION: ${{ needs.tag.outputs.tag }}
+        run: |
+          SUFFIX=""
+          [ "${{ matrix.goos }}" = "windows" ] && SUFFIX=".exe"
+          OUT="$GITHUB_WORKSPACE/${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}${SUFFIX}"
+          make -C "dot_local/src/${{ matrix.tool }}" build OUT="$OUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}*
+
+  release:
+    needs: [tag, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.tag.outputs.tag }}
+          name: "Release ${{ needs.tag.outputs.tag }}"
+          files: "*"
+
+      - name: Clean up old tools releases and tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          echo "Fetching max releases..."
+          # Get list of releases with tag starting with "max/", sorted by date (newest first)
+          releases=$(gh release list --limit 100 | grep 'max/' | awk -F'\t' '{print $3}')
+          
+          count=0
+          for tag in $releases; do
+            count=$((count + 1))
+            if [ $count -gt 3 ]; then
+              echo "Deleting old release and tag: $tag"
+              gh release delete "$tag" --yes --cleanup-tag || true
+            else
+              echo "Keeping release: $tag"
+            fi
+          done

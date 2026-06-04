@@ -1,0 +1,10 @@
+{{ if ne .chezmoi.os "windows" -}}
+copy_if_missing() { [ -f "$1" ] && [ ! -f "$2" ] && cp "$1" "$2"; }
+
+copy_if_missing "{{ .chezmoi.sourceDir }}/dot_env.local.example"        "$HOME/.env.local"
+copy_if_missing "{{ .chezmoi.sourceDir }}/dot_gitconfig.local.example"  "$HOME/.gitconfig.local"
+
+if [ -n "${HTTP_PROXY:-}${HTTPS_PROXY:-}${http_proxy:-}${https_proxy:-}" ]; then
+    echo "⚠ Proxy detected — uncomment and fill proxy vars in ~/.env.local"
+fi
+{{ end -}}

@@ -1,0 +1,115 @@
+{
+    "$help": "https://aka.ms/terminal-documentation",
+    "$schema": "https://aka.ms/terminal-profiles-schema",
+    "actions": [],
+    "centerOnLaunch": false,
+    "copyFormatting": "none",
+    "copyOnSelect": false,
+    "defaultProfile": "{fd6f7640-6605-41e4-a877-6d6e5686ad07}",
+    "keybindings": [
+        {
+            "id": "Terminal.CopyToClipboard",
+            "keys": "ctrl+c"
+        },
+        {
+            "id": "Terminal.PasteFromClipboard",
+            "keys": "ctrl+v"
+        },
+        {
+            "id": "Terminal.DuplicatePaneAuto",
+            "keys": "alt+shift+d"
+        }
+    ],
+    "launchMode": "maximized",
+    "newTabMenu": [
+        {
+            "type": "remainingProfiles"
+        }
+    ],
+    "profiles": {
+        "defaults": {
+            "closeOnExit": "automatic",
+            "colorScheme": {
+                "dark": "One Dark",
+                "light": "One Light"
+            },
+            "font": {
+                "face": "FiraCode Nerd Font"
+            },
+            "suppressApplicationTitle": false
+        },
+        "list": [
+            {
+                "commandline": "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
+                "hidden": false,
+                "name": "Windows PowerShell"
+            },
+            {
+                "commandline": "%SystemRoot%\\System32\\cmd.exe",
+                "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+                "hidden": false,
+                "name": "Command Prompt"
+            },
+            {
+                "commandline": "pwsh",
+                "guid": "{fd6f7640-6605-41e4-a877-6d6e5686ad07}",
+                "hidden": false,
+                "icon": "ms-appx:///ProfileIcons/pwsh.png",
+                "name": "PowerShell",
+                "startingDirectory": "%USERPROFILE%"
+            }
+        ]
+    },
+    "schemes": [
+        {
+            "background": "#282C34",
+            "black": "#000000",
+            "blue": "#0184BC",
+            "brightBlack": "#808080",
+            "brightBlue": "#61AFEF",
+            "brightCyan": "#56B6C2",
+            "brightGreen": "#98C379",
+            "brightPurple": "#C678DD",
+            "brightRed": "#E06C75",
+            "brightWhite": "#FFFFFF",
+            "brightYellow": "#E5C07B",
+            "cursorColor": "#FFFFFF",
+            "cyan": "#0997B3",
+            "foreground": "#DCDFE4",
+            "green": "#50A14F",
+            "name": "One Dark",
+            "purple": "#A626A4",
+            "red": "#E45649",
+            "selectionBackground": "#FDF6E3",
+            "white": "#C0C0C0",
+            "yellow": "#C18301"
+        },
+        {
+            "background": "#FAFAFA",
+            "black": "#FFFFFF",
+            "blue": "#61AFEF",
+            "brightBlack": "#C0C0C0",
+            "brightBlue": "#0184BC",
+            "brightCyan": "#0997B3",
+            "brightGreen": "#50A14F",
+            "brightPurple": "#A626A4",
+            "brightRed": "#E45649",
+            "brightWhite": "#000000",
+            "brightYellow": "#C18301",
+            "cursorColor": "#4F525D",
+            "cyan": "#56B5C1",
+            "foreground": "#383A42",
+            "green": "#98C379",
+            "name": "One Light",
+            "purple": "#C577DD",
+            "red": "#DF6C75",
+            "selectionBackground": "#FDF6E3",
+            "white": "#808080",
+            "yellow": "#E4C07A"
+        }
+    ],
+    "theme": "system",
+    "themes": [],
+    "windowingBehavior": "useAnyExisting"
+}

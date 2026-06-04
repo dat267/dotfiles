@@ -1,0 +1,194 @@
+{
+    "files.enableTrash": true,
+    "[dockerfile]": {
+        "editor.defaultFormatter": "ms-azuretools.vscode-docker"
+    },
+    "[java]": {
+        "editor.defaultFormatter": "redhat.java"
+    },
+    "[javascript]": {
+        "editor.defaultFormatter": "vscode.typescript-language-features"
+    },
+    "[javascriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[markdown]": {
+        "editor.defaultFormatter": "yzhang.markdown-all-in-one"
+    },
+    "[powershell]": {
+        "editor.defaultFormatter": "ms-vscode.powershell"
+    },
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "[svg]": {
+        "editor.defaultFormatter": "jock.svg"
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "vscode.typescript-language-features"
+    },
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "vscode.typescript-language-features"
+    },
+    "[xml]": {
+        "editor.defaultFormatter": "redhat.vscode-xml"
+    },
+    "latex-workshop.formatting.latex": "tex-fmt",
+    "debug.showInStatusBar": "always",
+    "debug.toolBarLocation": "docked",
+    "editor.codeActionsOnSave": {
+        "source.addMissingImports": "explicit",
+        "source.fixAll": "explicit",
+        "source.organizeImports": "explicit",
+        "source.removeUnusedImports": "explicit"
+    },
+    "editor.fontFamily": "'FiraCode Nerd Font', Consolas, 'Courier New', monospace",
+    "editor.fontLigatures": true,
+    "editor.fontSize": 14,
+    "editor.formatOnSave": true,
+    "editor.selectionClipboard": false,
+    "editor.snippetSuggestions": "top",
+    "editor.wordWrap": "bounded",
+    "editor.wordWrapColumn": 120,
+    "eslint.codeActionsOnSave.rules": [],
+    "eslint.format.enable": true,
+    "explorer.confirmDelete": false,
+    "explorer.confirmDragAndDrop": false,
+    "extensions.ignoreRecommendations": true,
+    "files.associations": {
+        "*.code-snippets": "jsonc",
+        "*.json": "jsonc",
+        "*.opf": "xml",
+        ".lfrc": "properties",
+        "*.tmpl": "gotmpl"
+    },
+    "files.autoSave": "afterDelay",
+    "git.autofetch": true,
+    "git.confirmSync": false,
+    "git.enableSmartCommit": true,
+    "git.openRepositoryInParentFolders": "always",
+    "go.toolsManagement.autoUpdate": true,
+    "gopls": {
+        "ui.semanticTokens": true
+    },
+    "hediet.vscode-drawio.resizeImages": null,
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.debug.settings.hotCodeReplace": "auto",
+    "js/ts.implicitProjectConfig.target": "ESNext",
+    "markdown.preview.fontSize": 14,
+    "notebook.formatOnSave.enabled": true,
+    "plantuml.server": "https://www.plantuml.com/plantuml",
+    "powershell.codeFormatting.autoCorrectAliases": true,
+    "powershell.codeFormatting.trimWhitespaceAroundPipe": true,
+    "powershell.codeFormatting.useCorrectCasing": true,
+    "powershell.codeFormatting.whitespaceBetweenParameters": true,
+    "powershell.integratedConsole.startInBackground": true,
+    "powershell.powerShellAdditionalExePaths": {
+        "linux": "${env:HOME}/.local/bin/pwsh"
+    },
+    "python.analysis.autoFormatStrings": true,
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.completeFunctionParens": true,
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "information"
+    },
+    "python.analysis.fixAll": [
+        "source.convertImportFormat",
+        "source.unusedImports"
+    ],
+    "python.analysis.inlayHints.functionReturnTypes": true,
+    "python.analysis.inlayHints.variableTypes": true,
+    "python.analysis.typeCheckingMode": "standard",
+    "redhat.telemetry.enabled": false,
+    "remote.tunnels.alwaysUpdateCLI": true,
+    "rust-analyzer.runnables.extraArgs": [
+        "--release"
+    ],
+    "security.workspace.trust.banner": "never",
+    "security.workspace.trust.enabled": false,
+    "security.workspace.trust.startupPrompt": "never",
+    "security.workspace.trust.untrustedFiles": "open",
+    "settingsSync.ignoredSettings": [],
+    "shellcheck.run": "onSave",
+    "shellformat.flag": "-i 2 -ci",
+    "sortJSON.contextMenu": {
+        "sortJSONAlphaNum": false,
+        "sortJSONAlphaNumReverse": false,
+        "sortJSONKeyLength": false,
+        "sortJSONKeyLengthReverse": false,
+        "sortJSONReverse": false,
+        "sortJSONType": false,
+        "sortJSONTypeReverse": false,
+        "sortJSONValues": false,
+        "sortJSONValuesReverse": false
+    },
+    "svelte.enable-ts-plugin": true,
+    "task.allowAutomaticTasks": "on",
+    "telemetry.telemetryLevel": "error",
+    "terminal.integrated.allowChords": false,
+    "terraform.codelens.referenceCount": true,
+    "testing.automaticallyOpenPeekView": "never",
+    "window.autoDetectColorScheme": true,
+    "window.dialogStyle": "custom",
+    "window.newWindowDimensions": "maximized",
+    "window.openFoldersInNewWindow": "off",
+    "window.openWithoutArgumentsInNewWindow": "off",
+    "window.restoreWindows": "none",
+    "window.systemColorTheme": "auto",
+    "window.titleBarStyle": "custom",
+    "workbench.editor.splitInGroupLayout": "vertical",
+    "workbench.preferredDarkColorTheme": "Dark Modern",
+    "workbench.preferredLightColorTheme": "Light Modern",
+    "workbench.settings.applyToAllProfiles": [],
+    "workbench.settings.editor": "json",
+    "workbench.iconTheme": "material-icon-theme",
+    "extensions.autoUpdate": false,
+    "security.allowedUNCHosts": [
+        "wsl.localhost"
+    ],
+    "powershell.buttons.showRunButtons": false,
+    "powershell.codeFormatting.avoidSemicolonsAsLineTerminators": true,
+    "[yaml]": {},
+    "[dockercompose]": {},
+    "editor.tabSize": 2,
+    "remote.SSH.remotePlatform": {
+        "datbox": "linux",
+        "vpx": "linux",
+        "nexus": "linux",
+        "citadel": "linux"
+    },
+    "github.copilot.nextEditSuggestions.enabled": false,
+    "workbench.secondarySideBar.defaultVisibility": "hidden",
+    "chat.commandCenter.enabled": false,
+    "window.commandCenter": false,
+    "workbench.layoutControl.enabled": false,
+    "workbench.editor.empty.hint": "hidden",
+    "chat.agent.enabled": false,
+    "terminal.integrated.initialHint": false,
+    "code-runner.runInTerminal": true,
+    "code-runner.saveAllFilesBeforeRun": true,
+    "code-runner.saveFileBeforeRun": true,
+    "material-icon-theme.hidesExplorerArrows": true,
+    "github.copilot.enable": {
+        "*": false,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false
+    },
+    "workbench.settings.showAISearchToggle": false,
+    "chat.disableAIFeatures": true,
+    "json.schemaDownload.trustedDomains": {
+        "https://aka.ms": true,
+        "https://developer.microsoft.com/json-schemas/": true,
+        "https://json-schema.org/": true,
+        "https://json.schemastore.org/": true,
+        "https://raw.githubusercontent.com/devcontainers/spec/": true,
+        "https://raw.githubusercontent.com/microsoft/vscode/": true,
+        "https://schemastore.azurewebsites.net/": true,
+        "https://www.schemastore.org/": true
+    }
+}
