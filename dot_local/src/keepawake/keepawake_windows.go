@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"syscall"
 )
 
 func executeShutdown() {
@@ -16,6 +17,7 @@ func executeShutdown() {
 
 var (
 	procSetThreadExecutionState = modkernel32.NewProc("SetThreadExecutionState")
+	moduser32                   = syscall.NewLazyDLL("user32.dll")
 	procKeybdEvent              = moduser32.NewProc("keybd_event")
 )
 

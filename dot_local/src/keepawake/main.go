@@ -67,6 +67,7 @@ func main() {
 	// Intercept signals for graceful termination
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	setCtrlCChan(sigChan)
 
 	fmt.Printf("[*] Starting keep-awake (System: %s, Display Keep-Alive: %v)\n", runtime.GOOS, display)
 	if *timeoutFlag != "" {

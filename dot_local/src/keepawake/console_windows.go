@@ -3,30 +3,53 @@
 package main
 
 import (
+	"os"
 	"syscall"
-	"unsafe"
 )
 
 var (
 	modkernel32               = syscall.NewLazyDLL("kernel32.dll")
-	procGetConsoleProcessList = modkernel32.NewProc("GetConsoleProcessList")
-	procGetConsoleWindow      = modkernel32.NewProc("GetConsoleWindow")
-
-	moduser32      = syscall.NewLazyDLL("user32.dll")
-	procShowWindow = moduser32.NewProc("ShowWindow")
+	procAttachConsole         = modkernel32.NewProc("AttachConsole")
+	procSetConsoleCtrlHandler = modkernel32.NewProc("SetConsoleCtrlHandler")
 )
 
-const swHide = 0
+const attachParentProcess = 0xFFFFFFFF
+
+// Global channel to notify main loop of Ctrl+C
+var ctrlCChan chan<- os.Signal
+
+func consoleCtrlHandler(ctrlType uintptr) uintptr {
+	switch ctrlType {
+	case 0, 1: // CTRL_C_EVENT, CTRL_BREAK_EVENT
+		if ctrlCChan != nil {
+			ctrlCChan <- os.Interrupt
+		}
+		return 1 // Handled
+	}
+	return 0 // Not handled
+}
 
 func setupConsole() {
-	// Check if we were double-clicked (only us in the console process list)
-	var list [2]uint32
-	r, _, _ := procGetConsoleProcessList.Call(uintptr(unsafe.Pointer(&list[0])), 2)
-	if r == 1 {
-		// Only 1 process in the console (us). Hide the spawned console window.
-		hwnd, _, _ := procGetConsoleWindow.Call()
-		if hwnd != 0 {
-			procShowWindow.Call(hwnd, uintptr(swHide))
+	// Try to attach to parent console (if run from a terminal)
+	r, _, _ := procAttachConsole.Call(uintptr(attachParentProcess))
+	if r != 0 {
+		// Redirect standard input, output, and error handles to the attached console
+		if h, err := syscall.GetStdHandle(syscall.STD_OUTPUT_HANDLE); err == nil {
+			os.Stdout = os.NewFile(uintptr(h), "/dev/stdout")
 		}
+		if h, err := syscall.GetStdHandle(syscall.STD_ERROR_HANDLE); err == nil {
+			os.Stderr = os.NewFile(uintptr(h), "/dev/stderr")
+		}
+		if h, err := syscall.GetStdHandle(syscall.STD_INPUT_HANDLE); err == nil {
+			os.Stdin = os.NewFile(uintptr(h), "/dev/stdin")
+		}
+
+		// Register control handler so Ctrl+C works for GUI application attached to console
+		cb := syscall.NewCallback(consoleCtrlHandler)
+		procSetConsoleCtrlHandler.Call(cb, 1)
 	}
+}
+
+func setCtrlCChan(ch chan<- os.Signal) {
+	ctrlCChan = ch
 }
