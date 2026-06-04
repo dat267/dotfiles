@@ -3,30 +3,30 @@
 package main
 
 import (
-	"os"
 	"syscall"
+	"unsafe"
 )
 
 var (
-	modkernel32       = syscall.NewLazyDLL("kernel32.dll")
-	procAttachConsole = modkernel32.NewProc("AttachConsole")
+	modkernel32               = syscall.NewLazyDLL("kernel32.dll")
+	procGetConsoleProcessList = modkernel32.NewProc("GetConsoleProcessList")
+	procGetConsoleWindow      = modkernel32.NewProc("GetConsoleWindow")
+
+	moduser32      = syscall.NewLazyDLL("user32.dll")
+	procShowWindow = moduser32.NewProc("ShowWindow")
 )
 
-const attachParentProcess = 0xFFFFFFFF
+const swHide = 0
 
-func attachConsole() {
-	// Try to attach to the parent process's console
-	r, _, _ := procAttachConsole.Call(uintptr(attachParentProcess))
-	if r != 0 {
-		// Redirect standard input, output, and error handles to the attached console
-		if h, err := syscall.GetStdHandle(syscall.STD_OUTPUT_HANDLE); err == nil {
-			os.Stdout = os.NewFile(uintptr(h), "/dev/stdout")
-		}
-		if h, err := syscall.GetStdHandle(syscall.STD_ERROR_HANDLE); err == nil {
-			os.Stderr = os.NewFile(uintptr(h), "/dev/stderr")
-		}
-		if h, err := syscall.GetStdHandle(syscall.STD_INPUT_HANDLE); err == nil {
-			os.Stdin = os.NewFile(uintptr(h), "/dev/stdin")
+func setupConsole() {
+	// Check if we were double-clicked (only us in the console process list)
+	var list [2]uint32
+	r, _, _ := procGetConsoleProcessList.Call(uintptr(unsafe.Pointer(&list[0])), 2)
+	if r == 1 {
+		// Only 1 process in the console (us). Hide the spawned console window.
+		hwnd, _, _ := procGetConsoleWindow.Call()
+		if hwnd != 0 {
+			procShowWindow.Call(hwnd, uintptr(swHide))
 		}
 	}
 }

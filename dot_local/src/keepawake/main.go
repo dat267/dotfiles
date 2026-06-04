@@ -14,8 +14,8 @@ import (
 var version = "dev"
 
 func main() {
-	// Try to attach to parent console (Windows specific, no-op elsewhere)
-	attachConsole()
+	// Setup console environment (hide window if double-clicked on Windows, no-op elsewhere)
+	setupConsole()
 
 	versionFlag := flag.Bool("version", false, "Print version")
 	systemOnlyFlag := flag.Bool("system-only", false, "Prevent system sleep but allow the display to turn off (Windows/macOS only)")
