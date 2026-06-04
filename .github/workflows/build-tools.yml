@@ -107,6 +107,7 @@ jobs:
       - name: Clean up old tools releases and tags
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           echo "Fetching tools releases..."
           # Get list of releases with tag starting with "tools/", sorted by date (newest first)
