@@ -72,10 +72,10 @@ def main():
         sys.exit(1)
 
     tools_releases = [
-        r for r in releases if r.get("tag_name", "").startswith("tools/")
+        r for r in releases if r.get("tag_name", "").startswith("max/")
     ]
     if not tools_releases:
-        log("Error: No tools release found.", "red")
+        log("Error: No max release found.", "red")
         sys.exit(1)
 
     # Sort lexicographically by created_at (ISO 8601) to get the latest

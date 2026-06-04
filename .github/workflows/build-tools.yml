@@ -38,13 +38,13 @@ jobs:
     outputs:
       tag: ${{ steps.gen.outputs.tag }}
     steps:
-      - name: Generate timestamp tag
+      - uses: actions/checkout@v4
+
+      - name: Generate commit-hash tag
         id: gen
         run: |
-          TAG="tools/$(date -u +'%Y%m%d-%H%M%S')"
+          TAG="max/$(git rev-parse --short HEAD)"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/checkout@v4
 
       - name: Create and push tag
         run: |
@@ -101,7 +101,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.tag.outputs.tag }}
-          name: "Tools ${{ needs.tag.outputs.tag }}"
+          name: "Release ${{ needs.tag.outputs.tag }}"
           files: "*"
 
       - name: Clean up old tools releases and tags
@@ -109,9 +109,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          echo "Fetching tools releases..."
-          # Get list of releases with tag starting with "tools/", sorted by date (newest first)
-          releases=$(gh release list --limit 100 | grep 'tools/' | awk -F'\t' '{print $3}')
+          echo "Fetching max releases..."
+          # Get list of releases with tag starting with "max/", sorted by date (newest first)
+          releases=$(gh release list --limit 100 | grep 'max/' | awk -F'\t' '{print $3}')
           
           count=0
           for tag in $releases; do
