@@ -1,4 +1,0 @@
-.local/scripts/py/jira_batch_assign.py
-.local/scripts/py/jira_ticket_analysis.py
-.local/scripts/py/query_logs.py
-.local/scripts/py/cshell.py
