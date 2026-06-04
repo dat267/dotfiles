@@ -1,0 +1,600 @@
+{
+	"Array Every Method": {
+		"body": [
+			"${1:array}.every((${2:item}) => {",
+			"\t$0",
+			"});"
+		],
+		"description": "Create an array every method",
+		"prefix": "every"
+	},
+	"Array Filter Method": {
+		"body": [
+			"${1:array}.filter((${2:item}) => {",
+			"\t$0",
+			"});"
+		],
+		"description": "Create an array filter method",
+		"prefix": "filter"
+	},
+	"Array Find Method": {
+		"body": [
+			"${1:array}.find((${2:item}) => {",
+			"\t$0",
+			"});"
+		],
+		"description": "Create an array find method",
+		"prefix": "find"
+	},
+	"Array Includes Method": {
+		"body": [
+			"${1:array}.includes(${2:element});"
+		],
+		"description": "Create an array includes method",
+		"prefix": "includes"
+	},
+	"Array Reduce Method": {
+		"body": [
+			"${1:array}.reduce((${2:accumulator}, ${3:item}) => {",
+			"\t$4",
+			"}, ${5:initialValue});"
+		],
+		"description": "Create an array reduce method",
+		"prefix": "reduce"
+	},
+	"Array Some Method": {
+		"body": [
+			"${1:array}.some((${2:item}) => {",
+			"\t$0",
+			"});"
+		],
+		"description": "Create an array some method",
+		"prefix": "some"
+	},
+	"Array Sort Method": {
+		"body": [
+			"${1:array}.sort((${2:a}, ${3:b}) => {",
+			"\t$0",
+			"});"
+		],
+		"description": "Create an array sort method",
+		"prefix": "sort"
+	},
+	"Arrow Function": {
+		"body": [
+			"const ${1:functionName} = (${2:arguments}) => {",
+			"\t$0",
+			"};"
+		],
+		"description": "Create an arrow function",
+		"prefix": "arrow function"
+	},
+	"Async Arrow Function": {
+		"body": [
+			"const ${1:functionName} = async (${2:arguments}) => {",
+			"\t$0",
+			"};"
+		],
+		"description": "Create an async arrow function",
+		"prefix": "async arrow function"
+	},
+	"Async Function": {
+		"body": [
+			"async function ${1:functionName}(${2:arguments}) {",
+			"\t$0",
+			"}"
+		],
+		"description": "Create an async function",
+		"prefix": "async function"
+	},
+	"Await Keyword": {
+		"body": [
+			"await $0"
+		],
+		"description": "Use the await keyword",
+		"prefix": "await"
+	},
+	"Class Component": {
+		"body": [
+			"class $1 extends Component {",
+			"\tstate = { $2 } ",
+			"\trender() { ",
+			"\t\treturn ($0);",
+			"\t}",
+			"}",
+			" ",
+			"export default $1;"
+		],
+		"description": "Class Component",
+		"prefix": "cc"
+	},
+	"Class Component With Constructor": {
+		"body": [
+			"class $1 extends Component {",
+			"\tconstructor(props) {",
+			"\t\tsuper(props);",
+			"\t}",
+			"\tstate = { $2 }",
+			"\trender() { ",
+			"\t\treturn ( $0 );",
+			"\t}",
+			"}",
+			" ",
+			"export default $1;"
+		],
+		"description": "Class Component With Constructor",
+		"prefix": "ccc"
+	},
+	"Class Declaration": {
+		"body": [
+			"class ${1:ClassName} {",
+			"\tconstructor(${2:arguments}) {",
+			"\t\t$3",
+			"\t}",
+			"\t$0",
+			"}"
+		],
+		"description": "Create a class declaration",
+		"prefix": "class"
+	},
+	"Class Property Function": {
+		"body": [
+			"$1 = (${2:e${TM_SELECTED_TEXT}}) => {",
+			"\t $0",
+			"};"
+		],
+		"description": "Class Property Function",
+		"prefix": "cpf"
+	},
+	"Class Pure Component": {
+		"body": [
+			"class $1 extends PureComponent {",
+			"\tstate = { $2 }",
+			"\trender() { ",
+			"\t\treturn ( $0 );",
+			"\t}",
+			"}",
+			" ",
+			"export default $1;"
+		],
+		"description": "Class Pure Component",
+		"prefix": "cpc"
+	},
+	"Const Variable Declaration": {
+		"body": [
+			"const ${1:variableName} = ${2:value};"
+		],
+		"description": "Declare a variable using const",
+		"prefix": "const"
+	},
+	"Context Provider": {
+		"body": [
+			"export const $1 = React.createContext();",
+			"",
+			"const $1Provider = (props) => {",
+			"\t// Initial Provider State",
+			"\tconst state = {};",
+			"",
+			"\t// Reducer Function",
+			"\tconst $2 = (state, action) => {",
+			"\t\t",
+			"\t};",
+			"",
+			"\treturn (",
+			"\t\t<$1.Provider value={{state: state, $2}}>",
+			"\t\t\t{props.children}",
+			"\t\t</$1.Provider>",
+			"\t);",
+			"}",
+			"",
+			"export default $1Provider;"
+		],
+		"description": "Context Provider",
+		"prefix": "cp"
+	},
+	"Declare a new state variable using State Hook": {
+		"body": [
+			"const [${1}, set${1/(.*)/${1:/capitalize}/}] = useState($2);"
+		],
+		"description": "Declare a new state Variable using the State Hook. Hit Tab to apply CamelCase to function",
+		"prefix": "usf"
+	},
+	"Export Statement": {
+		"body": [
+			"export ${1:default} ${2:moduleName};"
+		],
+		"description": "Create an export statement",
+		"prefix": "export"
+	},
+	"Fetch DELETE Request": {
+		"body": [
+			"try {",
+			"\tconst response = await fetch('${1:url}', {",
+			"\t\tmethod: 'DELETE'",
+			"\t});",
+			"\tif (response.ok) {",
+			"\t\tconst result = await response.json();",
+			"\t\t$2",
+			"\t} else {",
+			"\t\tthrow new Error(response.status);",
+			"\t}",
+			"} catch (error) {",
+			"\tconsole.error(error);",
+			"}"
+		],
+		"description": "Create a fetch DELETE request using await",
+		"prefix": "fetchdelete"
+	},
+	"Fetch GET Request": {
+		"body": [
+			"try {",
+			"\tconst response = await fetch('${1:url}');",
+			"\tif (response.ok) {",
+			"\t\tconst data = await response.json();",
+			"\t\t$2",
+			"\t} else {",
+			"\t\tthrow new Error(response.status);",
+			"\t}",
+			"} catch (error) {",
+			"\tconsole.error(error);",
+			"}"
+		],
+		"description": "Create a fetch GET request using await",
+		"prefix": "fetchget"
+	},
+	"Fetch POST Request": {
+		"body": [
+			"try {",
+			"\tconst response = await fetch('${1:url}', {",
+			"\t\tmethod: 'POST',",
+			"\t\theaders: { 'Content-Type': 'application/json' },",
+			"\t\tbody: JSON.stringify(${2:data})",
+			"\t});",
+			"\tif (response.ok) {",
+			"\t\tconst result = await response.json();",
+			"\t\t$3",
+			"\t} else {",
+			"\t\tthrow new Error(response.status);",
+			"\t}",
+			"} catch (error) {",
+			"\tconsole.error(error);",
+			"}"
+		],
+		"description": "Create a fetch POST request using await",
+		"prefix": "fetchpost"
+	},
+	"Fetch PUT Request": {
+		"body": [
+			"try {",
+			"\tconst response = await fetch('${1:url}', {",
+			"\t\tmethod: 'PUT',",
+			"\t\theaders: { 'Content-Type': 'application/json' },",
+			"\t\tbody: JSON.stringify(${2:data})",
+			"\t});",
+			"\tif (response.ok) {",
+			"\t\tconst result = await response.json();",
+			"\t\t$3",
+			"\t} else {",
+			"\t\tthrow new Error(response.status);",
+			"\t}",
+			"} catch (error) {",
+			"\tconsole.error(error);",
+			"}"
+		],
+		"description": "Create a fetch PUT request using await",
+		"prefix": "fetchput"
+	},
+	"Function Syntax Component": {
+		"body": [
+			"function $1($2) {",
+			"\treturn ( $0 );",
+			"}",
+			"",
+			"export default $1;"
+		],
+		"description": "Function Syntax Component",
+		"prefix": "ffc"
+	},
+	"Functional setState": {
+		"body": [
+			"this.setState(prevState => {",
+			"\treturn { $1: prevState.$1 };",
+			"});"
+		],
+		"description": "Functional setState",
+		"prefix": "ssf"
+	},
+	"Higher Order Component": {
+		"body": [
+			"function $1($2) {",
+			"\treturn class extends Component {",
+			"\t\tconstructor(props) {",
+			"\t\t\tsuper(props);",
+			"\t\t}",
+			" ",
+			"\t\trender() {",
+			"\t\t\treturn <$2 {...this.props} $0/>",
+			"\t\t}",
+			"\t}",
+			"}"
+		],
+		"description": "Higher Order Component",
+		"prefix": "hoc"
+	},
+	"Import PropTypes": {
+		"body": [
+			"import PropTypes from 'prop-types';"
+		],
+		"description": "Import PropTypes",
+		"prefix": "impt"
+	},
+	"Import Pure Component": {
+		"body": [
+			"import React, { PureComponent } from 'react';\n"
+		],
+		"description": "Import React, { PureComponent }",
+		"prefix": "impc"
+	},
+	"Import React": {
+		"body": [
+			"import React from 'react';\n"
+		],
+		"description": "Import React",
+		"prefix": "imr"
+	},
+	"Import React and Component": {
+		"body": [
+			"import React, { Component } from 'react';\n"
+		],
+		"description": "Import React, { Component }",
+		"prefix": "imrc"
+	},
+	"Import React, { useState }": {
+		"body": [
+			"import React, { useState } from 'react';\n"
+		],
+		"description": "Import React, { useState }",
+		"prefix": "imrs"
+	},
+	"Import React, { useState, useEffect }": {
+		"body": [
+			"import React, { useState, useEffect } from 'react';\n"
+		],
+		"description": "Import React, { useState, useEffect }",
+		"prefix": "imrse"
+	},
+	"Import ReactDOM": {
+		"body": [
+			"import ReactDOM from 'react-dom';"
+		],
+		"description": "Import ReactDOM",
+		"prefix": "imrd"
+	},
+	"Let Variable Declaration": {
+		"body": [
+			"let ${1:variableName} = ${2:value};"
+		],
+		"description": "Declare a variable using let",
+		"prefix": "let"
+	},
+	"Map Function": {
+		"body": [
+			"${1:array}.map((${2:item}) => {",
+			"\t$0",
+			"});"
+		],
+		"description": "Create a map function",
+		"prefix": "map"
+	},
+	"Object Literal": {
+		"body": [
+			"const ${1:objectName} = {",
+			"\t${2:key}: ${3:value},",
+			"\t$0",
+			"};"
+		],
+		"description": "Create an object literal",
+		"prefix": "obj"
+	},
+	"Object Method Shorthand": {
+		"body": [
+			"${1:methodName}(${2:arguments}) {",
+			"\t$0",
+			"}"
+		],
+		"description": "Create an object method shorthand",
+		"prefix": "method"
+	},
+	"Promise": {
+		"body": [
+			"new Promise((${1:resolve}, ${2:reject}) => {",
+			"\t$0",
+			"})"
+		],
+		"description": "Create a Promise",
+		"prefix": "promise"
+	},
+	"Render Prop": {
+		"body": [
+			"class $1 extends Component {",
+			"\tstate = { $2: $3 }",
+			"\trender() { ",
+			"\t\treturn this.props.render({",
+			"\t\t\t$2: this.state.$2",
+			"\t\t});",
+			"\t}",
+			"}",
+			" ",
+			"export default $1;"
+		],
+		"description": "Render Prop",
+		"prefix": "rprop"
+	},
+	"Set Timeout": {
+		"body": [
+			"setTimeout(() => {",
+			"\t$1",
+			"}, ${2:delay});"
+		],
+		"description": "Create a setTimeout function",
+		"prefix": "timeout"
+	},
+	"Stateless Function Component": {
+		"body": [
+			"const $1 = ($2) => {",
+			"\treturn ( $0 );",
+			"}",
+			" ",
+			"export default $1;"
+		],
+		"description": "Stateless Function Component",
+		"prefix": "sfc"
+	},
+	"Template Literal": {
+		"body": [
+			"const ${1:result} = `${2:string}`;"
+		],
+		"description": "Create a template literal",
+		"prefix": "template"
+	},
+	"Try-Catch-Finally Block": {
+		"body": [
+			"try {",
+			"\t$1",
+			"} catch (${2:error}) {",
+			"\t$3",
+			"} finally {",
+			"\t$4",
+			"}"
+		],
+		"description": "Create a try-catch-finally block",
+		"prefix": "trycf"
+	},
+	"Var Variable Declaration": {
+		"body": [
+			"var ${1:variableName} = ${2:value};"
+		],
+		"description": "Declare a variable using var",
+		"prefix": "var"
+	},
+	"componentDidCatch": {
+		"body": [
+			"componentDidCatch(error, info) {",
+			"\t$0",
+			"}"
+		],
+		"description": "componentDidCatch",
+		"prefix": "cdc"
+	},
+	"componentDidMount": {
+		"body": [
+			"componentDidMount() {",
+			"\t$0",
+			"}"
+		],
+		"description": "componentDidMount",
+		"prefix": "cdm"
+	},
+	"componentDidUpdate": {
+		"body": [
+			"componentDidUpdate(prevProps, prevState) {",
+			"\t$0",
+			"}"
+		],
+		"description": "componentDidUpdate",
+		"prefix": "cdu"
+	},
+	"componentWillMount": {
+		"body": [
+			"//WARNING! To be deprecated in React v17. Use componentDidMount instead.",
+			"componentWillMount() {",
+			"\t$0",
+			"}"
+		],
+		"description": "componentWillMount",
+		"prefix": "cwm"
+	},
+	"componentWillReceiveProps": {
+		"body": [
+			"//WARNING! To be deprecated in React v17. Use new lifecycle static getDerivedStateFromProps instead.",
+			"componentWillReceiveProps(nextProps) {",
+			"\t$0",
+			"}"
+		],
+		"description": "componentWillReceiveProps",
+		"prefix": "cwrp"
+	},
+	"componentWillUnmount": {
+		"body": [
+			"componentWillUnmount() {",
+			"\t$0",
+			"}"
+		],
+		"description": "componentWillUnmount",
+		"prefix": "cwun"
+	},
+	"componentWillUpdate": {
+		"body": [
+			"//WARNING! To be deprecated in React v17. Use componentDidUpdate instead.",
+			"componentWillUpdate(nextProps, nextState) {",
+			"\t$0",
+			"}"
+		],
+		"description": "componentWillUpdate",
+		"prefix": "cwu"
+	},
+	"getDerivedStateFromProps": {
+		"body": [
+			"static getDerivedStateFromProps(nextProps, prevState) {",
+			"\t$0",
+			"}"
+		],
+		"description": "getDerivedStateFromProps",
+		"prefix": "gds"
+	},
+	"getSnapshotBeforeUpdate": {
+		"body": [
+			"getSnapshotBeforeUpdate(prevProps, prevState) {",
+			"\t$0",
+			"}"
+		],
+		"description": "getSnapshotBeforeUpdate",
+		"prefix": "gsbu"
+	},
+	"render": {
+		"body": [
+			"render() {",
+			"\treturn (",
+			"\t\t $0",
+			"\t);",
+			"}"
+		],
+		"description": "render",
+		"prefix": "ren"
+	},
+	"setState": {
+		"body": [
+			"this.setState({ $1: $2 });"
+		],
+		"description": "setState",
+		"prefix": "ss"
+	},
+	"shouldComponentUpdate": {
+		"body": [
+			"shouldComponentUpdate(nextProps, nextState) {",
+			"\t$0",
+			"}"
+		],
+		"description": "shouldComponentUpdate",
+		"prefix": "scu"
+	},
+	"useEffect": {
+		"body": [
+			"useEffect(() => {",
+			"\t$1",
+			"}, []);"
+		],
+		"description": "useEffect Hook",
+		"prefix": "uef"
+	}
+}

@@ -1,0 +1,225 @@
+# Basic Settings
+set nohidden
+set preview
+
+# Functions
+cmd edit-config ${{
+    $EDITOR ~/.config/lf/lfrc
+    lf -remote "send $id source ~/.config/lf/lfrc"
+}}
+
+cmd mkdir %IFS=" "; mkdir -- "$*"
+
+cmd follow_link %{{
+    lf -remote "send ${id} select '$(readlink $f)'"
+}}
+
+cmd q :{{
+    quit
+}}
+
+cmd q! :{{
+    quit
+}}
+
+cmd x :{{
+    quit
+}}
+
+cmd extract_archive ${{
+    set -f
+
+    file="$f"
+    name="$(basename "$file")"
+    dst="$name"
+
+    case "$file" in
+        *.tar.gz|*.tgz)
+            dst="${dst%.tar.gz}"
+            dst="${dst%.tgz}"
+            mkdir -p "$dst"
+            tar -xzf "$file" -C "$dst"
+            ;;
+        *.tar.xz|*.txz)
+            dst="${dst%.tar.xz}"
+            dst="${dst%.txz}"
+            mkdir -p "$dst"
+            tar -xJf "$file" -C "$dst"
+            ;;
+        *.tar)
+            dst="${dst%.tar}"
+            mkdir -p "$dst"
+            tar -xf "$file" -C "$dst"
+            ;;
+        *.zip|*.rar|*.7z)
+            dst="${dst%.*}"
+            mkdir -p "$dst"
+            7z x -y -bso0 "$file" -o"$dst"
+            ;;
+        *)
+            lf -remote "send $id echo 'Not an archive: $file'"
+            exit 1
+            ;;
+    esac
+}}
+
+cmd compress_7z ${{
+    set -f
+
+    if [ -n "$fx" ]; then
+        IFS='
+'
+        set -- $fx
+        unset IFS
+        count=$#
+    else
+        set -- "$f"
+        count=1
+    fi
+
+    if [ "$count" -eq 1 ]; then
+        out="$(basename "$1")"
+    else
+        out="$(basename "$PWD")"
+    fi
+
+    # safety net
+    [ -z "$out" ] && out="archive"
+
+    out="${out%.*}.7z"
+
+    7z a \
+        -t7z \
+        -mx=9 \
+        -mmt=on \
+        -ms=on \
+        -y \
+        "$out" \
+        -- \
+        "$@"
+}}
+
+cmd compress_zip ${{
+    set -f
+
+    if [ -n "$fx" ]; then
+        IFS='
+'
+        set -- $fx
+        unset IFS
+        count=$#
+    else
+        set -- "$f"
+        count=1
+    fi
+
+    if [ "$count" -eq 1 ]; then
+        out="$(basename "$1")"
+    else
+        out="$(basename "$PWD")"
+    fi
+
+    # safety net
+    [ -z "$out" ] && out="archive"
+
+    out="${out%.*}.zip"
+
+    7z a \
+        -tzip \
+        -mx=9 \
+        -mm=Deflate \
+        -mmt=on \
+        -y \
+        "$out" \
+        -- \
+        "$@"
+}}
+
+cmd compress_tgz ${{
+    bash -c '
+        set -f
+        if [ -n "$fx" ]; then
+            IFS="
+"
+            set -- $fx
+            unset IFS
+            count=$#
+        else
+            set -- "$f"
+            count=1
+        fi
+
+        rel=()
+        for p in "$@"; do
+            rel+=( "${p##$PWD/}" )
+        done
+
+        if [ "$count" -eq 1 ]; then
+            out="$(basename "${rel[0]}")"
+        else
+            out="$(basename "$PWD")"
+        fi
+
+        [ -z "$out" ] && out="archive"
+        out="${out%.*}.tgz"
+
+        tar -C "$PWD" -cvzf "$out" -- "${rel[@]}"
+    ' _ "$@"
+}}
+
+cmd compress_txz ${{
+    bash -c '
+        set -f
+        if [ -n "$fx" ]; then
+            IFS="
+"
+            set -- $fx
+            unset IFS
+            count=$#
+        else
+            set -- "$f"
+            count=1
+        fi
+
+        rel=()
+        for p in "$@"; do
+            rel+=( "${p##$PWD/}" )
+        done
+
+        if [ "$count" -eq 1 ]; then
+            out="$(basename "${rel[0]}")"
+        else
+            out="$(basename "$PWD")"
+        fi
+
+        [ -z "$out" ] && out="archive"
+        out="${out%.*}.txz"
+
+        tar -C "$PWD" -cvJf "$out" -- "${rel[@]}"
+    ' _ "$@"
+}}
+
+
+# Mappings
+map d
+map p
+map sh shell-pipe
+map dd cut
+map pp paste
+# map C edit-config
+map dD delete
+map J :updir; down; open
+map K :updir; up; open
+map gL follow_link
+map a push :mkdir<space>
+map P :link
+map <enter> :open
+map <esc> clear
+
+map E extract_archive
+
+map Z7 compress_7z
+map Zz compress_zip
+map Zg compress_tgz
+map Zx compress_txz
+map . set hidden!

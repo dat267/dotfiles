@@ -1,0 +1,25 @@
+{{ if or (eq .chezmoi.os "linux") (eq .chezmoi.os "android") -}}
+#!/bin/sh
+
+# Define source and target pairs: "target_link|source_directory"
+for pair in \
+    "$HOME/.config/Code - OSS/User|{{ .chezmoi.homeDir }}/.config/Code/User" \
+    "$HOME/-chezmoi|{{ .chezmoi.sourceDir }}"
+do
+    target="${pair%%|*}"
+    source="${pair#*|}"
+
+    # If it is a real directory and not a symbolic link, remove it
+    if [ -d "$target" ] && [ ! -L "$target" ]; then
+        echo "Removing existing directory: $target"
+        rm -rf "$target"
+    fi
+
+    # Create link if it doesn't exist
+    if [ ! -L "$target" ]; then
+        mkdir -p "$(dirname "$target")"
+        echo "Linking: $target -> $source"
+        ln -s "$source" "$target"
+    fi
+done
+{{ end -}}

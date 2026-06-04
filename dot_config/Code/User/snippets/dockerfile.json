@@ -1,0 +1,27 @@
+{
+	"Complete Dockerfile Template": {
+		"body": [
+			"FROM ${1:base_image}",
+			"",
+			"# Set the working directory",
+			"WORKDIR ${2:/app}",
+			"",
+			"# Copy the application files",
+			"COPY . ${2:/app}",
+			"",
+			"# Install dependencies",
+			"RUN ${3:command_to_install_dependencies}",
+			"",
+			"# Expose a port (if needed)",
+			"EXPOSE ${4:port_number}",
+			"",
+			"# Define environment variables",
+			"ENV ${5:variable_name} ${6:variable_value}",
+			"",
+			"# Run the application",
+			"CMD ${7:command_to_run_the_application}"
+		],
+		"description": "Setup a complete Dockerfile template",
+		"prefix": "dockerfile"
+	}
+}

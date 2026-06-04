@@ -1,0 +1,126 @@
+{
+	"Define Class": {
+		"body": [
+			"class ${1:ClassName}:",
+			"\t\"\"\"${2:Class description}\"\"\"",
+			"\tdef __init__(self, ${3:parameters}):",
+			"\t\t${4:pass}"
+		],
+		"description": "Define class template",
+		"prefix": "class"
+	},
+	"Define Function": {
+		"body": [
+			"def ${1:function}(${2:parameters}):",
+			"\t${0:pass}"
+		],
+		"description": "Define function template",
+		"prefix": [
+			"def",
+			"fun"
+		]
+	},
+	"Unzip File": {
+		"prefix": "unzip",
+		"body": [
+			"with zipfile.ZipFile('${1:file_path}', 'r') as zip_ref:",
+			"\tzip_ref.extractall('${2:destination_path}')"
+		],
+		"description": "Unzip a file in Python"
+	},
+	"Initial Argparse Boilerplate": {
+		"body": [
+			"\"\"\"",
+			"Module Docstring",
+			"\"\"\"",
+			"",
+			"__author__ = \"Your Name\"",
+			"__version__ = \"0.1.0\"",
+			"__license__ = \"MIT\"",
+			"",
+			"import argparse",
+			"",
+			"",
+			"def main():",
+			"\t\"\"\"Main entry point of the app\"\"\"",
+			"\targs = parse_args()",
+			"\t${0:# Code to execute}",
+			"",
+			"",
+			"def parse_args():",
+			"\t\"\"\"Parse arguments when running from the command line\"\"\"",
+			"\tparser = argparse.ArgumentParser(description='Script description')",
+			"\t# Required positional argument",
+			"\tparser.add_argument('arg', help='Required positional argument')",
+			"\t# Optional argument flag which defaults to False",
+			"\tparser.add_argument('-f', '--flag', action='store_true', default=False)",
+			"\t# Optional argument which requires a parameter (eg. -d test)",
+			"\tparser.add_argument('-n', '--name', action='store', dest='name')",
+			"\t# Optional verbosity counter (eg. -v, -vv, -vvv, etc.)",
+			"\tparser.add_argument('-v', '--verbose', action='count', default=0, help='Verbosity (-v, -vv, etc)')",
+			"\t# Specify output of '--version'",
+			"\tparser.add_argument('--version', action='version', version=f'%(prog)s (version {__version__}')",
+			"\t# Add more arguments if needed",
+			"\treturn parser.parse_args()",
+			"",
+			"",
+			"if __name__ == '__main__':",
+			"\tmain()",
+			""
+		],
+		"description": "Initialize Argparse Boilerplate",
+		"prefix": "init argparse"
+	},
+	"Initial Main Boilerplate": {
+		"body": [
+			"\"\"\"",
+			"Module Docstring",
+			"\"\"\"",
+			"",
+			"__author__ = \"Your Name\"",
+			"__version__ = \"0.1.0\"",
+			"__license__ = \"MIT\"",
+			"",
+			"",
+			"def main():",
+			"\t\"\"\"Main entry point of the app\"\"\"",
+			"\t${1:pass}",
+			"",
+			"",
+			"${0:# Function definitions}",
+			"",
+			"",
+			"if __name__ == '__main__':",
+			"\tmain()",
+			""
+		],
+		"description": "Initialize main function boilerplate",
+		"prefix": "init main"
+	},
+	"Portable python shebang": {
+		"body": [
+			"#!/usr/bin/env -S sh -c 'python3 \"\\$0\" \"\\$@\" || python \"\\$0\" \"\\$@\"'",
+			"$0"
+		],
+		"description": "Portable shebang for finding python intepreter",
+		"prefix": "shebang python"
+	},
+	"Shebang to relative intepreter path": {
+		"body": [
+			"#!/usr/bin/env -S sh -c '\"\\$(dirname \"\\$0\")/${1:.venv/bin/python}\" \"\\$0\" \"\\$@\"'",
+			"$0"
+		],
+		"description": "Shebang for pointing to a specific python intepreter executable",
+		"prefix": "shebang relative"
+	},
+	"Use oswalk": {
+		"body": [
+			"for root, directories, files in os.walk(${1:\"path\"}):",
+			"\tfor file in files:",
+			"\t\tpass",
+			"\t${0:pass}"
+		],
+		"description": "Shebang for pointing to a specific python intepreter executable",
+		"prefix": "oswalk"
+	}
+}
