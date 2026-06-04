@@ -13,6 +13,9 @@ GOOS    ?= linux
 GOARCH  ?= amd64
 
 LDFLAGS := -s -w -X main.version=$(VERSION)
+ifeq ($(GOOS),windows)
+LDFLAGS += -H=windowsgui
+endif
 
 .PHONY: build run clean
 
