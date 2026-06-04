@@ -19,7 +19,6 @@ func executeShutdown() {
 	}
 }
 
-
 type powerAssertion struct {
 	cmd *exec.Cmd
 }

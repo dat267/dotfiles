@@ -75,7 +75,7 @@ func main() {
 			fmt.Println("[*] Shutdown action enabled: will shut down the machine after timeout.")
 		}
 	}
-	fmt.Println("[*] Press Ctrl+C to stop and allow system to sleep normally.\n")
+	fmt.Printf("[*] Press Ctrl+C to stop and allow system to sleep normally.\n\n")
 
 	startTime := time.Now()
 	spinner := []string{"|", "/", "-", "\\"}

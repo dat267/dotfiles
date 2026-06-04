@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	modkernel32      = syscall.NewLazyDLL("kernel32.dll")
+	modkernel32       = syscall.NewLazyDLL("kernel32.dll")
 	procAttachConsole = modkernel32.NewProc("AttachConsole")
 )
 
