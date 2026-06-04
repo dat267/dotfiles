@@ -103,3 +103,22 @@ jobs:
           tag_name: ${{ needs.tag.outputs.tag }}
           name: "Tools ${{ needs.tag.outputs.tag }}"
           files: "*"
+
+      - name: Clean up old tools releases and tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching tools releases..."
+          # Get list of releases with tag starting with "tools/", sorted by date (newest first)
+          releases=$(gh release list --limit 100 | grep 'tools/' | awk -F'\t' '{print $3}')
+          
+          count=0
+          for tag in $releases; do
+            count=$((count + 1))
+            if [ $count -gt 3 ]; then
+              echo "Deleting old release and tag: $tag"
+              gh release delete "$tag" --yes --cleanup-tag || true
+            else
+              echo "Keeping release: $tag"
+            fi
+          done
