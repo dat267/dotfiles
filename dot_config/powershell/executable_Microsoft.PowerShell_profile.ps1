@@ -69,7 +69,7 @@
         # Resolve script files (.py -> python, .js -> node, etc.) using shebangs or extensions.
         # This function handles the actual execution logic, caching dynamically registered functions globally.
         function global:Resolve-ScriptCommand {
-            param($path, $eventArgs)
+            param($path, $LookupArgs)
             
             if ($path) {
                 $ext = [System.IO.Path]::GetExtension($path).ToLower()
@@ -101,7 +101,7 @@
                             $funcDef = "function global:$funcName { & $interpreter `"$path`" @args }"
                             Invoke-Expression $funcDef
                         }
-                        $eventArgs.Command = Get-Command $funcName
+                        $LookupArgs.Command = Get-Command $funcName
                     }
                 }
             }
@@ -111,20 +111,20 @@
         # This works globally across PATH and the current directory, has 0ms startup overhead,
         # and works instantly for new or edited scripts.
         $ExecutionContext.InvokeCommand.PostCommandLookupAction = {
-            param($commandName, $eventArgs)
+            param($commandName, $LookupArgs)
             
             if ($global:__in_lookup_hook) { return }
             $global:__in_lookup_hook = $true
             
             try {
-                if ($eventArgs.Command -and $eventArgs.Command.CommandType -eq "Application") {
-                    $path = $eventArgs.Command.Path
+                if ($LookupArgs.Command -and $LookupArgs.Command.CommandType -eq "Application") {
+                    $path = $LookupArgs.Command.Path
                     $regex = Get-ScriptRegex
                     if ($path -match $regex) {
                         if ($commandName -match $regex) {
-                            Resolve-ScriptCommand $path $eventArgs
+                            Resolve-ScriptCommand $path $LookupArgs
                         } else {
-                            $eventArgs.Command = $null
+                            $LookupArgs.Command = $null
                         }
                     }
                 }
@@ -135,7 +135,7 @@
         }
 
         $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
-            param($commandName, $eventArgs)
+            param($commandName, $LookupArgs)
             
             if ($global:__in_lookup_hook) { return }
             $global:__in_lookup_hook = $true
@@ -192,7 +192,7 @@
                 }
                 
                 if ($path) {
-                    Resolve-ScriptCommand $path $eventArgs
+                    Resolve-ScriptCommand $path $LookupArgs
                 }
             }
             finally {
@@ -249,7 +249,7 @@ Set-Alias cw Open-LogsInsights
 Set-Alias vim nvim
 Set-Alias cm chezmoi
 
-function global:Extract-Archive {
+function global:Expand-CustomArchive {
     param([string]$Path)
     if (-not (Test-Path $Path)) {
         Write-Error "'$Path' is not a valid file"
@@ -265,7 +265,7 @@ function global:Extract-Archive {
         default { Write-Host "Unsupported file extension '$ext'" }
     }
 }
-Set-Alias extract Extract-Archive
+Set-Alias extract Expand-CustomArchive
 
 function global:Invoke-Up {
     param($LevelOrName)
