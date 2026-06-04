@@ -121,8 +121,8 @@ build:
 ### Install / Uninstall
 
 ```sh
-~/.local/scripts/py/install_tools.py    # downloads all tools for current platform
-~/.local/scripts/py/uninstall_tools.py  # removes them from ~/.local/bin
+~/.local/scripts/py/install_max.py    # downloads all tools for current platform
+~/.local/scripts/py/uninstall_max.py  # removes them from ~/.local/bin
 ```
 
 Both scripts auto-detect available tools from the latest GitHub Release assets — no config needed.
