@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC1091
-[[ -f ~/.profile ]] && . ~/.profile
+[[ -z "$PROFILE_LOADED" ]] && [[ -f ~/.profile ]] && . ~/.profile
 [[ $- != *i* ]] && return
 HISTTIMEFORMAT="%F %T "
 HISTCONTROL=ignoredups
