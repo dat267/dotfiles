@@ -6,8 +6,14 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"os/exec"
 	"syscall"
 )
+
+func executeShutdown() {
+	cmd := exec.Command("shutdown", "/s", "/f", "/t", "0")
+	cmd.Run()
+}
 
 var (
 	procSetThreadExecutionState = modkernel32.NewProc("SetThreadExecutionState")

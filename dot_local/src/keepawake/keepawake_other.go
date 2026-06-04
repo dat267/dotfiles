@@ -10,6 +10,16 @@ import (
 	"syscall"
 )
 
+func executeShutdown() {
+	// Try standard shutdown first
+	cmd := exec.Command("shutdown", "-h", "now")
+	if err := cmd.Run(); err != nil {
+		// Fallback to poweroff
+		exec.Command("poweroff").Run()
+	}
+}
+
+
 type powerAssertion struct {
 	cmd *exec.Cmd
 }
