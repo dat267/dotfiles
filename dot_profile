@@ -245,29 +245,6 @@ if [ -d "$FNM_PATH" ]; then
 		eval "$(fnm env)"
 	fi
 fi
-# Auto-activate/deactivate python virtualenv on directory change
-_auto_run_venv() {
-	if [ -n "$VIRTUAL_ENV" ]; then
-		case "$PWD" in
-			"${VIRTUAL_ENV%/.venv}"*) ;;
-			*) deactivate ;;
-		esac
-	fi
-	if [ -z "$VIRTUAL_ENV" ]; then
-		local dir="$PWD"
-		while [ "$dir" != "/" ] && [ "$dir" != "." ]; do
-			if [ -f "$dir/.venv/bin/activate" ]; then
-				. "$dir/.venv/bin/activate"
-				break
-			fi
-			dir="$(dirname "$dir")"
-		done
-	fi
-}
-cd() {
-	builtin cd "$@" && _auto_run_venv
-}
-
 # Universal archive extractor
 extract() {
 	if [ -f "$1" ]; then

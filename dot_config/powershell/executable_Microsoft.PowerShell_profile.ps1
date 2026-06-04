@@ -249,26 +249,6 @@ Set-Alias cw Open-LogsInsights
 Set-Alias vim nvim
 Set-Alias cm chezmoi
 
-function global:Set-AutoVenv {
-    if ($env:VIRTUAL_ENV) {
-        $parentDir = Split-Path $env:VIRTUAL_ENV -Parent
-        if (-not $pwd.Path.StartsWith($parentDir)) {
-            Deactivate
-        }
-    }
-    if (-not $env:VIRTUAL_ENV) {
-        $dir = $pwd.Path
-        while ($dir -and $dir -ne [System.IO.Path]::GetPathRoot($dir)) {
-            $activateScript = Join-Path $dir ".venv\Scripts\Activate.ps1"
-            if (Test-Path $activateScript) {
-                & $activateScript
-                break
-            }
-            $dir = Split-Path $dir -Parent
-        }
-    }
-}
-
 function global:Extract-Archive {
     param([string]$Path)
     if (-not (Test-Path $Path)) {
@@ -314,7 +294,6 @@ function global:Invoke-Up {
 Set-Alias up Invoke-Up
 
 function prompt {
-    if (Get-Command Set-AutoVenv -ErrorAction SilentlyContinue) { Set-AutoVenv }
     $lastExit = $global:LASTEXITCODE
     $path = $ExecutionContext.SessionState.Path.CurrentLocation.Path -replace [regex]::Escape($HOME), "~"
     $color = if ($lastExit -eq 0) { "$([char]27)[32m" } else { "$([char]27)[31m" }
