@@ -245,3 +245,88 @@ if [ -d "$FNM_PATH" ]; then
 		eval "$(fnm env)"
 	fi
 fi
+# Auto-activate/deactivate python virtualenv on directory change
+_auto_run_venv() {
+	if [ -n "$VIRTUAL_ENV" ]; then
+		case "$PWD" in
+			"${VIRTUAL_ENV%/.venv}"*) ;;
+			*) deactivate ;;
+		esac
+	fi
+	if [ -z "$VIRTUAL_ENV" ]; then
+		local dir="$PWD"
+		while [ "$dir" != "/" ] && [ "$dir" != "." ]; do
+			if [ -f "$dir/.venv/bin/activate" ]; then
+				. "$dir/.venv/bin/activate"
+				break
+			fi
+			dir="$(dirname "$dir")"
+		done
+	fi
+}
+cd() {
+	builtin cd "$@" && _auto_run_venv
+}
+
+# Universal archive extractor
+extract() {
+	if [ -f "$1" ]; then
+		case "$1" in
+			*.tar.bz2)   tar xjf "$1"     ;;
+			*.tar.gz)    tar xzf "$1"     ;;
+			*.bz2)       bunzip2 "$1"     ;;
+			*.rar)       unrar x "$1"     ;;
+			*.gz)        gunzip "$1"      ;;
+			*.tar)       tar xf "$1"      ;;
+			*.tbz2)      tar xjf "$1"     ;;
+			*.tgz)       tar xzf "$1"     ;;
+			*.zip)       unzip "$1"       ;;
+			*.Z)         uncompress "$1"  ;;
+			*.7z)        7z x "$1"        ;;
+			*)           echo "'$1' cannot be extracted via extract()" ;;
+		esac
+	else
+		echo "'$1' is not a valid file"
+	fi
+}
+
+# Smart parent directory jump
+up() {
+	local limit=$1
+	if [ -z "$limit" ]; then
+		cd ..
+		return
+	fi
+	if [ "$limit" -eq "$limit" ] 2>/dev/null; then
+		local cmd=""
+		for i in $(seq 1 "$limit"); do
+			cmd="../$cmd"
+		done
+		cd "$cmd"
+	else
+		local target="$PWD"
+		while [ "$target" != "/" ]; do
+			if [ "${target##*/}" = "$limit" ]; then
+				cd "$target"
+				return
+			fi
+			target="$(dirname "$target")"
+		done
+		echo "No parent directory matches '$limit'"
+	fi
+}
+
+# Fuzzy Finder integrations
+if command -v fzf >/dev/null 2>&1; then
+	fd() {
+		local dir
+		dir=$(find ${1:-.} -path '*/.*' -prune -o -type d -print 2> /dev/null | fzf +m) && cd "$dir"
+	}
+	fkill() {
+		local pid
+		pid=$(ps -ef | sed 1d | fzf -m | awk '{print $2}')
+		if [ -n "$pid" ]; then
+			echo "$pid" | xargs kill -9
+		fi
+	}
+fi

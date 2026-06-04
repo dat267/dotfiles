@@ -249,7 +249,72 @@ Set-Alias cw Open-LogsInsights
 Set-Alias vim nvim
 Set-Alias cm chezmoi
 
+function global:Set-AutoVenv {
+    if ($env:VIRTUAL_ENV) {
+        $parentDir = Split-Path $env:VIRTUAL_ENV -Parent
+        if (-not $pwd.Path.StartsWith($parentDir)) {
+            Deactivate
+        }
+    }
+    if (-not $env:VIRTUAL_ENV) {
+        $dir = $pwd.Path
+        while ($dir -and $dir -ne [System.IO.Path]::GetPathRoot($dir)) {
+            $activateScript = Join-Path $dir ".venv\Scripts\Activate.ps1"
+            if (Test-Path $activateScript) {
+                & $activateScript
+                break
+            }
+            $dir = Split-Path $dir -Parent
+        }
+    }
+}
+
+function global:Extract-Archive {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) {
+        Write-Error "'$Path' is not a valid file"
+        return
+    }
+    $ext = [System.IO.Path]::GetExtension($Path).ToLower()
+    switch ($ext) {
+        '.zip' { Expand-Archive -Path $Path -DestinationPath . }
+        '.7z'  { & 7z x $Path }
+        '.rar' { & unrar x $Path }
+        '.gz'  { & tar -xzf $Path }
+        '.tar' { & tar -xf $Path }
+        default { Write-Host "Unsupported file extension '$ext'" }
+    }
+}
+Set-Alias extract Extract-Archive
+
+function global:Invoke-Up {
+    param($LevelOrName)
+    if (-not $LevelOrName) {
+        Set-Location ..
+        return
+    }
+    if ($LevelOrName -match '^\d+$') {
+        $path = "."
+        for ($i = 0; $i -lt [int]$LevelOrName; $i++) {
+            $path = Join-Path $path ".."
+        }
+        Set-Location $path
+    } else {
+        $current = $pwd.Path
+        while ($current -and $current -ne [System.IO.Path]::GetPathRoot($current)) {
+            if ((Split-Path $current -Leaf) -ieq $LevelOrName) {
+                Set-Location $current
+                return
+            }
+            $current = Split-Path $current -Parent
+        }
+        Write-Warning "No parent directory matches '$LevelOrName'"
+    }
+}
+Set-Alias up Invoke-Up
+
 function prompt {
+    if (Get-Command Set-AutoVenv -ErrorAction SilentlyContinue) { Set-AutoVenv }
     $lastExit = $global:LASTEXITCODE
     $path = $ExecutionContext.SessionState.Path.CurrentLocation.Path -replace [regex]::Escape($HOME), "~"
     $color = if ($lastExit -eq 0) { "$([char]27)[32m" } else { "$([char]27)[31m" }
