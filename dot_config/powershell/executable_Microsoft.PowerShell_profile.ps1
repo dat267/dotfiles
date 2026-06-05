@@ -117,14 +117,25 @@
             $global:__in_lookup_hook = $true
             
             try {
-                if ($LookupArgs.Command -and $LookupArgs.Command.CommandType -eq "Application") {
-                    $path = $LookupArgs.Command.Path
-                    $regex = Get-ScriptRegex
-                    if ($path -match $regex) {
-                        if ($commandName -match $regex) {
-                            Resolve-ScriptCommand $path $LookupArgs
+                if ($LookupArgs.Command) {
+                    $commandType = $LookupArgs.Command.CommandType
+                    if ($commandType -eq "Application" -or $commandType -eq "ExternalScript") {
+                        $path = $LookupArgs.Command.Path
+                        $ext = [System.IO.Path]::GetExtension($path).ToLower()
+                        
+                        if ($ext -eq '.ps1') {
+                            if ($commandName -notmatch '\.ps1$') {
+                                $LookupArgs.Command = $null
+                            }
                         } else {
-                            $LookupArgs.Command = $null
+                            $regex = Get-ScriptRegex
+                            if ($path -match $regex) {
+                                if ($commandName -match $regex) {
+                                    Resolve-ScriptCommand $path $LookupArgs
+                                } else {
+                                    $LookupArgs.Command = $null
+                                }
+                            }
                         }
                     }
                 }
