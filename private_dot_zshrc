@@ -1,3 +1,4 @@
+
 zstyle ':completion:*' menu select
 [[ -f ~/.profile ]] && . ~/.profile
 autoload -Uz compinit
@@ -78,5 +79,13 @@ bindkey '^[^[[D' backward-word
 bindkey '^[^[[C' forward-word
 bindkey '^[^?' backward-kill-word
 bindkey '^[[3;5~' kill-word
-
-
+# Vi mode cursor: beam in insert, block in normal
+zle-keymap-select() {
+	case $KEYMAP in
+		vicmd)      print -n '\e[2 q' ;;  # Steady block
+		viins|main) print -n '\e[6 q' ;;  # Steady beam
+	esac
+}
+zle -N zle-keymap-select
+zle-line-init() { print -n '\e[6 q' }  # Start each line in insert (beam)
+zle -N zle-line-init
