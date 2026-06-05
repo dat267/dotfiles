@@ -299,6 +299,7 @@ function global:Invoke-Up {
             $current = Split-Path $current -Parent
         }
         Write-Warning "No parent directory matches '$LevelOrName'"
+    }
 }
 Set-Alias up Invoke-Up
 

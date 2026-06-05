@@ -6,34 +6,13 @@ $UserFontsDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
 $RegPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
 
 # Check if Fira Code Nerd Font is already installed
-$alreadyInstalled = $false
-$installedFonts = Get-ItemProperty -Path $RegPath -ErrorAction SilentlyContinue
-if ($installedFonts) {
-    foreach ($prop in $installedFonts.PSObject.Properties) {
-        if ($prop.Name -like "*FiraCode*Nerd*") {
-            $alreadyInstalled = $true
-            break
-        }
-    }
-}
-
-if ($alreadyInstalled) {
+$key = Get-Item -Path $RegPath -ErrorAction SilentlyContinue
+if ($key -and ($key.Property -like "*FiraCode*Nerd*")) {
     Write-Host "Fira Code Nerd Font is already installed. Skipping installation."
     exit 0
 }
 
-# Resolve latest release version of ryanoasis/nerd-fonts
-$tag = "v3.3.0" # fallback version
-try {
-    $apiResponse = Invoke-RestMethod -Uri "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" -UseBasicParsing -TimeoutSec 5
-    if ($apiResponse -and $apiResponse.tag_name) {
-        $tag = $apiResponse.tag_name
-    }
-} catch {
-    Write-Host "Failed to resolve latest version, using fallback version $tag."
-}
-
-$zipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/$tag/FiraCode.zip"
+$zipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/FiraCode.zip"
 $tempDir = Join-Path $env:TEMP "FiraCodeNerdFont"
 $zipPath = Join-Path $tempDir "FiraCode.zip"
 
@@ -43,7 +22,7 @@ try {
         New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
     }
 
-    Write-Host "Downloading Fira Code Nerd Font ($tag)..."
+    Write-Host "Downloading Fira Code Nerd Font..."
     Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
 
     Write-Host "Extracting font files..."
