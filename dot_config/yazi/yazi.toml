@@ -2,18 +2,19 @@
 show_hidden = false
 show_symlink = true
 scrolloff = 5
+linemode = "none"
 
 [preview]
 tab_size = 2
-max_width = 800
-max_height = 1000
-image_filter = "triangle"
-image_quality = 75
+max_width = 400
+max_height = 600
+image_filter = "nearest"
+image_quality = 50
 
 [tasks]
-micro_workers = 10
-macro_workers = 25
-barrier_workers = 10
+micro_workers = 2
+macro_workers = 2
+barrier_workers = 2
 
 [opener]
 edit = [
@@ -60,4 +61,9 @@ rules = [
 
 [plugin]
 prepend_previewers = [{ mime = "image/svg+xml", run = "noop" }]
-prepend_preloaders = [{ mime = "image/svg+xml", run = "noop" }]
+prepend_preloaders = [
+	{ mime = "image/svg+xml", run = "noop" },
+	{ mime = "image/*", run = "noop" },
+	{ mime = "video/*", run = "noop" },
+	{ mime = "pdf/*", run = "noop" },
+]

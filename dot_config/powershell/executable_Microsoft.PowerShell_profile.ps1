@@ -48,7 +48,7 @@
                 "C:\Program Files\Git\usr\bin\file.exe"
             )
             foreach ($p in $standardPaths) {
-                if (Test-Path $p) {
+                if ([System.IO.File]::Exists($p)) {
                     $env:YAZI_FILE_ONE = $p
                     break
                 }
@@ -58,8 +58,8 @@
                 $gitExec = git --exec-path 2>$null
                 if ($gitExec) {
                     $gitRoot = Split-Path (Split-Path (Split-Path $gitExec))
-                    $fileExe = Join-Path $gitRoot "usr\bin\file.exe"
-                    if (Test-Path $fileExe) {
+                    $fileExe = [System.IO.Path]::Combine($gitRoot, "usr\bin\file.exe")
+                    if ([System.IO.File]::Exists($fileExe)) {
                         $env:YAZI_FILE_ONE = $fileExe
                     }
                 }
@@ -75,7 +75,12 @@
                 $ext = [System.IO.Path]::GetExtension($path).ToLower()
                 $resolvers = Get-ScriptResolvers
                 if ($resolvers.Contains($ext)) {
-                    $firstLine = Get-Content -Path $path -First 1 -ErrorAction SilentlyContinue
+                    $firstLine = $null
+                    try {
+                        $reader = [System.IO.StreamReader]::new($path)
+                        $firstLine = $reader.ReadLine()
+                        $reader.Close()
+                    } catch {}
                     $interpreter = $null
                     
                     if ($firstLine -and $firstLine -match '^#!\s*(.+)$') {
@@ -162,18 +167,18 @@
                     if ($commandName -match '^get-(.+)$') {
                         $cleanName = $Matches[1]
                     }
-                    if (Test-Path $cleanName -PathType Leaf) {
-                        $path = (Get-Item $cleanName).FullName
+                    if ([System.IO.File]::Exists($cleanName)) {
+                        $path = [System.IO.Path]::GetFullPath($cleanName)
                     }
                 } else {
-                    $testPath = Join-Path $PWD.Path $commandName
-                    if (Test-Path $testPath -PathType Leaf) {
+                    $testPath = [System.IO.Path]::Combine($PWD.Path, $commandName)
+                    if ([System.IO.File]::Exists($testPath)) {
                         $path = $testPath
                     } else {
                         if ($commandName -match '^get-(.+)$') {
                             $stripped = $Matches[1]
-                            $testPath = Join-Path $PWD.Path $stripped
-                            if (Test-Path $testPath -PathType Leaf) {
+                            $testPath = [System.IO.Path]::Combine($PWD.Path, $stripped)
+                            if ([System.IO.File]::Exists($testPath)) {
                                 $path = $testPath
                             }
                         }
@@ -184,16 +189,16 @@
                         foreach ($dir in $pathDirs) {
                             if (-not [System.IO.Directory]::Exists($dir)) { continue }
                             
-                            $testPath = Join-Path $dir $commandName
-                            if (Test-Path $testPath -PathType Leaf) {
+                            $testPath = [System.IO.Path]::Combine($dir, $commandName)
+                            if ([System.IO.File]::Exists($testPath)) {
                                 $path = $testPath
                                 break
                             }
                             
                             if ($commandName -match '^get-(.+)$') {
                                 $stripped = $Matches[1]
-                                $testPath = Join-Path $dir $stripped
-                                if (Test-Path $testPath -PathType Leaf) {
+                                $testPath = [System.IO.Path]::Combine($dir, $stripped)
+                                if ([System.IO.File]::Exists($testPath)) {
                                     $path = $testPath
                                     break
                                 }
@@ -227,22 +232,48 @@
         }
     }
 
-    if ([bool]($ExecutionContext.SessionState.InvokeCommand.GetCommand('fnm', [System.Management.Automation.CommandTypes]::All))) {
-        & ([scriptblock]::Create(((fnm env --use-on-cd --shell powershell) -join "`n")))
+    $fnmCache = Join-Path $HOME ".fnm_env.ps1"
+    $shouldRegen = $true
+    if ([System.IO.File]::Exists($fnmCache)) {
+        $lastWrite = [System.IO.File]::GetLastWriteTime($fnmCache)
+        if ((Get-Date) - $lastWrite -lt (New-TimeSpan -Days 1)) {
+            $shouldRegen = $false
+        }
+    }
+    if ($shouldRegen -and [bool]($ExecutionContext.SessionState.InvokeCommand.GetCommand('fnm', [System.Management.Automation.CommandTypes]::All))) {
+        try {
+            $envStr = (fnm env --use-on-cd --shell powershell) -join "`n"
+            [System.IO.File]::WriteAllText($fnmCache, $envStr)
+            $shouldRegen = $false
+        } catch {}
+    }
+    if ([System.IO.File]::Exists($fnmCache)) {
+        . $fnmCache
     }
 
     # Load machine-local env vars (proxy creds, secrets, etc.) — not tracked in git
-    $envLocal = Join-Path $HOME ".env.local"
-    if (Test-Path $envLocal) {
-        Get-Content $envLocal | Where-Object { $_ -match '^\s*[^#]\S+=\S' } | ForEach-Object {
-            $k, $v = $_ -split '=', 2
-            [System.Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim())
+    $envLocal = [System.IO.Path]::Combine($HOME, ".env.local")
+    if ([System.IO.File]::Exists($envLocal)) {
+        foreach ($line in [System.IO.File]::ReadLines($envLocal)) {
+            if ($line -match '^\s*[^#]\S+=\S') {
+                $k, $v = $line -split '=', 2
+                [System.Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim())
+            }
         }
     }
 }
 
 function codesh { code $PSScriptRoot }
-function resh { . $PROFILE }
+function global:Clear-FnmCache {
+    $fnmCache = Join-Path $HOME ".fnm_env.ps1"
+    if ([System.IO.File]::Exists($fnmCache)) {
+        Remove-Item -Force $fnmCache
+    }
+}
+function resh {
+    Clear-FnmCache
+    . $PROFILE
+}
 
 function y {
     $tmp = [System.IO.Path]::GetTempFileName()
@@ -363,7 +394,8 @@ function global:sudo {
     # Try to find the command executable path
     $resolved = Get-Command $command -ErrorAction SilentlyContinue
     if ($resolved) {
-        $execPath = $resolved.Path ?? $resolved.Source
+        $execPath = $resolved.Path
+        if (-not $execPath) { $execPath = $resolved.Source }
         if ($execPath) {
             Start-Process $execPath -ArgumentList $rest -Verb RunAs -WorkingDirectory $PWD -Wait
         } else {
