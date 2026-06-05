@@ -4,106 +4,40 @@ Managed with [chezmoi](https://www.chezmoi.io/) for declarative, cross-platform 
 
 ## Overview
 
-This repository contains my personal dotfiles and configuration for various tools and applications. It supports **Linux**, **Windows** (PowerShell), and **Android** (Termux).
+This repository contains my personal dotfiles and configurations. It supports **Linux**, **Windows** (PowerShell), and **Android** (Termux).
 
 ## Quick Start
 
-### Standard Installation (Primary Machine)
+### Linux / macOS
 ```bash
-# Install chezmoi
-curl -sfL https://chezmoi.io/get | sh
-
-# Initialize with this repository
-chezmoi init --source=https://github.com/dat267/dotfiles
-
-# Apply changes
-chezmoi apply
+# Install chezmoi, clone repo, and apply in a single command
+sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply dat267
 ```
 
-## What's Included
-
-### Shell & Terminal
-- **Bash** - Interactive shell with aliases, functions, and package manager helpers
-- **PowerShell** - Cross-platform profile with OS-specific path handling
-- **zsh** - Integration hints in profile
-
-### Editors & IDEs
-- **Vim** - Plugin manager (vim-plug), ale (linting), monokai theme
-- **Neovim** - Lua-based configuration with lazy.nvim plugin manager
-- **VS Code** - User settings and code snippets for multiple languages
-
-### Development Tools
-- **Git** - Smart aliases (`gacp`, `gsw`, `gsm`), autosquash, auto-setup remote
-- **Go** - Installation script with GOPATH setup
-- **Node.js** - via fnm (Fast Node Manager)
-- **Python** - pyenv, virtualenv support
-- **AWS CLI** - Pre-configured for `ap-east-1` region
-- **Google Cloud SDK** - With bash completions and Cloud Shell SSH
-- **Terraform** - Installation script
-
-### Productivity Tools
-- **lf** - Terminal file manager with archive extraction commands
-- **mpv** - Media player with autoload playlist
-- **aria2** - Download manager with BitTorrent configuration
-- **rclone** - Cloud storage manager
-- **fzf** - Fuzzy finder integration
-
-### System Tools
-- **Docker/Podman** - Rootless container engine setup via `DOCKER_HOST`
-
-## Directory Structure
-
-```
-.
-├── dot_aws/              # AWS CLI configuration
-├── dot_config/           # Application configs (nvim, Code, mpv, lf, aria2)
-├── dot_local/scripts/    # Installation scripts (go, fnm, terraform, etc.)
-├── dot_vim/              # Vim configuration
-├── dot_gitconfig         # Git configuration
-├── dot_profile          # Universal shell profile
-├── private_dot_bashrc    # Bash interactive configuration
-├── private_dot_ssh/      # SSH configuration (private)
-└── run_*.tmpl           # chezmoi automation scripts
+### Windows (PowerShell)
+```powershell
+# Install chezmoi, clone repo, and apply in a single command
+irm get.chezmoi.io | iex; & "$env:USERPROFILE\bin\chezmoi" init --apply dat267
 ```
 
 ## Customization
 
-### Private Configuration
+### Private Configuration & Environment Variables
 
-Create a `~/.local/share/chezmoi/private_dot_bashrc.local` file (symlinked to `~/.bashrc.local`) for machine-specific bash settings that won't be committed.
+Upon first `chezmoi apply`, the bootstrap scripts automatically create template files in your home directory for machine-specific configuration:
+- `~/.env.local` - For environment variables, sourced by the universal shell profile.
+- `~/.gitconfig.local` - For machine-specific Git configuration (e.g. user email/name, work/personal settings).
 
-### Environment Variables
-
-Create a `~/.env.local` file for private environment variables. The profile sources this if it exists.
+These files are gitignored in the home directory, allowing you to safely store secrets and host-specific settings.
 
 ### Custom Scripts
 
-Personal scripts in `~/.local/scripts/{py,js,sh,ps1}` are automatically added to PATH.
-
-## Manual Setup
-
-Some tools require manual installation. The installation scripts are in `dot_local/scripts/py/` (or `dot_local/scripts/sh/` for shell-only tools):
-
-| Script                 | Purpose           |
-| ---------------------- | ----------------- |
-| `install_go.py`        | Go language setup |
-| `install_fnm.py`       | Fast Node Manager |
-| `install_aws.py`       | AWS CLI v2        |
-| `install_gcloud.py`    | Google Cloud SDK  |
-| `install_terraform.py` | Terraform         |
-| `install_lf.py`        | lf file manager   |
-| `install_vscode.py`    | VS Code Desktop   |
-| `install_code.py`      | VS Code CLI (code)|
-| `install_pwsh.py`      | PowerShell Core   |
-| `install_firefox.py`   | Firefox Portable  |
+- Personal scripts in `~/.local/scripts/{py,js,sh,ps1}` are automatically added to PATH.
+- Installation helper scripts for developer tools and utilities (such as Go, FNM, AWS CLI, Terraform, file managers, etc.) are located in `dot_local/scripts/py/` and can be run manually to bootstrap your environment.
 
 ## chezmoi Automation
 
-This repository uses chezmoi's auto-git feature to automatically commit and push changes when you run `chezmoi apply`.
-
-## Credits
-
-Configured by **Dat Do**.
+This repository uses chezmoi's git integration to automatically track configuration updates.
 
 ## License
 
