@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 # shellcheck disable=SC1091
 [[ -z "$PROFILE_LOADED" ]] && [[ -f ~/.profile ]] && . ~/.profile
 [[ $- != *i* ]] && return
