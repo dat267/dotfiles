@@ -16,15 +16,28 @@ var (
 const attachParentProcess = 0xFFFFFFFF
 
 // Global channel to notify main loop of Ctrl+C
-var ctrlCChan chan<- os.Signal
+var (
+	ctrlCChan  chan<- os.Signal
+	ctrlCCount int
+)
 
 func consoleCtrlHandler(ctrlType uintptr) uintptr {
 	switch ctrlType {
 	case 0, 1: // CTRL_C_EVENT, CTRL_BREAK_EVENT
-		if ctrlCChan != nil {
-			ctrlCChan <- os.Interrupt
+		ctrlCCount++
+		if ctrlCCount > 1 {
+			// On subsequent Ctrl+C, let the OS handle it (terminates immediately)
+			return 0
 		}
-		return 1 // Handled
+		if ctrlCChan != nil {
+			select {
+			case ctrlCChan <- os.Interrupt:
+				// Sent successfully
+			default:
+				// Channel full, do not block
+			}
+		}
+		return 1 // Handled (gives the app a chance to clean up gracefully)
 	}
 	return 0 // Not handled
 }
