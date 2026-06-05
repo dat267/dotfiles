@@ -1,0 +1,124 @@
+{{ if eq .chezmoi.os "windows" -}}
+$ProgressPreference = 'SilentlyContinue'
+
+$fontFamilyPattern = "FiraCode"
+$UserFontsDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+$RegPath = "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+
+# Check if Fira Code Nerd Font is already installed
+$alreadyInstalled = $false
+$installedFonts = Get-ItemProperty -Path $RegPath -ErrorAction SilentlyContinue
+if ($installedFonts) {
+    foreach ($prop in $installedFonts.PSObject.Properties) {
+        if ($prop.Name -like "*FiraCode*Nerd*") {
+            $alreadyInstalled = $true
+            break
+        }
+    }
+}
+
+if ($alreadyInstalled) {
+    Write-Host "Fira Code Nerd Font is already installed. Skipping installation."
+    exit 0
+}
+
+# Resolve latest release version of ryanoasis/nerd-fonts
+$tag = "v3.3.0" # fallback version
+try {
+    $apiResponse = Invoke-RestMethod -Uri "https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest" -UseBasicParsing -TimeoutSec 5
+    if ($apiResponse -and $apiResponse.tag_name) {
+        $tag = $apiResponse.tag_name
+    }
+} catch {
+    Write-Host "Failed to resolve latest version, using fallback version $tag."
+}
+
+$zipUrl = "https://github.com/ryanoasis/nerd-fonts/releases/download/$tag/FiraCode.zip"
+$tempDir = Join-Path $env:TEMP "FiraCodeNerdFont"
+$zipPath = Join-Path $tempDir "FiraCode.zip"
+
+try {
+    # Ensure temp directory exists
+    if (-not (Test-Path $tempDir)) {
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+    }
+
+    Write-Host "Downloading Fira Code Nerd Font ($tag)..."
+    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+
+    Write-Host "Extracting font files..."
+    Expand-Archive -Path $zipPath -DestinationPath $tempDir -Force
+
+    # Ensure user fonts directory exists
+    if (-not (Test-Path $UserFontsDir)) {
+        New-Item -ItemType Directory -Path $UserFontsDir -Force | Out-Null
+    }
+
+    # Load PresentationCore to read font names
+    try {
+        Add-Type -AssemblyName PresentationCore | Out-Null
+        $hasPresentationCore = $true
+    } catch {
+        $hasPresentationCore = $false
+    }
+
+    $fontFiles = Get-ChildItem -Path $tempDir -Filter "*.ttf"
+    $fontFiles += Get-ChildItem -Path $tempDir -Filter "*.otf"
+
+    Write-Host "Installing fonts for current user..."
+    foreach ($file in $fontFiles) {
+        $fontFileName = $file.Name
+        $destinationPath = Join-Path $UserFontsDir $fontFileName
+
+        # Copy the font file
+        Copy-Item -Path $file.FullName -Destination $destinationPath -Force
+
+        $fontName = $null
+        if ($hasPresentationCore) {
+            try {
+                $fontUri = [System.Uri]::new($destinationPath)
+                $glyphTypeface = [System.Windows.Media.GlyphTypeface]::new($fontUri)
+                $culture = [System.Globalization.CultureInfo]::new("en-us")
+
+                $familyName = if ($glyphTypeface.Win32FamilyNames.ContainsKey($culture)) {
+                    $glyphTypeface.Win32FamilyNames[$culture]
+                } else {
+                    $glyphTypeface.Win32FamilyNames.Values | Select-Object -First 1
+                }
+
+                $faceName = if ($glyphTypeface.Win32FaceNames.ContainsKey($culture)) {
+                    $glyphTypeface.Win32FaceNames[$culture]
+                } else {
+                    $glyphTypeface.Win32FaceNames.Values | Select-Object -First 1
+                }
+
+                $fullName = if ($faceName -eq "Regular") { $familyName } else { "$familyName $faceName" }
+                $suffix = if ($fontFileName.EndsWith(".otf", [System.StringComparison]::OrdinalIgnoreCase)) { " (OpenType)" } else { " (TrueType)" }
+                $fontName = "$fullName$suffix"
+            } catch {
+                # Fallback handled below
+            }
+        }
+
+        # Fallback to filename based generation if PresentationCore check fails or errors
+        if (-not $fontName) {
+            $baseName = [System.IO.Path]::GetFileNameWithoutExtension($fontFileName)
+            $fallbackName = $baseName.Replace("-", " ")
+            $suffix = if ($fontFileName.EndsWith(".otf", [System.StringComparison]::OrdinalIgnoreCase)) { " (OpenType)" } else { " (TrueType)" }
+            $fontName = "$fallbackName$suffix"
+        }
+
+        # Register the font in registry
+        New-ItemProperty -Path $RegPath -Name $fontName -Value $fontFileName -PropertyType String -Force | Out-Null
+    }
+
+    Write-Host "Successfully installed Fira Code Nerd Font."
+} catch {
+    Write-Error "Failed to install Fira Code Nerd Font: $_"
+} finally {
+    # Clean up temp folder
+    if (Test-Path $tempDir) {
+        Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+{{ end -}}
