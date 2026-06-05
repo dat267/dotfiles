@@ -17,10 +17,10 @@ func main() {
 	// Setup console environment (hide window if double-clicked on Windows, no-op elsewhere)
 	setupConsole()
 
-	versionFlag := flag.Bool("version", false, "Print version")
-	systemOnlyFlag := flag.Bool("system-only", false, "Prevent system sleep but allow the display to turn off (Windows/macOS only)")
-	timeoutFlag := flag.String("timeout", "", "Exit after specified duration (e.g. 2h30m, 45m, 15s)")
-	shutdownFlag := flag.Bool("shutdown", false, "Shutdown the system after the timeout expires (gives 60s warning to react)")
+	versionFlag := flag.Bool("v", false, "Print version")
+	unattendedFlag := flag.Bool("u", false, "Prevent system sleep but allow the display to turn off (Windows/macOS only)")
+	timeoutFlag := flag.String("t", "", "Exit after specified duration (e.g. 2h30m, 45m, 15s)")
+	shutdownFlag := flag.Bool("s", false, "Shutdown the system after the timeout expires (gives 60s warning to react)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "KeepAwake v%s - Keep computers active with random periodic interactions.\n\n", version)
@@ -29,11 +29,11 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Flags:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\nExamples:\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  keepawake -timeout 2h\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  keepawake -t 2h\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "      Keep active for 2 hours, then exit.\n\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  keepawake -timeout 45m -shutdown\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  keepawake -t 45m -s\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "      Keep active for 45 minutes, then trigger a shutdown with 60s cancellation warning.\n\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  keepawake -system-only\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  keepawake -u\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "      Prevent system sleep, but let the screen turn off (Windows/macOS only).\n\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "Platforms & Simulation Actions:\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "  - Windows: Uses SetThreadExecutionState and user32 key events (VK_F15 / VK_SCROLL).\n")
@@ -60,7 +60,7 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 
-	display := !*systemOnlyFlag
+	display := !*unattendedFlag
 	assertion := startPowerAssertion(display)
 	defer assertion.restore()
 
