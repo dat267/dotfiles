@@ -128,11 +128,7 @@
                         $path = $LookupArgs.Command.Path
                         $ext = [System.IO.Path]::GetExtension($path).ToLower()
                         
-                        if ($ext -eq '.ps1') {
-                            if ($commandName -notmatch '\.ps1$') {
-                                $LookupArgs.Command = $null
-                            }
-                        } else {
+                        if ($ext -ne '.ps1') {
                             $regex = Get-ScriptRegex
                             if ($path -match $regex) {
                                 if ($commandName -match $regex) {
