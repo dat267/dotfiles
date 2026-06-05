@@ -299,9 +299,35 @@ function global:Invoke-Up {
             $current = Split-Path $current -Parent
         }
         Write-Warning "No parent directory matches '$LevelOrName'"
-    }
 }
 Set-Alias up Invoke-Up
+
+function global:Invoke-Which {
+    param(
+        [Parameter(ValueFromPipeline=$true, Position=0)]
+        [string]$Name
+    )
+    process {
+        if (-not $Name) {
+            Write-Host "Usage: which <command-name>"
+            return
+        }
+        $cmd = Get-Command -Name $Name -ErrorAction SilentlyContinue
+        if ($cmd) {
+            if ($cmd.Path) {
+                $cmd.Path
+            } elseif ($cmd.Source) {
+                $cmd.Source
+            } else {
+                $cmd.Definition
+            }
+        } else {
+            Write-Error "Command '$Name' not found."
+        }
+    }
+}
+Set-Alias which Invoke-Which
+
 
 function prompt {
     $lastExit = $global:LASTEXITCODE
