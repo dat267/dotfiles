@@ -378,9 +378,19 @@ function global:sudo {
     }
 }
 
-# Add grep alias for Select-String if not already defined
-if (-not (Get-Command grep -ErrorAction SilentlyContinue)) {
-    Set-Alias grep Select-String
+# Add grep alias for Select-String if not already in PATH (fast check using .NET to avoid Get-Command overhead)
+$hasGrep = $false
+foreach ($dir in ($env:PATH -split [IO.Path]::PathSeparator)) {
+    if ([System.IO.Directory]::Exists($dir)) {
+        if ([System.IO.File]::Exists([System.IO.Path]::Combine($dir, "grep.exe")) -or 
+            [System.IO.File]::Exists([System.IO.Path]::Combine($dir, "grep"))) {
+            $hasGrep = $true
+            break
+        }
+    }
+}
+if (-not $hasGrep) {
+    Set-Alias grep Select-String -ErrorAction SilentlyContinue
 }
 
 
