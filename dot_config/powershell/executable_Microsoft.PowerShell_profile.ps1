@@ -328,6 +328,61 @@ function global:Invoke-Which {
 }
 Set-Alias which Invoke-Which
 
+function global:touch {
+    param(
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)]
+        [string[]]$Path
+    )
+    process {
+        foreach ($p in $Path) {
+            if (Test-Path $p) {
+                (Get-Item $p).LastWriteTime = Get-Date
+            } else {
+                New-Item -ItemType File -Path $p -Force | Out-Null
+            }
+        }
+    }
+}
+
+function global:sudo {
+    param(
+        [Parameter(ValueFromRemainingArguments=$true)]
+        [string[]]$Arguments
+    )
+    if (-not $Arguments) {
+        # Open an elevated shell in the current directory
+        $currentShell = (Get-Process -Id $PID).Path
+        Start-Process $currentShell -ArgumentList "-NoProfile -WorkingDirectory `"$PWD`"" -Verb RunAs
+        return
+    }
+    
+    $command = $Arguments[0]
+    $rest = $Arguments[1..($Arguments.Count - 1)]
+    
+    # Try to find the command executable path
+    $resolved = Get-Command $command -ErrorAction SilentlyContinue
+    if ($resolved) {
+        $execPath = $resolved.Path ?? $resolved.Source
+        if ($execPath) {
+            Start-Process $execPath -ArgumentList $rest -Verb RunAs -WorkingDirectory $PWD -Wait
+        } else {
+            # For functions/cmdlets, run inside an elevated PowerShell instance
+            $scriptBlock = $Arguments -join ' '
+            $currentShell = (Get-Process -Id $PID).Path
+            Start-Process $currentShell -ArgumentList "-NoProfile -Command `"$scriptBlock`"" -Verb RunAs -WorkingDirectory $PWD -Wait
+        }
+    } else {
+        # Fallback to direct execution
+        Start-Process $command -ArgumentList $rest -Verb RunAs -WorkingDirectory $PWD -Wait
+    }
+}
+
+# Add grep alias for Select-String if not already defined
+if (-not (Get-Command grep -ErrorAction SilentlyContinue)) {
+    Set-Alias grep Select-String
+}
+
+
 
 function prompt {
     $lastExit = $global:LASTEXITCODE
