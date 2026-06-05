@@ -14,8 +14,6 @@ import (
 var version = "dev"
 
 func main() {
-	// Setup console environment (hide window if double-clicked on Windows, no-op elsewhere)
-	setupConsole()
 
 	versionFlag := flag.Bool("v", false, "Print version")
 	unattendedFlag := flag.Bool("u", false, "Prevent system sleep but allow the display to turn off (Windows/macOS only)")
@@ -67,7 +65,6 @@ func main() {
 	// Intercept signals for graceful termination
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	setCtrlCChan(sigChan)
 
 	fmt.Printf("[*] Starting keep-awake (System: %s, Display Keep-Alive: %v)\n", runtime.GOOS, display)
 	if *timeoutFlag != "" {

@@ -16,6 +16,7 @@ func executeShutdown() {
 }
 
 var (
+	modkernel32                 = syscall.NewLazyDLL("kernel32.dll")
 	procSetThreadExecutionState = modkernel32.NewProc("SetThreadExecutionState")
 	moduser32                   = syscall.NewLazyDLL("user32.dll")
 	procKeybdEvent              = moduser32.NewProc("keybd_event")
