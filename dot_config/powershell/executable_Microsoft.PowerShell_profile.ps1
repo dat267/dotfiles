@@ -430,7 +430,7 @@ if (-not $hasGrep) {
 function prompt {
     $lastExit = $global:LASTEXITCODE
     $path = $ExecutionContext.SessionState.Path.CurrentLocation.Path -replace [regex]::Escape($HOME), "~"
-    $color = if ($lastExit -eq 0) { "$([char]27)[32m" } else { "$([char]27)[31m" }
+    $color = if ($null -eq $lastExit -or $lastExit -eq 0) { "$([char]27)[32m" } else { "$([char]27)[31m" }
     $reset = "$([char]27)[0m"
     "$color$path$reset > "
 }
