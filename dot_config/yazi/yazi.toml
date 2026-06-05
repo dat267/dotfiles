@@ -62,6 +62,7 @@ rules = [
 [plugin]
 prepend_previewers = [{ mime = "image/svg+xml", run = "noop" }]
 prepend_preloaders = [
+	{ mime = "inode/directory", run = "noop" },
 	{ mime = "image/svg+xml", run = "noop" },
 	{ mime = "image/*", run = "noop" },
 	{ mime = "video/*", run = "noop" },
