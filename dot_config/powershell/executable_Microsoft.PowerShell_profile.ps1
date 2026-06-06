@@ -20,12 +20,32 @@
     )
 
     if ($IsWindows) {
+        $paths += @(
+            "$HOME/.config/powershell/scripts/windows",
+            "$HOME/Apps/nvim-win64/bin",
+            "$HOME/Apps/pwsh",
+            "$HOME/Apps/7z"
+        )
+    }
+    elseif ($IsLinux) {
+        $paths += "$HOME/.config/nvim/bin"
+    }
+    elseif ($IsMacOS) {
+        $paths += "/opt/homebrew/bin"
+    }
+
+    $set = [System.Collections.Generic.HashSet[string]]::new($env:PATH -split [IO.Path]::PathSeparator, [System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($p in $paths) {
+        if ([System.IO.Directory]::Exists($p)) { [void]$set.Add($p) }
+    }
+    $env:PATH = $set -join [IO.Path]::PathSeparator
+
+    if ($IsWindows) {
         $env:GOPROXY = "https://proxy.golang.org,direct"
         $env:GOSUMDB = "off"
 
         Set-ItemProperty -Path "HKCU:\Console" -Name "VirtualTerminalLevel" -Value 1 -Type DWord -ErrorAction SilentlyContinue
 
-        $paths += "$HOME/.config/powershell/scripts/windows", "$HOME/Apps/nvim-win64/bin", "$HOME/Apps/pwsh", "$HOME/Apps/7z"
         $scriptResolvers = [ordered]@{
             '.py'  = 'python'
             '.js'  = 'node'
@@ -177,14 +197,6 @@
             }
         }
     }
-    elseif ($IsLinux) { $paths += "$HOME/.config/nvim/bin" }
-    elseif ($IsMacOS) { $paths += "/opt/homebrew/bin" }
-
-    $set = [System.Collections.Generic.HashSet[string]]::new($env:PATH -split [IO.Path]::PathSeparator, [System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($p in $paths) {
-        if ([System.IO.Directory]::Exists($p)) { [void]$set.Add($p) }
-    }
-    $env:PATH = $set -join [IO.Path]::PathSeparator
 
     $mod = "$HOME/.config/powershell/modules"
     if ([System.IO.Directory]::Exists($mod)) {
