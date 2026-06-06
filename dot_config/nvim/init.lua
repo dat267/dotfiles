@@ -14,20 +14,19 @@ vim.g.mapleader = " "
 vim.keymap.set("n", "<leader>w", "<cmd>w<cr>", { desc = "Save file" })
 vim.keymap.set("n", "<leader>q", "<cmd>q<cr>", { desc = "Quit" })
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
-local function apply_background()
-	local bg_color = vim.o.background == "light" and "#F3F3F3" or "#1F1F1F"
+local function apply_transparency()
 	local hl_groups = {
 		"Normal", "NormalNC", "SignColumn", "LineNr", "CursorLineNr",
 		"EndOfBuffer", "NonText", "Folded", "StatusLine", "StatusLineNC",
 		"VertSplit", "WinSeparator", "NormalFloat", "FloatBorder", "Pmenu"
 	}
 	for _, group in ipairs(hl_groups) do
-		vim.api.nvim_set_hl(0, group, { bg = bg_color })
+		vim.api.nvim_set_hl(0, group, { bg = "none", ctermbg = "none" })
 	end
 end
-apply_background()
+apply_transparency()
 vim.api.nvim_create_autocmd("ColorScheme", {
-	callback = apply_background
+	callback = apply_transparency
 })
 local builtin_theme = vim.o.background == "light" and "quiet" or "habamax"
 pcall(vim.cmd.colorscheme, builtin_theme)
