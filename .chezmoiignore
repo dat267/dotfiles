@@ -12,7 +12,6 @@ AGENTS.md
 {{- if ne .chezmoi.os "windows" }}
 AppData
 run_once_before_bootstrap-local-configs.ps1.tmpl
-run_once_install-nerd-fonts.ps1.tmpl
 run_onchange_after_create-junctions.ps1.tmpl
 {{- end }}
 
