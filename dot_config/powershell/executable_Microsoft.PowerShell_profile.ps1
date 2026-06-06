@@ -1,4 +1,11 @@
 & {
+    # Define automatic platform variables for PowerShell 5.1 compatibility
+    if ($null -eq $IsWindows) {
+        $IsWindows = $true
+        $IsLinux = $false
+        $IsMacOS = $false
+    }
+
     $env:EDITOR = if ([bool]($ExecutionContext.SessionState.InvokeCommand.GetCommand('nvim', [System.Management.Automation.CommandTypes]::All))) { 'nvim' } else { 'vim' }
 
     $paths = @(
@@ -15,6 +22,15 @@
         # Setup Go Proxy
         $env:GOPROXY = "https://proxy.golang.org,direct"
         $env:GOSUMDB = "off"
+
+        # Enable virtual terminal processing globally (ANSI colors) for conhost
+        $registryPath = "HKCU:\Console"
+        if (Test-Path $registryPath) {
+            $props = Get-ItemProperty -Path $registryPath -ErrorAction SilentlyContinue
+            if ($null -eq $props -or $null -eq $props.VirtualTerminalLevel -or $props.VirtualTerminalLevel -ne 1) {
+                Set-ItemProperty -Path $registryPath -Name "VirtualTerminalLevel" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+            }
+        }
 
         $paths += "$HOME/.config/powershell/scripts/windows", "$HOME/Apps/nvim-win64/bin", "$HOME/Apps/pwsh", "$HOME/Apps/7z"
         # Supported script extensions and default interpreters (easily extensible)
@@ -421,7 +437,43 @@ if (-not $hasGrep) {
     Set-Alias grep Select-String -ErrorAction SilentlyContinue
 }
 
+# Create a directory and cd into it
+function global:mkcd {
+    param(
+        [Parameter(Mandatory=$true, Position=0)]
+        [string]$Path
+    )
+    New-Item -ItemType Directory -Path $Path -Force | Out-Null
+    Set-Location $Path
+}
 
+# Git pull, add all, commit, and push
+function global:gacp {
+    param(
+        [Parameter(Mandatory=$true, Position=0, ValueFromRemainingArguments=$true)]
+        [string[]]$Message
+    )
+    process {
+        $msg = $Message -join ' '
+        if ([string]::IsNullOrWhiteSpace($msg)) {
+            Write-Error "Error: No commit message provided."
+            Write-Host "Usage: gacp <commit message>"
+            return
+        }
+        $branch = (git rev-parse --abbrev-ref HEAD 2>$null)
+        if (-not $branch) {
+            Write-Error "Not a git repository (or no commits yet)."
+            return
+        }
+        git pull origin $branch
+        if ($LASTEXITCODE -ne 0) { return }
+        git add -A
+        if ($LASTEXITCODE -ne 0) { return }
+        git commit -m $msg
+        if ($LASTEXITCODE -ne 0) { return }
+        git push origin $branch
+    }
+}
 
 function prompt {
     $lastExit = $global:LASTEXITCODE
@@ -429,4 +481,18 @@ function prompt {
     $color = if ($null -eq $lastExit -or $lastExit -eq 0) { "$([char]27)[32m" } else { "$([char]27)[31m" }
     $reset = "$([char]27)[0m"
     "$color$path$reset > "
+}
+
+# PSReadLine Predictive IntelliSense (zsh-like autocomplete) and history search
+if (Get-Command Set-PSReadLineOption -ErrorAction SilentlyContinue) {
+    if (-not [Console]::IsOutputRedirected) {
+        try {
+            Set-PSReadLineOption -PredictionSource History -ErrorAction SilentlyContinue
+            Set-PSReadLineOption -PredictionViewStyle Inline -ErrorAction SilentlyContinue
+            Set-PSReadLineKeyHandler -Key RightArrow -Function AcceptSuggestion -ErrorAction SilentlyContinue
+            Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete -ErrorAction SilentlyContinue
+            Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward -ErrorAction SilentlyContinue
+            Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward -ErrorAction SilentlyContinue
+        } catch {}
+    }
 }

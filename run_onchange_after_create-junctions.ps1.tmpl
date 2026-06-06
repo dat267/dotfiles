@@ -37,29 +37,34 @@ foreach ($pair in $folderMap.GetEnumerator()) {
     New-Item -ItemType Junction -Path $link -Target $target -Force | Out-Null
 }
 
-# PS7: ensure the stub $PROFILE sources the chezmoi-managed profile.
-# Avoids fighting OneDrive over the PowerShell dir (which has synced modules).
-$ps7Profile = "$docsDir\PowerShell\Microsoft.PowerShell_profile.ps1"
+# PS7 and Windows PowerShell: ensure stub $PROFILEs source the chezmoi-managed profile.
+# Avoids fighting OneDrive over the PowerShell directories (which have synced modules).
+$profiles = @(
+    "$docsDir\PowerShell\Microsoft.PowerShell_profile.ps1",
+    "$docsDir\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"
+)
 $dotfilesProfile = "{{ .chezmoi.homeDir }}/.config/powershell/Microsoft.PowerShell_profile.ps1".Replace('/', '\')
 $sourceLine = ". `"$dotfilesProfile`""
 
-if (Test-Path $ps7Profile) {
-    $content = Get-Content $ps7Profile -Raw
-    $hasSource = $false
-    if ($content) {
-        $escapedPath = [regex]::Escape($dotfilesProfile)
-        $pattern = "(?i)\.\s*`"?$escapedPath`"?"
-        if ($content -match $pattern) {
-            $hasSource = $true
+foreach ($prof in $profiles) {
+    if (Test-Path $prof) {
+        $content = Get-Content $prof -Raw
+        $hasSource = $false
+        if ($content) {
+            $escapedPath = [regex]::Escape($dotfilesProfile)
+            $pattern = "(?i)\.\s*`"?$escapedPath`"?"
+            if ($content -match $pattern) {
+                $hasSource = $true
+            }
         }
+        if (-not $hasSource) {
+            $newContent = $sourceLine + "`r`n" + $content
+            Set-Content -Path $prof -Value $newContent -Encoding UTF8
+        }
+    } else {
+        New-Item -ItemType Directory -Force -Path (Split-Path $prof) | Out-Null
+        Set-Content -Path $prof -Value ($sourceLine + "`r`n") -Encoding UTF8
     }
-    if (-not $hasSource) {
-        $newContent = $sourceLine + "`r`n" + $content
-        Set-Content -Path $ps7Profile -Value $newContent -Encoding UTF8
-    }
-} else {
-    New-Item -ItemType Directory -Force -Path (Split-Path $ps7Profile) | Out-Null
-    Set-Content -Path $ps7Profile -Value ($sourceLine + "`r`n") -Encoding UTF8
 }
 
 # WezTerm: write a stub .wezterm.lua in $HOME that delegates to the XDG config
