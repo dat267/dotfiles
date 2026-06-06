@@ -4,6 +4,7 @@ show_symlink = true
 scrolloff = 5
 linemode = "none"
 
+
 [preview]
 tab_size = 2
 max_width = 400

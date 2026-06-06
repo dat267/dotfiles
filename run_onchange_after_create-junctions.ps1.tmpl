@@ -69,4 +69,14 @@ $weztermStubVal  = "return dofile(os.getenv('USERPROFILE') .. '/.config/wezterm/
 if (-not (Test-Path $weztermStubPath) -or (Get-Content $weztermStubPath -Raw).Trim() -ne $weztermStubVal.Trim()) {
     Set-Content -Path $weztermStubPath -Value $weztermStubVal -Encoding UTF8
 }
+
+# Windows Terminal: create a shortcut in Start Menu with Ctrl+Alt+T hotkey
+if (Get-Command wt.exe -ErrorAction SilentlyContinue) {
+    $WshShell = New-Object -ComObject WScript.Shell
+    $ShortcutPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Windows Terminal.lnk"
+    $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+    $Shortcut.TargetPath = "wt.exe"
+    $Shortcut.Hotkey = "CTRL+ALT+T"
+    $Shortcut.Save()
+}
 {{ end -}}
