@@ -4,16 +4,12 @@ Host *
   UserKnownHostsFile=/dev/null
   LogLevel ERROR
 Host nexus
-  HostName 192.168.1.2
   User root
-  ProxyJump citadel
+  Hostname 100.64.0.3
 Host citadel
   User dat
   Hostname 100.64.0.1
 Host outpost
   User dat
   Hostname 100.64.0.2
-Host cruiser
-  User u0_a670
-  Port 8022
-  Hostname 100.64.0.3
+
