@@ -63,7 +63,7 @@
     },
     "schemes": [
         {
-            "background": "#282C34",
+            "background": "#1F1F1F",
             "black": "#000000",
             "blue": "#0184BC",
             "brightBlack": "#808080",
@@ -86,7 +86,7 @@
             "yellow": "#C18301"
         },
         {
-            "background": "#FAFAFA",
+            "background": "#F3F3F3",
             "black": "#FFFFFF",
             "blue": "#61AFEF",
             "brightBlack": "#C0C0C0",
