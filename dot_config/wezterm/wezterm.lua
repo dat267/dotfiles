@@ -80,11 +80,11 @@ end
 config.color_schemes = {
   ['OneDarkCustom'] = {
     foreground = '#DCDFE4',
-    background = '#282C34',
+    background = '#1F1F1F',
     cursor_bg = '#FFFFFF',
-    cursor_fg = '#282C34',
+    cursor_fg = '#1F1F1F',
     selection_bg = '#FDF6E3',
-    selection_fg = '#282C34',
+    selection_fg = '#1F1F1F',
     ansi = {
       '#000000', -- black
       '#E45649', -- red
@@ -108,9 +108,9 @@ config.color_schemes = {
   },
   ['OneLightCustom'] = {
     foreground = '#383A42',
-    background = '#FAFAFA',
+    background = '#F3F3F3',
     cursor_bg = '#4F525D',
-    cursor_fg = '#FAFAFA',
+    cursor_fg = '#F3F3F3',
     selection_bg = '#FDF6E3',
     selection_fg = '#383A42',
     ansi = {
