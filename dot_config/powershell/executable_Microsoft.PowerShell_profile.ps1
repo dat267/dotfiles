@@ -1,9 +1,8 @@
 & {
-    # Define automatic platform variables for PowerShell 5.1 compatibility
     if ($null -eq $IsWindows) {
-        $IsWindows = $true
-        $IsLinux = $false
-        $IsMacOS = $false
+        New-Variable -Name IsWindows -Value $true -Scope Global
+        New-Variable -Name IsLinux -Value $false -Scope Global
+        New-Variable -Name IsMacOS -Value $false -Scope Global
     }
 
     $env:EDITOR = if ([bool]($ExecutionContext.SessionState.InvokeCommand.GetCommand('nvim', [System.Management.Automation.CommandTypes]::All))) { 'nvim' } else { 'vim' }
@@ -19,11 +18,9 @@
     )
 
     if ($IsWindows) {
-        # Setup Go Proxy
         $env:GOPROXY = "https://proxy.golang.org,direct"
         $env:GOSUMDB = "off"
 
-        # Enable virtual terminal processing globally (ANSI colors) for conhost
         $registryPath = "HKCU:\Console"
         if (Test-Path $registryPath) {
             $props = Get-ItemProperty -Path $registryPath -ErrorAction SilentlyContinue
@@ -33,14 +30,12 @@
         }
 
         $paths += "$HOME/.config/powershell/scripts/windows", "$HOME/Apps/nvim-win64/bin", "$HOME/Apps/pwsh", "$HOME/Apps/7z"
-        # Supported script extensions and default interpreters (easily extensible)
         $scriptResolvers = [ordered]@{
             '.py'  = 'python'
             '.js'  = 'node'
             '.lua' = 'lua'
         }
 
-        # Cache variables globally to optimize lookup performance in hooks
         $escapedExtensions = ($scriptResolvers.Keys | ForEach-Object { [regex]::Escape($_) }) -join '|'
         $global:__script_regex = "(?i)($escapedExtensions)$"
         $global:__script_resolvers = $scriptResolvers
@@ -48,7 +43,6 @@
         function global:Get-ScriptResolvers { return $global:__script_resolvers }
         function global:Get-ScriptRegex { return $global:__script_regex }
 
-        # Register script extensions to PATHEXT for tab completion
         $extSet = [System.Collections.Generic.HashSet[string]]::new(($env:PATHEXT -split ';'), [System.StringComparer]::OrdinalIgnoreCase)
         [void]$extSet.Add('.PS1')
         foreach ($ext in (Get-ScriptResolvers).Keys) {
@@ -56,9 +50,7 @@
         }
         $env:PATHEXT = ($extSet | Where-Object { $_ }) -join ';'
 
-        # Set YAZI_FILE_ONE dynamically with fast-path detection and git --exec-path fallback
         if (-not $env:YAZI_FILE_ONE) {
-            # 1. Fast static checks (takes <1ms on SSDs)
             $standardPaths = @(
                 "$HOME\scoop\apps\git\current\usr\bin\file.exe",
                 "C:\Program Files\Git\usr\bin\file.exe"
@@ -69,7 +61,6 @@
                     break
                 }
             }
-            # 2. Dynamic exec-path fallback if not found in standard locations (~70ms, runs only if static paths fail)
             if (-not $env:YAZI_FILE_ONE) {
                 $gitExec = git --exec-path 2>$null
                 if ($gitExec) {
@@ -82,8 +73,6 @@
             }
         }
 
-        # Resolve script files (.py -> python, .js -> node, etc.) using shebangs or extensions.
-        # This function handles the actual execution logic, caching dynamically registered functions globally.
         function global:Resolve-ScriptCommand {
             param($path, $LookupArgs)
             
@@ -96,14 +85,16 @@
                         $reader = [System.IO.StreamReader]::new($path)
                         $firstLine = $reader.ReadLine()
                         $reader.Close()
-                    } catch {}
+                    }
+                    catch {}
                     $interpreter = $null
                     
                     if ($firstLine -and $firstLine -match '^#!\s*(.+)$') {
                         $shebangPath = $Matches[1].Trim()
                         if ($shebangPath -match '/env\s+(\S+)') {
                             $interpreter = $Matches[1]
-                        } else {
+                        }
+                        else {
                             $interpreter = Split-Path $shebangPath -Leaf
                         }
                     }
@@ -128,9 +119,6 @@
             }
         }
 
-        # Hook into both found and not-found execution paths.
-        # This works globally across PATH and the current directory, has 0ms startup overhead,
-        # and works instantly for new or edited scripts.
         $ExecutionContext.InvokeCommand.PostCommandLookupAction = {
             param($commandName, $LookupArgs)
             
@@ -149,7 +137,8 @@
                             if ($path -match $regex) {
                                 if ($commandName -match $regex) {
                                     Resolve-ScriptCommand $path $LookupArgs
-                                } else {
+                                }
+                                else {
                                     $LookupArgs.Command = $null
                                 }
                             }
@@ -182,11 +171,13 @@
                     if ([System.IO.File]::Exists($cleanName)) {
                         $path = [System.IO.Path]::GetFullPath($cleanName)
                     }
-                } else {
+                }
+                else {
                     $testPath = [System.IO.Path]::Combine($PWD.Path, $commandName)
                     if ([System.IO.File]::Exists($testPath)) {
                         $path = $testPath
-                    } else {
+                    }
+                    else {
                         if ($commandName -match '^get-(.+)$') {
                             $stripped = $Matches[1]
                             $testPath = [System.IO.Path]::Combine($PWD.Path, $stripped)
@@ -244,26 +235,6 @@
         }
     }
 
-    $fnmCache = Join-Path $HOME ".fnm_env.ps1"
-    $shouldRegen = $true
-    if ([System.IO.File]::Exists($fnmCache)) {
-        $lastWrite = [System.IO.File]::GetLastWriteTime($fnmCache)
-        if ((Get-Date) - $lastWrite -lt (New-TimeSpan -Days 1)) {
-            $shouldRegen = $false
-        }
-    }
-    if ($shouldRegen -and [bool]($ExecutionContext.SessionState.InvokeCommand.GetCommand('fnm', [System.Management.Automation.CommandTypes]::All))) {
-        try {
-            $envStr = (fnm env --use-on-cd --shell powershell) -join "`n"
-            [System.IO.File]::WriteAllText($fnmCache, $envStr)
-            $shouldRegen = $false
-        } catch {}
-    }
-    if ([System.IO.File]::Exists($fnmCache)) {
-        . $fnmCache
-    }
-
-    # Load machine-local env vars (proxy creds, secrets, etc.) — not tracked in git
     $envLocal = [System.IO.Path]::Combine($HOME, ".env.local")
     if ([System.IO.File]::Exists($envLocal)) {
         foreach ($line in [System.IO.File]::ReadLines($envLocal)) {
@@ -276,20 +247,14 @@
 }
 
 function codesh { code $PSScriptRoot }
-function global:Clear-FnmCache {
-    $fnmCache = Join-Path $HOME ".fnm_env.ps1"
-    if ([System.IO.File]::Exists($fnmCache)) {
-        Remove-Item -Force $fnmCache
-    }
-}
+
 function resh {
-    Clear-FnmCache
     . $PROFILE
 }
 
 function y {
     if (-not (Get-Command yazi -ErrorAction SilentlyContinue)) {
-        Throw (New-Object System.Management.Automation.CommandNotFoundException("The term 'yazi' is not recognized as the name of a cmdlet, function, script file, or operable program."))
+        throw (New-Object System.Management.Automation.CommandNotFoundException("The term 'yazi' is not recognized as the name of a cmdlet, function, script file, or operable program."))
     }
     $tmp = [System.IO.Path]::GetTempFileName()
     yazi @args --cwd-file="$tmp"
@@ -314,9 +279,9 @@ function global:Expand-CustomArchive {
     $ext = [System.IO.Path]::GetExtension($Path).ToLower()
     switch ($ext) {
         '.zip' { Expand-Archive -Path $Path -DestinationPath . }
-        '.7z'  { & 7z x $Path }
+        '.7z' { & 7z x $Path }
         '.rar' { & unrar x $Path }
-        '.gz'  { & tar -xzf $Path }
+        '.gz' { & tar -xzf $Path }
         '.tar' { & tar -xf $Path }
         default { Write-Host "Unsupported file extension '$ext'" }
     }
@@ -335,7 +300,8 @@ function global:Invoke-Up {
             $path = Join-Path $path ".."
         }
         Set-Location $path
-    } else {
+    }
+    else {
         $current = $pwd.Path
         while ($current -and $current -ne [System.IO.Path]::GetPathRoot($current)) {
             if ((Split-Path $current -Leaf) -ieq $LevelOrName) {
@@ -351,7 +317,7 @@ Set-Alias up Invoke-Up
 
 function global:Invoke-Which {
     param(
-        [Parameter(ValueFromPipeline=$true, Position=0)]
+        [Parameter(ValueFromPipeline = $true, Position = 0)]
         [string]$Name
     )
     process {
@@ -363,12 +329,15 @@ function global:Invoke-Which {
         if ($cmd) {
             if ($cmd.Path) {
                 $cmd.Path
-            } elseif ($cmd.Source) {
+            }
+            elseif ($cmd.Source) {
                 $cmd.Source
-            } else {
+            }
+            else {
                 $cmd.Definition
             }
-        } else {
+        }
+        else {
             Write-Error "Command '$Name' not found."
         }
     }
@@ -377,14 +346,15 @@ Set-Alias which Invoke-Which
 
 function global:touch {
     param(
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)]
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true, Position = 0)]
         [string[]]$Path
     )
     process {
         foreach ($p in $Path) {
             if (Test-Path $p) {
                 (Get-Item $p).LastWriteTime = Get-Date
-            } else {
+            }
+            else {
                 New-Item -ItemType File -Path $p -Force | Out-Null
             }
         }
@@ -393,11 +363,10 @@ function global:touch {
 
 function global:sudo {
     param(
-        [Parameter(ValueFromRemainingArguments=$true)]
+        [Parameter(ValueFromRemainingArguments = $true)]
         [string[]]$Arguments
     )
     if (-not $Arguments) {
-        # Open an elevated shell in the current directory
         $currentShell = (Get-Process -Id $PID).Path
         Start-Process $currentShell -ArgumentList "-NoProfile -WorkingDirectory `"$PWD`"" -Verb RunAs
         return
@@ -406,26 +375,24 @@ function global:sudo {
     $command = $Arguments[0]
     $rest = $Arguments[1..($Arguments.Count - 1)]
     
-    # Try to find the command executable path
     $resolved = Get-Command $command -ErrorAction SilentlyContinue
     if ($resolved) {
         $execPath = $resolved.Path
         if (-not $execPath) { $execPath = $resolved.Source }
         if ($execPath) {
             Start-Process $execPath -ArgumentList $rest -Verb RunAs -WorkingDirectory $PWD -Wait
-        } else {
-            # For functions/cmdlets, run inside an elevated PowerShell instance
+        }
+        else {
             $scriptBlock = $Arguments -join ' '
             $currentShell = (Get-Process -Id $PID).Path
             Start-Process $currentShell -ArgumentList "-NoProfile -Command `"$scriptBlock`"" -Verb RunAs -WorkingDirectory $PWD -Wait
         }
-    } else {
-        # Fallback to direct execution
+    }
+    else {
         Start-Process $command -ArgumentList $rest -Verb RunAs -WorkingDirectory $PWD -Wait
     }
 }
 
-# Add grep alias for Select-String if not already in PATH (fast check using .NET to avoid Get-Command overhead)
 $hasGrep = $false
 foreach ($dir in ($env:PATH -split [IO.Path]::PathSeparator)) {
     if ([System.IO.Directory]::Exists($dir)) {
@@ -440,20 +407,18 @@ if (-not $hasGrep) {
     Set-Alias grep Select-String -ErrorAction SilentlyContinue
 }
 
-# Create a directory and cd into it
 function global:mkcd {
     param(
-        [Parameter(Mandatory=$true, Position=0)]
+        [Parameter(Mandatory = $true, Position = 0)]
         [string]$Path
     )
     New-Item -ItemType Directory -Path $Path -Force | Out-Null
     Set-Location $Path
 }
 
-# Git pull, add all, commit, and push
 function global:gacp {
     param(
-        [Parameter(Mandatory=$true, Position=0, ValueFromRemainingArguments=$true)]
+        [Parameter(Mandatory = $true, Position = 0, ValueFromRemainingArguments = $true)]
         [string[]]$Message
     )
     process {
@@ -486,7 +451,6 @@ function prompt {
     "$color$path$reset > "
 }
 
-# PSReadLine Predictive IntelliSense (zsh-like autocomplete) and history search
 if (Get-Command Set-PSReadLineOption -ErrorAction SilentlyContinue) {
     if (-not [Console]::IsOutputRedirected) {
         try {
@@ -496,6 +460,7 @@ if (Get-Command Set-PSReadLineOption -ErrorAction SilentlyContinue) {
             Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete -ErrorAction SilentlyContinue
             Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward -ErrorAction SilentlyContinue
             Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward -ErrorAction SilentlyContinue
-        } catch {}
+        }
+        catch {}
     }
 }
