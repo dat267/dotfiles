@@ -288,8 +288,11 @@ function resh {
 }
 
 function y {
+    if (-not (Get-Command yazi -ErrorAction SilentlyContinue)) {
+        return
+    }
     $tmp = [System.IO.Path]::GetTempFileName()
-    yazi $args --cwd-file="$tmp"
+    yazi @args --cwd-file="$tmp"
     if (Test-Path $tmp) {
         $cwd = Get-Content -Path $tmp -Encoding UTF8
         if (-not [String]::IsNullOrEmpty($cwd) -and $cwd -ne $PWD.Path) {
