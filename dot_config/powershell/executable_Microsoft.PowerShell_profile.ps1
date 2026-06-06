@@ -1,11 +1,13 @@
 & {
     if ($null -eq $IsWindows) {
-        New-Variable -Name IsWindows -Value $true -Scope Global
-        New-Variable -Name IsLinux -Value $false -Scope Global
-        New-Variable -Name IsMacOS -Value $false -Scope Global
+        $os = [Environment]::OSVersion.Platform
+        $isWin = $os -ne 'Unix' -and $os -ne 4 -and $os -ne 128
+        New-Variable -Name IsWindows -Value $isWin -Scope Global
+        New-Variable -Name IsLinux -Value (-not $isWin -and (uname -s 2>$null) -eq 'Linux') -Scope Global
+        New-Variable -Name IsMacOS -Value (-not $isWin -and (uname -s 2>$null) -eq 'Darwin') -Scope Global
     }
 
-    $env:EDITOR = if ([bool]($ExecutionContext.SessionState.InvokeCommand.GetCommand('nvim', [System.Management.Automation.CommandTypes]::All))) { 'nvim' } else { 'vim' }
+    $env:EDITOR = if (Get-Command nvim -ErrorAction SilentlyContinue) { 'nvim' } else { 'vim' }
 
     $paths = @(
         "$HOME/.config/powershell/scripts",
@@ -21,13 +23,7 @@
         $env:GOPROXY = "https://proxy.golang.org,direct"
         $env:GOSUMDB = "off"
 
-        $registryPath = "HKCU:\Console"
-        if (Test-Path $registryPath) {
-            $props = Get-ItemProperty -Path $registryPath -ErrorAction SilentlyContinue
-            if ($null -eq $props -or $null -eq $props.VirtualTerminalLevel -or $props.VirtualTerminalLevel -ne 1) {
-                Set-ItemProperty -Path $registryPath -Name "VirtualTerminalLevel" -Value 1 -Type DWord -ErrorAction SilentlyContinue
-            }
-        }
+        Set-ItemProperty -Path "HKCU:\Console" -Name "VirtualTerminalLevel" -Value 1 -Type DWord -ErrorAction SilentlyContinue
 
         $paths += "$HOME/.config/powershell/scripts/windows", "$HOME/Apps/nvim-win64/bin", "$HOME/Apps/pwsh", "$HOME/Apps/7z"
         $scriptResolvers = [ordered]@{
@@ -40,8 +36,8 @@
         $global:__script_regex = "(?i)($escapedExtensions)$"
         $global:__script_resolvers = $scriptResolvers
 
-        function global:Get-ScriptResolvers { return $global:__script_resolvers }
-        function global:Get-ScriptRegex { return $global:__script_regex }
+        function global:Get-ScriptResolvers { $global:__script_resolvers }
+        function global:Get-ScriptRegex { $global:__script_regex }
 
         $extSet = [System.Collections.Generic.HashSet[string]]::new(($env:PATHEXT -split ';'), [System.StringComparer]::OrdinalIgnoreCase)
         [void]$extSet.Add('.PS1')
@@ -75,63 +71,33 @@
 
         function global:Resolve-ScriptCommand {
             param($path, $LookupArgs)
-            
             if ($path) {
                 $ext = [System.IO.Path]::GetExtension($path).ToLower()
                 $resolvers = Get-ScriptResolvers
                 if ($resolvers.Contains($ext)) {
-                    $firstLine = $null
-                    try {
-                        $reader = [System.IO.StreamReader]::new($path)
-                        $firstLine = $reader.ReadLine()
-                        $reader.Close()
+                    $interpreter = $resolvers[$ext]
+                    if ($interpreter -eq 'python3') { $interpreter = 'python' }
+                    if ($interpreter -notlike '*.exe') { $interpreter = "$interpreter.exe" }
+                    $funcName = "script_handler_" + ($path.ToLower() -replace '[^a-zA-Z0-9]', '_')
+                    if (-not (Get-Command -Name $funcName -CommandType Function -ErrorAction SilentlyContinue)) {
+                        $scriptBlock = [scriptblock]::Create("& '$interpreter' '$path' `$args")
+                        Set-Item -Path "function:global:$funcName" -Value $scriptBlock
                     }
-                    catch {}
-                    $interpreter = $null
-                    
-                    if ($firstLine -and $firstLine -match '^#!\s*(.+)$') {
-                        $shebangPath = $Matches[1].Trim()
-                        if ($shebangPath -match '/env\s+(\S+)') {
-                            $interpreter = $Matches[1]
-                        }
-                        else {
-                            $interpreter = Split-Path $shebangPath -Leaf
-                        }
-                    }
-                    
-                    if (-not $interpreter) {
-                        $interpreter = $resolvers[$ext]
-                    }
-                    
-                    if ($interpreter) {
-                        if ($interpreter -eq 'python3') { $interpreter = 'python' }
-                        if ($interpreter -notlike '*.exe') { $interpreter = "$interpreter.exe" }
-                        
-                        $hash = [BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes($path.ToLower()))).Replace('-', '')
-                        $funcName = "script_handler_$hash"
-                        if (-not (Get-Command -Name $funcName -CommandType Function -ErrorAction SilentlyContinue)) {
-                            $funcDef = "function global:$funcName { & $interpreter `"$path`" @args }"
-                            Invoke-Expression $funcDef
-                        }
-                        $LookupArgs.Command = Get-Command $funcName
-                    }
+                    $LookupArgs.Command = Get-Command $funcName
                 }
             }
         }
 
         $ExecutionContext.InvokeCommand.PostCommandLookupAction = {
             param($commandName, $LookupArgs)
-            
             if ($global:__in_lookup_hook) { return }
             $global:__in_lookup_hook = $true
-            
             try {
                 if ($LookupArgs.Command) {
                     $commandType = $LookupArgs.Command.CommandType
                     if ($commandType -eq "Application" -or $commandType -eq "ExternalScript") {
                         $path = $LookupArgs.Command.Path
                         $ext = [System.IO.Path]::GetExtension($path).ToLower()
-                        
                         if ($ext -ne '.ps1') {
                             $regex = Get-ScriptRegex
                             if ($path -match $regex) {
@@ -153,16 +119,12 @@
 
         $ExecutionContext.InvokeCommand.CommandNotFoundAction = {
             param($commandName, $LookupArgs)
-            
             if ($global:__in_lookup_hook) { return }
             $global:__in_lookup_hook = $true
-            
             try {
                 $regex = Get-ScriptRegex
                 if ($commandName -notmatch $regex) { return }
-                
                 $path = $null
-                
                 if ($commandName -match '[/\\]') {
                     $cleanName = $commandName
                     if ($commandName -match '^get-(.+)$') {
@@ -186,18 +148,15 @@
                             }
                         }
                     }
-                    
                     if (-not $path) {
                         $pathDirs = $env:PATH -split [IO.Path]::PathSeparator
                         foreach ($dir in $pathDirs) {
                             if (-not [System.IO.Directory]::Exists($dir)) { continue }
-                            
                             $testPath = [System.IO.Path]::Combine($dir, $commandName)
                             if ([System.IO.File]::Exists($testPath)) {
                                 $path = $testPath
                                 break
                             }
-                            
                             if ($commandName -match '^get-(.+)$') {
                                 $stripped = $Matches[1]
                                 $testPath = [System.IO.Path]::Combine($dir, $stripped)
@@ -209,7 +168,6 @@
                         }
                     }
                 }
-                
                 if ($path) {
                     Resolve-ScriptCommand $path $LookupArgs
                 }
@@ -244,6 +202,8 @@
             }
         }
     }
+
+    $global:__home_regex = [regex]::Escape($HOME)
 }
 
 function codesh { code $PSScriptRoot }
@@ -253,17 +213,20 @@ function resh {
 }
 
 function y {
-    if (-not (Get-Command yazi -ErrorAction SilentlyContinue)) {
-        throw (New-Object System.Management.Automation.CommandNotFoundException("The term 'yazi' is not recognized as the name of a cmdlet, function, script file, or operable program."))
-    }
     $tmp = [System.IO.Path]::GetTempFileName()
-    yazi @args --cwd-file="$tmp"
-    if (Test-Path $tmp) {
-        $cwd = Get-Content -Path $tmp -Encoding UTF8
-        if (-not [String]::IsNullOrEmpty($cwd) -and $cwd -ne $PWD.Path) {
-            Set-Location -LiteralPath ([System.IO.Path]::GetFullPath($cwd))
+    try {
+        yazi @args --cwd-file="$tmp"
+        if (Test-Path $tmp) {
+            $cwd = Get-Content -Path $tmp -Encoding UTF8
+            if (-not [string]::IsNullOrEmpty($cwd) -and $cwd -ne $PWD.Path) {
+                Set-Location -LiteralPath $cwd
+            }
         }
-        Remove-Item -Path $tmp
+    }
+    finally {
+        if (Test-Path $tmp) {
+            Remove-Item -Path $tmp -Force
+        }
     }
 }
 
@@ -279,8 +242,8 @@ function global:Expand-CustomArchive {
     $ext = [System.IO.Path]::GetExtension($Path).ToLower()
     switch ($ext) {
         '.zip' { Expand-Archive -Path $Path -DestinationPath . }
-        '.7z' { & 7z x $Path }
-        '.rar' { & unrar x $Path }
+        '.7z' { if (Get-Command 7z -ErrorAction SilentlyContinue) { & 7z x $Path } else { Write-Error "7z not found" } }
+        '.rar' { if (Get-Command unrar -ErrorAction SilentlyContinue) { & unrar x $Path } else { Write-Error "unrar not found" } }
         '.gz' { & tar -xzf $Path }
         '.tar' { & tar -xf $Path }
         default { Write-Host "Unsupported file extension '$ext'" }
@@ -371,10 +334,8 @@ function global:sudo {
         Start-Process $currentShell -ArgumentList "-NoProfile -WorkingDirectory `"$PWD`"" -Verb RunAs
         return
     }
-    
     $command = $Arguments[0]
-    $rest = $Arguments[1..($Arguments.Count - 1)]
-    
+    $rest = if ($Arguments.Length -gt 1) { $Arguments[1..($Arguments.Length - 1)] } else { @() }
     $resolved = Get-Command $command -ErrorAction SilentlyContinue
     if ($resolved) {
         $execPath = $resolved.Path
@@ -393,17 +354,7 @@ function global:sudo {
     }
 }
 
-$hasGrep = $false
-foreach ($dir in ($env:PATH -split [IO.Path]::PathSeparator)) {
-    if ([System.IO.Directory]::Exists($dir)) {
-        if ([System.IO.File]::Exists([System.IO.Path]::Combine($dir, "grep.exe")) -or 
-            [System.IO.File]::Exists([System.IO.Path]::Combine($dir, "grep"))) {
-            $hasGrep = $true
-            break
-        }
-    }
-}
-if (-not $hasGrep) {
+if (-not (Get-Command grep -ErrorAction SilentlyContinue)) {
     Set-Alias grep Select-String -ErrorAction SilentlyContinue
 }
 
@@ -422,30 +373,25 @@ function global:gacp {
         [string[]]$Message
     )
     process {
-        $msg = $Message -join ' '
-        if ([string]::IsNullOrWhiteSpace($msg)) {
-            Write-Error "Error: No commit message provided."
-            Write-Host "Usage: gacp <commit message>"
-            return
-        }
         $branch = (git rev-parse --abbrev-ref HEAD 2>$null)
         if (-not $branch) {
-            Write-Error "Not a git repository (or no commits yet)."
+            Write-Error "Not a git repository."
             return
         }
         git pull origin $branch
-        if ($LASTEXITCODE -ne 0) { return }
-        git add -A
-        if ($LASTEXITCODE -ne 0) { return }
-        git commit -m $msg
-        if ($LASTEXITCODE -ne 0) { return }
-        git push origin $branch
+        if ($LASTEXITCODE -eq 0) {
+            git add -A
+            git commit -m ($Message -join ' ')
+            if ($LASTEXITCODE -eq 0) {
+                git push origin $branch
+            }
+        }
     }
 }
 
 function prompt {
     $lastExit = $global:LASTEXITCODE
-    $path = $ExecutionContext.SessionState.Path.CurrentLocation.Path -replace [regex]::Escape($HOME), "~"
+    $path = $ExecutionContext.SessionState.Path.CurrentLocation.Path -replace $global:__home_regex, "~"
     $color = if ($null -eq $lastExit -or $lastExit -eq 0) { "$([char]27)[32m" } else { "$([char]27)[31m" }
     $reset = "$([char]27)[0m"
     "$color$path$reset > "
@@ -456,10 +402,6 @@ if (Get-Command Set-PSReadLineOption -ErrorAction SilentlyContinue) {
         try {
             Set-PSReadLineOption -PredictionSource History -ErrorAction SilentlyContinue
             Set-PSReadLineOption -PredictionViewStyle Inline -ErrorAction SilentlyContinue
-            Set-PSReadLineKeyHandler -Key RightArrow -Function AcceptSuggestion -ErrorAction SilentlyContinue
-            Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete -ErrorAction SilentlyContinue
-            Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward -ErrorAction SilentlyContinue
-            Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward -ErrorAction SilentlyContinue
         }
         catch {}
     }
