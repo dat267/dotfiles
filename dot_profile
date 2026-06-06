@@ -87,6 +87,10 @@ lfcd() {
 	cd "$(command lf -print-last-dir "$@")" || return
 }
 y() {
+	if ! command -v yazi >/dev/null 2>&1; then
+		echo "yazi: command not found" >&2
+		return 127
+	fi
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
 	yazi "$@" --cwd-file="$tmp" 2>/dev/null
 	if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then

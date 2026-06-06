@@ -289,7 +289,7 @@ function resh {
 
 function y {
     if (-not (Get-Command yazi -ErrorAction SilentlyContinue)) {
-        return
+        Throw (New-Object System.Management.Automation.CommandNotFoundException("The term 'yazi' is not recognized as the name of a cmdlet, function, script file, or operable program."))
     }
     $tmp = [System.IO.Path]::GetTempFileName()
     yazi @args --cwd-file="$tmp"
