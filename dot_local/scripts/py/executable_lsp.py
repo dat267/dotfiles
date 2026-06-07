@@ -95,7 +95,6 @@ def get_latest_node_version():
     data = fetch_json("https://nodejs.org/dist/index.json")
     if isinstance(data, list) and len(data) > 0:
         return data[0]["version"]
-    return "v20.11.0"
 
 
 def extract_archive(src, dest_dir):
