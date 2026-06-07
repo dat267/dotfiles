@@ -150,12 +150,19 @@ vim.api.nvim_create_autocmd("TextChangedI", {
   end,
 })
 
+local formatters = {
+  py = { bin = "black", cmd = "black -q -" },
+  md = { bin = "prettier", cmd = "prettier --parser markdown" }
+}
+
 vim.api.nvim_create_autocmd("BufWritePre", {
-  pattern = "*.py",
+  pattern = { "*.py", "*.md" },
   callback = function()
-    if vim.fn.executable("black") == 1 then
+    local ext = vim.fn.expand("<afile>:e")
+    local fmt = formatters[ext]
+    if fmt and vim.fn.executable(fmt.bin) == 1 then
       local view = vim.fn.winsaveview()
-      vim.cmd("%!black -q -")
+      vim.cmd("%!" .. fmt.cmd)
       if vim.v.shell_error ~= 0 then vim.cmd("undo") end
       vim.fn.winrestview(view)
     end
@@ -169,7 +176,6 @@ local lsp_modules = {
   python_lsp = "pyright",
   powershell_lsp = "pwsh",
   markdown_lsp = "marksman",
-  java_lsp = "jdtls",
 }
 
 for module, binary in pairs(lsp_modules) do
@@ -179,3 +185,4 @@ for module, binary in pairs(lsp_modules) do
     end
   end
 end
+

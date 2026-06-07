@@ -205,6 +205,10 @@ def install_node_tools(sys_os, arch):
 
         if not os.path.exists(node_bin):
             node_v = get_latest_node_version()
+            if not node_v:
+                print("\n[Error] Could not resolve Node.js version.")
+                return
+
             os_str = (
                 "win"
                 if sys_os == "windows"
@@ -236,28 +240,24 @@ def install_node_tools(sys_os, arch):
             "typescript",
             "typescript-language-server",
             "pyright",
+            "prettier",
+        ]
+        tools = [
+            "bash-language-server",
+            "typescript-language-server",
+            "pyright",
+            "pyright-langserver",
+            "prettier",
         ]
         if sys_os == "android":
             subprocess.run([npm_bin, "install", "-g"] + pkgs)
             prefix_dir = os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
-            tools = [
-                "bash-language-server",
-                "typescript-language-server",
-                "pyright",
-                "pyright-langserver",
-            ]
             for t in tools:
                 src = os.path.join(prefix_dir, "bin", t)
                 if os.path.exists(src):
                     create_proxy(src, t)
         else:
             subprocess.run([npm_bin, "install", "-g", "--prefix", node_target] + pkgs)
-            tools = [
-                "bash-language-server",
-                "typescript-language-server",
-                "pyright",
-                "pyright-langserver",
-            ]
             for t in tools:
                 src = (
                     os.path.join(node_target, t + npm_ext)
@@ -312,41 +312,10 @@ def install_powershell_es():
         os.remove(zip_path)
 
 
-def install_jdtls(sys_os):
-    print("\n=== Installing Eclipse JDTLS ===")
-    if sys_os == "android":
-        return
-
-    target_dir = os.path.join(SHARE_DIR, "jdtls")
-    ext = ".bat" if sys_os == "windows" else ""
-    jdtls_bin = os.path.join(target_dir, "bin", "jdtls" + ext)
-
-    if os.path.exists(jdtls_bin):
-        create_proxy(jdtls_bin, "jdtls")
-        return
-
-    os.makedirs(target_dir, exist_ok=True)
-    tar_path = os.path.join(target_dir, "jdtls.tar.gz")
-    url = (
-        "http://download.eclipse.org/jdtls/snapshots/jdt-language-server-latest.tar.gz"
-    )
-    if download_file(url, tar_path, "Eclipse JDTLS"):
-        extract_archive(tar_path, target_dir)
-        os.remove(tar_path)
-        if os.path.exists(jdtls_bin):
-            create_proxy(jdtls_bin, "jdtls")
-
-
 def uninstall_all(sys_os):
     print("\n=== Uninstalling All LSPs & Runtimes ===")
 
-    dirs_to_remove = [
-        "lua-language-server",
-        "node",
-        "black_env",
-        "powershell_es",
-        "jdtls",
-    ]
+    dirs_to_remove = ["lua-language-server", "node", "black_env", "powershell_es"]
     for d in dirs_to_remove:
         path = os.path.join(SHARE_DIR, d)
         if os.path.exists(path):
@@ -362,7 +331,7 @@ def uninstall_all(sys_os):
         "pyright-langserver",
         "black",
         "gopls",
-        "jdtls",
+        "prettier",
     ]
     extensions = ["", ".exe", ".cmd", ".bat"]
     for b in bins_to_remove:
@@ -404,7 +373,6 @@ def main():
         install_black(sys_os)
         install_gopls()
         install_powershell_es()
-        install_jdtls(sys_os)
 
 
 if __name__ == "__main__":
