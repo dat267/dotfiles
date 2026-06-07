@@ -32,7 +32,9 @@ def install_lua_lsp():
             run_cmd(["pacman", "-S", "--noconfirm", "lua-language-server"], True)
         elif has_cmd("apt-get"):
             run_cmd(["apt-get", "update"], True)
-            run_cmd(["apt-get", "install", "-y", "lua-language-server"], use_sudo=True)
+            run_cmd(
+                ["apt-get", "install", "-y", "lua-language-server"], use_sudo=True
+            )
     elif os_type == "darwin" and has_cmd("brew"):
         run_cmd(["brew", "install", "lua-language-server"])
     elif os_type == "windows":
@@ -62,6 +64,31 @@ def install_markdown_lsp():
             run_cmd(["scoop", "install", "marksman"])
         elif has_cmd("winget"):
             run_cmd(["winget", "install", "Artempyanykh.Marksman"])
+
+
+def install_black_formatter():
+    if has_cmd("black"):
+        return
+
+    os_type = platform.system().lower()
+    if os_type == "linux":
+        if has_cmd("pacman"):
+            run_cmd(["pacman", "-S", "--noconfirm", "python-black"], True)
+            return
+        if has_cmd("apt-get"):
+            run_cmd(["apt-get", "install", "-y", "python3-black"], True)
+            return
+
+        pip_cmd = ["pip", "install", "--break-system-packages", "black"]
+        if not run_cmd(pip_cmd):
+            run_cmd(["pip3", "install", "--break-system-packages", "black"])
+    elif os_type == "darwin" and has_cmd("brew"):
+        run_cmd(["brew", "install", "black"])
+    elif os_type == "windows":
+        if has_cmd("scoop"):
+            run_cmd(["scoop", "install", "black"])
+        elif has_cmd("winget"):
+            run_cmd(["winget", "install", "Ambition.Black"])
 
 
 def install_powershell_lsp():
@@ -99,12 +126,7 @@ def main():
         if pkgs:
             run_cmd(["npm", "install", "-g"] + pkgs)
 
-    if not has_cmd("black"):
-        if has_cmd("pip"):
-            run_cmd(["pip", "install", "black"])
-        elif has_cmd("pip3"):
-            run_cmd(["pip3", "install", "black"])
-
+    install_black_formatter()
     install_lua_lsp()
     install_markdown_lsp()
     install_powershell_lsp()
@@ -112,3 +134,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
