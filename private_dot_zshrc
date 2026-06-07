@@ -1,51 +1,51 @@
+typeset -U path cdpath fpath manpath
+
+[[ -f ~/.profile ]] && . ~/.profile
 
 zstyle ':completion:*' menu select
-[[ -f ~/.profile ]] && . ~/.profile
-autoload -Uz compinit
-compinit
+zstyle ':completion:*' rehash true
+autoload -Uz compinit && compinit
+
 HISTSIZE=10000
 SAVEHIST=10000
 HISTFILE=~/.zsh_history
-setopt SHARE_HISTORY
-setopt APPEND_HISTORY
-setopt INC_APPEND_HISTORY
-setopt HIST_IGNORE_DUPS
-if [ -f "$HOME/.local/opt/google-cloud-sdk/path.zsh.inc" ]; then
-	. "$HOME/.local/opt/google-cloud-sdk/path.zsh.inc"
-fi
-if [ -f "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc" ]; then
-	. "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc"
-fi
+setopt SHARE_HISTORY APPEND_HISTORY INC_APPEND_HISTORY HIST_IGNORE_DUPS
+
+[[ -f "$HOME/.local/opt/google-cloud-sdk/path.zsh.inc" ]] && . "$HOME/.local/opt/google-cloud-sdk/path.zsh.inc"
+[[ -f "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc" ]] && . "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc"
+
 for f in \
-	/usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
-	/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
-	"${PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
-	/opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+    /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+    /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+    "${PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
+    /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 do
-	if [ -f "$f" ]; then
-		source "$f"
-		break
-	fi
+    if [[ -f "$f" ]]; then
+        source "$f"
+        break
+    fi
 done
+
 for f in \
-	/usr/share/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh \
-	/usr/share/zsh-history-substring-search/zsh-history-substring-search.zsh \
-	"${PREFIX}/share/zsh-history-substring-search/zsh-history-substring-search.zsh" \
-	/opt/homebrew/share/zsh-history-substring-search/zsh-history-substring-search.zsh
+    /usr/share/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh \
+    "${PREFIX}/share/zsh-history-substring-search/zsh-history-substring-search.zsh" \
+    /opt/homebrew/share/zsh-history-substring-search/zsh-history-substring-search.zsh
 do
-	if [ -f "$f" ]; then
-		source "$f"
-		bindkey '^[[A' history-substring-search-up
-		bindkey '^[[B' history-substring-search-down
-		break
-	fi
+    if [[ -f "$f" ]]; then
+        source "$f"
+        bindkey '^[[A' history-substring-search-up
+        bindkey '^[[B' history-substring-search-down
+        break
+    fi
 done
+
 PROMPT='%F{cyan}%~%f %F{yellow}%#%f '
-if [[ -d "$HOME/.sdkman" ]] && [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
-	export SDKMAN_DIR="$HOME/.sdkman"
-	source "$HOME/.sdkman/bin/sdkman-init.sh"
+
+if [[ -d "$HOME/.sdkman" && -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
+    export SDKMAN_DIR="$HOME/.sdkman"
+    source "$HOME/.sdkman/bin/sdkman-init.sh"
 fi
-export PATH="$HOME/.local/bin:$PATH"
+
 bindkey '^[[H' beginning-of-line
 bindkey '^[[F' end-of-line
 bindkey '^[OH' beginning-of-line
@@ -55,6 +55,15 @@ bindkey '^[[4~' end-of-line
 bindkey '^[[3~' delete-char
 bindkey '^[[1;5D' backward-word
 bindkey '^[[1;5C' forward-word
+bindkey '^[[2~' overwrite-mode
+bindkey '^[[5~' beginning-of-buffer-or-history
+bindkey '^[[6~' end-of-buffer-or-history
+bindkey '^[[Z' reverse-menu-complete
+bindkey '^[^[[D' backward-word
+bindkey '^[^[[C' forward-word
+bindkey '^[^?' backward-kill-word
+bindkey '^[[3;5~' kill-word
+
 zmodload zsh/terminfo 2>/dev/null
 typeset -g -A key
 key[Home]="${terminfo[khome]}"
@@ -64,6 +73,7 @@ key[Delete]="${terminfo[kdch1]}"
 key[PageUp]="${terminfo[kpp]}"
 key[PageDown]="${terminfo[knp]}"
 key[BackTab]="${terminfo[kcbt]}"
+
 [[ -n "${key[Home]}" ]] && bindkey -- "${key[Home]}" beginning-of-line
 [[ -n "${key[End]}" ]] && bindkey -- "${key[End]}" end-of-line
 [[ -n "${key[Insert]}" ]] && bindkey -- "${key[Insert]}" overwrite-mode
@@ -71,21 +81,16 @@ key[BackTab]="${terminfo[kcbt]}"
 [[ -n "${key[PageUp]}" ]] && bindkey -- "${key[PageUp]}" beginning-of-buffer-or-history
 [[ -n "${key[PageDown]}" ]] && bindkey -- "${key[PageDown]}" end-of-buffer-or-history
 [[ -n "${key[BackTab]}" ]] && bindkey -- "${key[BackTab]}" reverse-menu-complete
-bindkey '^[[2~' overwrite-mode
-bindkey '^[[5~' beginning-of-buffer-or-history
-bindkey '^[[6~' end-of-buffer-or-history
-bindkey '^[[Z' reverse-menu-complete
-bindkey '^[^[[D' backward-word
-bindkey '^[^[[C' forward-word
-bindkey '^[^?' backward-kill-word
-bindkey '^[[3;5~' kill-word
-# Vi mode cursor: beam in insert, block in normal
+
 zle-keymap-select() {
-	case $KEYMAP in
-		vicmd)      print -n '\e[2 q' ;;  # Steady block
-		viins|main) print -n '\e[6 q' ;;  # Steady beam
-	esac
+    case $KEYMAP in
+        vicmd) print -n '\e[2 q' ;;
+        viins|main) print -n '\e[6 q' ;;
+    esac
 }
 zle -N zle-keymap-select
-zle-line-init() { print -n '\e[6 q' }  # Start each line in insert (beam)
+
+zle-line-init() {
+    print -n '\e[6 q'
+}
 zle -N zle-line-init

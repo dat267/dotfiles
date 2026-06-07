@@ -169,6 +169,7 @@ local lsp_modules = {
   python_lsp = "pyright",
   powershell_lsp = "pwsh",
   markdown_lsp = "marksman",
+  java_lsp = "jdtls",
 }
 
 for module, binary in pairs(lsp_modules) do

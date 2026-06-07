@@ -28,4 +28,3 @@ func startInhibit() (func(), error) {
 
 	return cleanup, nil
 }
-
