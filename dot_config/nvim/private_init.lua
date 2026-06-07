@@ -138,12 +138,20 @@ vim.api.nvim_create_autocmd("TextChangedI", {
 	end,
 })
 
-pcall(require, "personal")
-pcall(require, "lua_lsp")
-pcall(require, "go_lsp")
-pcall(require, "js_lsp")
-pcall(require, "python_lsp")
-if not vim.env.TERMUX_VERSION then
-	pcall(require, "powershell_lsp")
+local lsp_modules = {
+	lua_lsp = "lua-language-server",
+	go_lsp = "gopls",
+	js_lsp = "typescript-language-server",
+	python_lsp = "pyright",
+	powershell_lsp = "pwsh",
+	markdown_lsp = "marksman",
+}
+
+for module, binary in pairs(lsp_modules) do
+	if vim.fn.executable(binary) == 1 then
+		if module ~= "powershell_lsp" or not vim.env.TERMUX_VERSION then
+			pcall(require, module)
+		end
+	end
 end
 

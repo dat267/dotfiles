@@ -23,6 +23,9 @@ def run_cmd(args, use_sudo=False):
 
 
 def install_lua_lsp():
+    if has_cmd("lua-language-server"):
+        return
+
     os_type = platform.system().lower()
     if os_type == "linux":
         if has_cmd("pacman"):
@@ -35,65 +38,76 @@ def install_lua_lsp():
     elif os_type == "windows":
         if has_cmd("scoop"):
             run_cmd(["scoop", "install", "lua-language-server"])
+        elif has_cmd("winget"):
+            run_cmd(["winget", "install", "Lua.LuaLanguageServer"])
+
+
+def install_markdown_lsp():
+    if has_cmd("marksman"):
+        return
+
+    os_type = platform.system().lower()
+    if os_type == "linux":
+        if has_cmd("pkg"):
+            run_cmd(["pkg", "install", "-y", "marksman"])
+        elif has_cmd("pacman"):
+            run_cmd(["pacman", "-S", "--noconfirm", "marksman"], True)
+        elif has_cmd("apt-get"):
+            run_cmd(["apt-get", "update"], True)
+            run_cmd(["apt-get", "install", "-y", "marksman"], use_sudo=True)
+    elif os_type == "darwin" and has_cmd("brew"):
+        run_cmd(["brew", "install", "marksman"])
+    elif os_type == "windows":
+        if has_cmd("scoop"):
+            run_cmd(["scoop", "install", "marksman"])
+        elif has_cmd("winget"):
+            run_cmd(["winget", "install", "Artempyanykh.Marksman"])
 
 
 def install_powershell_lsp():
     target_dir = os.path.expanduser("~/.local/share/powershell_es")
+    ps_script = os.path.join(
+        target_dir, "PowerShellEditorServices", "Start-EditorServices.ps1"
+    )
+    if os.path.exists(ps_script):
+        return
+
     os.makedirs(target_dir, exist_ok=True)
     zip_path = os.path.join(target_dir, "powershell_es.zip")
     url = "https://github.com/PowerShell/PowerShellEditorServices/releases/latest/download/PowerShellEditorServices.zip"
-
     try:
         urllib.request.urlretrieve(url, zip_path)
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(target_dir)
         os.remove(zip_path)
-        print("Successfully installed PowerShellEditorServices")
-    except Exception as e:
-        print(f"Failed to install PowerShell LSP: {e}")
+    except Exception:
+        pass
 
 
 def main():
-    print("Checking prerequisites...")
-
-    if has_cmd("go"):
-        print("Installing gopls...")
+    if has_cmd("go") and not has_cmd("gopls"):
         run_cmd(["go", "install", "golang.org/x/tools/gopls@latest"])
-    else:
-        print("Warning: 'go' binary not found. Skipping gopls.")
 
     if has_cmd("npm"):
-        print("Installing npm-based language servers...")
-        run_cmd(
-            [
-                "npm",
-                "install",
-                "-g",
-                "bash-language-server",
-                "typescript",
-                "typescript-language-server",
-                "pyright",
-            ]
-        )
-    else:
-        print("Warning: 'npm' binary not found. Skipping node-based LSPs.")
+        pkgs = []
+        if not has_cmd("bash-language-server"):
+            pkgs.append("bash-language-server")
+        if not has_cmd("typescript-language-server"):
+            pkgs.extend(["typescript", "typescript-language-server"])
+        if not has_cmd("pyright"):
+            pkgs.append("pyright")
+        if pkgs:
+            run_cmd(["npm", "install", "-g"] + pkgs)
 
-    if has_cmd("pip"):
-        print("Installing black formatter...")
-        run_cmd(["pip", "install", "black"])
-    elif has_cmd("pip3"):
-        print("Installing black formatter...")
-        run_cmd(["pip3", "install", "black"])
-    else:
-        print("Warning: 'pip' binary not found. Skipping black formatter.")
+    if not has_cmd("black"):
+        if has_cmd("pip"):
+            run_cmd(["pip", "install", "black"])
+        elif has_cmd("pip3"):
+            run_cmd(["pip3", "install", "black"])
 
-    print("Installing lua-language-server...")
     install_lua_lsp()
-
-    print("Installing PowerShell Editor Services...")
+    install_markdown_lsp()
     install_powershell_lsp()
-
-    print("\nInstallation process complete.")
 
 
 if __name__ == "__main__":
