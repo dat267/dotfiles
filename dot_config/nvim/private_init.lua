@@ -41,4 +41,8 @@ pcall(require, "personal")
 -- Extensibility:
 -- 1. Add custom lua config: create ~/.config/nvim/lua/personal.lua
 -- 2. Add local plugins: place in ~/.config/nvim/pack/plugins/start/
+require("lua_lsp")
+require("go_lsp")
+require("js_lsp")
+require("python_lsp")
 
