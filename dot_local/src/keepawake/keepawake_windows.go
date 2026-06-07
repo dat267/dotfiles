@@ -4,9 +4,7 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"syscall"
-	"time"
 )
 
 const (
@@ -24,28 +22,10 @@ func startInhibit() (func(), error) {
 		return nil, fmt.Errorf("failed to set thread execution state: %w", err)
 	}
 
-	user32 := syscall.NewLazyDLL("user32.dll")
-	keybdEvent := user32.NewProc("keybd_event")
-
-	done := make(chan struct{})
-
-	go func() {
-		for {
-			duration := time.Duration(30+rand.Intn(31)) * time.Second
-			select {
-			case <-time.After(duration):
-				_, _, _ = keybdEvent.Call(0x7E, 0, 0, 0)
-				_, _, _ = keybdEvent.Call(0x7E, 0, 2, 0)
-			case <-done:
-				return
-			}
-		}
-	}()
-
 	cleanup := func() {
-		close(done)
 		_, _, _ = setThreadExecutionState.Call(uintptr(esContinuous))
 	}
 
 	return cleanup, nil
 }
+
