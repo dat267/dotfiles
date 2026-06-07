@@ -27,3 +27,5 @@ run_onchange_after_create-junctions.ps1.tmpl
 run_once_before_bootstrap-local-configs.sh.tmpl
 run_onchange_after_create-symlinks.sh.tmpl
 {{- end }}
+
+.local/bin

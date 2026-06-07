@@ -33,35 +33,15 @@ jobs:
           echo "Discovered tools: $tools"
           echo "tools=$tools" >> "$GITHUB_OUTPUT"
 
-  tag:
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.gen.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Generate commit-hash tag
-        id: gen
-        run: |
-          TAG="max/$(git rev-parse --short HEAD)"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Create and push tag
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "${{ steps.gen.outputs.tag }}"
-          git push origin "${{ steps.gen.outputs.tag }}"
-
   build:
-    needs: [discover, tag]
+    needs: discover
     name: Build ${{ matrix.tool }} ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         tool: ${{ fromJson(needs.discover.outputs.tools) }}
-        goos: [linux, windows]
+        goos: [linux, windows, darwin]
         goarch: [amd64, arm64]
         exclude:
           - goos: windows
@@ -70,12 +50,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+
       - name: Build via Makefile
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-          VERSION: ${{ needs.tag.outputs.tag }}
+          VERSION: "max/${{ github.sha }}"
         run: |
           SUFFIX=""
           [ "${{ matrix.goos }}" = "windows" ] && SUFFIX=".exe"
@@ -89,7 +75,7 @@ jobs:
           path: ${{ matrix.tool }}-${{ matrix.goos }}-${{ matrix.goarch }}*
 
   release:
-    needs: [tag, build]
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -97,11 +83,17 @@ jobs:
         with:
           merge-multiple: true
 
+      - name: Generate short SHA tag
+        id: meta
+        run: |
+          echo "tag=max/$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.tag.outputs.tag }}
-          name: "Release ${{ needs.tag.outputs.tag }}"
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: "Release ${{ steps.meta.outputs.tag }}"
+          target_commitish: ${{ github.sha }}
           files: "*"
 
       - name: Clean up old tools releases and tags
@@ -110,8 +102,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           echo "Fetching max releases..."
-          # Get list of releases with tag starting with "max/", sorted by date (newest first)
-          releases=$(gh release list --limit 100 | grep 'max/' | awk -F'\t' '{print $3}')
+          releases=$(gh release list --limit 100 --json tagName | jq -r '.[].tagName' | grep '^max/')
           
           count=0
           for tag in $releases; do

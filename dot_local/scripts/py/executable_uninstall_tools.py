@@ -2,9 +2,7 @@
 import json
 import os
 import platform
-import shutil
 import sys
-import tempfile
 import urllib.error
 import urllib.request
 
@@ -21,10 +19,7 @@ COLORS = {
 
 
 def log(message, color=None):
-    # Enable colors on TTY outputs. On Windows, check for compatibility.
-    use_color = sys.stdout.isatty() and (
-        os.name == "posix" or os.environ.get("TERM")
-    )
+    use_color = sys.stdout.isatty() and (os.name == "posix" or os.environ.get("TERM"))
     if color and use_color:
         print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
     else:
@@ -58,7 +53,6 @@ def get_platform_info():
 
 def main():
     os_name, arch_name = get_platform_info()
-    log(f"Platform: {os_name}/{arch_name}", "cyan")
 
     suffix = f"-{os_name}-{arch_name}"
     if os_name == "windows":
@@ -75,11 +69,9 @@ def main():
         log(f"Error fetching releases: {e}", "red")
         sys.exit(1)
 
-    tools_releases = [
-        r for r in releases if r.get("tag_name", "").startswith("max/")
-    ]
+    tools_releases = [r for r in releases if r.get("tag_name", "").startswith("max/")]
     if not tools_releases:
-        log("Error: No max release found.", "red")
+        log("Error: No release found.", "red")
         sys.exit(1)
 
     # Sort lexicographically by created_at (ISO 8601) to get the latest
@@ -93,58 +85,30 @@ def main():
 
     if not matching_assets:
         log(
-            f"Error: No binaries found for {os_name}/{arch_name} in {tag}.",
-            "red",
+            f"No tools found for {os_name}/{arch_name} in {tag} — nothing to uninstall.",
+            "yellow",
         )
-        sys.exit(1)
-
-    os.makedirs(INSTALL_DIR, exist_ok=True)
+        sys.exit(0)
 
     for asset in matching_assets:
         asset_name = asset["name"]
-        tool_name = asset_name[:-len(suffix)]
+        tool_name = asset_name[: -len(suffix)]
         binary_name = tool_name
         if os_name == "windows":
             binary_name += ".exe"
 
-        download_url = asset["browser_download_url"]
-        log(f"Downloading {asset_name}...", "cyan")
+        dest_path = os.path.join(INSTALL_DIR, binary_name)
 
-        try:
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_file_path = os.path.join(temp_dir, binary_name)
+        if os.path.exists(dest_path):
+            try:
+                os.remove(dest_path)
+                log(f"Removed {dest_path}", "green")
+            except Exception as e:
+                log(f"Error removing {dest_path}: {e}", "red")
+        else:
+            log(f"{dest_path} not found — skipping", "yellow")
 
-                asset_req = urllib.request.Request(
-                    download_url, headers={"User-Agent": "Mozilla/5.0"}
-                )
-                with urllib.request.urlopen(asset_req) as resp, open(
-                    temp_file_path, "wb"
-                ) as out_file:
-                    shutil.copyfileobj(resp, out_file)
-
-                # Make executable on POSIX systems
-                if os_name != "windows":
-                    os.chmod(temp_file_path, 0o755)
-
-                dest_path = os.path.join(INSTALL_DIR, binary_name)
-
-                # Avoid file locking issues on Windows by trying to delete first
-                try:
-                    if os.path.exists(dest_path):
-                        os.remove(dest_path)
-                except Exception as e:
-                    log(
-                        f"Warning: Could not remove existing file {dest_path}: {e}",
-                        "yellow",
-                    )
-
-                shutil.move(temp_file_path, dest_path)
-                log(f"  ✓ {binary_name} -> {dest_path}", "green")
-        except Exception as e:
-            log(f"Failed to install {binary_name}: {e}", "red")
-            sys.exit(1)
-
-    log(f"Done. Installed from release {tag}", "green")
+    log("Done.", "green")
 
 
 if __name__ == "__main__":

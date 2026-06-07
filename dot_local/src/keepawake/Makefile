@@ -1,18 +1,36 @@
 BINARY  := keepawake
-OUT     ?= ./$(BINARY)
 VERSION ?= dev
-GOOS    ?= linux
+
+# Detect Host Operating System
+ifeq ($(OS),Windows_NT)
+    HOST_OS   := windows
+    RM        := del /f /q
+    FIX_PATH   = $(subst /,\\,$(1))
+    BINARY_EXT := .exe
+else
+    HOST_OS   := linux
+    RM        := rm -f
+    FIX_PATH   = $(1)
+    BINARY_EXT :=
+endif
+
+GOOS    ?= $(HOST_OS)
 GOARCH  ?= amd64
+OUT     ?= ~/.local/bin/$(BINARY)$(BINARY_EXT)
 
 LDFLAGS := -s -w -X main.version=$(VERSION)
+
+# Export variables directly to the compiler's environment
+export GOOS
+export GOARCH
 
 .PHONY: build run clean
 
 build:
-	GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags="$(LDFLAGS)" -o "$(OUT)" .
+	go build -ldflags="$(LDFLAGS)" -o "$(OUT)" .
 
 run: build
-	$(OUT)
+	$(call FIX_PATH,$(OUT))
 
 clean:
-	rm -f ./$(BINARY)
+	$(RM) $(call FIX_PATH,$(OUT))
