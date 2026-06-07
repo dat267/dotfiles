@@ -173,9 +173,10 @@ local lsp_modules = {
   lua_lsp = "lua-language-server",
   go_lsp = "gopls",
   js_lsp = "typescript-language-server",
-  python_lsp = "pyright",
-  powershell_lsp = "pwsh",
-  markdown_lsp = "marksman",
+  py_lsp = "pyright",
+  ps1_lsp = "pwsh",
+  md_lsp = "marksman",
+  rs_lsp = "rust-analyzer",
 }
 
 for module, binary in pairs(lsp_modules) do
