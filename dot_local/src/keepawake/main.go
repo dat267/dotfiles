@@ -1,154 +1,141 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"os"
-	"os/signal"
+	"os/exec"
 	"runtime"
-	"syscall"
 	"time"
+
+	"github.com/go-vgo/robotgo"
 )
 
-var version = "dev"
+const (
+	minBaseDelay   = 30
+	randomRange    = 45
+	shortDelayMin  = 5
+	shortDelayMax  = 15
+	longDelayMin   = 75
+	longDelayMax   = 60
+	scrollLockWait = 50 * time.Millisecond
+)
+
+func nextInterval() time.Duration {
+	base := minBaseDelay + rand.IntN(randomRange)
+	if rand.Float64() < 0.15 {
+		base = shortDelayMin + rand.IntN(shortDelayMax)
+	} else if rand.Float64() > 0.85 {
+		base = longDelayMin + rand.IntN(longDelayMax)
+	}
+	return time.Duration(base) * time.Second
+}
+
+func executeInteraction() string {
+	if rand.Float64() < 0.35 {
+		robotgo.KeyTap("scroll_lock")
+		time.Sleep(scrollLockWait)
+		robotgo.KeyTap("scroll_lock")
+		return " (sent ScrollLock x2)"
+	}
+	robotgo.KeyTap("f15")
+	return " (sent F15)"
+}
 
 func main() {
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
+}
 
-	versionFlag := flag.Bool("v", false, "Print version")
-	unattendedFlag := flag.Bool("u", false, "Prevent system sleep but allow the display to turn off (Windows/macOS only)")
-	timeoutFlag := flag.String("t", "", "Exit after specified duration (e.g. 2h30m, 45m, 15s)")
-	shutdownFlag := flag.Bool("s", false, "Shutdown the system after the timeout expires (gives 60s warning to react)")
+func run(args []string) error {
+	fs := flag.NewFlagSet("keepawake", flag.ContinueOnError)
+	timeoutFlag := fs.String("t", "", "Exit after specified duration (e.g. 2h, 45m, 15s)")
+	shutdownFlag := fs.Bool("s", false, "Shutdown the system after the timeout expires")
 
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "KeepAwake v%s - Keep computers active with random periodic interactions.\n\n", version)
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage:\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  keepawake [flags]\n\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "Flags:\n")
-		flag.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nExamples:\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  keepawake -t 2h\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "      Keep active for 2 hours, then exit.\n\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  keepawake -t 45m -s\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "      Keep active for 45 minutes, then trigger a shutdown with 60s cancellation warning.\n\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  keepawake -u\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "      Prevent system sleep, but let the screen turn off (Windows/macOS only).\n\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "Platforms & Simulation Actions:\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  - Windows: Uses SetThreadExecutionState and user32 key events (VK_F15 / VK_SCROLL).\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  - macOS:   Uses caffeinate and osascript simulated key codes.\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  - Linux:   Uses systemd-inhibit, xdotool, or wtype key simulation.\n")
+	if err := fs.Parse(args); err != nil {
+		return err
 	}
 
-	flag.Parse()
-
-	if *versionFlag {
-		fmt.Println(version)
-		return
+	if *shutdownFlag && *timeoutFlag == "" {
+		return errors.New("cannot use -s (shutdown) without specifying a timeout duration via -t")
 	}
 
+	startTime := time.Now()
 	var timeoutChan <-chan time.Time
+
 	if *timeoutFlag != "" {
 		dur, err := time.ParseDuration(*timeoutFlag)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: Invalid timeout duration %q: %v\n", *timeoutFlag, err)
-			return
+			return fmt.Errorf("invalid timeout %q", *timeoutFlag)
 		}
 		timeoutChan = time.After(dur)
-	}
 
-	rand.Seed(time.Now().UnixNano())
-
-	display := !*unattendedFlag
-	assertion := startPowerAssertion(display)
-	defer assertion.restore()
-
-	// Intercept signals for graceful termination
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	fmt.Printf("[*] Starting keep-awake (System: %s, Display Keep-Alive: %v)\n", runtime.GOOS, display)
-	if *timeoutFlag != "" {
-		fmt.Printf("[*] Timeout enabled: will run for %s\n", *timeoutFlag)
+		stopTime := startTime.Add(dur).Format("15:04:05")
 		if *shutdownFlag {
-			fmt.Println("[*] Shutdown action enabled: will shut down the machine after timeout.")
+			fmt.Printf("Keep-awake active until %s (with system shutdown).\nPress Ctrl+C to stop.\n", stopTime)
+		} else {
+			fmt.Printf("Keep-awake active until %s.\nPress Ctrl+C to stop.\n", stopTime)
 		}
+	} else {
+		fmt.Println("Keep-awake active indefinitely.\nPress Ctrl+C to stop.")
 	}
-	fmt.Printf("[*] Press Ctrl+C to stop and allow system to sleep normally.\n\n")
-
-	startTime := time.Now()
-	spinner := []string{"|", "/", "-", "\\"}
-	spinnerIdx := 0
 
 	lastPressTime := time.Now()
-	nextPressDelay := time.Duration(rand.Intn(31)+30) * time.Second // Random delay between 30 and 60 seconds
-
-	var lastKeySent string
-	var lastKeySentTime time.Time
+	nextPressDelay := nextInterval()
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	var keyStatus string
+
 	for {
 		select {
-		case <-sigChan:
-			fmt.Println("\n\n[*] Stopping keep-awake...")
-			return
 		case <-timeoutChan:
-			fmt.Println("\n\n[*] Timeout reached!")
+			fmt.Println("\nTimeout reached.")
 			if *shutdownFlag {
-				triggerShutdownCountdown(sigChan)
+				return triggerShutdownCountdown()
 			}
-			return
+			return nil
 		case <-ticker.C:
 			currentTime := time.Now()
 
-			// Check if we need to send key press
 			if currentTime.Sub(lastPressTime) >= nextPressDelay {
-				sentKey := pressSafeKey()
-				if sentKey != "" {
-					lastKeySent = sentKey
-					lastKeySentTime = currentTime
-				}
+				keyStatus = executeInteraction()
 				lastPressTime = currentTime
-				nextPressDelay = time.Duration(rand.Intn(31)+30) * time.Second
+				nextPressDelay = nextInterval()
 			}
 
-			// Format elapsed time
 			elapsed := currentTime.Sub(startTime)
 			hours := int(elapsed.Hours())
 			minutes := int(elapsed.Minutes()) % 60
 			seconds := int(elapsed.Seconds()) % 60
 
-			keyStatus := ""
-			if lastKeySent != "" && currentTime.Sub(lastKeySentTime) < 5*time.Second {
-				keyStatus = fmt.Sprintf(" (sent %s)", lastKeySent)
-			}
-
-			// Output status in-place
-			fmt.Printf("\r\033[K[ %s ] Active%s | Elapsed time: %02d:%02d:%02d",
-				spinner[spinnerIdx%len(spinner)], keyStatus, hours, minutes, seconds)
-			spinnerIdx++
+			fmt.Printf("\rElapsed: %02d:%02d:%02d%s\033[K", hours, minutes, seconds, keyStatus)
 		}
 	}
 }
 
-func triggerShutdownCountdown(sigChan chan os.Signal) {
-	fmt.Println("\n\n[!] WARNING: Keep-awake timeout reached! System shutdown has been triggered.")
-	fmt.Println("[!] Press Ctrl+C within 60 seconds to cancel the shutdown and keep system active.")
+func triggerShutdownCountdown() error {
+	fmt.Println("\nWARNING: Shutdown triggered. Press Ctrl+C to cancel.")
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for i := 60; i > 0; i-- {
-		select {
-		case <-sigChan:
-			fmt.Println("\n\n[*] Shutdown cancelled by user.")
-			return
-		case <-ticker.C:
-			fmt.Printf("\r\033[KShutting down in %d seconds...", i)
-		}
+		<-ticker.C
+		fmt.Printf("\rShutting down in %d seconds...\033[K", i)
 	}
 
-	fmt.Println("\n[*] Shutting down now...")
-	executeShutdown()
+	fmt.Println("\nShutting down now...")
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("shutdown", "/s", "/t", "0")
+	} else {
+		cmd = exec.Command("shutdown", "-h", "now")
+	}
+	return cmd.Run()
 }
