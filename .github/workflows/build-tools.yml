@@ -74,7 +74,7 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          # CGO_ENABLED: "0"
+          CGO_ENABLED: "0"
           VERSION: ${{ needs.tag.outputs.tag }}
         run: |
           SUFFIX=""
