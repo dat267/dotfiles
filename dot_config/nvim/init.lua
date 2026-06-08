@@ -1,5 +1,3 @@
-vim.env.PATH = vim.fn.expand("~/.local/bin:") .. vim.env.PATH
-
 vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.tabstop = 2
