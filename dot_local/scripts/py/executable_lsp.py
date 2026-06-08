@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import gzip
 import json
 import os
 import platform
@@ -14,8 +15,8 @@ import zipfile
 _orig_getaddrinfo = socket.getaddrinfo
 
 
-def _ipv4_only_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+def _ipv4_only_getaddrinfo(host, port, family=0, *args, **kwargs):
+    return _orig_getaddrinfo(host, port, socket.AF_INET, *args, **kwargs)
 
 
 socket.getaddrinfo = _ipv4_only_getaddrinfo
@@ -312,6 +313,55 @@ def install_powershell_es():
         os.remove(zip_path)
 
 
+def install_rust_analyzer(sys_os, arch):
+    print("\n=== Installing Rust Analyzer ===")
+    if sys_os == "android":
+        if shutil.which("pkg"):
+            subprocess.run(["pkg", "install", "-y", "rust-analyzer"])
+        return
+
+    ext = ".exe" if sys_os == "windows" else ""
+    dest_bin = os.path.join(BIN_DIR, "rust-analyzer" + ext)
+    if os.path.exists(dest_bin):
+        return
+
+    if sys_os == "windows":
+        suffix = (
+            "aarch64-pc-windows-msvc.zip"
+            if arch == "arm64"
+            else "x86_64-pc-windows-msvc.zip"
+        )
+    elif sys_os == "darwin":
+        suffix = (
+            "aarch64-apple-darwin.gz" if arch == "arm64" else "x86_64-apple-darwin.gz"
+        )
+    else:
+        suffix = (
+            "aarch64-unknown-linux-gnu.gz"
+            if arch == "arm64"
+            else "x86_64-unknown-linux-gnu.gz"
+        )
+
+    archive_ext = ".zip" if sys_os == "windows" else ".gz"
+    url = f"https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-{suffix}"
+    archive_path = os.path.join(SHARE_DIR, f"rust-analyzer{archive_ext}")
+
+    if download_file(url, archive_path, "Rust Analyzer Archive"):
+        if archive_ext == ".zip":
+            with zipfile.ZipFile(archive_path, "r") as z:
+                for member in z.namelist():
+                    if member.endswith(".exe"):
+                        with z.open(member) as src, open(dest_bin, "wb") as dst:
+                            shutil.copyfileobj(src, dst)
+        else:
+            with gzip.open(archive_path, "rb") as f_in:
+                with open(dest_bin, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+
+        os.remove(archive_path)
+        os.chmod(dest_bin, 0o755)
+
+
 def uninstall_all(sys_os):
     print("\n=== Uninstalling All LSPs & Runtimes ===")
 
@@ -332,6 +382,7 @@ def uninstall_all(sys_os):
         "black",
         "gopls",
         "prettier",
+        "rust-analyzer",
     ]
     extensions = ["", ".exe", ".cmd", ".bat"]
     for b in bins_to_remove:
@@ -351,6 +402,7 @@ def uninstall_all(sys_os):
                 "marksman",
                 "lua-language-server",
                 "nodejs",
+                "rust-analyzer",
             ]
         )
 
@@ -373,6 +425,7 @@ def main():
         install_black(sys_os)
         install_gopls()
         install_powershell_es()
+        install_rust_analyzer(sys_os, arch)
 
 
 if __name__ == "__main__":

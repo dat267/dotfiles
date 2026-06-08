@@ -1,3 +1,5 @@
+vim.env.PATH = vim.fn.expand("~/.local/bin:") .. vim.env.PATH
+
 vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.tabstop = 2
@@ -64,6 +66,8 @@ vim.api.nvim_create_autocmd("LspAttach", {
     if not client then return end
     local opts = { buffer = event.buf }
 
+    vim.bo[event.buf].omnifunc = "v:lua.vim.lsp.omnifunc"
+
     local methods = {
       ["textDocument/definition"] = { "n", "gd", vim.lsp.buf.definition },
       ["textDocument/references"] = { "n", "gr", vim.lsp.buf.references },
@@ -95,16 +99,17 @@ vim.api.nvim_create_autocmd("LspAttach", {
     if client:supports_method("textDocument/inlayHint") then
       vim.lsp.inlay_hint.enable(true, { bufnr = event.buf })
     end
-    if client:supports_method("textDocument/formatting") then
-      local format_group = vim.api.nvim_create_augroup("LspFormatting", { clear = false })
-      vim.api.nvim_create_autocmd("BufWritePre", {
-        buffer = event.buf,
-        group = format_group,
-        callback = function()
+
+    local format_group = vim.api.nvim_create_augroup("LspFormatting", { clear = false })
+    vim.api.nvim_create_autocmd("BufWritePre", {
+      buffer = event.buf,
+      group = format_group,
+      callback = function()
+        if client:supports_method("textDocument/formatting") then
           vim.lsp.buf.format({ bufnr = event.buf, id = client.id })
-        end,
-      })
-    end
+        end
+      end,
+    })
   end,
 })
 
@@ -177,13 +182,18 @@ local lsp_modules = {
   ps1_lsp = "pwsh",
   md_lsp = "marksman",
   rs_lsp = "rust-analyzer",
+  sh_lsp = "bash-language-server",
 }
 
 for module, binary in pairs(lsp_modules) do
   if vim.fn.executable(binary) == 1 then
-    if module ~= "powershell_lsp" or not vim.env.TERMUX_VERSION then
-      pcall(require, module)
+    if module ~= "ps1_lsp" or not vim.env.TERMUX_VERSION then
+      local ok, err = pcall(require, module)
+      if not ok then
+        vim.schedule(function()
+          vim.notify("Error loading " .. module .. ": " .. tostring(err), vim.log.levels.ERROR)
+        end)
+      end
     end
   end
 end
-
