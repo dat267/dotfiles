@@ -21,10 +21,39 @@ vim.g.mapleader = " "
 vim.keymap.set("n", "<leader>w", "<cmd>w<cr>", { desc = "Save file" })
 vim.keymap.set("n", "<leader>q", "<cmd>q<cr>", { desc = "Quit" })
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
-vim.keymap.set("n", "[d", function() vim.diagnostic.jump({ count = -1 }) end)
-vim.keymap.set("n", "]d", function() vim.diagnostic.jump({ count = 1 }) end)
+
+vim.keymap.set("n", "<C-h>", "<C-w>h", { desc = "Go to left window" })
+vim.keymap.set("n", "<C-j>", "<C-w>j", { desc = "Go to lower window" })
+vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Go to upper window" })
+vim.keymap.set("n", "<C-l>", "<C-w>l", { desc = "Go to right window" })
+
+vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv", { desc = "Move selection down" })
+vim.keymap.set("v", "K", ":m '>-2<CR>gv=gv", { desc = "Move selection up" })
+
+vim.keymap.set("n", "n", "nzzzv", { desc = "Next search match" })
+vim.keymap.set("n", "N", "Nzzzv", { desc = "Prev search match" })
+
+vim.keymap.set("n", "[d", function() vim.diagnostic.jump({ count = -1 }) end, { desc = "Prev diagnostic" })
+vim.keymap.set("n", "]d", function() vim.diagnostic.jump({ count = 1 }) end, { desc = "Next diagnostic" })
+
 vim.keymap.set("i", "<Tab>", function() return vim.fn.pumvisible() == 1 and "<C-n>" or "<Tab>" end, { expr = true })
 vim.keymap.set("i", "<S-Tab>", function() return vim.fn.pumvisible() == 1 and "<C-p>" or "<S-Tab>" end, { expr = true })
+
+vim.keymap.set("i", "<CR>", function()
+  local col = vim.api.nvim_win_get_cursor(0)[2]
+  local line = vim.api.nvim_get_current_line()
+  local cr_behavior = (line:sub(col, col) == "{" and line:sub(col + 1, col + 1) == "}") and "<CR><Esc>O" or "<CR>"
+
+  if vim.fn.pumvisible() == 1 then
+    if vim.fn.complete_info({ "selected" }).selected ~= -1 then
+      return "<C-y>"
+    else
+      return "<C-e>" .. cr_behavior
+    end
+  end
+
+  return cr_behavior
+end, { expr = true })
 
 local function apply_transparency()
   local hl_groups = {
@@ -136,24 +165,6 @@ vim.keymap.set("i", "<BS>", function()
   local line = vim.api.nvim_get_current_line()
   return pair_map[line:sub(col, col)] == line:sub(col + 1, col + 1) and "<BS><Del>" or "<BS>"
 end, { expr = true })
-
-vim.keymap.set("i", "<CR>", function()
-  local col = vim.api.nvim_win_get_cursor(0)[2]
-  local line = vim.api.nvim_get_current_line()
-  return (line:sub(col, col) == "{" and line:sub(col + 1, col + 1) == "}") and "<CR><Esc>O" or "<CR>"
-end, { expr = true })
-
-vim.api.nvim_create_autocmd("TextChangedI", {
-  callback = function()
-    if vim.fn.pumvisible() ~= 0 or vim.bo.omnifunc == "" then return end
-    local col = vim.api.nvim_win_get_cursor(0)[2]
-    local line = vim.api.nvim_get_current_line()
-    local char = line:sub(col, col)
-    if char:match("[%w_%.%:]") then
-      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-x><C-o>", true, true, true), "n", false)
-    end
-  end,
-})
 
 local formatters = {
   py = { bin = "black", cmd = "black -q -" },
