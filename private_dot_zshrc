@@ -94,3 +94,7 @@ zle-line-init() {
     print -n '\e[6 q'
 }
 zle -N zle-line-init
+
+bindkey '^?' backward-delete-char
+bindkey '^H' backward-delete-char
+

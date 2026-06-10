@@ -1,3 +1,6 @@
+if ($global:__dotfiles_profile_loaded) { return }
+$global:__dotfiles_profile_loaded = $true
+
 & {
     if ($null -eq $IsWindows) {
         $os = [Environment]::OSVersion.Platform
@@ -221,6 +224,7 @@
 function codesh { code $PSScriptRoot }
 
 function resh {
+    $global:__dotfiles_profile_loaded = $false
     . $PROFILE
 }
 

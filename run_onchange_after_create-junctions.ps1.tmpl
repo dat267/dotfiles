@@ -11,14 +11,12 @@ $folderMap = @{
     "$HOME\scoop\persist\vscode\data\user-data\User" = "{{ .chezmoi.homeDir }}/.config/Code/User"
 }
 
-foreach ($pair in $folderMap.GetEnumerator()) {
-    $link   = $pair.Name
-    $target = $pair.Value.Replace('/', '\')
-
+function Create-Junction($link, $target) {
+    $target = $target.Replace('/', '\')
     $item = Get-Item -Force $link -ErrorAction SilentlyContinue
     if ($item) {
         # Already a junction pointing to the right place — skip
-        if ($item.Attributes -match "ReparsePoint" -and $item.Target -eq $target) { continue }
+        if ($item.Attributes -match "ReparsePoint" -and $item.Target -eq $target) { return }
         # Otherwise backup real directory or remove link so we can re-create
         if ($item.Attributes -notmatch "ReparsePoint") {
             $bakPath = "${link}.bak"
@@ -37,32 +35,35 @@ foreach ($pair in $folderMap.GetEnumerator()) {
     New-Item -ItemType Junction -Path $link -Target $target -Force | Out-Null
 }
 
-# PS7 and Windows PowerShell: ensure stub $PROFILEs source the chezmoi-managed profile.
+foreach ($pair in $folderMap.GetEnumerator()) {
+    Create-Junction $pair.Name $pair.Value
+}
+
+# PS7: ensure stub $PROFILE sources the chezmoi-managed profile.
 # Avoids fighting OneDrive over the PowerShell directories (which have synced modules).
 $profiles = @(
-    "$docsDir\PowerShell\Microsoft.PowerShell_profile.ps1",
-    "$docsDir\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"
+    "$docsDir\PowerShell\Microsoft.PowerShell_profile.ps1"
 )
-$dotfilesProfile = "{{ .chezmoi.homeDir }}/.config/powershell/Microsoft.PowerShell_profile.ps1".Replace('/', '\')
-$sourceLine = ". `"$dotfilesProfile`""
+$sourceLine = 'if (Test-Path "$HOME\.config\powershell\Microsoft.PowerShell_profile.ps1") { . "$HOME\.config\powershell\Microsoft.PowerShell_profile.ps1" }'
 
 foreach ($prof in $profiles) {
     if (Test-Path $prof) {
         $content = Get-Content $prof -Raw
+        
+        # Check if the guarded $HOME-relative sourcing line already exists
+        $newPattern = '(?i)Test-Path\s*[''"]?(?:\$HOME|\$env:USERPROFILE)\\.config\\powershell\\Microsoft\.PowerShell_profile\.ps1[''"]?'
         $hasSource = $false
-        if ($content) {
-            $escapedPath = [regex]::Escape($dotfilesProfile)
-            $pattern = "(?i)\.\s*`"?$escapedPath`"?"
-            if ($content -match $pattern) {
-                $hasSource = $true
-            }
+        if ($content -and $content -match $newPattern) {
+            $hasSource = $true
         }
+
         if (-not $hasSource) {
-            $newContent = $sourceLine + "`r`n" + $content
+            $newContent = $sourceLine + "`r`n" + ($content ? $content.Trim() : "")
             Set-Content -Path $prof -Value $newContent -Encoding UTF8
         }
     } else {
-        New-Item -ItemType Directory -Force -Path (Split-Path $prof) | Out-Null
+        $profDir = Split-Path $prof -Parent
+        New-Item -ItemType Directory -Force -Path $profDir | Out-Null
         Set-Content -Path $prof -Value ($sourceLine + "`r`n") -Encoding UTF8
     }
 }
