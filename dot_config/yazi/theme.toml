@@ -1,0 +1,29 @@
+# Disable Nerd Font file/folder icons
+[icon]
+globs = []
+dirs = []
+files = []
+exts = []
+conds = []
+
+# Disable Nerd Font UI separators and diagnostic symbols
+[status]
+sep_left = { open = "", close = "" }
+sep_right = { open = "", close = "" }
+
+[tabs]
+sep_inner = { open = "", close = "" }
+sep_outer = { open = "", close = "" }
+
+[cmp]
+icon_file = ""
+icon_folder = ""
+icon_command = ""
+
+[notify]
+icon_info = ""
+icon_warn = ""
+icon_error = ""
+
+[which]
+separator = " -> "
