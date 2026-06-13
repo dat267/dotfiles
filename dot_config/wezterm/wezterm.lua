@@ -181,13 +181,12 @@ wezterm.on('gui-startup', function(cmd)
 end)
 
 ----------------------------------------------------------------
--- Aesthetics & Window Styling
-----------------------------------------------------------------
--- Font configuration with Nerd Font and ligatures
+-- Font configuration with native fallback and ligatures
 config.font = wezterm.font_with_fallback({
-  { family = 'FiraCode Nerd Font', weight = 'Medium' },
-  { family = 'Fira Code', weight = 'Medium' },
+  { family = 'JetBrains Mono', weight = 'Medium' },
+  { family = 'Hack', weight = 'Regular' },
   { family = 'Consolas', weight = 'Regular' },
+  { family = 'monospace' },
 })
 config.font_size = 11.5
 
