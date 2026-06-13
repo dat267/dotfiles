@@ -34,18 +34,17 @@ def send_files_to_mpv(conn: socket.socket | BinaryIO, files: Iterable[str]) -> N
         print("mpv is terminating or the connection was lost.", file=sys.stderr)
         sys.exit(1)
 
-def start_mpv(files: Iterable[str], socket_path: str) -> None:
+def start_mpv(options: list[str], files: Iterable[str], socket_path: str) -> None:
     mpv_binary = "/usr/bin/mpv"
     mpv_command = [
         mpv_binary,
         f"--input-ipc-server={socket_path}",
     ]
-    has_files = False
-    for f in files:
-        if not has_files:
-            mpv_command.append("--")
-            has_files = True
-        mpv_command.append(f)
+    mpv_command.extend(options)
+    
+    if files:
+        mpv_command.append("--")
+        mpv_command.extend(files)
         
     try:
         os.execv(mpv_binary, mpv_command)
@@ -54,11 +53,26 @@ def start_mpv(files: Iterable[str], socket_path: str) -> None:
         sys.exit(1)
 
 def main() -> None:
-    files = [os.path.abspath(f) if not is_url(f) else f for f in sys.argv[1:]]
+    options = []
+    files = []
+    in_files = False
+    
+    for arg in sys.argv[1:]:
+        if in_files:
+            files.append(arg)
+        elif arg == "--":
+            in_files = True
+        elif arg.startswith("-"):
+            options.append(arg)
+        else:
+            files.append(arg)
+            
+    files = [os.path.abspath(f) if not is_url(f) else f for f in files]
     
     if not files:
+        mpv_binary = "/usr/bin/mpv"
         try:
-            os.execv("/usr/bin/mpv", ["/usr/bin/mpv"])
+            os.execv(mpv_binary, [mpv_binary] + options)
         except Exception as e:
             print(f"Error starting mpv: {e}", file=sys.stderr)
             sys.exit(1)
@@ -70,7 +84,7 @@ def main() -> None:
             sock.connect(socket_path)
             send_files_to_mpv(sock, files)
     except (FileNotFoundError, ConnectionRefusedError, ConnectionResetError):
-        start_mpv(files, socket_path)
+        start_mpv(options, files, socket_path)
 
 if __name__ == "__main__":
     main()
