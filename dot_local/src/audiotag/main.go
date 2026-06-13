@@ -5,7 +5,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/bogem/id3v2/v2"
 	"github.com/go-flac/flacvorbis/v2"
@@ -15,6 +17,7 @@ import (
 
 var version = "dev"
 var moveFlag bool
+var concurrency int
 
 func main() {
 	var rootCmd = &cobra.Command{
@@ -38,7 +41,10 @@ Expected directory structure: .../Artist/Album/Track - Title.ext`,
 			if !info.IsDir() {
 				return fmt.Errorf("%s is not a directory", root)
 			}
-			return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+
+			// Collect files to process
+			var files []string
+			err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return nil
 				}
@@ -47,10 +53,34 @@ Expected directory structure: .../Artist/Album/Track - Title.ext`,
 				}
 				ext := strings.ToLower(filepath.Ext(path))
 				if ext == ".mp3" || ext == ".flac" {
-					tagFile(path, ext)
+					files = append(files, path)
 				}
 				return nil
 			})
+			if err != nil {
+				return err
+			}
+
+			// Process concurrently using a semaphore
+			if concurrency <= 0 {
+				concurrency = 1
+			}
+			sem := make(chan struct{}, concurrency)
+			var wg sync.WaitGroup
+
+			for _, path := range files {
+				wg.Add(1)
+				go func(p string) {
+					defer wg.Done()
+					sem <- struct{}{}
+					defer func() { <-sem }()
+
+					ext := strings.ToLower(filepath.Ext(p))
+					tagFile(p, ext)
+				}(path)
+			}
+			wg.Wait()
+			return nil
 		},
 	}
 
@@ -86,7 +116,9 @@ under the structure: <dest_dir>/<Artist>/<Album>/<Track> - <Title>.<ext>`,
 				return fmt.Errorf("failed to create destination directory: %w", err)
 			}
 
-			return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+			// Collect files to process
+			var files []string
+			err = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
 					return nil
 				}
@@ -114,16 +146,45 @@ under the structure: <dest_dir>/<Artist>/<Album>/<Track> - <Title>.<ext>`,
 				}
 				ext := strings.ToLower(filepath.Ext(path))
 				if ext == ".mp3" || ext == ".flac" {
-					if err := organizeFile(path, ext, destDir, moveFlag); err != nil {
-						fmt.Fprintf(os.Stderr, "Error organizing %s: %v\n", path, err)
-					}
+					files = append(files, path)
 				}
 				return nil
 			})
+			if err != nil {
+				return err
+			}
+
+			// Process concurrently using a semaphore
+			if concurrency <= 0 {
+				concurrency = 1
+			}
+			sem := make(chan struct{}, concurrency)
+			var wg sync.WaitGroup
+			var mu sync.Mutex
+
+			for _, path := range files {
+				wg.Add(1)
+				go func(p string) {
+					defer wg.Done()
+					sem <- struct{}{}
+					defer func() { <-sem }()
+
+					ext := strings.ToLower(filepath.Ext(p))
+					if err := organizeFile(p, ext, destDir, moveFlag); err != nil {
+						mu.Lock()
+						fmt.Fprintf(os.Stderr, "Error organizing %s: %v\n", p, err)
+						mu.Unlock()
+					}
+				}(path)
+			}
+			wg.Wait()
+			return nil
 		},
 	}
 
 	organizeCmd.Flags().BoolVarP(&moveFlag, "move", "m", false, "Move files instead of copying them")
+
+	rootCmd.PersistentFlags().IntVarP(&concurrency, "concurrency", "c", runtime.NumCPU(), "number of concurrent workers")
 
 	rootCmd.AddCommand(tagCmd)
 	rootCmd.AddCommand(organizeCmd)
