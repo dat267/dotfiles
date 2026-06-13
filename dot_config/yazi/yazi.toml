@@ -1,16 +1,10 @@
 [manager]
 show_hidden = false
 show_symlink = true
-scrolloff = 5
-linemode = "none"
 
 
 [preview]
-tab_size = 2
-max_width = 400
-max_height = 600
-image_filter = "nearest"
-image_quality = 50
+image_quality = 90
 
 [tasks]
 micro_workers = 2
@@ -28,8 +22,8 @@ open = [
 	{ run = 'open "$@"', orphan = true, desc = "Open", for = "macos" },
 ]
 extract = [
-	{ run = '7z x "$@"', desc = "Extract here", for = "unix" },
-	{ run = '7z x "%1"', desc = "Extract here", for = "windows" },
+	{ run = 'dir="${1%.*}"; [ "${dir##*.}" = "tar" ] && dir="${dir%.tar}"; 7z x -o"$dir" -- "$@"', desc = "Extract to subdirectory", for = "unix" },
+	{ run = '7z x -o"%~dpn1" "%1"', desc = "Extract to subdirectory", for = "windows" },
 ]
 compress_7z = [
 	{ run = '7z a -t7z -mx=9 -mmt=on -ms=on "$1.7z" "$@"', desc = "Compress to 7z", for = "unix" },
@@ -55,8 +49,8 @@ rules = [
 		"open",
 	] },
 	{ mime = "*", use = [
-		"open",
 		"edit",
+		"open",
 	] },
 ]
 
