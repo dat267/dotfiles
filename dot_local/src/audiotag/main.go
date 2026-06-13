@@ -242,6 +242,15 @@ func tagMP3(path, artist, album, title, track string) {
 	}
 	defer tag.Close()
 	compatibleArtist := strings.ReplaceAll(artist, ";", " / ")
+
+	// Optimization: Skip saving if tags are already correct
+	if tag.Artist() == compatibleArtist &&
+		tag.Album() == album &&
+		tag.Title() == title &&
+		tag.GetTextFrame("TRCK").Text == track {
+		return
+	}
+
 	tag.SetArtist(compatibleArtist)
 	tag.SetAlbum(album)
 	tag.SetTitle(title)
@@ -270,9 +279,41 @@ func tagFLAC(path, artist, album, title, track string) {
 		return
 	}
 	cmt, cmtIdx := findVorbisComment(f.Meta)
+
+	// Clean target values
 	artists := strings.Split(artist, ";")
+	var targetArtists []string
 	for _, a := range artists {
-		cmt.Add(flacvorbis.FIELD_ARTIST, strings.TrimSpace(a))
+		targetArtists = append(targetArtists, strings.TrimSpace(a))
+	}
+	targetArtistJoined := strings.Join(targetArtists, "; ")
+
+	// Helper to check if a specific key has the correct value
+	hasCorrectValue := func(key, val string) bool {
+		vals, err := cmt.Get(key)
+		if err != nil || len(vals) == 0 {
+			return val == ""
+		}
+		return strings.Join(vals, "; ") == val
+	}
+
+	// Optimization: Skip saving if tags are already correct
+	if cmtIdx >= 0 &&
+		hasCorrectValue(flacvorbis.FIELD_ARTIST, targetArtistJoined) &&
+		hasCorrectValue(flacvorbis.FIELD_ALBUM, album) &&
+		hasCorrectValue(flacvorbis.FIELD_TITLE, title) &&
+		hasCorrectValue(flacvorbis.FIELD_TRACKNUMBER, track) {
+		return
+	}
+
+	// Clear existing keys to prevent duplication before writing new values
+	deleteVorbisKey(cmt, flacvorbis.FIELD_ARTIST)
+	deleteVorbisKey(cmt, flacvorbis.FIELD_ALBUM)
+	deleteVorbisKey(cmt, flacvorbis.FIELD_TITLE)
+	deleteVorbisKey(cmt, flacvorbis.FIELD_TRACKNUMBER)
+
+	for _, a := range targetArtists {
+		cmt.Add(flacvorbis.FIELD_ARTIST, a)
 	}
 	cmt.Add(flacvorbis.FIELD_ALBUM, album)
 	cmt.Add(flacvorbis.FIELD_TITLE, title)
@@ -286,6 +327,17 @@ func tagFLAC(path, artist, album, title, track string) {
 		f.Meta = append(f.Meta, &cmtsmeta)
 	}
 	f.Save(path)
+}
+
+func deleteVorbisKey(cmt *flacvorbis.MetaDataBlockVorbisComment, key string) {
+	keyPrefix := strings.ToUpper(key) + "="
+	var newComments []string
+	for _, comment := range cmt.Comments {
+		if !strings.HasPrefix(strings.ToUpper(comment), keyPrefix) {
+			newComments = append(newComments, comment)
+		}
+	}
+	cmt.Comments = newComments
 }
 
 func organizeFile(srcPath, ext, destDir string, move bool) error {
