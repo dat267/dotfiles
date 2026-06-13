@@ -1,6 +1,7 @@
 # Basic Settings
 set nohidden
 set preview
+set previewer ~/.config/lf/preview.sh
 
 # Functions
 cmd edit-config ${{
@@ -199,6 +200,33 @@ cmd compress_txz ${{
     ' _ "$@"
 }}
 
+cmd trash ${{
+    IFS='
+'
+    for file in $fx; do
+        trash-put -- "$file"
+    done
+}}
+
+cmd zoxide-jump ${{
+    res="$(zoxide query -l | fzf --height=40% --reverse --header='Jump to directory')"
+    if [ -n "$res" ]; then
+        lf -remote "send $id cd '$res'"
+    fi
+}}
+
+cmd fzf-search ${{
+    res="$(fzf --height=40% --reverse --header='Search files')"
+    if [ -n "$res" ]; then
+        if [ -d "$res" ]; then
+            lf -remote "send $id cd '$res'"
+        else
+            lf -remote "send $id select '$res'"
+        fi
+    fi
+}}
+
+
 
 # Mappings
 map d
@@ -207,7 +235,8 @@ map sh shell-pipe
 map dd cut
 map pp paste
 # map C edit-config
-map dD delete
+map dD trash
+map D delete
 map J :updir; down; open
 map K :updir; up; open
 map gL follow_link
@@ -215,6 +244,9 @@ map a push :mkdir<space>
 map P :link
 map <enter> :open
 map <esc> clear
+
+map cz zoxide-jump
+map cf fzf-search
 
 map E extract_archive
 

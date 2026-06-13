@@ -1,0 +1,42 @@
+# Basic Settings
+set nohidden
+set preview
+
+# Windows shell setup
+set shell powershell
+set shellflag "-NoProfile -Command"
+
+# Functions
+cmd edit-config %{{
+    Start-Process notepad "$env:LOCALAPPDATA\lf\lfrc"
+}}
+
+cmd mkdir %{{
+    $dir = $args -join ' '
+    if ($dir) { New-Item -ItemType Directory -Path $dir | Out-Null }
+}}
+
+cmd q :{{
+    quit
+}}
+
+cmd q! :{{
+    quit
+}}
+
+cmd x :{{
+    quit
+}}
+
+# Mappings
+map d
+map p
+map dd cut
+map pp paste
+map dD delete
+map J :updir; down; open
+map K :updir; up; open
+map a push :mkdir<space>
+map <enter> :open
+map <esc> clear
+map . set hidden!
