@@ -1,5 +1,7 @@
 README.md
 AGENTS.md
+.vscode
+
 
 {{- if ne (env "CLOUD_SHELL") "true" }}
 .customize_environment

@@ -1,0 +1,7 @@
+{
+  "evenBetterToml.schema.associations": {
+    "**/yazi/yazi.toml": "https://yazi-rs.github.io/schemas/yazi.json",
+    "**/yazi/keymap.toml": "https://yazi-rs.github.io/schemas/keymap.json",
+    "**/yazi/theme.toml": "https://yazi-rs.github.io/schemas/theme.json"
+  }
+}
