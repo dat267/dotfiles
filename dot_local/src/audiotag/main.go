@@ -72,6 +72,15 @@ under the structure: <dest_dir>/<Artist>/<Album>/<Track> - <Title>.<ext>`,
 				return fmt.Errorf("%s is not a directory", srcDir)
 			}
 
+			absSrcDir, err := filepath.Abs(srcDir)
+			if err != nil {
+				return err
+			}
+			absDestDir, err := filepath.Abs(destDir)
+			if err != nil {
+				return err
+			}
+
 			// Ensure destDir exists (or create it)
 			if err := os.MkdirAll(destDir, 0755); err != nil {
 				return fmt.Errorf("failed to create destination directory: %w", err)
@@ -81,6 +90,25 @@ under the structure: <dest_dir>/<Artist>/<Album>/<Track> - <Title>.<ext>`,
 				if err != nil {
 					return nil
 				}
+
+				absPath, err := filepath.Abs(path)
+				if err != nil {
+					return nil
+				}
+
+				// Skip walking the destination directory to avoid infinite loops / reprocessing
+				if strings.HasPrefix(absPath, absDestDir) {
+					if info.IsDir() {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+
+				// Skip the source root directory directory node itself
+				if absPath == absSrcDir && info.IsDir() {
+					return nil
+				}
+
 				if info.IsDir() {
 					return nil
 				}
@@ -242,6 +270,20 @@ func organizeFile(srcPath, ext, destDir string, move bool) error {
 		targetFilename = fmt.Sprintf("%s%s", title, ext)
 	}
 	targetPath := filepath.Join(targetDir, targetFilename)
+
+	// Clean/absolute paths to verify if we are copying to the same file
+	absSrc, err := filepath.Abs(srcPath)
+	if err != nil {
+		return err
+	}
+	absDst, err := filepath.Abs(targetPath)
+	if err != nil {
+		return err
+	}
+	if absSrc == absDst {
+		// Already at target path, do nothing
+		return nil
+	}
 
 	// Create directories if they do not exist
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
