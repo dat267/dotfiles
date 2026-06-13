@@ -248,7 +248,7 @@ func tagMP3(path, artist, album, title, track string) {
 	tag.SetAlbum(album)
 	tag.SetTitle(title)
 	if track != "" {
-		tag.AddTextFrame(tag.CommonID("Track number"), id3v2.EncodingUTF8, track)
+		tag.AddTextFrame("TRCK", id3v2.EncodingUTF8, track)
 	}
 	tag.Save()
 	fmt.Printf("Tagged: %s\n", path)
