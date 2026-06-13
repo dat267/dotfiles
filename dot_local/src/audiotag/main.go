@@ -12,7 +12,6 @@ import (
 	"github.com/bogem/id3v2/v2"
 	"github.com/go-flac/flacvorbis/v2"
 	"github.com/go-flac/go-flac/v2"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 )
 
@@ -69,8 +68,6 @@ Expected directory structure: .../Artist/Album/Track - Title.ext`,
 			sem := make(chan struct{}, concurrency)
 			var wg sync.WaitGroup
 
-			bar := progressbar.Default(int64(len(files)), "Tagging")
-
 			for _, path := range files {
 				wg.Add(1)
 				go func(p string) {
@@ -80,7 +77,6 @@ Expected directory structure: .../Artist/Album/Track - Title.ext`,
 
 					ext := strings.ToLower(filepath.Ext(p))
 					tagFile(p, ext)
-					bar.Add(1)
 				}(path)
 			}
 			wg.Wait()
@@ -166,8 +162,6 @@ under the structure: <dest_dir>/<Artist>/<Album>/<Track> - <Title>.<ext>`,
 			var wg sync.WaitGroup
 			var mu sync.Mutex
 
-			bar := progressbar.Default(int64(len(files)), "Organizing")
-
 			for _, path := range files {
 				wg.Add(1)
 				go func(p string) {
@@ -178,10 +172,9 @@ under the structure: <dest_dir>/<Artist>/<Album>/<Track> - <Title>.<ext>`,
 					ext := strings.ToLower(filepath.Ext(p))
 					if err := organizeFile(p, ext, destDir, moveFlag); err != nil {
 						mu.Lock()
-						fmt.Fprintf(os.Stderr, "\nError organizing %s: %v\n", p, err)
+						fmt.Fprintf(os.Stderr, "Error organizing %s: %v\n", p, err)
 						mu.Unlock()
 					}
-					bar.Add(1)
 				}(path)
 			}
 			wg.Wait()
@@ -258,6 +251,7 @@ func tagMP3(path, artist, album, title, track string) {
 		tag.AddTextFrame(tag.CommonID("Track number"), id3v2.EncodingUTF8, track)
 	}
 	tag.Save()
+	fmt.Printf("Tagged: %s\n", path)
 }
 
 func findVorbisComment(meta []*flac.MetaDataBlock) (*flacvorbis.MetaDataBlockVorbisComment, int) {
@@ -327,6 +321,7 @@ func tagFLAC(path, artist, album, title, track string) {
 		f.Meta = append(f.Meta, &cmtsmeta)
 	}
 	f.Save(path)
+	fmt.Printf("Tagged: %s\n", path)
 }
 
 func deleteVorbisKey(cmt *flacvorbis.MetaDataBlockVorbisComment, key string) {
@@ -415,10 +410,12 @@ func organizeFile(srcPath, ext, destDir string, move bool) error {
 		if err := moveFile(srcPath, targetPath); err != nil {
 			return fmt.Errorf("failed to move file to %s: %w", targetPath, err)
 		}
+		fmt.Printf("Moved: %s -> %s\n", srcPath, targetPath)
 	} else {
 		if err := copyFile(srcPath, targetPath); err != nil {
 			return fmt.Errorf("failed to copy file to %s: %w", targetPath, err)
 		}
+		fmt.Printf("Copied: %s -> %s\n", srcPath, targetPath)
 	}
 
 	return nil
