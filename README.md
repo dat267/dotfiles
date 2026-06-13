@@ -27,7 +27,6 @@ irm get.chezmoi.io | iex; & "$env:USERPROFILE\bin\chezmoi" init --apply dat267
 ```sh
 BASE="https://raw.githubusercontent.com/dat267/dotfiles/main" && \
 wget -qO ~/.profile "$BASE/dot_profile" && \
-wget -qO ~/.gitconfig "$BASE/private_dot_gitconfig" && \
 echo "Done. Run: . ~/.profile"
 ```
 
