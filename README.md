@@ -26,7 +26,13 @@ irm get.chezmoi.io | iex; & "$env:USERPROFILE\bin\chezmoi" init --apply dat267
 
 ```sh
 BASE="https://raw.githubusercontent.com/dat267/dotfiles/main" && \
+mkdir -p ~/.ssh ~/.config/lf ~/.config/aria2 && \
 wget -qO ~/.profile "$BASE/dot_profile" && \
+wget -qO ~/.vimrc "$BASE/dot_vimrc" && \
+wget -qO ~/.ssh/config "$BASE/private_dot_ssh/private_config" && \
+wget -qO ~/.config/lf/lfrc "$BASE/dot_config/lf/private_lfrc" && \
+wget -qO ~/.config/aria2/aria2.conf "$BASE/dot_config/aria2/private_aria2.conf" && \
+chmod 600 ~/.ssh/config && \
 echo "Done. Run: . ~/.profile"
 ```
 
