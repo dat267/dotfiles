@@ -1,4 +1,4 @@
-module music-tagger
+module audiotag
 
 go 1.25.0
 

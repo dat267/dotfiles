@@ -18,9 +18,9 @@ var moveFlag bool
 
 func main() {
 	var rootCmd = &cobra.Command{
-		Use:   "music-tagger",
-		Short: "music-tagger is a CLI tool to tag and organize music files",
-		Long:  `music-tagger can tag MP3/FLAC files based on their directory structure, or organize music files into a clean directory structure based on their tags.`,
+		Use:   "audiotag",
+		Short: "audiotag is a CLI tool to tag and organize music files",
+		Long:  `audiotag can tag MP3/FLAC files based on their directory structure, or organize music files into a clean directory structure based on their tags.`,
 	}
 
 	var tagCmd = &cobra.Command{
@@ -101,7 +101,7 @@ under the structure: <dest_dir>/<Artist>/<Album>/<Track> - <Title>.<ext>`,
 	rootCmd.AddCommand(organizeCmd)
 
 	rootCmd.Version = version
-	rootCmd.SetVersionTemplate("music-tagger version {{.Version}}\n")
+	rootCmd.SetVersionTemplate("audiotag version {{.Version}}\n")
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

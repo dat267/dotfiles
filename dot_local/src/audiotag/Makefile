@@ -1,4 +1,4 @@
-BINARY  := music-tagger
+BINARY  := audiotag
 VERSION ?= dev
 
 # Detect Host Operating System and resolve Home Directory
