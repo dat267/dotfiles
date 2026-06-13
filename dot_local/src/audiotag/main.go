@@ -229,13 +229,35 @@ func tagFile(path string, ext string) {
 }
 
 func tagMP3(path, absPath, artist, album, title, track string) {
+	compatibleArtist := strings.ReplaceAll(artist, ";", " / ")
+
 	tag, err := id3v2.Open(absPath, id3v2.Options{Parse: true})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error opening %s: %v\n", path, err)
+		// Parsing failed (likely due to corruption). Fallback to Parse: false to recreate the tag.
+		tag, err = id3v2.Open(absPath, id3v2.Options{Parse: false})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening %s: %v\n", path, err)
+			return
+		}
+		defer tag.Close()
+		tag.SetDefaultEncoding(id3v2.EncodingUTF8)
+
+		tag.SetArtist(compatibleArtist)
+		tag.SetAlbum(album)
+		tag.SetTitle(title)
+		if track != "" {
+			tag.DeleteFrames("TRCK")
+			tag.AddTextFrame("TRCK", id3v2.EncodingUTF8, track)
+		}
+		if err := tag.Save(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error recreating tags for corrupt file %s: %v\n", path, err)
+			return
+		}
+		fmt.Printf("Tagged: %s (recreated corrupt tag)\n", path)
 		return
 	}
 	defer tag.Close()
-	compatibleArtist := strings.ReplaceAll(artist, ";", " / ")
+	tag.SetDefaultEncoding(id3v2.EncodingUTF8)
 
 	// Optimization: Skip saving if tags are already correct (using sanitized comparison)
 	if sanitizeName(tag.Artist()) == sanitizeName(compatibleArtist) &&
