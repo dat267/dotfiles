@@ -5,15 +5,15 @@ desc = "Toggle hidden files"
 
 [[manager.prepend_keymap]]
 on = [ "E" ]
-run = "open --use=extract"
+run = "open --opener extract"
 desc = "Extract archive"
 
 [[manager.prepend_keymap]]
 on = [ "Z", "7" ]
-run = "open --use=compress_7z"
+run = "open --opener compress_7z"
 desc = "Compress to 7z"
 
 [[manager.prepend_keymap]]
 on = [ "Z", "z" ]
-run = "open --use=compress_zip"
+run = "open --opener compress_zip"
 desc = "Compress to Zip"
