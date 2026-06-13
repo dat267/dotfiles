@@ -20,6 +20,17 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply dat267
 irm get.chezmoi.io | iex; & "$env:USERPROFILE\bin\chezmoi" init --apply dat267
 ```
 
+### Limited-resource systems (routers, embedded Linux, &lt;1 MB)
+
+> For systems without `git` or `chezmoi` (e.g. OpenWrt, BusyBox-based distros). Only shell-relevant configs are fetched.
+
+```sh
+BASE="https://raw.githubusercontent.com/dat267/dotfiles/main" && \
+wget -qO ~/.profile "$BASE/dot_profile" && \
+wget -qO ~/.gitconfig "$BASE/private_dot_gitconfig" && \
+echo "Done. Run: . ~/.profile"
+```
+
 ## Customization
 
 ### Private Configuration & Environment Variables
