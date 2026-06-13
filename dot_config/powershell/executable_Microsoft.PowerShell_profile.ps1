@@ -228,23 +228,23 @@ function resh {
     . $PROFILE
 }
 
-function y {
-    $tmp = [System.IO.Path]::GetTempFileName()
-    try {
-        yazi @args --cwd-file="$tmp"
-        if (Test-Path $tmp) {
-            $cwd = Get-Content -Path $tmp -Encoding UTF8
-            if (-not [string]::IsNullOrEmpty($cwd) -and $cwd -ne $PWD.Path) {
-                Set-Location -LiteralPath $cwd
-            }
-        }
-    }
-    finally {
-        if (Test-Path $tmp) {
-            Remove-Item -Path $tmp -Force
-        }
-    }
-}
+# function y {
+#     $tmp = [System.IO.Path]::GetTempFileName()
+#     try {
+#         yazi @args --cwd-file="$tmp"
+#         if (Test-Path $tmp) {
+#             $cwd = Get-Content -Path $tmp -Encoding UTF8
+#             if (-not [string]::IsNullOrEmpty($cwd) -and $cwd -ne $PWD.Path) {
+#                 Set-Location -LiteralPath $cwd
+#             }
+#         }
+#     }
+#     finally {
+#         if (Test-Path $tmp) {
+#             Remove-Item -Path $tmp -Force
+#         }
+#     }
+# }
 
 Set-Alias vim nvim
 Set-Alias cm chezmoi
