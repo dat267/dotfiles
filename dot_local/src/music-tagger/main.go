@@ -9,32 +9,49 @@ import (
 	"github.com/bogem/id3v2/v2"
 	"github.com/go-flac/flacvorbis/v2"
 	"github.com/go-flac/go-flac/v2"
+	"github.com/spf13/cobra"
 )
 
 var version = "dev"
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: music-tagger <directory>")
+	var rootCmd = &cobra.Command{
+		Use:   "music-tagger <directory>",
+		Short: "music-tagger is a directory-based music tagger for MP3 and FLAC files",
+		Long: `A CLI tool that walks a directory tree and tags MP3 and FLAC files
+based on their parent directory names and filenames.
+Expected directory structure: .../Artist/Album/Track - Title.ext`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			root := args[0]
+			info, err := os.Stat(root)
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() {
+				return fmt.Errorf("%s is not a directory", root)
+			}
+			return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return nil
+				}
+				if info.IsDir() {
+					return nil
+				}
+				ext := strings.ToLower(filepath.Ext(path))
+				if ext == ".mp3" || ext == ".flac" {
+					tagFile(path, ext)
+				}
+				return nil
+			})
+		},
+	}
+
+	rootCmd.Version = version
+	rootCmd.SetVersionTemplate("music-tagger version {{.Version}}\n")
+
+	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
-	}
-	if os.Args[1] == "-v" || os.Args[1] == "--version" {
-		fmt.Println("music-tagger version", version)
-		os.Exit(0)
-	}
-	root := os.Args[1]
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
-			return nil
-		}
-		ext := strings.ToLower(filepath.Ext(path))
-		if ext == ".mp3" || ext == ".flac" {
-			tagFile(path, ext)
-		}
-		return nil
-	})
-	if err != nil {
-		fmt.Println("Error:", err)
 	}
 }
 
