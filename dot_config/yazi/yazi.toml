@@ -1,16 +1,3 @@
-[manager]
-show_hidden = false
-show_symlink = true
-
-
-[preview]
-image_quality = 90
-
-[tasks]
-micro_workers = 2
-macro_workers = 2
-barrier_workers = 2
-
 [opener]
 edit = [
   { run = 'nvim "%s"', block = true, for = "windows" },
@@ -22,8 +9,8 @@ open = [
   { run = 'open "%s"', orphan = true, desc = "Open", for = "macos" },
 ]
 extract = [
-  { run = 'dir="%s"; dir="${dir%.*}"; [ "${dir##*.}" = "tar" ] && dir="${dir%.tar}"; 7z x -o"$dir" -- "%s"', desc = "Extract to subdirectory", for = "unix" },
-  { run = '7z x -o"%~dpn1" "%s"', desc = "Extract to subdirectory", for = "windows" },
+  { run = "sh -c 'f=\"$1\"; d=\"${f%.*}\"; [ \"${d##*.}\" = \"tar\" ] && d=\"${d%.tar}\"; 7z x -y -bso0 -bsp0 -mmt=on -o\"$d\" -- \"$f\"' _ %s", desc = "Extract to...", for = "unix" },
+  { run = "powershell -NoProfile -Command \"$f=$args[0]; $p=Split-Path $f -Parent; $n=[System.IO.Path]::GetFileNameWithoutExtension($f); if($n.EndsWith('.tar')){$n=$n.Substring(0,$n.Length-4)}; 7z x -y -bso0 -bsp0 -mmt=on -o(Join-Path $p $n) -- $f\" -- %s", desc = "Extract to...", for = "windows" },
 ]
 compress_7z = [
   { run = '7z a -t7z -mx=9 -mmt=on -ms=on "%s.7z" "%s"', desc = "Compress to 7z", for = "unix" },
@@ -52,14 +39,4 @@ rules = [
     "edit",
     "open",
   ] },
-]
-
-[plugin]
-prepend_previewers = [{ mime = "image/svg+xml", run = "noop" }]
-prepend_preloaders = [
-  { mime = "inode/directory", run = "noop" },
-  { mime = "image/svg+xml", run = "noop" },
-  { mime = "image/*", run = "noop" },
-  { mime = "video/*", run = "noop" },
-  { mime = "pdf/*", run = "noop" },
 ]
