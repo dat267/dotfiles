@@ -3,4 +3,14 @@ on = ["."]
 run = "hidden"
 desc = "Toggle hidden files"
 
+[[manager.prepend_keymap]]
+on = ["e"]
+run = "open --opener edit"
+desc = "Open with editor"
+
+[[manager.prepend_keymap]]
+on = ["E"]
+run = "open --interactive"
+desc = "Extract/Open interactive"
+
 
