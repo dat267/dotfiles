@@ -240,7 +240,7 @@ func tagMP3(path, artist, album, title, track string) {
 	if tag.Artist() == compatibleArtist &&
 		tag.Album() == album &&
 		tag.Title() == title &&
-		tag.GetTextFrame("TRCK").Text == track {
+		trackNumMatches(tag.GetTextFrame("TRCK").Text, track) {
 		return
 	}
 
@@ -248,6 +248,7 @@ func tagMP3(path, artist, album, title, track string) {
 	tag.SetAlbum(album)
 	tag.SetTitle(title)
 	if track != "" {
+		tag.DeleteFrames("TRCK")
 		tag.AddTextFrame("TRCK", id3v2.EncodingUTF8, track)
 	}
 	tag.Save()
@@ -291,12 +292,21 @@ func tagFLAC(path, artist, album, title, track string) {
 		return strings.Join(vals, "; ") == val
 	}
 
+	// Helper to check if the track comment matches
+	hasCorrectTrack := func() bool {
+		vals, err := cmt.Get(flacvorbis.FIELD_TRACKNUMBER)
+		if err != nil || len(vals) == 0 {
+			return track == ""
+		}
+		return trackNumMatches(strings.Join(vals, "; "), track)
+	}
+
 	// Optimization: Skip saving if tags are already correct
 	if cmtIdx >= 0 &&
 		hasCorrectValue(flacvorbis.FIELD_ARTIST, targetArtistJoined) &&
 		hasCorrectValue(flacvorbis.FIELD_ALBUM, album) &&
 		hasCorrectValue(flacvorbis.FIELD_TITLE, title) &&
-		hasCorrectValue(flacvorbis.FIELD_TRACKNUMBER, track) {
+		hasCorrectTrack() {
 		return
 	}
 
@@ -333,6 +343,22 @@ func deleteVorbisKey(cmt *flacvorbis.MetaDataBlockVorbisComment, key string) {
 		}
 	}
 	cmt.Comments = newComments
+}
+
+func trackNumMatches(tagTrack, fileTrack string) bool {
+	// If the parsed file track is empty, we don't want to set/write it anyway, so it matches.
+	if fileTrack == "" {
+		return true
+	}
+	tagTrack = strings.TrimSpace(tagTrack)
+	if idx := strings.Index(tagTrack, "/"); idx != -1 {
+		tagTrack = strings.TrimSpace(tagTrack[:idx])
+	}
+	t1 := strings.TrimLeft(tagTrack, "0")
+	t2 := strings.TrimLeft(fileTrack, "0")
+	if t1 == "" { t1 = "0" }
+	if t2 == "" { t2 = "0" }
+	return t1 == t2
 }
 
 func organizeFile(srcPath, ext, destDir string, move bool) error {
