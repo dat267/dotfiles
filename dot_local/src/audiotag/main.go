@@ -220,26 +220,27 @@ func tagFile(path string, ext string) {
 		title = strings.TrimSpace(filename[idx+1:])
 	}
 	if ext == ".mp3" {
-		tagMP3(path, artist, album, title, track)
+		tagMP3(path, abs, artist, album, title, track)
 		return
 	}
 	if ext == ".flac" {
-		tagFLAC(path, artist, album, title, track)
+		tagFLAC(path, abs, artist, album, title, track)
 	}
 }
 
-func tagMP3(path, artist, album, title, track string) {
-	tag, err := id3v2.Open(path, id3v2.Options{Parse: true})
+func tagMP3(path, absPath, artist, album, title, track string) {
+	tag, err := id3v2.Open(absPath, id3v2.Options{Parse: true})
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening %s: %v\n", path, err)
 		return
 	}
 	defer tag.Close()
 	compatibleArtist := strings.ReplaceAll(artist, ";", " / ")
 
-	// Optimization: Skip saving if tags are already correct
-	if tag.Artist() == compatibleArtist &&
-		tag.Album() == album &&
-		tag.Title() == title &&
+	// Optimization: Skip saving if tags are already correct (using sanitized comparison)
+	if sanitizeName(tag.Artist()) == sanitizeName(compatibleArtist) &&
+		sanitizeName(tag.Album()) == sanitizeName(album) &&
+		sanitizeName(tag.Title()) == sanitizeName(title) &&
 		trackNumMatches(tag.GetTextFrame("TRCK").Text, track) {
 		return
 	}
@@ -251,7 +252,10 @@ func tagMP3(path, artist, album, title, track string) {
 		tag.DeleteFrames("TRCK")
 		tag.AddTextFrame("TRCK", id3v2.EncodingUTF8, track)
 	}
-	tag.Save()
+	if err := tag.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error saving tags for %s: %v\n", path, err)
+		return
+	}
 	fmt.Printf("Tagged: %s\n", path)
 }
 
@@ -268,9 +272,10 @@ func findVorbisComment(meta []*flac.MetaDataBlock) (*flacvorbis.MetaDataBlockVor
 	return flacvorbis.New(), -1
 }
 
-func tagFLAC(path, artist, album, title, track string) {
-	f, err := flac.ParseFile(path)
+func tagFLAC(path, absPath, artist, album, title, track string) {
+	f, err := flac.ParseFile(absPath)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening %s: %v\n", path, err)
 		return
 	}
 	cmt, cmtIdx := findVorbisComment(f.Meta)
@@ -289,7 +294,7 @@ func tagFLAC(path, artist, album, title, track string) {
 		if err != nil || len(vals) == 0 {
 			return val == ""
 		}
-		return strings.Join(vals, "; ") == val
+		return sanitizeName(strings.Join(vals, "; ")) == sanitizeName(val)
 	}
 
 	// Helper to check if the track comment matches
@@ -330,7 +335,10 @@ func tagFLAC(path, artist, album, title, track string) {
 	} else {
 		f.Meta = append(f.Meta, &cmtsmeta)
 	}
-	f.Save(path)
+	if err := f.Save(absPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error saving tags for %s: %v\n", path, err)
+		return
+	}
 	fmt.Printf("Tagged: %s\n", path)
 }
 
