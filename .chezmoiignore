@@ -31,3 +31,4 @@ run_onchange_after_create-symlinks.sh.tmpl
 {{- end }}
 
 .local/bin
+.config/yazi.tar.gz
