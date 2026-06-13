@@ -1,6 +1,6 @@
 [[mgr.prepend_keymap]]
 on = ["."]
-run = "hidden"
+run = "hidden toggle"
 desc = "Toggle hidden files"
 
 [[mgr.prepend_keymap]]
