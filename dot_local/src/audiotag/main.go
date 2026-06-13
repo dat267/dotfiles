@@ -224,9 +224,10 @@ func organizeFile(srcPath, ext, destDir string, move bool) error {
 	var artist, album, title, track string
 	var err error
 
-	if ext == ".mp3" {
+	switch ext {
+	case ".mp3":
 		artist, album, title, track, err = readMP3Tags(srcPath)
-	} else if ext == ".flac" {
+	case ".flac":
 		artist, album, title, track, err = readFLACTags(srcPath)
 	}
 
