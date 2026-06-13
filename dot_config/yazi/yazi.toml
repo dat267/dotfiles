@@ -13,25 +13,25 @@ barrier_workers = 2
 
 [opener]
 edit = [
-	{ run = 'nvim "%*"', block = true, for = "windows" },
-	{ run = '${EDITOR:-nvim} "$@"', block = true, for = "unix" },
+	{ run = 'nvim "%s"', block = true, for = "windows" },
+	{ run = '${EDITOR:-nvim} "%s"', block = true, for = "unix" },
 ]
 open = [
-	{ run = 'explorer "%1"', orphan = true, desc = "Open", for = "windows" },
-	{ run = 'xdg-open "$@"', orphan = true, desc = "Open", for = "linux" },
-	{ run = 'open "$@"', orphan = true, desc = "Open", for = "macos" },
+	{ run = 'explorer "%s"', orphan = true, desc = "Open", for = "windows" },
+	{ run = 'xdg-open "%s"', orphan = true, desc = "Open", for = "linux" },
+	{ run = 'open "%s"', orphan = true, desc = "Open", for = "macos" },
 ]
 extract = [
-	{ run = 'dir="${1%.*}"; [ "${dir##*.}" = "tar" ] && dir="${dir%.tar}"; 7z x -o"$dir" -- "$@"', desc = "Extract to subdirectory", for = "unix" },
-	{ run = '7z x -o"%~dpn1" "%1"', desc = "Extract to subdirectory", for = "windows" },
+	{ run = 'dir="%s"; dir="${dir%.*}"; [ "${dir##*.}" = "tar" ] && dir="${dir%.tar}"; 7z x -o"$dir" -- "%s"', desc = "Extract to subdirectory", for = "unix" },
+	{ run = '7z x -o"%~dpn1" "%s"', desc = "Extract to subdirectory", for = "windows" },
 ]
 compress_7z = [
-	{ run = '7z a -t7z -mx=9 -mmt=on -ms=on "$1.7z" "$@"', desc = "Compress to 7z", for = "unix" },
-	{ run = '7z a -t7z -mx=9 -mmt=on -ms=on "%1.7z" %*', desc = "Compress to 7z", for = "windows" },
+	{ run = '7z a -t7z -mx=9 -mmt=on -ms=on "%s.7z" "%s"', desc = "Compress to 7z", for = "unix" },
+	{ run = '7z a -t7z -mx=9 -mmt=on -ms=on "%s.7z" "%s"', desc = "Compress to 7z", for = "windows" },
 ]
 compress_zip = [
-	{ run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "$1.zip" "$@"', desc = "Compress to Zip", for = "unix" },
-	{ run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%1.zip" %*', desc = "Compress to Zip", for = "windows" },
+	{ run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s.zip" "%s"', desc = "Compress to Zip", for = "unix" },
+	{ run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s.zip" "%s"', desc = "Compress to Zip", for = "windows" },
 ]
 
 [open]
