@@ -27,7 +27,7 @@ cmd x :{{
     quit
 }}
 
-cmd extract_archive ${{
+cmd extract_archive &{{
     set -f
 
     file="$f"
@@ -62,9 +62,12 @@ cmd extract_archive ${{
             exit 1
             ;;
     esac
+
+    lf -remote "send $id reload"
+    lf -remote "send $id echo 'Extracted: $name'"
 }}
 
-cmd compress_7z ${{
+cmd compress_7z &{{
     set -f
 
     if [ -n "$fx" ]; then
@@ -98,9 +101,12 @@ cmd compress_7z ${{
         "$out" \
         -- \
         "$@"
+
+    lf -remote "send $id reload"
+    lf -remote "send $id echo 'Compressed to $out'"
 }}
 
-cmd compress_zip ${{
+cmd compress_zip &{{
     set -f
 
     if [ -n "$fx" ]; then
@@ -134,9 +140,12 @@ cmd compress_zip ${{
         "$out" \
         -- \
         "$@"
+
+    lf -remote "send $id reload"
+    lf -remote "send $id echo 'Compressed to $out'"
 }}
 
-cmd compress_tgz ${{
+cmd compress_tgz &{{
     bash -c '
         set -f
         if [ -n "$fx" ]; then
@@ -165,10 +174,12 @@ cmd compress_tgz ${{
         out="${out%.*}.tgz"
 
         tar -C "$PWD" -cvzf "$out" -- "${rel[@]}"
+        lf -remote "send $id reload"
+        lf -remote "send $id echo \"Compressed to $out\""
     ' _ "$@"
 }}
 
-cmd compress_txz ${{
+cmd compress_txz &{{
     bash -c '
         set -f
         if [ -n "$fx" ]; then
@@ -197,6 +208,8 @@ cmd compress_txz ${{
         out="${out%.*}.txz"
 
         tar -C "$PWD" -cvJf "$out" -- "${rel[@]}"
+        lf -remote "send $id reload"
+        lf -remote "send $id echo \"Compressed to $out\""
     ' _ "$@"
 }}
 
@@ -225,8 +238,6 @@ cmd fzf-search ${{
         fi
     fi
 }}
-
-
 
 # Mappings
 map d
