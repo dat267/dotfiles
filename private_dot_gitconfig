@@ -1,5 +1,6 @@
 [core]
 autocrlf = input
+	pager = cat
 [init]
 defaultBranch = "main"
 [pull]
