@@ -7,6 +7,7 @@ Show Menu Bar=true
 Show Status Bar=true
 Show Tab Bar=true
 Show Url Nav Bar=true
+Startup Session=last
 
 [MainWindow]
 1920x1080 screen: Window-Maximized=true
