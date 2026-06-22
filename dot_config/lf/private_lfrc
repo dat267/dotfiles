@@ -442,10 +442,10 @@ map Zx compress_txz
 map . set hidden!
 
 # Space & Visual Optimization Toggles
-map zp set preview!
-map zb set drawbox!
-map zi set info size time
-map zI set info
+map zp "set preview!"
+map zb "set drawbox!"
+map zi "set info size:time"
+map zI "set info"
 
 # Jump Shortcuts
 map gh cd ~
