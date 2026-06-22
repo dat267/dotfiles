@@ -64,17 +64,9 @@ cmd follow_link %{{
     }
 }}
 
-cmd q :{{
-    quit
-}}
-
-cmd q! :{{
-    quit
-}}
-
-cmd x :{{
-    quit
-}}
+cmd q quit
+cmd q! quit
+cmd x quit
 
 # Clipboard Actions using Set-Clipboard
 cmd copy-path %{{

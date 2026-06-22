@@ -82,17 +82,9 @@ cmd follow_link %{{
     lf -remote "send ${id} select '$(readlink $f)'"
 }}
 
-cmd q :{{
-    quit
-}}
-
-cmd q! :{{
-    quit
-}}
-
-cmd x :{{
-    quit
-}}
+cmd q quit
+cmd q! quit
+cmd x quit
 
 # Clipboard Actions supporting Termux (termux-clipboard-set) and Linux desktop (wl-copy, xclip, xsel)
 cmd copy-path ${{
