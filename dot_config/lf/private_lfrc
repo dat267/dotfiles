@@ -2,17 +2,56 @@
 set nohidden
 set preview
 set previewer ~/.config/lf/preview.sh
-set drawbox
-set roundbox
+set nodrawbox
+set noroundbox
 set icons
 set ignorecase
 set smartcase
-set info size time
+set info             # Minimal: no size/time columns in list by default
 set scrolloff 5
 set timefmt "2006-01-02 15:04"
 set ratios 1:2:3
 
 # Functions/Commands
+
+# Responsive UI adjustment based on terminal width (e.g. mobile Termux)
+cmd on-init &{{
+    lf -remote "send $id resize-ui $lf_width"
+}}
+
+cmd on-redraw &{{
+    lf -remote "send $id resize-ui $lf_width"
+}}
+
+cmd resize-ui ${{
+    width="${1:-$lf_width}"
+    if [ "$width" -le 65 ]; then
+        # Mobile/Termux Portrait layout: single pane, minimal clutter, no previews/borders
+        lf -remote "send $id set ratios 1"
+        lf -remote "send $id set info"
+        lf -remote "send $id set nopreview"
+        lf -remote "send $id set nodrawbox"
+        lf -remote "send $id set promptfmt \"\033[34;1m%d\033[0m> \""
+        lf -remote "send $id set statfmt \"\033[36m%p\033[0m | %S\""
+    elif [ "$width" -le 110 ]; then
+        # Medium layout: two panes, no borders, minimal info
+        lf -remote "send $id set ratios 1:2"
+        lf -remote "send $id set info"
+        lf -remote "send $id set preview"
+        lf -remote "send $id set nodrawbox"
+        lf -remote "send $id set promptfmt \"\033[34;1m%d\033[0m\033[1m %f\033[0m\""
+        lf -remote "send $id set statfmt \"\033[36m%p\033[0m | %S | %t\""
+    else
+        # Full Desktop layout: three panes, details columns, border boxes
+        lf -remote "send $id set ratios 1:2:3"
+        lf -remote "send $id set info size time"
+        lf -remote "send $id set preview"
+        lf -remote "send $id set drawbox"
+        lf -remote "send $id set roundbox"
+        lf -remote "send $id set promptfmt \"\033[32;1m%u@%h\033[0m:\033[34;1m%d\033[0m\033[1m%f\033[0m\""
+        lf -remote "send $id set statfmt \"\033[36m%p\033[0m| %c| %u| %g| %S| %t| -> %l\""
+    fi
+}}
 
 cmd edit-config ${{
     if command -v chezmoi >/dev/null 2>&1; then
@@ -34,10 +73,16 @@ cmd open ${{
             $EDITOR "$@"
             ;;
         *)
-            if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
+            if command -v termux-open >/dev/null 2>&1; then
                 for file in "$@"; do
-                    xdg-open "$file" > /dev/null 2>&1 &
+                    termux-open "$file" > /dev/null 2>&1 &
                 done
+            elif [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
+                if command -v xdg-open >/dev/null 2>&1; then
+                    for file in "$@"; do
+                        xdg-open "$file" > /dev/null 2>&1 &
+                    done
+                fi
             else
                 case $(file --mime-type -Lb "$1") in
                     image/*)
@@ -57,7 +102,7 @@ cmd open ${{
                         fi
                         ;;
                     *)
-                        echo "No GUI available to open $(basename "$1")"
+                        echo "No GUI opener available to open $(basename "$1")"
                         read -p "Press Enter to continue..."
                         ;;
                 esac
@@ -85,9 +130,11 @@ cmd x :{{
     quit
 }}
 
-# Clipboard Actions using wl-copy with fallback to xclip/xsel
+# Clipboard Actions supporting Termux (termux-clipboard-set) and Linux desktop (wl-copy, xclip, xsel)
 cmd copy-path ${{
-    if command -v wl-copy >/dev/null 2>&1; then
+    if command -v termux-clipboard-set >/dev/null 2>&1; then
+        echo -n "$f" | termux-clipboard-set
+    elif command -v wl-copy >/dev/null 2>&1; then
         echo -n "$f" | wl-copy
     elif command -v xclip >/dev/null 2>&1; then
         echo -n "$f" | xclip -sel clip
@@ -101,7 +148,9 @@ cmd copy-path ${{
 }}
 
 cmd copy-filename ${{
-    if command -v wl-copy >/dev/null 2>&1; then
+    if command -v termux-clipboard-set >/dev/null 2>&1; then
+        basename "$f" | tr -d '\n' | termux-clipboard-set
+    elif command -v wl-copy >/dev/null 2>&1; then
         basename "$f" | tr -d '\n' | wl-copy
     elif command -v xclip >/dev/null 2>&1; then
         basename "$f" | tr -d '\n' | xclip -sel clip
@@ -115,7 +164,9 @@ cmd copy-filename ${{
 }}
 
 cmd copy-dirpath ${{
-    if command -v wl-copy >/dev/null 2>&1; then
+    if command -v termux-clipboard-set >/dev/null 2>&1; then
+        dirname "$f" | tr -d '\n' | termux-clipboard-set
+    elif command -v wl-copy >/dev/null 2>&1; then
         dirname "$f" | tr -d '\n' | wl-copy
     elif command -v xclip >/dev/null 2>&1; then
         dirname "$f" | tr -d '\n' | xclip -sel clip
@@ -433,6 +484,12 @@ map Zz compress_zip
 map Zg compress_tgz
 map Zx compress_txz
 map . set hidden!
+
+# Space & Visual Optimization Toggles
+map zp set preview!
+map zb set drawbox!
+map zi set info size time
+map zI set info
 
 # Jump Shortcuts
 map gh cd ~
