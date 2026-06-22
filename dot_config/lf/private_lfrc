@@ -2,14 +2,72 @@
 set nohidden
 set preview
 set previewer ~/.config/lf/preview.sh
+set drawbox
+set roundbox
+set icons
+set ignorecase
+set smartcase
+set info size time
+set scrolloff 5
+set timefmt "2006-01-02 15:04"
+set ratios 1:2:3
 
-# Functions
+# Functions/Commands
+
 cmd edit-config ${{
-    $EDITOR ~/.config/lf/lfrc
+    if command -v chezmoi >/dev/null 2>&1; then
+        src_path=$(chezmoi source-path "$HOME/.config/lf/lfrc" 2>/dev/null)
+        if [ -n "$src_path" ] && [ -f "$src_path" ]; then
+            $EDITOR "$src_path"
+            chezmoi apply "$HOME/.config/lf/lfrc"
+            lf -remote "send $id source ~/.config/lf/lfrc"
+            exit 0
+        fi
+    fi
+    $EDITOR "$HOME/.config/lf/lfrc"
     lf -remote "send $id source ~/.config/lf/lfrc"
 }}
 
-cmd mkdir %IFS=" "; mkdir -- "$*"
+cmd open ${{
+    case $(file --mime-type -Lb "$1") in
+        text/*|application/json|application/xml|text/xml|application/javascript)
+            $EDITOR "$@"
+            ;;
+        *)
+            if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
+                for file in "$@"; do
+                    xdg-open "$file" > /dev/null 2>&1 &
+                done
+            else
+                case $(file --mime-type -Lb "$1") in
+                    image/*)
+                        if command -v chafa >/dev/null 2>&1; then
+                            chafa "$1" | less -R
+                        else
+                            echo "Cannot preview image: chafa not found"
+                            read -p "Press Enter to continue..."
+                        fi
+                        ;;
+                    application/pdf)
+                        if command -v pdftotext >/dev/null 2>&1; then
+                            pdftotext "$1" - | less
+                        else
+                            echo "Cannot preview PDF: pdftotext not found"
+                            read -p "Press Enter to continue..."
+                        fi
+                        ;;
+                    *)
+                        echo "No GUI available to open $(basename "$1")"
+                        read -p "Press Enter to continue..."
+                        ;;
+                esac
+            fi
+            ;;
+    esac
+}}
+
+cmd mkdir %IFS=" "; mkdir -p -- "$*"
+cmd create-file %touch -- "$1"
 
 cmd follow_link %{{
     lf -remote "send ${id} select '$(readlink $f)'"
@@ -27,13 +85,180 @@ cmd x :{{
     quit
 }}
 
+# Clipboard Actions using wl-copy with fallback to xclip/xsel
+cmd copy-path ${{
+    if command -v wl-copy >/dev/null 2>&1; then
+        echo -n "$f" | wl-copy
+    elif command -v xclip >/dev/null 2>&1; then
+        echo -n "$f" | xclip -sel clip
+    elif command -v xsel >/dev/null 2>&1; then
+        echo -n "$f" | xsel -ib
+    else
+        lf -remote "send $id echo 'No clipboard utility available'"
+        exit 1
+    fi
+    lf -remote "send $id echo 'Copied absolute path to clipboard'"
+}}
+
+cmd copy-filename ${{
+    if command -v wl-copy >/dev/null 2>&1; then
+        basename "$f" | tr -d '\n' | wl-copy
+    elif command -v xclip >/dev/null 2>&1; then
+        basename "$f" | tr -d '\n' | xclip -sel clip
+    elif command -v xsel >/dev/null 2>&1; then
+        basename "$f" | tr -d '\n' | xsel -ib
+    else
+        lf -remote "send $id echo 'No clipboard utility available'"
+        exit 1
+    fi
+    lf -remote "send $id echo 'Copied filename to clipboard'"
+}}
+
+cmd copy-dirpath ${{
+    if command -v wl-copy >/dev/null 2>&1; then
+        dirname "$f" | tr -d '\n' | wl-copy
+    elif command -v xclip >/dev/null 2>&1; then
+        dirname "$f" | tr -d '\n' | xclip -sel clip
+    elif command -v xsel >/dev/null 2>&1; then
+        dirname "$f" | tr -d '\n' | xsel -ib
+    else
+        lf -remote "send $id echo 'No clipboard utility available'"
+        exit 1
+    fi
+    lf -remote "send $id echo 'Copied parent directory path to clipboard'"
+}}
+
+# Bulk Rename inside $EDITOR
+cmd bulk-rename ${{
+    old_list=$(mktemp)
+    new_list=$(mktemp)
+    if [ -n "$fx" ]; then
+        echo "$fx" > "$old_list"
+    else
+        find "$PWD" -maxdepth 1 ! -path "$PWD" -print | sort > "$old_list"
+    fi
+    while read -r file; do
+        basename "$file"
+    done < "$old_list" > "$new_list"
+    ${EDITOR:-vi} "$new_list"
+    old_count=$(wc -l < "$old_list")
+    new_count=$(wc -l < "$new_list")
+    if [ "$old_count" -ne "$new_count" ]; then
+        lf -remote "send $id echo 'Line count mismatch! Bulk rename aborted.'"
+        rm -f "$old_list" "$new_list"
+        exit 1
+    fi
+    exec 3<"$old_list"
+    exec 4<"$new_list"
+    while read -r old <&3 && read -r new <&4; do
+        if [ -n "$new" ]; then
+            dir=$(dirname "$old")
+            new_path="$dir/$new"
+            if [ "$old" != "$new_path" ]; then
+                mv -vn -- "$old" "$new_path"
+            fi
+        fi
+    done
+    exec 3>&-
+    exec 4>&-
+    rm -f "$old_list" "$new_list"
+    lf -remote "send $id reload"
+}}
+
+# Safe permanent deletion with confirmation dialog
+cmd delete ${{
+    clear
+    echo "WARNING: You are about to PERMANENTLY delete the following files/folders:"
+    echo
+    for file in "$@"; do
+        echo "  $file"
+    done
+    echo
+    echo -n "Are you sure you want to permanently delete these $(echo "$#" | tr -d ' ') files? [y/N]: "
+    read -r ans
+    if [ "$ans" = "y" ] || [ "$ans" = "Y" ]; then
+        for file in "$@"; do
+            rm -rf -- "$file"
+        done
+        lf -remote "send $id reload"
+        lf -remote "send $id echo 'Permanently deleted $# files'"
+    else
+        lf -remote "send $id echo 'Deletion aborted'"
+    fi
+}}
+
+# Trash-cli Integration
+cmd trash ${{
+    for file in "$@"; do
+        trash-put -- "$file"
+    done
+    lf -remote "send $id reload"
+    lf -remote "send $id echo 'Moved $# files to trash'"
+}}
+
+cmd trash-restore ${{
+    if ! command -v trash-list >/dev/null 2>&1 || ! command -v trash-restore >/dev/null 2>&1; then
+        lf -remote "send $id echo 'trash-cli utilities are not installed'"
+        exit 1
+    fi
+    res=$(trash-list | fzf --height=40% --reverse --header='Select file to restore' | awk '{$1=$2=""; print $0}' | sed 's/^[ \t]*//')
+    if [ -n "$res" ]; then
+        trash-restore -- "$res"
+        lf -remote "send $id reload"
+    fi
+}}
+
+cmd trash-empty ${{
+    echo -n "Empty trash? [y/N]: "
+    read -r ans
+    if [ "$ans" = "y" ] || [ "$ans" = "Y" ]; then
+        trash-empty
+        lf -remote "send $id echo 'Trash emptied'"
+    else
+        lf -remote "send $id echo 'Aborted'"
+    fi
+}}
+
+# Fuzzy Searching & Jump Integration
+cmd fzf-search ${{
+    if command -v fd >/dev/null 2>&1; then
+        res="$(fd --hidden --follow --exclude .git | fzf --height=40% --reverse --header='Search files')"
+    else
+        res="$(find . -path '*/.*' -prune -o -print 2>/dev/null | sed 's|^\./||' | fzf --height=40% --reverse --header='Search files')"
+    fi
+    if [ -n "$res" ]; then
+        if [ -d "$res" ]; then
+            lf -remote "send $id cd '$res'"
+        else
+            lf -remote "send $id select '$res'"
+        fi
+    fi
+}}
+
+cmd fzf-grep ${{
+    if command -v rg >/dev/null 2>&1; then
+        res="$(rg --column --line-number --no-heading --color=always --smart-case . 2>/dev/null | fzf --ansi --height=40% --reverse --header='Search file contents (ripgrep)' | cut -d: -f1)"
+    else
+        res="$(grep -rnI --color=always --exclude-dir=.git . 2>/dev/null | fzf --ansi --height=40% --reverse --header='Search file contents (grep)' | cut -d: -f1)"
+    fi
+    if [ -n "$res" ]; then
+        lf -remote "send $id select '$PWD/$res'"
+    fi
+}}
+
+cmd zoxide-jump ${{
+    res="$(zoxide query -l | fzf --height=40% --reverse --header='Jump to directory')"
+    if [ -n "$res" ]; then
+        lf -remote "send $id cd '$res'"
+    fi
+}}
+
+# Archive Operations
 cmd extract_archive ${{
     set -f
-
     file="$f"
     name="$(basename "$file")"
     dst="$name"
-
     case "$file" in
         *.tar.gz|*.tgz)
             dst="${dst%.tar.gz}"
@@ -66,7 +291,6 @@ cmd extract_archive ${{
 
 cmd compress_7z ${{
     set -f
-
     if [ -n "$fx" ]; then
         IFS='
 '
@@ -77,32 +301,18 @@ cmd compress_7z ${{
         set -- "$f"
         count=1
     fi
-
     if [ "$count" -eq 1 ]; then
         out="$(basename "$1")"
     else
         out="$(basename "$PWD")"
     fi
-
-    # safety net
     [ -z "$out" ] && out="archive"
-
     out="${out%.*}.7z"
-
-    7z a \
-        -t7z \
-        -mx=9 \
-        -mmt=on \
-        -ms=on \
-        -y \
-        "$out" \
-        -- \
-        "$@"
+    7z a -t7z -mx=9 -mmt=on -ms=on -y "$out" -- "$@"
 }}
 
 cmd compress_zip ${{
     set -f
-
     if [ -n "$fx" ]; then
         IFS='
 '
@@ -113,27 +323,14 @@ cmd compress_zip ${{
         set -- "$f"
         count=1
     fi
-
     if [ "$count" -eq 1 ]; then
         out="$(basename "$1")"
     else
         out="$(basename "$PWD")"
     fi
-
-    # safety net
     [ -z "$out" ] && out="archive"
-
     out="${out%.*}.zip"
-
-    7z a \
-        -tzip \
-        -mx=9 \
-        -mm=Deflate \
-        -mmt=on \
-        -y \
-        "$out" \
-        -- \
-        "$@"
+    7z a -tzip -mx=9 -mm=Deflate -mmt=on -y "$out" -- "$@"
 }}
 
 cmd compress_tgz ${{
@@ -149,21 +346,17 @@ cmd compress_tgz ${{
             set -- "$f"
             count=1
         fi
-
         rel=()
         for p in "$@"; do
             rel+=( "${p##$PWD/}" )
         done
-
         if [ "$count" -eq 1 ]; then
             out="$(basename "${rel[0]}")"
         else
             out="$(basename "$PWD")"
         fi
-
         [ -z "$out" ] && out="archive"
         out="${out%.*}.tgz"
-
         tar -C "$PWD" -cvzf "$out" -- "${rel[@]}"
     ' _ "$@"
 }}
@@ -181,49 +374,19 @@ cmd compress_txz ${{
             set -- "$f"
             count=1
         fi
-
         rel=()
         for p in "$@"; do
             rel+=( "${p##$PWD/}" )
         done
-
         if [ "$count" -eq 1 ]; then
             out="$(basename "${rel[0]}")"
         else
             out="$(basename "$PWD")"
         fi
-
         [ -z "$out" ] && out="archive"
         out="${out%.*}.txz"
-
         tar -C "$PWD" -cvJf "$out" -- "${rel[@]}"
     ' _ "$@"
-}}
-
-cmd trash ${{
-    IFS='
-'
-    for file in $fx; do
-        trash-put -- "$file"
-    done
-}}
-
-cmd zoxide-jump ${{
-    res="$(zoxide query -l | fzf --height=40% --reverse --header='Jump to directory')"
-    if [ -n "$res" ]; then
-        lf -remote "send $id cd '$res'"
-    fi
-}}
-
-cmd fzf-search ${{
-    res="$(fzf --height=40% --reverse --header='Search files')"
-    if [ -n "$res" ]; then
-        if [ -d "$res" ]; then
-            lf -remote "send $id cd '$res'"
-        else
-            lf -remote "send $id select '$res'"
-        fi
-    fi
 }}
 
 # Mappings
@@ -232,24 +395,51 @@ map p
 map sh shell-pipe
 map dd cut
 map pp paste
-# map C edit-config
+map C edit-config
 map dD trash
 map D delete
 map J :updir; down; open
 map K :updir; up; open
 map gL follow_link
 map a push :mkdir<space>
+map A push :create-file<space>
 map P :link
 map <enter> :open
+map l :open
+map o :open
 map <esc> clear
 
+# Search Jumps
 map cz zoxide-jump
 map cf fzf-search
+map cg fzf-grep
 
+# Trash Actions
+map tr trash-restore
+map te trash-empty
+
+# Clipboard Actions
+map yp copy-path
+map yn copy-filename
+map yd copy-dirpath
+
+# Rename Actions
+map R bulk-rename
+
+# Extraction and Compression
 map E extract_archive
-
 map Z7 compress_7z
 map Zz compress_zip
 map Zg compress_tgz
 map Zx compress_txz
 map . set hidden!
+
+# Jump Shortcuts
+map gh cd ~
+map gc cd ~/.config
+map gd cd ~/Downloads
+map gD cd ~/Documents
+map gr cd ~/repos
+map gt cd /tmp
+map g. cd ~/.local/share/chezmoi
+map g/ cd /
