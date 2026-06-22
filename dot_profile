@@ -105,7 +105,12 @@ prepend_paths \
 	"$HOME/go/bin" \
 	"$HOME/bin"
 lfcd() {
-	cd "$(command lf -print-last-dir "$@")" || return
+	if ! command -v lf >/dev/null 2>&1; then
+		echo "lf: command not found" >&2
+		return 127
+	fi
+	local last_dir
+	last_dir=$(command lf -print-last-dir "$@") && [ -d "$last_dir" ] && cd "$last_dir"
 }
 y() {
 	if ! command -v yazi >/dev/null 2>&1; then
@@ -124,10 +129,18 @@ y() {
 	rm -f -- "$tmp"
 }
 codeat() {
+	if ! command -v code >/dev/null 2>&1; then
+		echo "code: command not found" >&2
+		return 127
+	fi
 	code "${1:-.}" -r
 }
 mkcd() {
-	mkdir -p "$1" && cd "$1" || return
+	if [ -z "$1" ]; then
+		echo "Usage: mkcd <directory>" >&2
+		return 1
+	fi
+	mkdir -p "$1" && cd "$1"
 }
 gacp() {
 	if [ -z "$1" ]; then
@@ -227,10 +240,7 @@ alias update_gotools='git -C $HOME/repos/gotools pull && gobu'
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
 command -v pyenv >/dev/null 2>&1 && eval "$(pyenv init -)"
-FNM_PATH="$HOME/.local/share/fnm"
-if [ -d "$FNM_PATH" ]; then
-	export PATH="$FNM_PATH:$PATH"
-fi
+prepend_paths "$HOME/.local/share/fnm"
 if [ -z "$FNM_MULTISHELL_PATH" ] && command -v fnm >/dev/null 2>&1; then
 	if [ -n "$ZSH_VERSION" ]; then
 		eval "$(fnm env --shell zsh)"
