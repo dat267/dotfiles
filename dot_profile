@@ -223,6 +223,7 @@ alias genpassword='openssl rand -base64 16'
 alias cm='chezmoi'
 alias codecm='code $(chezmoi source-path)'
 alias dotfiles='dotfiles.py'
+alias lf=lfcd
 getrclone() {
 	if [ -z "$1" ]; then
 		echo "Usage: getrclone [user@host-or-ip]"
