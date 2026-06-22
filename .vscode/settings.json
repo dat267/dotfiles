@@ -2,5 +2,9 @@
   "Lua.diagnostics.globals": [
     "mp",
     "vim"
-  ]
+  ],
+  "files.associations": {
+    "private_lfrc": "shellscript",
+    "lfrc": "shellscript"
+  }
 }
