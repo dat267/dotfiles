@@ -11,47 +11,10 @@ set info             # Minimal: no size/time columns in list by default
 set scrolloff 5
 set timefmt "2006-01-02 15:04"
 set ratios 1:2:3
+set promptfmt "\033[34;1m%d\033[0m\033[1m %f\033[0m"
+set statfmt "\033[36m%p\033[0m | %S | %t"
 
 # Functions/Commands
-
-# Responsive UI adjustment based on terminal width (e.g. mobile Termux)
-cmd on-init &{{
-    lf -remote "send $id resize-ui $lf_width"
-}}
-
-cmd on-redraw &{{
-    lf -remote "send $id resize-ui $lf_width"
-}}
-
-cmd resize-ui ${{
-    width="${1:-$lf_width}"
-    if [ "$width" -le 65 ]; then
-        # Mobile/Termux Portrait layout: single pane, minimal clutter, no previews/borders
-        lf -remote "send $id set ratios 1"
-        lf -remote "send $id set info"
-        lf -remote "send $id set nopreview"
-        lf -remote "send $id set nodrawbox"
-        lf -remote "send $id set promptfmt \"\033[34;1m%d\033[0m> \""
-        lf -remote "send $id set statfmt \"\033[36m%p\033[0m | %S\""
-    elif [ "$width" -le 110 ]; then
-        # Medium layout: two panes, no borders, minimal info
-        lf -remote "send $id set ratios 1:2"
-        lf -remote "send $id set info"
-        lf -remote "send $id set preview"
-        lf -remote "send $id set nodrawbox"
-        lf -remote "send $id set promptfmt \"\033[34;1m%d\033[0m\033[1m %f\033[0m\""
-        lf -remote "send $id set statfmt \"\033[36m%p\033[0m | %S | %t\""
-    else
-        # Full Desktop layout: three panes, details columns, border boxes
-        lf -remote "send $id set ratios 1:2:3"
-        lf -remote "send $id set info size time"
-        lf -remote "send $id set preview"
-        lf -remote "send $id set drawbox"
-        lf -remote "send $id set roundbox"
-        lf -remote "send $id set promptfmt \"\033[32;1m%u@%h\033[0m:\033[34;1m%d\033[0m\033[1m%f\033[0m\""
-        lf -remote "send $id set statfmt \"\033[36m%p\033[0m| %c| %u| %g| %S| %t| -> %l\""
-    fi
-}}
 
 cmd edit-config ${{
     if command -v chezmoi >/dev/null 2>&1; then
