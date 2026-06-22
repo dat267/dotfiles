@@ -4,7 +4,7 @@ set preview
 set previewer ~/.config/lf/preview.sh
 set nodrawbox
 set noroundbox
-set icons
+set noicons
 set ignorecase
 set smartcase
 set info             # Minimal: no size/time columns in list by default
