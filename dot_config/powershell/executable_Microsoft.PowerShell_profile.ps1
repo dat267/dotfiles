@@ -405,8 +405,38 @@ function global:gacp {
     }
 }
 
+function global:Set-AutoVenv {
+    if ($env:VIRTUAL_ENV) {
+        $parentDir = Split-Path $env:VIRTUAL_ENV -Parent
+        if ($pwd.Path -ne $parentDir -and -not $pwd.Path.StartsWith("$parentDir$([IO.Path]::DirectorySeparatorChar)")) {
+            if (Get-Command Deactivate -ErrorAction SilentlyContinue) {
+                Deactivate
+            }
+        }
+    }
+    if (-not $env:VIRTUAL_ENV) {
+        $dir = $pwd.Path
+        while ($dir -and $dir -ne [System.IO.Path]::GetPathRoot($dir)) {
+            $activateScript = Join-Path $dir ".venv\Scripts\Activate.ps1"
+            if (Test-Path $activateScript) {
+                & $activateScript
+                break
+            }
+            $activateScript2 = Join-Path $dir "venv\Scripts\Activate.ps1"
+            if (Test-Path $activateScript2) {
+                & $activateScript2
+                break
+            }
+            $parent = Split-Path $dir -Parent
+            if ($parent -eq $dir) { break }
+            $dir = $parent
+        }
+    }
+}
+
 function prompt {
     $lastExit = $global:LASTEXITCODE
+    Set-AutoVenv
     $path = $ExecutionContext.SessionState.Path.CurrentLocation.Path -replace $global:__home_regex, "~"
     $color = if ($null -eq $lastExit -or $lastExit -eq 0) { "$([char]27)[32m" } else { "$([char]27)[31m" }
     $reset = "$([char]27)[0m"
@@ -422,3 +452,5 @@ if (Get-Command Set-PSReadLineOption -ErrorAction SilentlyContinue) {
         catch {}
     }
 }
+
+Set-AutoVenv
