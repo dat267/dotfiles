@@ -7,7 +7,8 @@ set noroundbox
 set noicons
 set ignorecase
 set smartcase
-set info             # Minimal: no size/time columns in list by default
+# Minimal: no size/time columns in list by default
+set info
 set scrolloff 5
 set timefmt "2006-01-02 15:04"
 set ratios 1:2:3
