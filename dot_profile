@@ -147,74 +147,33 @@ if [ "$DISTRO_NAME" = "android" ]; then
 	alias cpy='termux-clipboard-set'
 	alias terraform='termux-chroot terraform'
 fi
+# Resolve sudo once for all package utilities
+SUDO=""
+command -v sudo >/dev/null 2>&1 && SUDO="sudo"
+
 if command -v pacman >/dev/null 2>&1; then
-	ipkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s pacman -S --noconfirm --needed "$@"
-	}
-	upkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s pacman -Syu --noconfirm
-	}
-	rpkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s pacman -Rns --noconfirm "$@"
-	}
+	ipkgs() { $SUDO pacman -S --noconfirm --needed "$@"; }
+	upkgs() { $SUDO pacman -Syu --noconfirm; }
+	rpkgs() { $SUDO pacman -Rns --noconfirm "$@"; }
 	cpkgs() {
+		local orphans
 		orphans=$(pacman -Qtdq)
 		if [ -z "$orphans" ]; then
 			echo "No orphan packages to remove."
 		else
-			s=""
-			command -v sudo >/dev/null 2>&1 && s="sudo"
-			$s pacman -Rns --noconfirm "$orphans"
+			$SUDO pacman -Rns --noconfirm "$orphans"
 		fi
 	}
 elif command -v dnf >/dev/null 2>&1; then
-	ipkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s dnf install -y "$@"
-	}
-	upkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s dnf upgrade -y
-	}
-	rpkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s dnf remove -y "$@"
-	}
-	cpkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s dnf autoremove -y
-	}
+	ipkgs() { $SUDO dnf install -y "$@"; }
+	upkgs() { $SUDO dnf upgrade -y; }
+	rpkgs() { $SUDO dnf remove -y "$@"; }
+	cpkgs() { $SUDO dnf autoremove -y; }
 elif command -v apt-get >/dev/null 2>&1; then
-	ipkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s apt-get install -y "$@"
-	}
-	upkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s apt-get update && $s apt-get upgrade -y
-	}
-	rpkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s apt-get purge -y "$@"
-	}
-	cpkgs() {
-		s=""
-		command -v sudo >/dev/null 2>&1 && s="sudo"
-		$s apt-get autoremove --purge -y
-	}
+	ipkgs() { $SUDO apt-get install -y "$@"; }
+	upkgs() { $SUDO apt-get update && $SUDO apt-get upgrade -y; }
+	rpkgs() { $SUDO apt-get purge -y "$@"; }
+	cpkgs() { $SUDO apt-get autoremove --purge -y; }
 elif command -v pkg >/dev/null 2>&1; then
 	ipkgs() { pkg install -y "$@"; }
 	upkgs() { pkg update && pkg upgrade -y; }
@@ -228,14 +187,18 @@ alias which='which -a'
 alias tree='tree --dirsfirst -F'
 alias uctl='systemctl --user'
 alias sctl='sudo systemctl'
-alias ports='netstat -tuln'
+if command -v ss >/dev/null 2>&1; then
+	alias ports='ss -tuln'
+else
+	alias ports='netstat -tuln'
+fi
 alias now='date +"%Y-%m-%d %H:%M:%S"'
 alias mtmp='cd "$(mktemp -d)"'
 alias ll='ls -Alh'
 alias lr='ls -Alrth'
 alias ls='ls --color=auto'
 alias grep='grep --color=auto'
-alias ipe='echo $(curl ipinfo.io/ip)'
+alias ipe='curl -s ipinfo.io/ip'
 alias la='ls -A'
 alias epoch='date +%s'
 alias exit='exit 0'
