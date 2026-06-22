@@ -5,6 +5,6 @@
   ],
   "files.associations": {
     "private_lfrc": "shellscript",
-    "lfrc": "shellscript"
+    "lfrc": "plaintext"
   }
 }

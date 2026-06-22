@@ -193,7 +193,7 @@ cmd delete ${{
     echo "WARNING: You are about to PERMANENTLY delete the following files/folders:"
     echo
     for file in "$@"; do
-        echo "  $file"
+        echo "- $file"
     done
     echo
     echo -n "Are you sure you want to permanently delete these $(echo "$#" | tr -d ' ') files? [y/N]: "
