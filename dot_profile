@@ -1,7 +1,7 @@
 if [ -n "$PROFILE_LOADED" ]; then
 	return 0 2>/dev/null || exit 0
 fi
-export PROFILE_LOADED=1
+PROFILE_LOADED=1
 
 prepend_paths() {
 	for p in "$@"; do
