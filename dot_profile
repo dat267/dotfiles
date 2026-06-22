@@ -109,8 +109,17 @@ lfcd() {
 		echo "lf: command not found" >&2
 		return 127
 	fi
-	local last_dir
-	last_dir=$(command lf -print-last-dir "$@") && [ -d "$last_dir" ] && cd "$last_dir"
+	local tmp
+	tmp="$(mktemp -t "lfcd-cwd.XXXXXX")"
+	command lf -last-dir-path="$tmp" "$@"
+	if [ -s "$tmp" ]; then
+		local last_dir
+		read -r last_dir < "$tmp"
+		if [ -d "$last_dir" ] && [ "$last_dir" != "$PWD" ]; then
+			cd "$last_dir"
+		fi
+	fi
+	rm -f -- "$tmp"
 }
 y() {
 	if ! command -v yazi >/dev/null 2>&1; then
