@@ -1,3 +1,8 @@
+if [ -n "$PROFILE_LOADED" ]; then
+	return 0 2>/dev/null || exit 0
+fi
+export PROFILE_LOADED=1
+
 prepend_paths() {
 	for p in "$@"; do
 		case ":$PATH:" in *:"$p":*) ;; *) PATH="$p:$PATH" ;; esac
@@ -219,6 +224,7 @@ alias genpassword='openssl rand -base64 16'
 alias cm='chezmoi'
 alias codecm='code $(chezmoi source-path)'
 alias dotfiles='dotfiles.py'
+alias reload_profile='PROFILE_LOADED="" . ~/.profile'
 getrclone() {
 	if [ -z "$1" ]; then
 		echo "Usage: getrclone [user@host-or-ip]"
