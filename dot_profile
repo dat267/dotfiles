@@ -5,12 +5,16 @@ export PROFILE_LOADED=1
 
 prepend_paths() {
 	for p in "$@"; do
-		case ":$PATH:" in *:"$p":*) ;; *) PATH="$p:$PATH" ;; esac
+		if [ -d "$p" ]; then
+			case ":$PATH:" in *:"$p":*) ;; *) PATH="$p:$PATH" ;; esac
+		fi
 	done
 }
 append_paths() {
 	for p in "$@"; do
-		case ":$PATH:" in *:"$p":*) ;; *) PATH="$PATH:$p" ;; esac
+		if [ -d "$p" ]; then
+			case ":$PATH:" in *:"$p":*) ;; *) PATH="$PATH:$p" ;; esac
+		fi
 	done
 }
 ensure_directories_exist() {
@@ -20,18 +24,12 @@ ensure_directories_exist() {
 		fi
 	done
 }
-get_distro_name() {
-	if [ -d "$HOME/.termux" ]; then
-		echo "android"
-	else
-		. /etc/os-release
-		echo "$ID"
-	fi
-}
 permit_execution_all() {
 	for folder in "$@"; do
 		folder="${folder%/}"
-		chmod +x "$folder"/*
+		if [ -d "$folder" ]; then
+			chmod +x "$folder"/* 2>/dev/null
+		fi
 	done
 	prepend_paths "$@"
 }
@@ -39,7 +37,9 @@ permit_execution_extension() {
 	for folder in "$@"; do
 		folder="${folder%/}"
 		extension="${folder##*/}"
-		chmod +x "$folder"/*."$extension"
+		if [ -d "$folder" ]; then
+			chmod +x "$folder"/*."$extension" 2>/dev/null
+		fi
 	done
 	prepend_paths "$@"
 }
@@ -54,8 +54,23 @@ export AWS_PAGER=""
 export GLOBIGNORE=.:..
 export PYENV_ROOT="$HOME/.pyenv"
 export NVM_DIR="$HOME/.nvm"
+if [ -d "$HOME/.termux" ]; then
+	DISTRO_NAME="android"
+elif [ -r /etc/os-release ]; then
+	while IFS= read -r line; do
+		case "$line" in
+			ID=*)
+				DISTRO_NAME="${line#ID=}"
+				DISTRO_NAME="${DISTRO_NAME%\"}"
+				DISTRO_NAME="${DISTRO_NAME#\"}"
+				break
+				;;
+		esac
+	done < /etc/os-release
+else
+	DISTRO_NAME="unknown"
+fi
 export DISTRO_NAME
-DISTRO_NAME="$(get_distro_name)"
 export POWERSHELL_UPDATECHECK=Off
 export LIBVIRT_DEFAULT_URI="qemu:///system"
 if command -v podman >/dev/null 2>&1 && [ -S "$XDG_RUNTIME_DIR/podman/podman.sock" ]; then
@@ -99,8 +114,12 @@ y() {
 	fi
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
 	yazi "$@" --cwd-file="$tmp" 2>/dev/null
-	if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
-		builtin cd -- "$cwd"
+	if [ -s "$tmp" ]; then
+		local cwd
+		read -r cwd < "$tmp"
+		if [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+			builtin cd -- "$cwd"
+		fi
 	fi
 	rm -f -- "$tmp"
 }
@@ -289,18 +308,21 @@ up() {
 	fi
 	if [ "$limit" -eq "$limit" ] 2>/dev/null; then
 		local cmd=""
-		for i in $(seq 1 "$limit"); do
+		local i=0
+		while [ "$i" -lt "$limit" ]; do
 			cmd="../$cmd"
+			i=$((i + 1))
 		done
 		cd "$cmd"
 	else
 		local target="$PWD"
-		while [ "$target" != "/" ]; do
+		while [ "$target" != "/" ] && [ -n "$target" ]; do
 			if [ "${target##*/}" = "$limit" ]; then
 				cd "$target"
 				return
 			fi
-			target="$(dirname "$target")"
+			local parent="${target%/*}"
+			target="${parent:-/}"
 		done
 		echo "No parent directory matches '$limit'"
 	fi
