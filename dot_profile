@@ -66,6 +66,7 @@ fi
 ensure_directories_exist \
 	"$HOME/.cargo/bin" \
 	"$HOME/.local/bin" \
+	"$HOME/.vim/backup" \
 	"$HOME/bin" \
 	"$HOME/logs" \
 	"$HOME/repos" \

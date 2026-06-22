@@ -6,6 +6,14 @@ function Copy-IfMissing($src, $dst) {
 Copy-IfMissing ("{{ .chezmoi.sourceDir }}/dot_env.local.example".Replace('/', '\'))        "$HOME\.env.local"
 Copy-IfMissing ("{{ .chezmoi.sourceDir }}/dot_gitconfig.local.example".Replace('/', '\'))  "$HOME\.gitconfig.local"
 
+# Ensure directories exist
+$dirs = @(
+    "$HOME\.vim\backup"
+)
+foreach ($d in $dirs) {
+    if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+}
+
 $proxyEnabled = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction SilentlyContinue).ProxyEnable
 if ($proxyEnabled -eq 1) {
     Write-Host "⚠ Proxy detected — uncomment and fill proxy vars in ~/.env.local" -ForegroundColor Yellow
