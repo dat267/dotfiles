@@ -1,6 +1,6 @@
 typeset -U path cdpath fpath manpath
 
-[[ -f ~/.profile ]] && . ~/.profile
+[[ -z "$PROFILE_LOADED" ]] && [[ -f ~/.profile ]] && . ~/.profile
 
 zstyle ':completion:*' menu select
 zstyle ':completion:*' rehash true
