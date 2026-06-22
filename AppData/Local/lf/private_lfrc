@@ -90,8 +90,10 @@ cmd copy-dirpath %{{
 cmd bulk-rename %{{
     $oldList = [System.IO.Path]::GetTempFileName()
     $newList = [System.IO.Path]::GetTempFileName()
-    if ($env:fx) {
+    if ($args) {
         $files = $args
+    } elseif ($env:fx) {
+        $files = $env:fx -split ';'
     } else {
         $files = Get-ChildItem -Path $pwd.Path | Select-Object -ExpandProperty FullName
     }
@@ -123,20 +125,32 @@ cmd bulk-rename %{{
 
 # Safe permanent deletion with confirmation dialog
 cmd delete %{{
+    $files = @()
+    if ($args) {
+        $files = $args
+    } elseif ($env:fx) {
+        $files = $env:fx -split ';'
+    } elseif ($env:f) {
+        $files = $env:f
+    } else {
+        lf -remote "send $id echo 'No files selected'"
+        return
+    }
+
     Clear-Host
     Write-Host "WARNING: You are about to PERMANENTLY delete the following files/folders:" -ForegroundColor Red
     Write-Host
-    foreach ($file in $args) {
+    foreach ($file in $files) {
         Write-Host "  $file"
     }
     Write-Host
-    $ans = Read-Host "Are you sure you want to permanently delete these $($args.Count) files? [y/N]"
+    $ans = Read-Host "Are you sure you want to permanently delete these $($files.Count) files? [y/N]"
     if ($ans -eq "y" -or $ans -eq "Y") {
-        foreach ($file in $args) {
+        foreach ($file in $files) {
             Remove-Item -Path $file -Recurse -Force
         }
         lf -remote "send $id reload"
-        lf -remote "send $id echo 'Permanently deleted $($args.Count) files'"
+        lf -remote "send $id echo 'Permanently deleted $($files.Count) files'"
     } else {
         lf -remote "send $id echo 'Deletion aborted'"
     }
@@ -144,8 +158,20 @@ cmd delete %{{
 
 # Recycle Bin (Trash) Actions using Microsoft.VisualBasic shell namespace
 cmd trash %{{
+    $files = @()
+    if ($args) {
+        $files = $args
+    } elseif ($env:fx) {
+        $files = $env:fx -split ';'
+    } elseif ($env:f) {
+        $files = $env:f
+    } else {
+        lf -remote "send $id echo 'No files selected'"
+        return
+    }
+
     Add-Type -AssemblyName Microsoft.VisualBasic
-    foreach ($file in $args) {
+    foreach ($file in $files) {
         if (Test-Path $file -PathType Container) {
             [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($file, 'OnlyErrorDialogs', 'SendToRecycleBin')
         } else {
@@ -153,8 +179,9 @@ cmd trash %{{
         }
     }
     lf -remote "send $id reload"
-    lf -remote "send $id echo 'Moved $($args.Count) files to Recycle Bin'"
+    lf -remote "send $id echo 'Moved $($files.Count) files to Recycle Bin'"
 }}
+
 
 cmd trash-restore %{{
     lf -remote "send $id echo 'trash-restore is not supported on Windows'"
