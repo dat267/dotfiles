@@ -1,8 +1,3 @@
-if [ -n "$PROFILE_LOADED" ]; then
-	return 0 2>/dev/null || exit 0
-fi
-PROFILE_LOADED=1
-
 prepend_paths() {
 	for p in "$@"; do
 		if [ -d "$p" ]; then
@@ -228,7 +223,6 @@ alias genpassword='openssl rand -base64 16'
 alias cm='chezmoi'
 alias codecm='code $(chezmoi source-path)'
 alias dotfiles='dotfiles.py'
-alias reload_profile='PROFILE_LOADED="" . ~/.profile'
 getrclone() {
 	if [ -z "$1" ]; then
 		echo "Usage: getrclone [user@host-or-ip]"
@@ -246,9 +240,19 @@ alias pandock='docker run --rm --volume "$(pwd):/data" pandoc/latex'
 alias gobu='$HOME/repos/gotools/build.sh'
 alias install_gotools='git clone git@github.com:dat267/gotools.git $HOME/repos/gotools && gobu'
 alias update_gotools='git -C $HOME/repos/gotools pull && gobu'
-[ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
-command -v pyenv >/dev/null 2>&1 && eval "$(pyenv init -)"
+case ":$PATH:" in
+	*:"$HOME/.cargo/bin":*) ;;
+	*) [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env" ;;
+esac
+if ! command -v nvm >/dev/null 2>&1; then
+	[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+fi
+if command -v pyenv >/dev/null 2>&1; then
+	case ":$PATH:" in
+		*:"$PYENV_ROOT/shims":*|*:"$HOME/.pyenv/shims":*) ;;
+		*) eval "$(pyenv init -)" ;;
+	esac
+fi
 prepend_paths "$HOME/.local/share/fnm"
 if [ -z "$FNM_MULTISHELL_PATH" ] && command -v fnm >/dev/null 2>&1; then
 	if [ -n "$ZSH_VERSION" ]; then
