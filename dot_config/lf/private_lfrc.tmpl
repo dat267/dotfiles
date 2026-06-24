@@ -1,0 +1,175 @@
+# Basic Settings
+set nohidden
+set preview
+{{ if ne .chezmoi.os "windows" -}}
+set previewer ~/.config/lf/preview.sh
+{{ end -}}
+set nodrawbox
+set noroundbox
+set noicons
+set ignorecase
+set smartcase
+set info
+set timefmt "2006-01-02T15:04:05Z"
+
+{{ if eq .chezmoi.os "windows" -}}
+# Windows shell setup
+set shell powershell
+set shellflag "-NoProfile -Command"
+
+cmd open-check %{{ "{{" }}
+    $files = @()
+    if ($env:fx) {
+        $files = $env:fx -split ';'
+    } else {
+        $files = $env:f
+    }
+
+    foreach ($file in $files) {
+        $ext = [System.IO.Path]::GetExtension($file).ToLower()
+        $textExts = @(".txt", ".md", ".json", ".xml", ".yml", ".yaml", ".sh", ".ps1", ".bat", ".ini", ".conf", ".cfg", ".lfrc", ".gitconfig", ".py", ".go", ".rs", ".js", ".ts", ".html", ".css")
+        if ($ext -notin $textExts) {
+            lf -remote "send $id echo 'Opening non-text files is disabled ($ext)'"
+            exit 1
+        }
+    }
+    lf -remote "send $id open-run"
+{{ "}}" }}
+
+cmd open-run %{{ "{{" }}
+    $files = @()
+    if ($env:fx) {
+        $files = $env:fx -split ';'
+    } else {
+        $files = $env:f
+    }
+    $editor = if ($env:EDITOR) { $env:EDITOR } else { "notepad" }
+    foreach ($file in $files) {
+        Start-Process $editor -ArgumentList "`"$file`"" -Wait
+    }
+}}
+
+cmd open :open-check
+
+cmd mkdir %{{ "{{" }}
+    $dir = $args -join ' '
+    if ($dir) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+{{ "}}" }}
+
+cmd touch %{{ "{{" }}
+    $file = $args -join ' '
+    if ($file) { New-Item -ItemType File -Path $file -Force | Out-Null }
+{{ "}}" }}
+
+cmd follow_link %{{ "{{" }}
+    $target = (Get-Item $env:f).Target
+    if ($target) {
+        lf -remote "send $id select `"$target`""
+    }
+{{ "}}" }}
+
+cmd extract_archive %{{ "{{" }}
+    $file = $env:f
+    $ext = [System.IO.Path]::GetExtension($file).ToLower()
+    if ($ext -eq ".zip") {
+        Expand-Archive -Path $file -DestinationPath . -Force
+    } elseif ($ext -in (".tar", ".tgz", ".gz", ".xz", ".txz")) {
+        tar -xf $file
+    } elseif ($ext -in (".rar", ".7z")) {
+        if (Get-Command 7z -ErrorAction SilentlyContinue) {
+            7z x -y $file
+        } else {
+            lf -remote "send $id echo '7z is required for .rar/.7z extraction'"
+            return
+        }
+    }
+    lf -remote "send $id reload"
+{{ "}}" }}
+
+cmd compress %{{ "{{" }}
+    $files = @()
+    if ($env:fx) {
+        $files = $env:fx -split ';'
+    } else {
+        $files = $env:f
+    }
+    tar -czf "archive.tar.gz" -- $files
+    lf -remote "send $id reload"
+{{ "}}" }}
+{{ else -}}
+cmd open-check %{{ "{{" }}
+    IFS='
+'
+    [ -n "$fx" ] && files=$fx || files=$f
+
+    for file in $files; do
+        mime=$(file -Lb --mime-type "$file")
+        case "$mime" in
+            text/*|application/json|*javascript|*xml) continue ;;
+            *)
+                if ! file -Lb "$file" | grep -iq 'text'; then
+                    lf -remote "send $id echo 'Opening non-text files is disabled ($mime)'"
+                    exit 1
+                fi
+                ;;
+        esac
+    done
+    lf -remote "send $id open-run"
+{{ "}}" }}
+
+cmd open-run ${{ "{{" }}
+    $EDITOR $fx
+{{ "}}" }}
+
+cmd open :open-check
+
+cmd mkdir %IFS=" "; mkdir -p -- "$*"
+cmd touch %touch -- "$1"
+cmd follow_link %lf -remote "send ${id} select '$(readlink $f)'"
+
+cmd extract_archive ${{ "{{" }}
+    case "$f" in
+        *.tar.gz|*.tgz) tar -xzf "$f" ;;
+        *.tar.xz|*.txz) tar -xJf "$f" ;;
+        *.tar) tar -xf "$f" ;;
+        *.zip|*.rar|*.7z) 7z x -y "$f" ;;
+    esac
+    lf -remote "send $id reload"
+{{ "}}" }}
+
+cmd compress ${{ "{{" }}
+    [ -n "$fx" ] && set -- $fx || set -- "$f"
+    tar -cvzf "archive.tar.gz" -- "$@"
+    lf -remote "send $id reload"
+{{ "}}" }}
+{{ end -}}
+
+# Mappings
+map d
+map dd cut
+map dD delete
+map x cut
+map p paste
+map a push :mkdir<space>
+map A push :touch<space>
+map gL follow_link
+map <enter> :open
+map o :open
+map <esc> clear
+
+# Extensions Mappings
+map E extract_archive
+map Z compress
+map . set hidden!
+
+# Jump Shortcuts
+map gh cd ~
+map gc cd ~/.config
+map gd cd ~/Downloads
+map gD cd ~/Documents
+{{ if eq .chezmoi.os "windows" -}}
+map gt cd ~/AppData/Local/Temp
+{{ else -}}
+map gt cd /tmp
+map g/ cd /
+{{ end -}}
