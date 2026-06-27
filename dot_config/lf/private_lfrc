@@ -41,11 +41,27 @@ cmd touch %touch -- "$1"
 cmd follow_link %lf -remote "send ${id} select '$(readlink $f)'"
 
 cmd extract_archive ${{
+    set -f
+    dst="$f"
     case "$f" in
-        *.tar.gz|*.tgz) tar -xzf "$f" ;;
-        *.tar.xz|*.txz) tar -xJf "$f" ;;
-        *.tar) tar -xf "$f" ;;
-        *.zip|*.rar|*.7z) 7z x -y "$f" ;;
+        *.tar.gz) dst="${f%.tar.gz}" ;;
+        *.tgz) dst="${f%.tgz}" ;;
+        *.tar.xz) dst="${f%.tar.xz}" ;;
+        *.txz) dst="${f%.txz}" ;;
+        *.tar) dst="${f%.tar}" ;;
+        *.zip|*.rar|*.7z) dst="${f%.*}" ;;
+        *)
+            lf -remote "send $id echo 'Unsupported archive: $f'"
+            exit 1
+            ;;
+    esac
+
+    mkdir -p -- "$dst"
+    case "$f" in
+        *.tar.gz|*.tgz) tar -xzf "$f" -C "$dst" ;;
+        *.tar.xz|*.txz) tar -xJf "$f" -C "$dst" ;;
+        *.tar) tar -xf "$f" -C "$dst" ;;
+        *.zip|*.rar|*.7z) 7z x -y "$f" -o"$dst" ;;
     esac
     lf -remote "send $id reload"
 }}

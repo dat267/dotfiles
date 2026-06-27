@@ -66,14 +66,34 @@ cmd follow_link %{{
 
 cmd extract_archive %{{
     $file = $env:f
+    $dir = Split-Path $file
+    $name = [System.IO.Path]::GetFileName($file)
+    $dstName = $name
+    if ($name -like "*.tar.gz") {
+        $dstName = $name.Substring(0, $name.Length - 7)
+    } elseif ($name -like "*.tar.xz") {
+        $dstName = $name.Substring(0, $name.Length - 7)
+    } elseif ($name -like "*.tar") {
+        $dstName = $name.Substring(0, $name.Length - 4)
+    } elseif ($name -like "*.tgz") {
+        $dstName = $name.Substring(0, $name.Length - 4)
+    } elseif ($name -like "*.txz") {
+        $dstName = $name.Substring(0, $name.Length - 4)
+    } else {
+        $dstName = [System.IO.Path]::GetFileNameWithoutExtension($file)
+    }
+    $dst = Join-Path $dir $dstName
+
     $ext = [System.IO.Path]::GetExtension($file).ToLower()
     if ($ext -eq ".zip") {
-        Expand-Archive -Path $file -DestinationPath . -Force
+        New-Item -ItemType Directory -Path $dst -Force | Out-Null
+        Expand-Archive -Path $file -DestinationPath $dst -Force
     } elseif ($ext -in (".tar", ".tgz", ".gz", ".xz", ".txz")) {
-        tar -xf $file
+        New-Item -ItemType Directory -Path $dst -Force | Out-Null
+        tar -xf $file -C $dst
     } elseif ($ext -in (".rar", ".7z")) {
         if (Get-Command 7z -ErrorAction SilentlyContinue) {
-            7z x -y $file
+            7z x -y $file "-o$dst"
         } else {
             lf -remote "send $id echo '7z is required for .rar/.7z extraction'"
             return
