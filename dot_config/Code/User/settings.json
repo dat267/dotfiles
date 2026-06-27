@@ -16,7 +16,7 @@
         "editor.defaultFormatter": "vscode.json-language-features"
     },
     "[markdown]": {
-        "editor.defaultFormatter": "yzhang.markdown-all-in-one"
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
     "[powershell]": {
         "editor.defaultFormatter": "ms-vscode.powershell"
@@ -146,7 +146,7 @@
     "workbench.settings.applyToAllProfiles": [],
     "workbench.settings.editor": "json",
     "workbench.iconTheme": "material-icon-theme",
-    "extensions.autoUpdate": false,
+    "extensions.autoUpdate": "off",
     "security.allowedUNCHosts": [
         "wsl.localhost"
     ],
@@ -189,6 +189,7 @@
         "https://raw.githubusercontent.com/devcontainers/spec/": true,
         "https://raw.githubusercontent.com/microsoft/vscode/": true,
         "https://schemastore.azurewebsites.net/": true,
+        "https://wails.io": true,
         "https://www.schemastore.org/": true
     },
     "files.insertFinalNewline": true,
