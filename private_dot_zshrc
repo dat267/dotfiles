@@ -39,6 +39,20 @@ do
     fi
 done
 
+for f in \
+    /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh \
+    /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
+    "${PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
+    /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
+    /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+do
+    if [[ -f "$f" ]]; then
+        source "$f"
+        break
+    fi
+done
+
+
 PROMPT='%F{cyan}%~%f %F{yellow}%#%f '
 
 if [[ -d "$HOME/.sdkman" && -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
