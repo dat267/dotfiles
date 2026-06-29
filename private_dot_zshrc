@@ -25,6 +25,7 @@ setopt SHARE_HISTORY APPEND_HISTORY INC_APPEND_HISTORY HIST_IGNORE_DUPS HIST_IGN
 [[ -f "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc" ]] && . "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc"
 
 for f in \
+    "$HOME/.config/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
     /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
     /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
     "${PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
@@ -37,6 +38,7 @@ do
 done
 
 for f in \
+    "$HOME/.config/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh" \
     /usr/share/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh \
     "${PREFIX}/share/zsh-history-substring-search/zsh-history-substring-search.zsh" \
     /opt/homebrew/share/zsh-history-substring-search/zsh-history-substring-search.zsh
@@ -50,6 +52,7 @@ do
 done
 
 for f in \
+    "$HOME/.config/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh" \
     /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh \
     /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
     "${PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh" \
