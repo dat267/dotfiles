@@ -9,7 +9,7 @@ autoload -Uz compinit && compinit
 HISTSIZE=10000
 SAVEHIST=10000
 HISTFILE=~/.zsh_history
-setopt SHARE_HISTORY APPEND_HISTORY INC_APPEND_HISTORY HIST_IGNORE_DUPS
+setopt SHARE_HISTORY APPEND_HISTORY INC_APPEND_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE AUTO_CD AUTO_PUSHD PUSHD_IGNORE_DUPS
 
 [[ -f "$HOME/.local/opt/google-cloud-sdk/path.zsh.inc" ]] && . "$HOME/.local/opt/google-cloud-sdk/path.zsh.inc"
 [[ -f "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc" ]] && . "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc"
