@@ -278,23 +278,13 @@ if command -v pyenv >/dev/null 2>&1; then
 fi
 prepend_paths "$HOME/.local/share/fnm"
 if [ -z "$FNM_MULTISHELL_PATH" ] && command -v fnm >/dev/null 2>&1; then
-	fnm_lazy_load() {
-		unset -f fnm node npm npx yarn pnpm
-		if [ -n "$ZSH_VERSION" ]; then
-			eval "$(command fnm env --shell zsh)"
-		elif [ -n "$BASH_VERSION" ]; then
-			eval "$(command fnm env --shell bash)"
-		else
-			eval "$(command fnm env)"
-		fi
-		"$@"
-	}
-	fnm() { fnm_lazy_load fnm "$@"; }
-	node() { fnm_lazy_load node "$@"; }
-	npm() { fnm_lazy_load npm "$@"; }
-	npx() { fnm_lazy_load npx "$@"; }
-	yarn() { fnm_lazy_load yarn "$@"; }
-	pnpm() { fnm_lazy_load pnpm "$@"; }
+	if [ -n "$ZSH_VERSION" ]; then
+		eval "$(fnm env --shell zsh)"
+	elif [ -n "$BASH_VERSION" ]; then
+		eval "$(fnm env --shell bash)"
+	else
+		eval "$(fnm env)"
+	fi
 fi
 # Universal archive extractor
 extract() {
