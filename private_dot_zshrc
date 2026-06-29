@@ -4,7 +4,17 @@ typeset -U path cdpath fpath manpath
 
 zstyle ':completion:*' menu select
 zstyle ':completion:*' rehash true
-autoload -Uz compinit && compinit
+autoload -Uz compinit
+() {
+	local zcompdump="${ZDOTDIR:-$HOME}/.zcompdump"
+	zmodload zsh/stat 2>/dev/null
+	zmodload zsh/datetime 2>/dev/null
+	if [[ -f "$zcompdump" ]] && (( EPOCHSECONDS - $(stat +mtime "$zcompdump") < 86400 )); then
+		compinit -C -d "$zcompdump"
+	else
+		compinit -d "$zcompdump"
+	fi
+}
 
 HISTSIZE=10000
 SAVEHIST=10000

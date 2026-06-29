@@ -52,16 +52,8 @@ export NVM_DIR="$HOME/.nvm"
 if [ -d "$HOME/.termux" ]; then
 	DISTRO_NAME="android"
 elif [ -r /etc/os-release ]; then
-	while IFS= read -r line; do
-		case "$line" in
-			ID=*)
-				DISTRO_NAME="${line#ID=}"
-				DISTRO_NAME="${DISTRO_NAME%\"}"
-				DISTRO_NAME="${DISTRO_NAME#\"}"
-				break
-				;;
-		esac
-	done < /etc/os-release
+	. /etc/os-release
+	DISTRO_NAME="$ID"
 else
 	DISTRO_NAME="unknown"
 fi
@@ -78,14 +70,9 @@ if [ -f "$HOME/.env.local" ]; then
 	. "$HOME/.env.local"
 	set +a
 fi
-ensure_directories_exist \
-	"$HOME/.cargo/bin" \
-	"$HOME/.local/bin" \
-	"$HOME/.vim/backup" \
-	"$HOME/bin" \
-	"$HOME/logs" \
-	"$HOME/repos" \
-	"$HOME/tmp"
+if [ ! -d "$HOME/tmp" ]; then
+	mkdir -p "$HOME/.cargo/bin" "$HOME/.local/bin" "$HOME/.vim/backup" "$HOME/bin" "$HOME/logs" "$HOME/repos" "$HOME/tmp"
+fi
 prepend_paths \
 	"$PYENV_ROOT/bin" \
 	"$HOME/.local/scripts/py" \
@@ -168,34 +155,69 @@ fi
 SUDO=""
 command -v sudo >/dev/null 2>&1 && SUDO="sudo"
 
-if command -v pacman >/dev/null 2>&1; then
-	ipkgs() { $SUDO pacman -S --noconfirm --needed "$@"; }
-	upkgs() { $SUDO pacman -Syu --noconfirm; }
-	rpkgs() { $SUDO pacman -Rns --noconfirm "$@"; }
-	cpkgs() {
-		local orphans
-		orphans=$(pacman -Qtdq)
-		if [ -z "$orphans" ]; then
-			echo "No orphan packages to remove."
-		else
-			$SUDO pacman -Rns --noconfirm "$orphans"
+case "$DISTRO_NAME" in
+	arch)
+		ipkgs() { $SUDO pacman -S --noconfirm --needed "$@"; }
+		upkgs() { $SUDO pacman -Syu --noconfirm; }
+		rpkgs() { $SUDO pacman -Rns --noconfirm "$@"; }
+		cpkgs() {
+			local orphans
+			orphans=$(pacman -Qtdq)
+			if [ -z "$orphans" ]; then
+				echo "No orphan packages to remove."
+			else
+				$SUDO pacman -Rns --noconfirm "$orphans"
+			fi
+		}
+		;;
+	fedora|rhel|centos)
+		ipkgs() { $SUDO dnf install -y "$@"; }
+		upkgs() { $SUDO dnf upgrade -y; }
+		rpkgs() { $SUDO dnf remove -y "$@"; }
+		cpkgs() { $SUDO dnf autoremove -y; }
+		;;
+	ubuntu|debian|pop)
+		ipkgs() { $SUDO apt-get install -y "$@"; }
+		upkgs() { $SUDO apt-get update && $SUDO apt-get upgrade -y; }
+		rpkgs() { $SUDO apt-get purge -y "$@"; }
+		cpkgs() { $SUDO apt-get autoremove --purge -y; }
+		;;
+	android)
+		ipkgs() { pkg install -y "$@"; }
+		upkgs() { pkg update && pkg upgrade -y; }
+		rpkgs() { pkg uninstall -y "$@"; }
+		;;
+	*)
+		if command -v pacman >/dev/null 2>&1; then
+			ipkgs() { $SUDO pacman -S --noconfirm --needed "$@"; }
+			upkgs() { $SUDO pacman -Syu --noconfirm; }
+			rpkgs() { $SUDO pacman -Rns --noconfirm "$@"; }
+			cpkgs() {
+				local orphans
+				orphans=$(pacman -Qtdq)
+				if [ -z "$orphans" ]; then
+					echo "No orphan packages to remove."
+				else
+					$SUDO pacman -Rns --noconfirm "$orphans"
+				fi
+			}
+		elif command -v dnf >/dev/null 2>&1; then
+			ipkgs() { $SUDO dnf install -y "$@"; }
+			upkgs() { $SUDO dnf upgrade -y; }
+			rpkgs() { $SUDO dnf remove -y "$@"; }
+			cpkgs() { $SUDO dnf autoremove -y; }
+		elif command -v apt-get >/dev/null 2>&1; then
+			ipkgs() { $SUDO apt-get install -y "$@"; }
+			upkgs() { $SUDO apt-get update && $SUDO apt-get upgrade -y; }
+			rpkgs() { $SUDO apt-get purge -y "$@"; }
+			cpkgs() { $SUDO apt-get autoremove --purge -y; }
+		elif command -v pkg >/dev/null 2>&1; then
+			ipkgs() { pkg install -y "$@"; }
+			upkgs() { pkg update && pkg upgrade -y; }
+			rpkgs() { pkg uninstall -y "$@"; }
 		fi
-	}
-elif command -v dnf >/dev/null 2>&1; then
-	ipkgs() { $SUDO dnf install -y "$@"; }
-	upkgs() { $SUDO dnf upgrade -y; }
-	rpkgs() { $SUDO dnf remove -y "$@"; }
-	cpkgs() { $SUDO dnf autoremove -y; }
-elif command -v apt-get >/dev/null 2>&1; then
-	ipkgs() { $SUDO apt-get install -y "$@"; }
-	upkgs() { $SUDO apt-get update && $SUDO apt-get upgrade -y; }
-	rpkgs() { $SUDO apt-get purge -y "$@"; }
-	cpkgs() { $SUDO apt-get autoremove --purge -y; }
-elif command -v pkg >/dev/null 2>&1; then
-	ipkgs() { pkg install -y "$@"; }
-	upkgs() { pkg update && pkg upgrade -y; }
-	rpkgs() { pkg uninstall -y "$@"; }
-fi
+		;;
+esac
 alias ...='cd ../..'
 alias ..='cd ..'
 alias cd..='cd ..'
@@ -256,13 +278,23 @@ if command -v pyenv >/dev/null 2>&1; then
 fi
 prepend_paths "$HOME/.local/share/fnm"
 if [ -z "$FNM_MULTISHELL_PATH" ] && command -v fnm >/dev/null 2>&1; then
-	if [ -n "$ZSH_VERSION" ]; then
-		eval "$(fnm env --shell zsh)"
-	elif [ -n "$BASH_VERSION" ]; then
-		eval "$(fnm env --shell bash)"
-	else
-		eval "$(fnm env)"
-	fi
+	fnm_lazy_load() {
+		unset -f fnm node npm npx yarn pnpm
+		if [ -n "$ZSH_VERSION" ]; then
+			eval "$(command fnm env --shell zsh)"
+		elif [ -n "$BASH_VERSION" ]; then
+			eval "$(command fnm env --shell bash)"
+		else
+			eval "$(command fnm env)"
+		fi
+		"$@"
+	}
+	fnm() { fnm_lazy_load fnm "$@"; }
+	node() { fnm_lazy_load node "$@"; }
+	npm() { fnm_lazy_load npm "$@"; }
+	npx() { fnm_lazy_load npx "$@"; }
+	yarn() { fnm_lazy_load yarn "$@"; }
+	pnpm() { fnm_lazy_load pnpm "$@"; }
 fi
 # Universal archive extractor
 extract() {
