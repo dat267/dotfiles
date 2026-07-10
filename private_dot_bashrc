@@ -28,7 +28,6 @@ if [[ -d "$HOME/.sdkman" ]] && [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
 	export SDKMAN_DIR="$HOME/.sdkman"
 	source "$HOME/.sdkman/bin/sdkman-init.sh"
 fi
-export PATH="$HOME/.local/bin:$PATH"
 
 # Auto-detect and activate Python virtual environment in current or parent directories
 _auto_run_venv() {
