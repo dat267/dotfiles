@@ -29,3 +29,37 @@ if [[ -d "$HOME/.sdkman" ]] && [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
 	source "$HOME/.sdkman/bin/sdkman-init.sh"
 fi
 export PATH="$HOME/.local/bin:$PATH"
+
+# Auto-detect and activate Python virtual environment in current or parent directories
+_auto_run_venv() {
+	[[ -t 1 ]] || return
+	local dir="$PWD"
+	local venv_path=""
+	while [[ "$dir" != "/" ]]; do
+		if [[ -f "$dir/.venv/bin/activate" && -O "$dir/.venv/bin/activate" ]]; then
+			venv_path="$dir/.venv"
+			break
+		elif [[ -f "$dir/venv/bin/activate" && -O "$dir/venv/bin/activate" ]]; then
+			venv_path="$dir/venv"
+			break
+		fi
+		dir="$(dirname "$dir")"
+	done
+
+	if [[ -n "$venv_path" ]]; then
+		if [[ "$VIRTUAL_ENV" != "$venv_path" ]]; then
+			if declare -f deactivate >/dev/null; then
+				deactivate
+			fi
+			source "$venv_path/bin/activate"
+		fi
+	else
+		if [[ -n "$VIRTUAL_ENV" ]] && declare -f deactivate >/dev/null; then
+			deactivate
+		fi
+	fi
+}
+
+if [[ ";$PROMPT_COMMAND;" != *";_auto_run_venv;"* ]]; then
+	PROMPT_COMMAND="_auto_run_venv${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+fi
