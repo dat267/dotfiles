@@ -16,11 +16,13 @@
     url = "https://github.com/zsh-users/zsh-autosuggestions/archive/master.tar.gz"
     exact = true
     stripComponents = 1
+{{- end }}
 
+{{- if and (ne .chezmoi.os "windows") (ne .chezmoi.os "android") }}
 [".local/share/blesh"]
     type = "archive"
     url = "https://github.com/akinomyoga/ble.sh/releases/download/nightly/ble-nightly.tar.xz"
     exact = true
     stripComponents = 1
-
 {{- end }}
+
