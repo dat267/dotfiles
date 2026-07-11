@@ -7,17 +7,30 @@ ble-face auto_complete='fg=#6c7086,italic'
 # Selection / Highlight
 ble-face region='bg=#45475a'
 
-# Syntax Highlighting
+# General Syntax Highlighting
 ble-face syntax_default='fg=#cdd6f4'
-ble-face syntax_command='fg=#89b4fa,bold'
-ble-face syntax_keyword='fg=#cba6f7,bold'
-ble-face syntax_function='fg=#89dceb'
-ble-face syntax_string='fg=#a6e3a1'
-ble-face syntax_comment='fg=#585b70,italic'
-ble-face syntax_variable='fg=#f5e0dc'
-ble-face syntax_number='fg=#fab387'
-ble-face syntax_option='fg=#f9e2af'
+ble-face syntax_command='fg=#89b4fa'
+ble-face syntax_quoted='fg=#a6e3a1'          # Strings
+ble-face syntax_quotation='fg=#a6e3a1,bold'
+ble-face syntax_escape='fg=#f5c2e7'
+ble-face syntax_expr='fg=#fab387'
 ble-face syntax_error='fg=#f38ba8,underline'
-ble-face syntax_glob='fg=#f5c2e7'
+ble-face syntax_varname='fg=#f5e0dc'         # Variables
 ble-face syntax_delimiter='fg=#94e2d5'
-ble-face syntax_param='fg=#cdd6f4'
+ble-face syntax_param_expansion='fg=#cde2f4'
+ble-face syntax_history_expansion='fg=#fab387'
+ble-face syntax_function_name='fg=#89dceb,bold'
+ble-face syntax_comment='fg=#585b70,italic'
+ble-face syntax_glob='fg=#f5c2e7,bold'
+ble-face syntax_brace='fg=#94e2d5,bold'
+ble-face syntax_tilde='fg=#89b4fa,bold'
+
+# Command Type Specifics
+ble-face command_builtin_dot='fg=#f38ba8,bold'
+ble-face command_builtin='fg=#f38ba8'
+ble-face command_alias='fg=#89dceb'
+ble-face command_function='fg=#89dceb'
+ble-face command_file='fg=#a6e3a1'
+ble-face command_keyword='fg=#cba6f7,bold'    # Keywords (if, case, etc.)
+ble-face command_jobs='fg=#fab387,bold'
+ble-face command_directory='fg=#89b4fa,underline'
