@@ -1,7 +1,10 @@
 # shellcheck disable=SC1091
 [[ -f ~/.profile ]] && . ~/.profile
-
 [[ $- != *i* ]] && return
+
+# Source ble.sh (Bash Line Editor) if installed
+[[ -f "$HOME/.local/share/blesh/ble.sh" ]] && source "$HOME/.local/share/blesh/ble.sh"
+
 HISTTIMEFORMAT="%F %T "
 HISTCONTROL=ignoredups
 HISTSIZE=10000
