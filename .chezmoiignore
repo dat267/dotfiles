@@ -19,6 +19,7 @@ run_onchange_after_create-junctions.ps1.tmpl
 
 {{- if eq .chezmoi.os "windows" }}
 .bash_aliases
+.blerc
 .bash_login
 .bash_logout
 .bash_profile

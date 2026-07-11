@@ -1,0 +1,23 @@
+# ~/.blerc
+# Custom Catppuccin Mocha-inspired color scheme for ble.sh
+
+# Autocomplete / Suggestions
+ble-face auto_complete='fg=#6c7086,italic'
+
+# Selection / Highlight
+ble-face region='bg=#45475a'
+
+# Syntax Highlighting
+ble-face syntax_default='fg=#cdd6f4'
+ble-face syntax_command='fg=#89b4fa,bold'
+ble-face syntax_keyword='fg=#cba6f7,bold'
+ble-face syntax_function='fg=#89dceb'
+ble-face syntax_string='fg=#a6e3a1'
+ble-face syntax_comment='fg=#585b70,italic'
+ble-face syntax_variable='fg=#f5e0dc'
+ble-face syntax_number='fg=#fab387'
+ble-face syntax_option='fg=#f9e2af'
+ble-face syntax_error='fg=#f38ba8,underline'
+ble-face syntax_glob='fg=#f5c2e7'
+ble-face syntax_delimiter='fg=#94e2d5'
+ble-face syntax_param='fg=#cdd6f4'
