@@ -3,23 +3,33 @@
 # keeping only syntax highlighting and history autocompletion preview (like PowerShell/Zsh).
 
 # -----------------------------------------------------------------------------
-# 1. Readline Compatibility & Basic Behavior
+# 1. Readline Compatibility
 # -----------------------------------------------------------------------------
-
 # Load Readline compatibility module to restore standard Bash keybindings and TAB completion
 ble-import config/readline
 
-# Disable automatic completion popup menu while typing
-bleopt complete_auto_complete=
+# -----------------------------------------------------------------------------
+# 2. Re-enable Syntax Highlighting & History Suggestions
+# -----------------------------------------------------------------------------
+# Re-enable syntax highlighting (which config/readline disabled)
+bleopt highlight_syntax=1
+bleopt highlight_filename=1
+bleopt highlight_variable=1
 
-# Enable Zsh/PowerShell-style inline history auto-suggestions
+# Enable automatic suggestions engine (needed for history suggestions)
+bleopt complete_auto_complete=1
+
+# Enable history-based suggestions (like zsh-autosuggestions)
 bleopt complete_auto_history=1
+
+# Disable syntax-based auto-completion popup menu while typing (keeps history only)
+bleopt complete_auto_complete_opts=syntax-disabled
 
 # Disable ambiguous completion / menus on TAB
 bleopt complete_menu_complete=
 
 # -----------------------------------------------------------------------------
-# 2. Custom Catppuccin Mocha-inspired Colors for Highlighting & Suggestions
+# 3. Custom Catppuccin Mocha-inspired Colors for Highlighting & Suggestions
 # -----------------------------------------------------------------------------
 
 # History Autocomplete / Suggestion Preview (Italic Gray like PowerShell/Zsh)
