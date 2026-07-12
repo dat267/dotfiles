@@ -29,39 +29,39 @@ bleopt complete_auto_complete_opts=syntax-disabled
 bleopt complete_menu_complete=
 
 # -----------------------------------------------------------------------------
-# 3. Custom Catppuccin Mocha-inspired Colors for Highlighting & Suggestions
+# 3. Generic GNU/Linux ANSI-compliant Color Palette
 # -----------------------------------------------------------------------------
 
-# History Autocomplete / Suggestion Preview (Italic Gray like PowerShell/Zsh)
-ble-face auto_complete='fg=#6c7086,italic'
+# History Autocomplete / Suggestion Preview (Standard Terminal Gray)
+ble-face auto_complete='fg=gray,italic'
 
 # Selection / Highlight
-ble-face region='bg=#45475a'
+ble-face region='bg=gray,fg=black'
 
 # General Syntax Highlighting
-ble-face syntax_default='fg=#cdd6f4'
-ble-face syntax_command='fg=#89b4fa'
-ble-face syntax_quoted='fg=#a6e3a1'          # Strings
-ble-face syntax_quotation='fg=#a6e3a1,bold'
-ble-face syntax_escape='fg=#f5c2e7'
-ble-face syntax_expr='fg=#fab387'
-ble-face syntax_error='fg=#f38ba8,underline'
-ble-face syntax_varname='fg=#f5e0dc'         # Variables
-ble-face syntax_delimiter='fg=#94e2d5'
-ble-face syntax_param_expansion='fg=#cde2f4'
-ble-face syntax_history_expansion='fg=#fab387'
-ble-face syntax_function_name='fg=#89dceb,bold'
-ble-face syntax_comment='fg=#585b70,italic'
-ble-face syntax_glob='fg=#f5c2e7,bold'
-ble-face syntax_brace='fg=#94e2d5,bold'
-ble-face syntax_tilde='fg=#89b4fa,bold'
+ble-face syntax_default='none'
+ble-face syntax_command='fg=brown'
+ble-face syntax_quoted='fg=green'          # Strings
+ble-face syntax_quotation='fg=green,bold'
+ble-face syntax_escape='fg=magenta'
+ble-face syntax_expr='fg=cyan'
+ble-face syntax_error='bg=red,fg=white'
+ble-face syntax_varname='fg=red'           # Variables
+ble-face syntax_delimiter='bold'
+ble-face syntax_param_expansion='fg=magenta'
+ble-face syntax_history_expansion='bg=brown,fg=white'
+ble-face syntax_function_name='fg=magenta,bold'
+ble-face syntax_comment='fg=gray,italic'
+ble-face syntax_glob='fg=magenta,bold'
+ble-face syntax_brace='fg=cyan,bold'
+ble-face syntax_tilde='fg=blue,bold'
 
 # Command Type Specifics
-ble-face command_builtin_dot='fg=#f38ba8,bold'
-ble-face command_builtin='fg=#f38ba8'
-ble-face command_alias='fg=#89dceb'
-ble-face command_function='fg=#89dceb'
-ble-face command_file='fg=#a6e3a1'
-ble-face command_keyword='fg=#cba6f7,bold'    # Keywords (if, case, etc.)
-ble-face command_jobs='fg=#fab387,bold'
-ble-face command_directory='fg=#89b4fa,underline'
+ble-face command_builtin_dot='fg=red,bold'
+ble-face command_builtin='fg=red'
+ble-face command_alias='fg=cyan'
+ble-face command_function='fg=cyan'
+ble-face command_file='fg=green'
+ble-face command_keyword='fg=blue,bold'    # Keywords (if, case, etc.)
+ble-face command_jobs='fg=red,bold'
+ble-face command_directory='fg=blue,underline'
