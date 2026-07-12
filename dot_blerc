@@ -1,7 +1,28 @@
 # ~/.blerc
-# Custom Catppuccin Mocha-inspired color scheme for ble.sh
+# Configuration to make ble.sh behave as close to original Bash as possible,
+# keeping only syntax highlighting and history autocompletion preview (like PowerShell/Zsh).
 
-# Autocomplete / Suggestions
+# -----------------------------------------------------------------------------
+# 1. Readline Compatibility & Basic Behavior
+# -----------------------------------------------------------------------------
+
+# Load Readline compatibility module to restore standard Bash keybindings and TAB completion
+ble-import config/readline
+
+# Disable automatic completion popup menu while typing
+bleopt complete_auto_complete=
+
+# Enable Zsh/PowerShell-style inline history auto-suggestions
+bleopt complete_auto_history=1
+
+# Disable ambiguous completion / menus on TAB
+bleopt complete_menu_complete=
+
+# -----------------------------------------------------------------------------
+# 2. Custom Catppuccin Mocha-inspired Colors for Highlighting & Suggestions
+# -----------------------------------------------------------------------------
+
+# History Autocomplete / Suggestion Preview (Italic Gray like PowerShell/Zsh)
 ble-face auto_complete='fg=#6c7086,italic'
 
 # Selection / Highlight
