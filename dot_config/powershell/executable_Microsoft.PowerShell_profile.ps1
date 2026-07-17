@@ -405,6 +405,260 @@ function global:gacp {
     }
 }
 
+# ---------------------------------------------------------------------------
+# Bash-equivalent utilities
+# ---------------------------------------------------------------------------
+
+# ls variants
+function global:ll  { Get-ChildItem -Force @args | Format-Table Mode, LastWriteTime, Length, Name -AutoSize }
+function global:la  { Get-ChildItem -Force @args }
+function global:l   { Get-ChildItem @args }
+Set-Alias ls  Get-ChildItem
+
+# head / tail
+function global:head {
+    param([int]$n = 10, [Parameter(ValueFromPipeline=$true, ValueFromRemainingArguments=$true)] $input)
+    $input | Select-Object -First $n
+}
+function global:tail {
+    param([int]$n = 10, [Parameter(ValueFromPipeline=$true, ValueFromRemainingArguments=$true)] $input)
+    $input | Select-Object -Last $n
+}
+
+# wc — count lines, words, chars
+function global:wc {
+    param(
+        [switch]$l, [switch]$w, [switch]$c,
+        [Parameter(ValueFromPipeline=$true)] [string[]]$InputObject
+    )
+    begin { $lines = @() }
+    process { $lines += $InputObject }
+    end {
+        $text = $lines -join "`n"
+        $lineCount = $lines.Count
+        $wordCount = ($text -split '\s+' | Where-Object { $_ }).Count
+        $charCount = $text.Length
+        if ($l) { return $lineCount }
+        if ($w) { return $wordCount }
+        if ($c) { return $charCount }
+        "$lineCount $wordCount $charCount"
+    }
+}
+
+# cat — output file contents, with optional line numbers
+function global:cat {
+    param(
+        [switch]$n,
+        [Parameter(Position = 0, ValueFromRemainingArguments = $true)]
+        [string[]]$Path
+    )
+    if ($Path) {
+        foreach ($p in $Path) {
+            if ($n) {
+                $i = 1
+                foreach ($line in [System.IO.File]::ReadLines($p)) {
+                    "{0,6}`t{1}" -f $i++, $line
+                }
+            } else {
+                Get-Content $p
+            }
+        }
+    } else {
+        $input | ForEach-Object { $_ }
+    }
+}
+
+# realpath / basename / dirname
+function global:realpath {
+    param([Parameter(Mandatory=$true, Position=0)][string]$Path)
+    (Resolve-Path $Path -ErrorAction SilentlyContinue).Path ?? [System.IO.Path]::GetFullPath($Path)
+}
+function global:basename {
+    param([Parameter(Mandatory=$true, Position=0)][string]$Path, [string]$Suffix)
+    $b = [System.IO.Path]::GetFileName($Path)
+    if ($Suffix -and $b.EndsWith($Suffix)) { $b = $b.Substring(0, $b.Length - $Suffix.Length) }
+    $b
+}
+function global:dirname {
+    param([Parameter(Mandatory=$true, Position=0)][string]$Path)
+    [System.IO.Path]::GetDirectoryName((Resolve-Path $Path -ErrorAction SilentlyContinue).Path ?? $Path)
+}
+
+# env — print all or a specific environment variable
+function global:env {
+    param([Parameter(Position=0)][string]$Name)
+    if ($Name) { [System.Environment]::GetEnvironmentVariable($Name) }
+    else { Get-ChildItem Env: | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" } }
+}
+
+# export — set an environment variable
+function global:export {
+    param([Parameter(Mandatory=$true, Position=0)][string]$Assignment)
+    $k, $v = $Assignment -split '=', 2
+    [System.Environment]::SetEnvironmentVariable($k.Trim(), $v)
+    Set-Item -Path "Env:$($k.Trim())" -Value $v
+}
+
+# source / dot — re-run a script in the current scope
+function global:source {
+    param([Parameter(Mandatory=$true, Position=0)][string]$Path)
+    . $Path
+}
+Set-Alias -Name '.' -Value source -Force -Option AllScope -ErrorAction SilentlyContinue
+
+# man — open help page
+function global:man {
+    param([Parameter(Mandatory=$true, Position=0)][string]$Command)
+    Get-Help $Command -Full | Out-Host -Paging
+}
+
+# time — measure command execution time
+function global:time {
+    param([Parameter(Mandatory=$true, Position=0, ValueFromRemainingArguments=$true)][string[]]$Cmd)
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    & $Cmd[0] ($Cmd | Select-Object -Skip 1)
+    $sw.Stop()
+    Write-Host "`nreal`t$($sw.Elapsed.ToString('m\:ss\.fff'))" -ForegroundColor DarkGray
+}
+
+# kill — terminate a process by name or PID
+function global:kill {
+    param([Parameter(Mandatory=$true, Position=0)][string]$Target, [int]$Signal = 15)
+    if ($Target -match '^\d+$') {
+        Stop-Process -Id ([int]$Target) -Force -ErrorAction SilentlyContinue
+    } else {
+        Stop-Process -Name $Target -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# ps — list processes (short alias for Get-Process)
+function global:psg {
+    param([Parameter(Position=0)][string]$Name)
+    if ($Name) { Get-Process | Where-Object { $_.Name -like "*$Name*" } }
+    else { Get-Process | Sort-Object CPU -Descending | Select-Object -First 20 }
+}
+
+# diff — compare two files
+function global:diff {
+    param(
+        [Parameter(Mandatory=$true, Position=0)][string]$File1,
+        [Parameter(Mandatory=$true, Position=1)][string]$File2
+    )
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        git diff --no-index -- $File1 $File2
+    } else {
+        Compare-Object (Get-Content $File1) (Get-Content $File2) |
+            ForEach-Object { ("< ", "> ")[$_.SideIndicator -eq '=>'] + $_.InputObject }
+    }
+}
+
+# history search — like Ctrl+R
+function global:hgrep {
+    param([Parameter(Mandatory=$true, Position=0)][string]$Pattern)
+    Get-History | Where-Object { $_.CommandLine -match $Pattern } |
+        Select-Object Id, CommandLine | Format-Table -AutoSize
+}
+
+# clear shorthand
+Set-Alias -Name clear -Value Clear-Host -Force -ErrorAction SilentlyContinue
+
+# tee — write to file and pass through
+function global:tee {
+    param(
+        [Parameter(Mandatory=$true, Position=0)][string]$Path,
+        [switch]$Append,
+        [Parameter(ValueFromPipeline=$true)][object]$InputObject
+    )
+    process {
+        $InputObject | Out-File -FilePath $Path -Append:$Append -Encoding utf8 -Width 9999
+        $InputObject
+    }
+}
+
+# md5 / sha256 shorthands
+function global:md5    { param([string]$Path) Get-FileHash $Path -Algorithm MD5    | Select-Object -Expand Hash }
+function global:sha256 { param([string]$Path) Get-FileHash $Path -Algorithm SHA256 | Select-Object -Expand Hash }
+
+# pkill — kill processes by name pattern
+function global:pkill {
+    param([Parameter(Mandatory=$true, Position=0)][string]$Name)
+    Get-Process | Where-Object { $_.Name -like "*$Name*" } | Stop-Process -Force
+}
+
+# pgrep — find processes by name pattern
+function global:pgrep {
+    param([Parameter(Mandatory=$true, Position=0)][string]$Name)
+    Get-Process | Where-Object { $_.Name -like "*$Name*" } |
+        Select-Object Id, Name, CPU, WorkingSet | Format-Table -AutoSize
+}
+
+# du — disk usage
+function global:du {
+    param([Parameter(Position=0)][string]$Path = '.')
+    Get-ChildItem $Path -Recurse -ErrorAction SilentlyContinue |
+        Measure-Object -Property Length -Sum |
+        ForEach-Object { "{0:N2} MB  {1}" -f ($_.Sum / 1MB), (Resolve-Path $Path) }
+}
+
+# df — disk free
+function global:df {
+    Get-PSDrive -PSProvider FileSystem |
+        Select-Object Name,
+            @{N='Used(GB)';  E={[math]::Round(($_.Used/1GB), 2)}},
+            @{N='Free(GB)';  E={[math]::Round(($_.Free/1GB), 2)}},
+            @{N='Total(GB)'; E={[math]::Round((($_.Used + $_.Free)/1GB), 2)}} |
+        Format-Table -AutoSize
+}
+
+# chmod / chown stubs (for muscle memory on Windows)
+function global:chmod {
+    Write-Warning "chmod is not supported on Windows. Use 'icacls' or 'Set-Acl' instead."
+}
+function global:chown {
+    Write-Warning "chown is not supported on Windows. Use 'icacls' or 'Set-Acl' instead."
+}
+
+# ln — create symlinks (requires admin on older Windows)
+function global:ln {
+    param(
+        [switch]$s,
+        [Parameter(Mandatory=$true, Position=0)][string]$Target,
+        [Parameter(Mandatory=$true, Position=1)][string]$Link
+    )
+    if ($s) { New-Item -ItemType SymbolicLink -Path $Link -Target $Target -Force | Out-Null }
+    else     { New-Item -ItemType HardLink     -Path $Link -Target $Target -Force | Out-Null }
+}
+
+# cp, mv, rm with -r/-f flags mapped to PowerShell equivalents
+function global:cp {
+    param(
+        [switch]$r, [switch]$f,
+        [Parameter(Mandatory=$true, Position=0)][string]$Source,
+        [Parameter(Mandatory=$true, Position=1)][string]$Destination
+    )
+    $opts = @{ Path = $Source; Destination = $Destination }
+    if ($r) { $opts['Recurse'] = $true }
+    if ($f) { $opts['Force']   = $true }
+    Copy-Item @opts
+}
+function global:mv {
+    param(
+        [Parameter(Mandatory=$true, Position=0)][string]$Source,
+        [Parameter(Mandatory=$true, Position=1)][string]$Destination,
+        [switch]$f
+    )
+    Move-Item -Path $Source -Destination $Destination -Force:$f
+}
+function global:rm {
+    param(
+        [switch]$r, [switch]$f,
+        [Parameter(Mandatory=$true, Position=0, ValueFromRemainingArguments=$true)][string[]]$Path
+    )
+    foreach ($p in $Path) {
+        Remove-Item -Path $p -Recurse:$r -Force:$f -ErrorAction $(if ($f) {'SilentlyContinue'} else {'Continue'})
+    }
+}
+
 function prompt {
     $lastExit = $global:LASTEXITCODE
     $path = $ExecutionContext.SessionState.Path.CurrentLocation.Path -replace $global:__home_regex, "~"
