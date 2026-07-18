@@ -46,9 +46,20 @@ def main():
     if not mode:
         mode = "1"
 
-    output_name = input_flush(f"Enter output filename (default: combined{ext}): ").strip()
+    # Determine a smart default filename
+    parent_dir = os.path.abspath(os.path.dirname(first_file))
+    parent_name = os.path.basename(parent_dir)
+    first_base, _ = os.path.splitext(os.path.basename(first_file))
+    
+    generic_dirs = {"downloads", "desktop", "documents", "temp", "tmp", "videos", "music", "pictures", "home", "dat"}
+    if parent_name and parent_name.lower() not in generic_dirs:
+        default_name = f"{parent_name}_combined{ext}"
+    else:
+        default_name = f"{first_base}_combined{ext}"
+
+    output_name = input_flush(f"Enter output filename (default: {default_name}): ").strip()
     if not output_name:
-        output_name = f"combined{ext}"
+        output_name = default_name
 
     if mode == "1":
         print_flush("Preparing file list...")
