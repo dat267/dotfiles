@@ -53,7 +53,7 @@ def main():
 
     output_filename = f"{archive_name}{ext}"
 
-    print_flush(f"\n>>> Yazi Media Archiver <<<")
+    print_flush(f"\n>>> Yazi Archive Compressor <<<")
     print_flush(f"Format: {archive_format.upper()}")
     print_flush(f"Output: {output_filename}")
     print_flush("Files to compress:")

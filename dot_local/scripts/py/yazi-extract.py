@@ -44,7 +44,7 @@ def main():
         input_flush("Press Enter to exit...")
         sys.exit(1)
 
-    print_flush("\n>>> Yazi Media Extractor <<<")
+    print_flush("\n>>> Yazi Archive Extractor <<<")
     print_flush("Selected archives:")
     for f in args:
         print_flush(f"  - {os.path.basename(f)}")
@@ -56,7 +56,7 @@ def main():
         
         print_flush(f"\nExtracting: {os.path.basename(abs_path)} -> {os.path.basename(dest_dir)}/")
         
-        cmd = ["7z", "x", "-y", "-bso0", "-bsp0", "-mmt=on", f"-o{dest_dir}", "--", abs_path]
+        cmd = ["7z", "x", "-y", "-mmt=on", f"-o{dest_dir}", "--", abs_path]
         print_flush(f"Command: {' '.join(cmd)}\n")
         
         res = subprocess.run(cmd)
