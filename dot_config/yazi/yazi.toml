@@ -13,12 +13,48 @@ extract = [
   { run = "powershell -NoProfile -Command \"$f=$args[0]; $p=Split-Path $f -Parent; $n=[System.IO.Path]::GetFileNameWithoutExtension($f); if($n.EndsWith('.tar')){$n=$n.Substring(0,$n.Length-4)}; 7z x -y -bso0 -bsp0 -mmt=on -o(Join-Path $p $n) -- $f\" -- %s", desc = "Extract to...", for = "windows" },
 ]
 compress_7z = [
-  { run = '''sh -c '7z a -t7z -mx=9 -mmt=on -ms=on "$(basename "$PWD").7z" "$@"' _ %s''', block = true, desc = "Compress to 7z", for = "unix" },
-  { run = '''powershell -NoProfile -Command "$n = (Get-Item .).Name; 7z a -t7z -mx=9 -mmt=on -ms=on \"$n.7z\" $args" -- %s''', block = true, desc = "Compress to 7z", for = "windows" },
+  { run = '''sh -c '
+if [ "$#" -eq 1 ]; then
+    name=$(basename "$1")
+    if [ -f "$1" ]; then
+        name="${name%.*}"
+    fi
+else
+    name=$(basename "$PWD")
+fi
+7z a -t7z -mx=9 -mmt=on -ms=on "$name.7z" "$@"
+' _ %s''', block = true, desc = "Compress to 7z", for = "unix" },
+  { run = '''powershell -NoProfile -Command "
+if ($args.Count -eq 1) {
+    $item = Get-Item -LiteralPath $args[0];
+    $name = $item.BaseName;
+} else {
+    $name = (Get-Item .).Name;
+}
+7z a -t7z -mx=9 -mmt=on -ms=on \"$name.7z\" $args
+" -- %s''', block = true, desc = "Compress to 7z", for = "windows" },
 ]
 compress_zip = [
-  { run = '''sh -c '7z a -tzip -mx=9 -mm=Deflate -mmt=on "$(basename "$PWD").zip" "$@"' _ %s''', block = true, desc = "Compress to Zip", for = "unix" },
-  { run = '''powershell -NoProfile -Command "$n = (Get-Item .).Name; 7z a -tzip -mx=9 -mm=Deflate -mmt=on \"$n.zip\" $args" -- %s''', block = true, desc = "Compress to Zip", for = "windows" },
+  { run = '''sh -c '
+if [ "$#" -eq 1 ]; then
+    name=$(basename "$1")
+    if [ -f "$1" ]; then
+        name="${name%.*}"
+    fi
+else
+    name=$(basename "$PWD")
+fi
+7z a -tzip -mx=9 -mm=Deflate -mmt=on "$name.zip" "$@"
+' _ %s''', block = true, desc = "Compress to Zip", for = "unix" },
+  { run = '''powershell -NoProfile -Command "
+if ($args.Count -eq 1) {
+    $item = Get-Item -LiteralPath $args[0];
+    $name = $item.BaseName;
+} else {
+    $name = (Get-Item .).Name;
+}
+7z a -tzip -mx=9 -mm=Deflate -mmt=on \"$name.zip\" $args
+" -- %s''', block = true, desc = "Compress to Zip", for = "windows" },
 ]
 concat_media = [
   { run = 'python3 -u ~/.local/scripts/py/ffmpeg-concat.py %s', block = true, desc = "Concat media", for = "unix" },
