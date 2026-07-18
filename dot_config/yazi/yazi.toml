@@ -20,9 +20,9 @@ compress_zip = [
   { run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s.zip" "%s"', desc = "Compress to Zip", for = "unix" },
   { run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s.zip" "%s"', desc = "Compress to Zip", for = "windows" },
 ]
-ffmpeg_concat = [
-  { run = 'python3 ~/.local/scripts/py/ffmpeg-concat.py %s', block = true, desc = "Concatenate videos", for = "unix" },
-  { run = 'python "%USERPROFILE%\.local\scripts\py\ffmpeg-concat.py" %s', block = true, desc = "Concatenate videos", for = "windows" },
+concat_media = [
+  { run = 'python3 ~/.local/scripts/py/ffmpeg-concat.py %s', block = true, desc = "Concat media", for = "unix" },
+  { run = 'python "%USERPROFILE%\.local\scripts\py\ffmpeg-concat.py" %s', block = true, desc = "Concat media", for = "windows" },
 ]
 
 [open]
@@ -32,7 +32,7 @@ rules = [
   { mime = "image/*", use = "open" },
   { mime = "{audio,video}/*", use = [
     "open",
-    "ffmpeg_concat",
+    "concat_media",
   ] },
   { mime = "application/{,g}zip", use = [
     "extract",

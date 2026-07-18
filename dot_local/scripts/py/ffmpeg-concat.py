@@ -23,7 +23,7 @@ def main():
     _, ext = os.path.splitext(first_file)
 
     print("========================================")
-    print("      FFmpeg Video Concatenator         ")
+    print("      FFmpeg Media Concatenator         ")
     print("========================================")
     print("Selected files in order:")
     for f in args:
