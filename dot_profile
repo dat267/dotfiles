@@ -344,16 +344,29 @@ up() {
 }
 
 # Fuzzy Finder integrations
-if command -v fzf >/dev/null 2>&1; then
-	fd() {
-		local dir
-		dir=$(find ${1:-.} -path '*/.*' -prune -o -type d -print 2> /dev/null | fzf +m) && cd "$dir"
-	}
-	fkill() {
-		local pid
-		pid=$(ps -ef | sed 1d | fzf -m | awk '{print $2}')
-		if [ -n "$pid" ]; then
-			echo "$pid" | xargs kill -9
+	if command -v fzf >/dev/null 2>&1; then
+		fd() {
+			local dir
+			dir=$(find ${1:-.} -path '*/.*' -prune -o -type d -print 2> /dev/null | fzf +m) && cd "$dir"
+		}
+		fkill() {
+			local pid
+			pid=$(ps -ef | sed 1d | fzf -m | awk '{print $2}')
+			if [ -n "$pid" ]; then
+				echo "$pid" | xargs kill -9
+			fi
+		}
+	fi
+
+if command -v opencode >/dev/null 2>&1; then
+	ol() {
+		local session
+		if [ $# -eq 0 ]; then
+			session=$(opencode session list 2>/dev/null | awk 'NR==3{print $1; exit}')
+			[ -n "$session" ] && opencode -s "$session" || echo "No sessions found"
+		else
+			session=$(opencode session list 2>/dev/null | awk 'NR>2 {print $1, $0}' | fzf --with-nth=2.. -q "$*" | awk '{print $1}')
+			[ -n "$session" ] && opencode -s "$session" || echo "No session selected"
 		fi
 	}
 fi
