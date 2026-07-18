@@ -13,12 +13,7 @@ def input_flush(prompt):
     print(prompt, end="", flush=True)
     return sys.stdin.readline().rstrip('\r\n')
 
-def clear_screen():
-    # Clear the terminal screen for a clean, dedicated UI look
-    os.system('cls' if os.name == 'nt' else 'clear')
-
 def main():
-    clear_screen()
 
     # 1. Check if ffmpeg is installed
     if not shutil.which("ffmpeg"):
@@ -36,13 +31,10 @@ def main():
     first_file = args[0]
     _, ext = os.path.splitext(first_file)
 
-    print_flush("========================================")
-    print_flush("      FFmpeg Media Concatenator         ")
-    print_flush("========================================")
+    print_flush("\n>>> FFmpeg Media Concatenator <<<")
     print_flush("Selected files in order:")
     for f in args:
         print_flush(f"  - {os.path.basename(f)}")
-    print_flush("========================================")
     print_flush("")
 
     print_flush("Select concatenation mode:")
@@ -83,11 +75,9 @@ def main():
 
         print_flush("Running fast concatenation...")
         cmd = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", temp_path, "-c", "copy", "-y", output_name]
-        print_flush(f"Command: {' '.join(cmd)}")
-        print_flush("----------------------------------------")
+        print_flush(f"Command: {' '.join(cmd)}\n")
         try:
             res = subprocess.run(cmd)
-            print_flush("----------------------------------------")
             if res.returncode == 0:
                 print_flush(f"Successfully concatenated to '{output_name}'!")
             else:
@@ -119,10 +109,8 @@ def main():
         ])
 
         print_flush("Running safe concatenation (re-encoding)...")
-        print_flush(f"Command: {' '.join(cmd)}")
-        print_flush("----------------------------------------")
+        print_flush(f"Command: {' '.join(cmd)}\n")
         res = subprocess.run(cmd)
-        print_flush("----------------------------------------")
         if res.returncode == 0:
             print_flush(f"Successfully concatenated and re-encoded to '{output_name}'!")
         else:
