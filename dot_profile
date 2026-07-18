@@ -242,7 +242,13 @@ alias la='ls -A'
 alias epoch='date +%s'
 alias exit='exit 0'
 alias genpassword='openssl rand -base64 16'
-alias cm='chezmoi'
+cm() {
+	if [ "$1" = "cd" ]; then
+		cd "$(chezmoi source-path)"
+	else
+		chezmoi "$@"
+	fi
+}
 alias codecm='code $(chezmoi source-path)'
 alias dotfiles='dotfiles.py'
 alias lf=lfcd
