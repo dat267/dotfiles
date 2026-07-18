@@ -17,10 +17,6 @@ run_once_before_bootstrap-local-configs.ps1.tmpl
 run_onchange_after_create-junctions.ps1.tmpl
 {{- end }}
 
-{{- if or (eq .chezmoi.os "windows") (eq .chezmoi.os "android") }}
-.blerc
-{{- end }}
-
 {{- if eq .chezmoi.os "windows" }}
 .bash_aliases
 .bash_login

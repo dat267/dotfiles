@@ -29,7 +29,7 @@ Both files are gitignored (not tracked in the repo).
 
 | Category | Tools / Configs |
 |---|---|
-| **Shell** | Bash (`~/.bashrc`), Zsh (`~/.zshrc`), `~/.profile`, ble.sh (`~/.blerc`) |
+| **Shell** | Bash (`~/.bashrc`), Zsh (`~/.zshrc`), `~/.profile` |
 | **Editors** | Neovim (built-in LSP for Go/JS/Lua/MD/PowerShell/Python/Rust/Sh), Vim (vim-plug, ALE, Monokai) |
 | **Terminal** | WezTerm, Windows Terminal |
 | **File Managers** | Yazi, lf (Linux + Windows) |
