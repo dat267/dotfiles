@@ -41,34 +41,32 @@ cmd touch %touch -- "$1"
 cmd follow_link %lf -remote "send ${id} select '$(readlink $f)'"
 
 cmd extract_archive ${{
-    set -f
-    dst="$f"
-    case "$f" in
-        *.tar.gz) dst="${f%.tar.gz}" ;;
-        *.tgz) dst="${f%.tgz}" ;;
-        *.tar.xz) dst="${f%.tar.xz}" ;;
-        *.txz) dst="${f%.txz}" ;;
-        *.tar) dst="${f%.tar}" ;;
-        *.zip|*.rar|*.7z) dst="${f%.*}" ;;
-        *)
-            lf -remote "send $id echo 'Unsupported archive: $f'"
-            exit 1
-            ;;
-    esac
-
-    mkdir -p -- "$dst"
-    case "$f" in
-        *.tar.gz|*.tgz) tar -xzf "$f" -C "$dst" ;;
-        *.tar.xz|*.txz) tar -xJf "$f" -C "$dst" ;;
-        *.tar) tar -xf "$f" -C "$dst" ;;
-        *.zip|*.rar|*.7z) 7z x -y "$f" -o"$dst" ;;
-    esac
+    [ -n "$fx" ] && set -- $fx || set -- "$f"
+    python3 ~/.local/scripts/py/yazi-extract.py "$@"
     lf -remote "send $id reload"
 }}
 
-cmd compress ${{
+cmd compress_7z ${{
     [ -n "$fx" ] && set -- $fx || set -- "$f"
-    tar -cvzf "archive.tar.gz" -- "$@"
+    python3 ~/.local/scripts/py/yazi-compress.py 7z "$@"
+    lf -remote "send $id reload"
+}}
+
+cmd compress_zip ${{
+    [ -n "$fx" ] && set -- $fx || set -- "$f"
+    python3 ~/.local/scripts/py/yazi-compress.py zip "$@"
+    lf -remote "send $id reload"
+}}
+
+cmd concat_media ${{
+    [ -n "$fx" ] && set -- $fx || set -- "$f"
+    python3 ~/.local/scripts/py/ffmpeg-concat.py "$@"
+    lf -remote "send $id reload"
+}}
+
+cmd transcode_media ${{
+    [ -n "$fx" ] && set -- $fx || set -- "$f"
+    python3 ~/.local/scripts/py/ffmpeg-transcode.py "$@"
     lf -remote "send $id reload"
 }}
 
@@ -87,7 +85,10 @@ map <esc> clear
 
 # Extensions Mappings
 map E extract_archive
-map Z compress
+map cz compress_zip
+map c7 compress_7z
+map mc concat_media
+map mt transcode_media
 map . set hidden!
 
 # Jump Shortcuts
