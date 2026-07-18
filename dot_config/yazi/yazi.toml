@@ -20,13 +20,20 @@ compress_zip = [
   { run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s.zip" "%s"', desc = "Compress to Zip", for = "unix" },
   { run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s.zip" "%s"', desc = "Compress to Zip", for = "windows" },
 ]
+ffmpeg_concat = [
+  { run = '~/.local/scripts/sh/ffmpeg-concat.sh %s', block = true, desc = "Concatenate videos", for = "unix" },
+  { run = 'powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.local\scripts\ps1\ffmpeg-concat.ps1" %s', block = true, desc = "Concatenate videos", for = "windows" },
+]
 
 [open]
 rules = [
   { mime = "text/*", use = "edit" },
   { mime = "application/{json,ndjson,toml,yaml,xml,javascript,x-sh,x-bash,x-perl,x-python}", use = "edit" },
   { mime = "image/*", use = "open" },
-  { mime = "{audio,video}/*", use = "open" },
+  { mime = "{audio,video}/*", use = [
+    "open",
+    "ffmpeg_concat",
+  ] },
   { mime = "application/{,g}zip", use = [
     "extract",
     "open",
