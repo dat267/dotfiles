@@ -35,3 +35,5 @@ run_onchange_after_create-symlinks.sh.tmpl
 .config/yazi.tar.gz
 **/*.pyc
 **/__pycache__
+**/*.zwc
+**/*.zcompdump*
