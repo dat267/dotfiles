@@ -13,12 +13,12 @@ extract = [
   { run = "powershell -NoProfile -Command \"$f=$args[0]; $p=Split-Path $f -Parent; $n=[System.IO.Path]::GetFileNameWithoutExtension($f); if($n.EndsWith('.tar')){$n=$n.Substring(0,$n.Length-4)}; 7z x -y -bso0 -bsp0 -mmt=on -o(Join-Path $p $n) -- $f\" -- %s", desc = "Extract to...", for = "windows" },
 ]
 compress_7z = [
-  { run = '7z a -t7z -mx=9 -mmt=on -ms=on "%s.7z" "%s"', desc = "Compress to 7z", for = "unix" },
-  { run = '7z a -t7z -mx=9 -mmt=on -ms=on "%s.7z" "%s"', desc = "Compress to 7z", for = "windows" },
+  { run = '7z a -t7z -mx=9 -mmt=on -ms=on "%s1.7z" "%s"', desc = "Compress to 7z", for = "unix" },
+  { run = '7z a -t7z -mx=9 -mmt=on -ms=on "%s1.7z" "%s"', desc = "Compress to 7z", for = "windows" },
 ]
 compress_zip = [
-  { run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s.zip" "%s"', desc = "Compress to Zip", for = "unix" },
-  { run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s.zip" "%s"', desc = "Compress to Zip", for = "windows" },
+  { run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s1.zip" "%s"', desc = "Compress to Zip", for = "unix" },
+  { run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s1.zip" "%s"', desc = "Compress to Zip", for = "windows" },
 ]
 concat_media = [
   { run = 'python3 -u ~/.local/scripts/py/ffmpeg-concat.py %s', block = true, desc = "Concat media", for = "unix" },
@@ -50,5 +50,7 @@ rules = [
   { mime = "*", use = [
     "edit",
     "open",
+    "compress_7z",
+    "compress_zip",
   ] },
 ]
