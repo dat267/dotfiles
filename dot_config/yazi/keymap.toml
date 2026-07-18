@@ -9,6 +9,6 @@ run = "shell '${EDITOR:-nvim} %s || { echo \"Editor failed with exit code $?\"; 
 desc = "Open with editor"
 
 [[mgr.prepend_keymap]]
-on = ["E"]
+on = ["O"]
 run = "open --interactive"
-desc = "Extract/Open interactive"
+desc = "Open interactive"
