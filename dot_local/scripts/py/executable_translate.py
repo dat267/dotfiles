@@ -12,6 +12,7 @@ Usage:
 """
 import sys
 import json
+import os
 import urllib.request
 import urllib.parse
 
@@ -39,6 +40,32 @@ def eprint(*a, **kw):
     print(*a, file=sys.stderr, **kw)
 
 
+def _guess_lang(text):
+    """Crude script-based language guess for fallback scenarios."""
+    cjk = sum(1 for c in text if "\u4e00" <= c <= "\u9fff" or "\u3040" <= c <= "\u30ff")
+    if cjk > 5:
+        return "ja"
+    kr = sum(1 for c in text if "\uac00" <= c <= "\ud7af")
+    if kr > 5:
+        return "ko"
+    ru = sum(1 for c in text if "\u0400" <= c <= "\u04ff")
+    if ru > 5:
+        return "ru"
+    return "en"
+
+
+def _detect_encoding(path):
+    with open(path, "rb") as f:
+        raw = f.read()
+    for enc in ("utf-8", "shift_jis", "cp932", "euc-jp", "latin-1"):
+        try:
+            raw.decode(enc)
+            return enc
+        except UnicodeDecodeError:
+            continue
+    return "latin-1"
+
+
 def _json_get(url, *, data=None):
     h = {"User-Agent": _UA}
     if data is not None:
@@ -49,7 +76,7 @@ def _json_get(url, *, data=None):
 
 
 def translate_lingva(text, target, source="auto"):
-    data = _json_get(f"{LINGVA}/{source}/{target}/{urllib.parse.quote(text)}")
+    data = _json_get(f"{LINGVA}/{source}/{target}/{urllib.parse.quote(text, safe='')}")
     t = data.get("translation")
     if not t:
         raise ValueError(f"Lingva: {data}")
@@ -65,26 +92,58 @@ def translate_mymemory(text, target, source):
     return t
 
 
-def translate(text, target, source="auto"):
-    if source == "auto":
-        # Lingva handles auto-detection internally
-        try:
-            return translate_lingva(text, target, "auto")
-        except Exception as e:
-            eprint(f"Lingva: {e}")
-    else:
-        # Specified source — try Lingva first, then MyMemory
-        try:
-            return translate_lingva(text, target, source)
-        except Exception as e:
-            eprint(f"Lingva: {e}")
-            try:
-                return translate_mymemory(text, target, source)
-            except Exception as e2:
-                eprint(f"MyMemory: {e2}")
+# Lingva uses GET with text in the URL path. URL-encoded CJK text
+# expands ~3x (each UTF-8 byte → %XX), so cap at 200 raw chars to stay
+# under common 2000-char URI limits. Non-CJK text is fine since ASCII
+# is not percent-encoded by urllib.
+_MAX_CHUNK = 200
+_UA_LIMIT = 2000
 
-    eprint("Translation failed.")
-    sys.exit(2)
+
+def _url_size(text):
+    """Rough URL path size for Lingva API with this text.
+    Must match translate_lingva's encoding (safe='') to be accurate."""
+    encoded = urllib.parse.quote(text, safe="")
+    return len(f"{LINGVA}/auto/en/{encoded}")
+
+
+def _translate_one(text, target, source):
+    providers = [translate_lingva]
+    if source != "auto":
+        providers.append(translate_mymemory)
+    else:
+        # Lingva may fail on text containing '://' (midware decodes %2F → /
+        # before the app sees it, breaking the route). Fall back to MyMemory
+        # which uses a query param, avoiding the issue entirely. Guess the
+        # source language from script ranges.
+        providers.append(lambda t, tg, src: translate_mymemory(t, tg, _guess_lang(t)))
+    for fn in providers:
+        try:
+            return fn(text, target, source)
+        except Exception as e:
+            eprint(f"{fn.__name__}: {e}")
+            continue
+    raise RuntimeError("all providers failed")
+
+
+def translate(text, target, source="auto"):
+    if _url_size(text) < _UA_LIMIT:
+        return _translate_one(text, target, source)
+
+    lines = text.split("\n")
+    result = []
+    buf = ""
+    for line in lines:
+        candidate = (buf + "\n" + line).strip() if buf else line
+        if _url_size(candidate) < _UA_LIMIT:
+            buf = candidate
+        else:
+            if buf:
+                result.append(_translate_one(buf, target, source))
+            buf = line
+    if buf:
+        result.append(_translate_one(buf, target, source))
+    return "\n".join(result)
 
 
 def main():
@@ -117,7 +176,8 @@ def main():
         args = args[2:]
 
     if filepath:
-        with open(filepath) as f:
+        enc = _detect_encoding(filepath)
+        with open(filepath, encoding=enc) as f:
             text = f.read().strip()
         if not text:
             eprint(f"Error: {filepath} is empty")
@@ -150,7 +210,7 @@ def main():
     result = translate(text, target, source)
 
     if filepath:
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(result + "\n")
         eprint(f"Translated -> {filepath}")
     elif quiet:
