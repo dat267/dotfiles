@@ -21,8 +21,8 @@ compress_zip = [
   { run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s.zip" "%s"', desc = "Compress to Zip", for = "windows" },
 ]
 concat_media = [
-  { run = 'python3 ~/.local/scripts/py/ffmpeg-concat.py %s', block = true, desc = "Concat media", for = "unix" },
-  { run = 'python "%USERPROFILE%\.local\scripts\py\ffmpeg-concat.py" %s', block = true, desc = "Concat media", for = "windows" },
+  { run = 'python3 -u ~/.local/scripts/py/ffmpeg-concat.py %s', block = true, desc = "Concat media", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\ffmpeg-concat.py" %s', block = true, desc = "Concat media", for = "windows" },
 ]
 
 [open]
