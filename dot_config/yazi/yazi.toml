@@ -21,8 +21,8 @@ compress_zip = [
   { run = '7z a -tzip -mx=9 -mm=Deflate -mmt=on "%s.zip" "%s"', desc = "Compress to Zip", for = "windows" },
 ]
 ffmpeg_concat = [
-  { run = '~/.local/scripts/sh/ffmpeg-concat.sh %s', block = true, desc = "Concatenate videos", for = "unix" },
-  { run = 'powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.local\scripts\ps1\ffmpeg-concat.ps1" %s', block = true, desc = "Concatenate videos", for = "windows" },
+  { run = 'python3 ~/.local/scripts/py/ffmpeg-concat.py %s', block = true, desc = "Concatenate videos", for = "unix" },
+  { run = 'python "%USERPROFILE%\.local\scripts\py\ffmpeg-concat.py" %s', block = true, desc = "Concatenate videos", for = "windows" },
 ]
 
 [open]
