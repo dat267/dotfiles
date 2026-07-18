@@ -1,82 +1,70 @@
+vim.g.loaded_node_provider = 0
+vim.g.loaded_perl_provider = 0
+vim.g.loaded_ruby_provider = 0
+
+vim.opt.clipboard = "unnamedplus"
+if vim.env.SSH_TTY then
+  vim.g.clipboard = {
+    name = "OSC 52",
+    copy = {
+      ["+"] = require("vim.ui.clipboard.osc52").copy("+"),
+      ["*"] = require("vim.ui.clipboard.osc52").copy("*"),
+    },
+    paste = {
+      ["+"] = function() return vim.fn.split(vim.fn.getreg(""), "\n") end,
+      ["*"] = function() return vim.fn.split(vim.fn.getreg(""), "\n") end,
+    },
+  }
+end
+
 vim.opt.number = true
 vim.opt.relativenumber = true
-vim.opt.tabstop = 2
-vim.opt.shiftwidth = 2
+vim.opt.tabstop = 4
+vim.opt.shiftwidth = 4
 vim.opt.expandtab = true
 vim.opt.smartindent = true
 vim.opt.undofile = true
-vim.opt.clipboard = "unnamedplus"
 vim.opt.termguicolors = true
 vim.opt.ignorecase = true
 vim.opt.smartcase = true
 vim.opt.updatetime = 300
-vim.opt.statusline = " %f %m %r %= %y  %l:%c "
 vim.opt.completeopt = { "menu", "menuone", "noselect" }
-vim.opt.shortmess:append("c")
-vim.opt.whichwrap:append("<,>,[,]")
+vim.opt.scrolloff = 8
+vim.opt.inccommand = "split"
+vim.opt.splitright = true
+vim.opt.splitbelow = true
 vim.g.mapleader = " "
 
-vim.keymap.set("n", "<leader>w", "<cmd>w<cr>", { desc = "Save file" })
-vim.keymap.set("n", "<leader>q", "<cmd>q<cr>", { desc = "Quit" })
-vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<cr>", { desc = "Clear highlight" })
-
-vim.keymap.set("n", "<C-h>", "<C-w>h", { desc = "Go to left window" })
-vim.keymap.set("n", "<C-j>", "<C-w>j", { desc = "Go to lower window" })
-vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Go to upper window" })
-vim.keymap.set("n", "<C-l>", "<C-w>l", { desc = "Go to right window" })
-
-vim.keymap.set("v", "J", ":m '>+1<CR>gv=gv", { desc = "Move selection down" })
-vim.keymap.set("v", "K", ":m '>-2<CR>gv=gv", { desc = "Move selection up" })
-
-vim.keymap.set("n", "n", "nzzzv", { desc = "Next search match" })
-vim.keymap.set("n", "N", "Nzzzv", { desc = "Prev search match" })
-
-vim.keymap.set("n", "[d", function() vim.diagnostic.jump({ count = -1 }) end, { desc = "Prev diagnostic" })
-vim.keymap.set("n", "]d", function() vim.diagnostic.jump({ count = 1 }) end, { desc = "Next diagnostic" })
-
-vim.keymap.set("i", "<Tab>", function() return vim.fn.pumvisible() == 1 and "<C-n>" or "<Tab>" end, { expr = true })
-vim.keymap.set("i", "<S-Tab>", function() return vim.fn.pumvisible() == 1 and "<C-p>" or "<S-Tab>" end, { expr = true })
-
-vim.keymap.set("i", "<CR>", function()
-  local col = vim.api.nvim_win_get_cursor(0)[2]
-  local line = vim.api.nvim_get_current_line()
-  local cr_behavior = (line:sub(col, col) == "{" and line:sub(col + 1, col + 1) == "}") and "<CR><Esc>O" or "<CR>"
-
-  if vim.fn.pumvisible() == 1 then
-    if vim.fn.complete_info({ "selected" }).selected ~= -1 then
-      return "<C-y>"
-    else
-      return "<C-e>" .. cr_behavior
-    end
-  end
-
-  return cr_behavior
-end, { expr = true })
-
-local function apply_transparency()
-  local hl_groups = {
-    "Normal", "NormalNC", "SignColumn", "LineNr", "CursorLineNr",
-    "EndOfBuffer", "NonText", "Folded", "StatusLine", "StatusLineNC",
-    "VertSplit", "WinSeparator", "NormalFloat", "FloatBorder", "Pmenu"
-  }
-  for _, group in ipairs(hl_groups) do
-    vim.api.nvim_set_hl(0, group, { bg = "none", ctermbg = "none" })
-  end
-end
-apply_transparency()
-
-vim.api.nvim_create_autocmd("ColorScheme", { callback = apply_transparency })
-
-local builtin_theme = vim.o.background == "light" and "quiet" or "habamax"
-pcall(vim.cmd.colorscheme, builtin_theme)
-
-vim.api.nvim_create_autocmd("OptionSet", {
-  pattern = "background",
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "go",
   callback = function()
-    local theme = vim.o.background == "light" and "quiet" or "habamax"
-    pcall(vim.cmd.colorscheme, theme)
+    vim.bo.tabstop = 4
+    vim.bo.shiftwidth = 4
+    vim.bo.softtabstop = 4
+    vim.bo.expandtab = false
   end,
 })
+
+vim.keymap.set("n", "<leader>w", "<cmd>w<cr>", { desc = "Save" })
+vim.keymap.set("n", "<leader>q", "<cmd>q<cr>", { desc = "Quit" })
+vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<cr>", { desc = "Clear search" })
+vim.keymap.set("n", "<C-h>", "<C-w>h", { desc = "Window left" })
+vim.keymap.set("n", "<C-j>", "<C-w>j", { desc = "Window down" })
+vim.keymap.set("n", "<C-k>", "<C-w>k", { desc = "Window up" })
+vim.keymap.set("n", "<C-l>", "<C-w>l", { desc = "Window right" })
+vim.keymap.set("n", "n", "nzzzv", { desc = "Next search" })
+vim.keymap.set("n", "N", "Nzzzv", { desc = "Prev search" })
+vim.keymap.set("n", "[d", function() vim.diagnostic.jump({ count = -1 }) end, { desc = "Prev diagnostic" })
+vim.keymap.set("n", "]d", function() vim.diagnostic.jump({ count = 1 }) end, { desc = "Next diagnostic" })
+vim.keymap.set("i", "<CR>", function()
+  if vim.fn.pumvisible() == 1 then
+    return vim.fn.complete_info({ "selected" }).selected ~= -1 and "<C-y>" or "<C-e>"
+  end
+  return "<CR>"
+end, { expr = true })
+
+
+vim.cmd.colorscheme("habamax")
 
 vim.diagnostic.config({
   virtual_text = false,
@@ -91,11 +79,10 @@ vim.api.nvim_create_autocmd("LspAttach", {
   callback = function(event)
     local client = vim.lsp.get_client_by_id(event.data.client_id)
     if not client then return end
-    local opts = { buffer = event.buf }
+    local buf = event.buf
+    local opts = { buffer = buf }
 
-    vim.bo[event.buf].omnifunc = "v:lua.vim.lsp.omnifunc"
-
-    local methods = {
+    local maps = {
       ["textDocument/definition"] = { "n", "gd", vim.lsp.buf.definition },
       ["textDocument/references"] = { "n", "gr", vim.lsp.buf.references },
       ["textDocument/hover"] = { "n", "K", vim.lsp.buf.hover },
@@ -103,89 +90,57 @@ vim.api.nvim_create_autocmd("LspAttach", {
       ["textDocument/codeAction"] = { { "n", "v" }, "<leader>ca", vim.lsp.buf.code_action },
       ["textDocument/signatureHelp"] = { "i", "<C-k>", vim.lsp.buf.signature_help },
     }
-    for method, map in pairs(methods) do
-      if client:supports_method(method) then vim.keymap.set(map[1], map[2], map[3], opts) end
+    for method, m in pairs(maps) do
+      if client:supports_method(method) then
+        vim.keymap.set(m[1], m[2], m[3], opts)
+      end
     end
 
     if client:supports_method("textDocument/completion") then
-      local provider = client.server_capabilities.completionProvider or {}
-      provider.triggerCharacters = provider.triggerCharacters or {}
-      local chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
-      for i = 1, #chars do table.insert(provider.triggerCharacters, chars:sub(i, i)) end
-      vim.lsp.completion.enable(true, client.id, event.buf, { autotrigger = true })
+      vim.bo[buf].omnifunc = "v:lua.vim.lsp.omnifunc"
     end
 
     if client:supports_method("textDocument/documentHighlight") then
-      local group = vim.api.nvim_create_augroup("LspDocumentHighlight", { clear = false })
+      local group = vim.api.nvim_create_augroup("LspHighlight." .. buf, { clear = false })
       vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" },
-        { buffer = event.buf, group = group, callback = vim.lsp.buf.document_highlight })
+        { buffer = buf, group = group, callback = vim.lsp.buf.document_highlight })
       vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" },
-        { buffer = event.buf, group = group, callback = vim.lsp.buf.clear_references })
+        { buffer = buf, group = group, callback = vim.lsp.buf.clear_references })
     end
 
     if client:supports_method("textDocument/inlayHint") then
-      vim.lsp.inlay_hint.enable(true, { bufnr = event.buf })
+      vim.lsp.inlay_hint.enable(true, { bufnr = buf })
     end
 
-    local format_group = vim.api.nvim_create_augroup("LspFormatting", { clear = false })
-    vim.api.nvim_create_autocmd("BufWritePre", {
-      buffer = event.buf,
-      group = format_group,
-      callback = function()
-        if client:supports_method("textDocument/formatting") then
-          vim.lsp.buf.format({ bufnr = event.buf, id = client.id })
-        end
-      end,
-    })
+    if vim.bo[buf].filetype ~= "go" and client:supports_method("textDocument/formatting") then
+      vim.api.nvim_create_autocmd("BufWritePre", {
+        buffer = buf,
+        callback = function()
+          vim.lsp.buf.format({ bufnr = buf, id = client.id })
+        end,
+      })
+    end
   end,
 })
 
-local pair_map = { ["("] = ")", ["["] = "]", ["{"] = "}", ['"'] = '"', ["'"] = "'", ["`"] = "`" }
-for open, close in pairs(pair_map) do
-  if open == close then
-    vim.keymap.set("i", open, function()
-      local col = vim.api.nvim_win_get_cursor(0)[2]
-      local line = vim.api.nvim_get_current_line()
-      return line:sub(col + 1, col + 1) == close and "<Right>" or open .. close .. "<Left>"
-    end, { expr = true })
-  else
-    vim.keymap.set("i", open, open .. close .. "<Left>")
-    vim.keymap.set("i", close, function()
-      local col = vim.api.nvim_win_get_cursor(0)[2]
-      local line = vim.api.nvim_get_current_line()
-      return line:sub(col + 1, col + 1) == close and "<Right>" or close
-    end, { expr = true })
-  end
-end
-
-vim.keymap.set("i", "<BS>", function()
-  local col = vim.api.nvim_win_get_cursor(0)[2]
-  local line = vim.api.nvim_get_current_line()
-  return pair_map[line:sub(col, col)] == line:sub(col + 1, col + 1) and "<BS><Del>" or "<BS>"
-end, { expr = true })
-
-local formatters = {
-  py = { bin = "black", cmd = "black -q -" },
-  md = { bin = "prettier", cmd = "prettier --parser markdown" }
-}
-
-vim.api.nvim_create_autocmd("BufWritePre", {
-  pattern = { "*.py", "*.md" },
+vim.api.nvim_create_autocmd("TextChangedI", {
+  group = vim.api.nvim_create_augroup("LspAutoComplete", { clear = true }),
   callback = function()
-    local ext = vim.fn.expand("<afile>:e")
-    local fmt = formatters[ext]
-    if fmt and vim.fn.executable(fmt.bin) == 1 then
-      local view = vim.fn.winsaveview()
-      vim.cmd("%!" .. fmt.cmd)
-      if vim.v.shell_error ~= 0 then vim.cmd("undo") end
-      vim.fn.winrestview(view)
+    if vim.fn.pumvisible() > 0 then return end
+    local col = vim.fn.col(".")
+    local line = vim.fn.getline(".")
+    if col < 2 then return end
+    if line:sub(col - 1, col - 1):match("[%w_]") then
+      vim.schedule(function()
+        vim.fn.feedkeys(vim.api.nvim_replace_termcodes("<C-x><C-o>", true, false, true), "n")
+      end)
     end
   end,
 })
 
 local lsp_modules = {
-  lua_lsp = "lua-language-server",
   go_lsp = "gopls",
+  lua_lsp = "lua-language-server",
   js_lsp = "typescript-language-server",
   py_lsp = "pyright",
   ps1_lsp = "pwsh",
@@ -193,7 +148,6 @@ local lsp_modules = {
   rs_lsp = "rust-analyzer",
   sh_lsp = "bash-language-server",
 }
-
 for module, binary in pairs(lsp_modules) do
   if vim.fn.executable(binary) == 1 then
     if module ~= "ps1_lsp" or not vim.env.TERMUX_VERSION then
