@@ -90,4 +90,4 @@ Sensitive or machine-local settings use these files (never committed):
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.
