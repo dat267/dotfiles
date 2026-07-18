@@ -24,6 +24,10 @@ concat_media = [
   { run = 'python3 -u ~/.local/scripts/py/ffmpeg-concat.py %s', block = true, desc = "Concat media", for = "unix" },
   { run = 'python -u "%USERPROFILE%\.local\scripts\py\ffmpeg-concat.py" %s', block = true, desc = "Concat media", for = "windows" },
 ]
+reencode_media = [
+  { run = 'python3 -u ~/.local/scripts/py/ffmpeg-reencode.py %s', block = true, desc = "Re-encode media", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\ffmpeg-reencode.py" %s', block = true, desc = "Re-encode media", for = "windows" },
+]
 
 [open]
 rules = [
@@ -33,6 +37,7 @@ rules = [
   { mime = "{audio,video}/*", use = [
     "open",
     "concat_media",
+    "reencode_media",
   ] },
   { mime = "application/{,g}zip", use = [
     "extract",
