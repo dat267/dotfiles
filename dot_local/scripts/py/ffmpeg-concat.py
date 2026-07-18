@@ -13,7 +13,13 @@ def input_flush(prompt):
     print(prompt, end="", flush=True)
     return sys.stdin.readline().rstrip('\r\n')
 
+def clear_screen():
+    # Clear the terminal screen for a clean, dedicated UI look
+    os.system('cls' if os.name == 'nt' else 'clear')
+
 def main():
+    clear_screen()
+
     # 1. Check if ffmpeg is installed
     if not shutil.which("ffmpeg"):
         print_flush("Error: ffmpeg is not installed or not in PATH.")
@@ -37,15 +43,18 @@ def main():
     for f in args:
         print_flush(f"  - {os.path.basename(f)}")
     print_flush("========================================")
+    print_flush("")
 
     print_flush("Select concatenation mode:")
     print_flush("  [1] Fast Concat (No Re-encoding) - Instant, but files must have identical resolution/codecs.")
     print_flush("  [2] Safe Concat (Re-encode)      - Slower, but works with mixed resolution/codecs.")
+    print_flush("")
     
     mode = input_flush("Enter choice [1/2] (default: 1): ").strip()
     if not mode:
         mode = "1"
 
+    print_flush("")
     # Determine a smart default filename
     parent_dir = os.path.abspath(os.path.dirname(first_file))
     parent_name = os.path.basename(parent_dir)
@@ -61,6 +70,7 @@ def main():
     if not output_name:
         output_name = default_name
 
+    print_flush("")
     if mode == "1":
         print_flush("Preparing file list...")
         # Create a temporary file list for the concat demuxer
@@ -73,13 +83,15 @@ def main():
 
         print_flush("Running fast concatenation...")
         cmd = ["ffmpeg", "-f", "concat", "-safe", "0", "-i", temp_path, "-c", "copy", "-y", output_name]
-        print_flush(f"Running command: {' '.join(cmd)}")
+        print_flush(f"Command: {' '.join(cmd)}")
+        print_flush("----------------------------------------")
         try:
             res = subprocess.run(cmd)
+            print_flush("----------------------------------------")
             if res.returncode == 0:
-                print_flush(f"\nSuccessfully concatenated to '{output_name}'!")
+                print_flush(f"Successfully concatenated to '{output_name}'!")
             else:
-                print_flush("\nError: Fast concatenation failed. Codecs/parameters might not match.")
+                print_flush("Error: Fast concatenation failed. Codecs/parameters might not match.")
                 print_flush("Try running again with Mode 2 (Re-encode).")
         finally:
             if os.path.exists(temp_path):
@@ -107,15 +119,21 @@ def main():
         ])
 
         print_flush("Running safe concatenation (re-encoding)...")
-        print_flush(f"Running command: {' '.join(cmd)}")
+        print_flush(f"Command: {' '.join(cmd)}")
+        print_flush("----------------------------------------")
         res = subprocess.run(cmd)
+        print_flush("----------------------------------------")
         if res.returncode == 0:
-            print_flush(f"\nSuccessfully concatenated and re-encoded to '{output_name}'!")
+            print_flush(f"Successfully concatenated and re-encoded to '{output_name}'!")
         else:
-            print_flush("\nError: Concatenation failed.")
+            print_flush("Error: Concatenation failed.")
 
     print_flush("")
-    input_flush("Press Enter to close.")
+    input_flush("Press Enter to return to Yazi.")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print_flush("\n\nOperation cancelled. Returning to Yazi...")
+        sys.exit(0)
