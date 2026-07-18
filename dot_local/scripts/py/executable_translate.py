@@ -160,6 +160,8 @@ def main():
             eprint("Error: --rename requires a file path")
             sys.exit(1)
         path = args[1]
+        if len(path) >= 2 and path[0] == path[-1] and path[0] in "'\"":
+            path = path[1:-1]
         name = os.path.basename(path)
         dot = name.rfind(".")
         if dot > 0 and not name.startswith("."):
@@ -194,6 +196,8 @@ def main():
             eprint("Error: --file requires a path argument")
             sys.exit(1)
         filepath = args[1]
+        if len(filepath) >= 2 and filepath[0] == filepath[-1] and filepath[0] in "'\"":
+            filepath = filepath[1:-1]
         args = args[2:]
 
     if filepath:

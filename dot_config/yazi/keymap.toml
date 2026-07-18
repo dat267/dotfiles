@@ -15,10 +15,10 @@ desc = "Open interactive"
 
 [[mgr.prepend_keymap]]
 on = ["t", "f"]
-run = "shell '$HOME/.local/scripts/py/translate.py --rename \"%s\" 2>&1; echo; read -p \"Press Enter to continue...\"' --block"
+run = "shell '$HOME/.local/scripts/py/translate.py --rename %s 2>&1; echo; read -p \"Press Enter to continue...\"' --block"
 desc = "Translate filename to English"
 
 [[mgr.prepend_keymap]]
 on = ["t", "c"]
-run = "shell '$HOME/.local/scripts/py/translate.py --quiet --file \"%s\" 2>&1; echo; read -p \"Press Enter to continue...\"' --block"
+run = "shell '$HOME/.local/scripts/py/translate.py --quiet --file %s 2>&1; echo; read -p \"Press Enter to continue...\"' --block"
 desc = "Translate file content to English"
