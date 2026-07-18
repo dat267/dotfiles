@@ -3,8 +3,7 @@
 
 # Define source and target pairs: "target_link|source_directory"
 for pair in \
-    "$HOME/.config/Code - OSS/User|{{ .chezmoi.homeDir }}/.config/Code/User" \
-    "$HOME/-chezmoi|{{ .chezmoi.sourceDir }}"
+    "$HOME/.config/Code - OSS/User|{{ .chezmoi.homeDir }}/.config/Code/User"
 do
     target="${pair%%|*}"
     source="${pair#*|}"
@@ -22,4 +21,10 @@ do
         ln -s "$source" "$target"
     fi
 done
+
+# Remove the legacy ~/-chezmoi symlink if it still exists
+if [ -L "$HOME/-chezmoi" ]; then
+    echo "Removing legacy symlink: $HOME/-chezmoi"
+    rm "$HOME/-chezmoi"
+fi
 {{ end -}}
