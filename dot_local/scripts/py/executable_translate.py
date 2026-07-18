@@ -5,8 +5,8 @@ Translate text between languages using free online APIs.
 Usage:
   %(name)s                              Interactive mode
   %(name)s --quiet                     Read text from stdin, output only translation
-  %(name)s --quiet --file <path>       Read text from file, overwrite with translation
-  %(name)s --rename <path>             Translate filename (stem) and rename file
+   %(name)s --quiet --file <path>...    Read text from file(s), overwrite with translation
+   %(name)s --rename <path>...          Translate filename (stem) and rename file(s)
   %(name)s <text> [target] [source]     Translate <text> to target language (default: en)
   %(name)s --langs                     List supported language codes
   %(name)s --help                      Show this help
@@ -157,24 +157,24 @@ def main():
 
     if args and args[0] == "--rename":
         if len(args) < 2:
-            eprint("Error: --rename requires a file path")
+            eprint("Error: --rename requires at least one file path")
             sys.exit(1)
-        path = args[1]
-        if len(path) >= 2 and path[0] == path[-1] and path[0] in "'\"":
-            path = path[1:-1]
-        name = os.path.basename(path)
-        dot = name.rfind(".")
-        if dot > 0 and not name.startswith("."):
-            stem = name[:dot]
-            ext = name[dot:]
-        else:
-            stem = name
-            ext = ""
-        translated = translate(stem, "en", "auto")
-        if translated != stem:
-            new = os.path.join(os.path.dirname(path), translated + ext)
-            os.rename(path, new)
-            eprint(f"Renamed -> {os.path.basename(new)}")
+        for p in args[1:]:
+            if len(p) >= 2 and p[0] == p[-1] and p[0] in "'\"":
+                p = p[1:-1]
+            name = os.path.basename(p)
+            dot = name.rfind(".")
+            if dot > 0 and not name.startswith("."):
+                stem = name[:dot]
+                ext = name[dot:]
+            else:
+                stem = name
+                ext = ""
+            translated = translate(stem, "en", "auto")
+            if translated != stem:
+                new = os.path.join(os.path.dirname(p), translated + ext)
+                os.rename(p, new)
+                eprint(f"Renamed -> {os.path.basename(new)}")
         return
 
     if args and args[0] == "--langs":
@@ -186,28 +186,26 @@ def main():
         print(__doc__ % {"name": "translate"})
         return
 
-    filepath = None
-    text = ""
-    target = "en"
-    source = "auto"
-
     if args and args[0] == "--file":
         if len(args) < 2:
-            eprint("Error: --file requires a path argument")
+            eprint("Error: --file requires at least one file path")
             sys.exit(1)
-        filepath = args[1]
-        if len(filepath) >= 2 and filepath[0] == filepath[-1] and filepath[0] in "'\"":
-            filepath = filepath[1:-1]
-        args = args[2:]
+        for fp in args[1:]:
+            if len(fp) >= 2 and fp[0] == fp[-1] and fp[0] in "'\"":
+                fp = fp[1:-1]
+            enc = _detect_encoding(fp)
+            with open(fp, encoding=enc) as f:
+                text = f.read().strip()
+            if not text:
+                eprint(f"Error: {fp} is empty")
+                continue
+            result = translate(text, "en", "auto")
+            with open(fp, "w", encoding="utf-8") as f:
+                f.write(result + "\n")
+            eprint(f"Translated -> {fp}")
+        return
 
-    if filepath:
-        enc = _detect_encoding(filepath)
-        with open(filepath, encoding=enc) as f:
-            text = f.read().strip()
-        if not text:
-            eprint(f"Error: {filepath} is empty")
-            sys.exit(1)
-    elif len(args) == 0:
+    if len(args) == 0:
         if quiet:
             text = sys.stdin.read().strip()
         else:
@@ -226,7 +224,7 @@ def main():
         eprint("Error: text cannot be empty")
         sys.exit(1)
 
-    if not quiet and not filepath:
+    if not quiet:
         eprint(f"Text:     {text!r}")
         eprint(f"From:     {source}")
         eprint(f"To:       {target}")
@@ -234,11 +232,7 @@ def main():
 
     result = translate(text, target, source)
 
-    if filepath:
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(result + "\n")
-        eprint(f"Translated -> {filepath}")
-    elif quiet:
+    if quiet:
         print(result)
     else:
         eprint(f"Result:   {result}")
