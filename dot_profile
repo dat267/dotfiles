@@ -360,13 +360,29 @@ up() {
 
 if command -v opencode >/dev/null 2>&1; then
 	ol() {
-		local session
-		if [ $# -eq 0 ]; then
-			session=$(opencode session list 2>/dev/null | awk 'NR==3{print $1; exit}')
-			[ -n "$session" ] && opencode -s "$session" || echo "No sessions found"
+		local cwd query db query_sql
+		cwd=$(pwd)
+		query="$*"
+		db="${XDG_DATA_HOME:-$HOME/.local/share}/opencode/opencode.db"
+		if [ ! -f "$db" ]; then
+			echo "OpenCode database not found at $db"
+			return 1
+		fi
+		query_sql="SELECT id, title FROM session WHERE directory = '${cwd//\'/''}' ORDER BY time_updated DESC;"
+		local sessions
+		sessions=$(sqlite3 "$db" "$query_sql")
+		if [ -z "$sessions" ]; then
+			echo "No opencode sessions for this directory"
+			return 1
+		fi
+		if [ -z "$query" ]; then
+			local sid
+			sid=$(echo "$sessions" | head -1 | cut -d'|' -f1)
+			[ -n "$sid" ] && opencode -s "$sid"
 		else
-			session=$(opencode session list 2>/dev/null | awk 'NR>2 {print $1, $0}' | fzf --with-nth=2.. -q "$*" | awk '{print $1}')
-			[ -n "$session" ] && opencode -s "$session" || echo "No session selected"
+			local selected
+			selected=$(echo "$sessions" | tr '|' ' ' | fzf --with-nth=2.. -q "$query" 2>/dev/null)
+			[ -n "$selected" ] && opencode -s "$(echo "$selected" | awk '{print $1}')" || echo "No session selected"
 		fi
 	}
 fi
