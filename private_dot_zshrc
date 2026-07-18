@@ -4,15 +4,49 @@ typeset -U path cdpath fpath manpath
 
 zstyle ':completion:*' menu select
 zstyle ':completion:*' rehash true
-autoload -Uz compinit && compinit
+# Faster compinit by caching compilation dump
+() {
+    setopt localoptions extendedglob
+    local dump="${ZDOTDIR:-$HOME}/.zcompdump"
+    if [[ -n "$dump"(N.mh-20) ]]; then
+        autoload -Uz compinit && compinit -C
+    else
+        autoload -Uz compinit && compinit
+        zcompile "$dump" &!
+    fi
+}
+
+# Helper to source compiled zsh files for faster startup
+source_compiled() {
+    local f="$1"
+    if [[ -f "$f" ]]; then
+        if [[ ! -s "$f.zwc" || "$f" -nt "$f.zwc" ]]; then
+            zcompile "$f" 2>/dev/null &!
+        fi
+        source "$f"
+        return 0
+    fi
+    return 1
+}
 
 HISTSIZE=10000
 SAVEHIST=10000
 HISTFILE=~/.zsh_history
 setopt SHARE_HISTORY APPEND_HISTORY INC_APPEND_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE AUTO_CD AUTO_PUSHD PUSHD_IGNORE_DUPS
 
-[[ -f "$HOME/.local/opt/google-cloud-sdk/path.zsh.inc" ]] && . "$HOME/.local/opt/google-cloud-sdk/path.zsh.inc"
-[[ -f "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc" ]] && . "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc"
+if [[ -d "$HOME/.local/opt/google-cloud-sdk" ]]; then
+    path=("$HOME/.local/opt/google-cloud-sdk/bin" $path)
+    
+    _gcloud_completion_loader() {
+        # Defer loading of bashcompinit and completion script until first Tab
+        autoload -U +X bashcompinit && bashcompinit
+        if [[ -f "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc" ]]; then
+            source "$HOME/.local/opt/google-cloud-sdk/completion.zsh.inc"
+        fi
+        _bash_complete "$@"
+    }
+    compdef _gcloud_completion_loader gcloud gsutil bq
+fi
 
 for f in \
     "$HOME/.config/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
@@ -21,10 +55,7 @@ for f in \
     "${PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" \
     /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 do
-    if [[ -f "$f" ]]; then
-        source "$f"
-        break
-    fi
+    source_compiled "$f" && break
 done
 
 for f in \
@@ -33,8 +64,7 @@ for f in \
     "${PREFIX}/share/zsh-history-substring-search/zsh-history-substring-search.zsh" \
     /opt/homebrew/share/zsh-history-substring-search/zsh-history-substring-search.zsh
 do
-    if [[ -f "$f" ]]; then
-        source "$f"
+    if source_compiled "$f"; then
         bindkey '^[[A' history-substring-search-up
         bindkey '^[[B' history-substring-search-down
         break
@@ -49,18 +79,33 @@ for f in \
     /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
     /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 do
-    if [[ -f "$f" ]]; then
-        source "$f"
-        break
-    fi
+    source_compiled "$f" && break
 done
 
 
 PROMPT='%F{cyan}%~%f %F{yellow}%#%f '
 
-if [[ -d "$HOME/.sdkman" && -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
+if [[ -d "$HOME/.sdkman" ]]; then
     export SDKMAN_DIR="$HOME/.sdkman"
-    source "$HOME/.sdkman/bin/sdkman-init.sh"
+    
+    # Pre-add candidate bin directories to PATH to avoid loading SDKMAN on startup
+    () {
+        setopt localoptions extendedglob
+        for candidate in "$SDKMAN_DIR"/candidates/*(N/); do
+            if [[ -d "$candidate/current/bin" ]]; then
+                path=("$candidate/current/bin" $path)
+            elif [[ -d "$candidate/current" ]]; then
+                path=("$candidate/current" $path)
+            fi
+        done
+    }
+
+    # Lazy-load SDKMAN on demand
+    sdk() {
+        unset -f sdk
+        [[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
+        sdk "$@"
+    }
 fi
 
 bindkey '^[[H' beginning-of-line
