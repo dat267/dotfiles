@@ -6,6 +6,7 @@ Usage:
   %(name)s                              Interactive mode
   %(name)s --quiet                     Read text from stdin, output only translation
   %(name)s --quiet --file <path>       Read text from file, overwrite with translation
+  %(name)s --rename <path>             Translate filename (stem) and rename file
   %(name)s <text> [target] [source]     Translate <text> to target language (default: en)
   %(name)s --langs                     List supported language codes
   %(name)s --help                      Show this help
@@ -153,6 +154,26 @@ def main():
     if args and args[0] == "--quiet":
         quiet = True
         args = args[1:]
+
+    if args and args[0] == "--rename":
+        if len(args) < 2:
+            eprint("Error: --rename requires a file path")
+            sys.exit(1)
+        path = args[1]
+        name = os.path.basename(path)
+        dot = name.rfind(".")
+        if dot > 0 and not name.startswith("."):
+            stem = name[:dot]
+            ext = name[dot:]
+        else:
+            stem = name
+            ext = ""
+        translated = translate(stem, "en", "auto")
+        if translated != stem:
+            new = os.path.join(os.path.dirname(path), translated + ext)
+            os.rename(path, new)
+            eprint(f"Renamed -> {os.path.basename(new)}")
+        return
 
     if args and args[0] == "--langs":
         for c in sorted(KNOWN_LANGS):
