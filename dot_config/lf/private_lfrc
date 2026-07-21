@@ -43,7 +43,7 @@ cmd transcode_media ${{
     lf -remote "send $id reload"
 }}
 
-map <escape> :unselect
+map <esc> clear
 map dd cut
 map dD delete
 map yy copy
