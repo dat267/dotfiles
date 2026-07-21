@@ -54,6 +54,7 @@ cmd transcode_media ${{
     lf -remote "send $id reload"
 }}
 
+map v :select *
 map d
 map dd cut
 map dD delete
@@ -67,6 +68,8 @@ map o :open
 map <esc> clear
 
 map x extract_archive
+map cz compress_zip
+map c7 compress_7z
 map C concat_media
 map T transcode_media
 map . set hidden!

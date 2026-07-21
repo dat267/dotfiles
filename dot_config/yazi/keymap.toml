@@ -4,6 +4,11 @@ run = "hidden toggle"
 desc = "Toggle hidden files"
 
 [[mgr.prepend_keymap]]
+on = ["v"]
+run = "select_all"
+desc = "Select all files"
+
+[[mgr.prepend_keymap]]
 on = ["e"]
 run = "shell '${EDITOR:-nvim} %s || { echo \"Editor failed with exit code $?\"; read -p \"Press Enter to continue...\"; }' --block"
 desc = "Open with editor"

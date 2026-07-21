@@ -44,7 +44,7 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | File                         | Purpose                                      |
 | ---------------------------- | -------------------------------------------- |
 | `dot_config/yazi/yazi.toml`  | Openers (edit, extract, concat, transcode, compress) |
-| `dot_config/yazi/keymap.toml`| Custom keybindings (`.`, `e`, `O`, `R`, `x`, `C`, `T`, `tf`, `tc`) |
+| `dot_config/yazi/keymap.toml`| Custom keybindings (`.`, `e`, `O`, `R`, `x`, `C`, `T`, `v`, `tf`, `tc`) |
 | `dot_config/yazi/init.lua`   | Plugin setup (none currently)                |
 | `dot_config/yazi/theme.toml` | Visual theme                                 |
 | `dot_config/yazi/plugins/`   | Custom plugins (none currently)              |
