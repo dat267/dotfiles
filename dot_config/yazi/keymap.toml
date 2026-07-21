@@ -27,3 +27,18 @@ desc = "Translate filename(s) to English"
 on = ["t", "c"]
 run = "shell '$HOME/.local/scripts/py/yazi-translate.py --quiet --file %S 2>&1' --block"
 desc = "Translate file content(s) to English"
+
+[[mgr.prepend_keymap]]
+on = ["x"]
+run = "shell '$HOME/.local/scripts/py/yazi-extract.py %S 2>&1; echo; read -p \"Press Enter to continue...\"' --block"
+desc = "Extract archive(s)"
+
+[[mgr.prepend_keymap]]
+on = ["C"]
+run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-concat.py %S 2>&1; echo; read -p \"Press Enter to continue...\"' --block"
+desc = "Concat media files"
+
+[[mgr.prepend_keymap]]
+on = ["T"]
+run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-transcode.py %S 2>&1; echo; read -p \"Press Enter to continue...\"' --block"
+desc = "Transcode media file(s)"

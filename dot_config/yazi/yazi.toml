@@ -31,31 +31,9 @@ transcode_media = [
 
 [open]
 rules = [
-  { mime = "text/*", use = [ "edit", "compress_7z", "compress_zip" ] },
-  { mime = "application/{json,ndjson,toml,yaml,xml,javascript,x-sh,x-bash,x-perl,x-python}", use = [ "edit", "compress_7z", "compress_zip" ] },
-  { mime = "image/*", use = [ "open", "compress_7z", "compress_zip" ] },
-  { mime = "{audio,video}/*", use = [
-    "open",
-    "concat_media",
-    "transcode_media",
-    "compress_7z",
-    "compress_zip",
-  ] },
-  { mime = "application/{,g}zip", use = [
-    "extract",
-    "open",
-    "compress_7z",
-    "compress_zip",
-  ] },
-  { mime = "application/x-{tar,bzip*,7z-compressed,xz,rar}", use = [
-    "extract",
-    "open",
-    "compress_7z",
-    "compress_zip",
-  ] },
   { mime = "*", use = [
-    "edit",
     "open",
+    "edit",
     "compress_7z",
     "compress_zip",
   ] },
