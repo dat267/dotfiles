@@ -1,3 +1,6 @@
+[tasks]
+suppress_preload = true
+
 [opener]
 edit = [
   { run = 'nvim "%s"', block = true, for = "windows" },
