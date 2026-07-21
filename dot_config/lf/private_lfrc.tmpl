@@ -23,40 +23,13 @@ cmd open ${{ "$EDITOR" }} {{ "$fx" }}
 {{- if eq .chezmoi.os "windows" }}
 cmd mkdir %New-Item -ItemType Directory -Path "{{ "$*" }}" -Force
 cmd touch %New-Item -ItemType File -Path "{{ "$*" }}" -Force
-
 cmd extract_archive $[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-extract.py $files; lf -remote "send {{ "$env:id" }} reload"
 cmd concat_media $[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-concat.py $files; lf -remote "send {{ "$env:id" }} reload"
 cmd transcode_media $[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-transcode.py $files; lf -remote "send {{ "$env:id" }} reload"
 {{- else }}
 cmd mkdir %mkdir -p -- {{ "$*" }}
 cmd touch %touch -- {{ "$1" }}
-
 cmd extract_archive $[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-extract.py {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
 cmd concat_media $[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-concat.py {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
 cmd transcode_media $[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-transcode.py {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
 {{- end }}
-
-map <esc> clear
-map dd cut
-map dD delete
-map yy copy
-map p paste
-map P paste
-map <enter> :open
-map e :open
-map o :open
-map a push :mkdir<space>
-map A push :touch<space>
-map . set hidden!
-map r rename
-
-{{- if eq .chezmoi.os "windows" }}
-cmd compress %$fmt = Read-Host "Compress: (z)ip (7)z"; if ($fmt -eq 'z') { & {{ $py }} ~/.local/scripts/py/yazi-compress.py zip $env:fx } elseif ($fmt -eq '7') { & {{ $py }} ~/.local/scripts/py/yazi-compress.py 7z $env:fx }; lf -remote "send $env:id reload"
-{{- else }}
-cmd compress %printf "Compress: (z)ip (7)z "; read -r fmt; case "$fmt" in z) {{ $py }} ~/.local/scripts/py/yazi-compress.py zip "$fx" ;; 7) {{ $py }} ~/.local/scripts/py/yazi-compress.py 7z "$fx" ;; esac; lf -remote "send $id reload"
-{{- end }}
-
-map x extract_archive
-map c compress
-map C concat_media
-map T transcode_media
