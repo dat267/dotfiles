@@ -24,7 +24,9 @@ def main():
 
     if len(args) > 1:
         print_flush("Error: Split only works on a single file. Select exactly one file.")
-        sys.exit(1)
+        print_flush("")
+        input_flush("Press Enter to return to Yazi.")
+        return
 
     if not shutil.which("ffmpeg"):
         print_flush("Error: ffmpeg is not installed.")
