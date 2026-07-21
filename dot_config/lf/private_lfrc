@@ -1,4 +1,3 @@
-# Basic Settings
 set nohidden
 set preview
 set previewer ~/.config/lf/preview.sh
@@ -10,31 +9,9 @@ set smartcase
 set info
 set timefmt "2006-01-02T15:04:05Z"
 
-cmd open-check %{{
-    IFS='
-'
-    [ -n "$fx" ] && files=$fx || files=$f
-
-    for file in $files; do
-        mime=$(file -Lb --mime-type "$file")
-        case "$mime" in
-            text/*|application/json|*javascript|*xml) continue ;;
-            *)
-                if ! file -Lb "$file" | grep -iq 'text'; then
-                    lf -remote "send $id echo 'Opening non-text files is disabled ($mime)'"
-                    exit 1
-                fi
-                ;;
-        esac
-    done
-    lf -remote "send $id open-run"
-}}
-
-cmd open-run ${{
+cmd open ${{
     $EDITOR $fx
 }}
-
-cmd open :open-check
 
 cmd mkdir %IFS=" "; mkdir -p -- "$*"
 cmd touch %touch -- "$1"
@@ -60,17 +37,16 @@ cmd compress_zip ${{
 
 cmd concat_media ${{
     [ -n "$fx" ] && set -- $fx || set -- "$f"
-    python3 ~/.local/scripts/py/ffmpeg-concat.py "$@"
+    python3 ~/.local/scripts/py/yazi-ffmpeg-concat.py "$@"
     lf -remote "send $id reload"
 }}
 
 cmd transcode_media ${{
     [ -n "$fx" ] && set -- $fx || set -- "$f"
-    python3 ~/.local/scripts/py/ffmpeg-transcode.py "$@"
+    python3 ~/.local/scripts/py/yazi-ffmpeg-transcode.py "$@"
     lf -remote "send $id reload"
 }}
 
-# Mappings
 map d
 map dd cut
 map dD delete
@@ -83,7 +59,6 @@ map <enter> :open
 map o :open
 map <esc> clear
 
-# Extensions Mappings
 map E extract_archive
 map cz compress_zip
 map c7 compress_7z
@@ -91,7 +66,6 @@ map mc concat_media
 map mt transcode_media
 map . set hidden!
 
-# Jump Shortcuts
 map gh cd ~
 map gc cd ~/.config
 map gd cd ~/Downloads
