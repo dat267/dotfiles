@@ -1,1 +1,1 @@
-require("mime-broad"):setup({})
+require("mime-broad")
