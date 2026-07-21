@@ -9,7 +9,7 @@ run = "shell '$HOME/.local/scripts/py/yazi-translate.py --quiet --file %S 2>&1' 
 desc = "Translate file content(s) to English"
 
 [[mgr.prepend_keymap]]
-on = ["z", "e"]
+on = ["z", "x"]
 run = "plugin yazi-extract"
 desc = "Extract archive"
 

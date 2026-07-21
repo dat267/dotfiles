@@ -1,22 +1,22 @@
 local M = {}
 
-local function get_selected()
-	return ya.sync(function()
-		local files = {}
-		for _, f in ipairs(cx.active.current.files) do
-			if f.selected then
-				files[#files + 1] = tostring(f.url)
-			end
+local function get_selected_files()
+	local files = {}
+	for _, f in ipairs(cx.active.current.files) do
+		if f.selected then
+			files[#files + 1] = tostring(f.url)
 		end
-		if #files == 0 and cx.active.current.hovered then
-			files[1] = tostring(cx.active.current.hovered.url)
-		end
-		return files
-	end)()
+	end
+	if #files == 0 and cx.active.current.hovered then
+		files[1] = tostring(cx.active.current.hovered.url)
+	end
+	return files
 end
 
+local sync_selected = ya.sync(get_selected_files)
+
 function M:entry()
-	local files = get_selected()
+	local files = sync_selected()
 	if #files == 0 then
 		return ya.notify({ title = "Compress", content = "No files", timeout = 3 })
 	end
