@@ -47,7 +47,7 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `dot_config/yazi/keymap.toml`| Custom: `t f/t c` translate, `z *` tools menu  |
 | `dot_config/yazi/init.lua`   | Plugin setup (none currently)                |
 | `dot_config/yazi/theme.toml` | Visual theme (needs Nerd Font for icons)     |
-| `dot_config/yazi/plugins/`   | Lua plugins (extract, compress, concat, transcode, split) |
+| `dot_config/yazi/plugins/`   | yazi-split (only working Lua plugin)             |
 
 ### Python Scripts (`dot_local/scripts/py/`)
 

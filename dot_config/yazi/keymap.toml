@@ -10,25 +10,30 @@ desc = "Translate file content(s) to English"
 
 [[mgr.prepend_keymap]]
 on = ["z", "x"]
-run = "plugin yazi-extract"
+run = "shell '$HOME/.local/scripts/py/yazi-extract.py %S 2>&1' --block"
 desc = "Extract archive"
 
 [[mgr.prepend_keymap]]
 on = ["z", "c"]
-run = "plugin yazi-compress"
-desc = "Compress files (zip/7z)"
+run = "shell '$HOME/.local/scripts/py/yazi-compress.py 7z %S 2>&1' --block"
+desc = "Compress to 7z"
+
+[[mgr.prepend_keymap]]
+on = ["z", "z"]
+run = "shell '$HOME/.local/scripts/py/yazi-compress.py zip %S 2>&1' --block"
+desc = "Compress to Zip"
 
 [[mgr.prepend_keymap]]
 on = ["z", "n"]
-run = "plugin yazi-ffmpeg-concat"
+run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-concat.py %S 2>&1' --block"
 desc = "Concat media files"
 
 [[mgr.prepend_keymap]]
 on = ["z", "t"]
-run = "plugin yazi-ffmpeg-transcode"
+run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-transcode.py %S 2>&1' --block"
 desc = "Transcode media file(s)"
 
 [[mgr.prepend_keymap]]
 on = ["z", "s"]
-run = "plugin yazi-split"
+run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-split.py %S 2>&1' --block"
 desc = "Split media by timestamps"
