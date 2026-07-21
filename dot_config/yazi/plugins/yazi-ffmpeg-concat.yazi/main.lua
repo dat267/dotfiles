@@ -1,6 +1,6 @@
 local M = {}
 
-function M:job()
+function M:entry()
 	local files = {}
 	for _, f in ipairs(cx.active.current.files) do
 		if f.selected then

@@ -13,7 +13,7 @@ local function get_selected_files()
 	return sel
 end
 
-function M:job()
+function M:entry()
 	local files = get_selected_files()
 	if #files == 0 then
 		return ya.notify({ title = "Extract", content = "No files selected", timeout = 3 })

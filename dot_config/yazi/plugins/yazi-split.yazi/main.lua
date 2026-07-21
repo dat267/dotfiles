@@ -17,7 +17,7 @@ local function parse_ts(s)
 	return parts[1] or 0
 end
 
-function M:job()
+function M:entry()
 	local h = cx.active.current.hovered
 	if not h then
 		return ya.notify({ title = "Split", content = "No file hovered", timeout = 3 })
