@@ -1,39 +1,39 @@
 [[mgr.prepend_keymap]]
 on = ["t", "f"]
-run = "shell '$HOME/.local/scripts/py/yazi-translate.py --rename %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi.py translate --rename %S 2>&1' --block"
 desc = "Translate filename"
 
 [[mgr.prepend_keymap]]
 on = ["t", "c"]
-run = "shell '$HOME/.local/scripts/py/yazi-translate.py --quiet --file %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi.py translate --quiet --file %S 2>&1' --block"
 desc = "Translate content"
 
 [[mgr.prepend_keymap]]
 on = ["z", "x"]
-run = "shell '$HOME/.local/scripts/py/yazi-extract.py %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi.py extract %S 2>&1' --block"
 desc = "Extract"
 
 [[mgr.prepend_keymap]]
 on = ["z", "c"]
-run = "shell '$HOME/.local/scripts/py/yazi-compress.py 7z %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi.py compress 7z %S 2>&1' --block"
 desc = "Comp 7z"
 
 [[mgr.prepend_keymap]]
 on = ["z", "z"]
-run = "shell '$HOME/.local/scripts/py/yazi-compress.py zip %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi.py compress zip %S 2>&1' --block"
 desc = "Comp zip"
 
 [[mgr.prepend_keymap]]
 on = ["z", "n"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-concat.py %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi.py concat %S 2>&1' --block"
 desc = "Concat"
 
 [[mgr.prepend_keymap]]
 on = ["z", "t"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-transcode.py %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi.py transcode %S 2>&1' --block"
 desc = "Transcode"
 
 [[mgr.prepend_keymap]]
 on = ["z", "s"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-split.py %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi.py split %S 2>&1' --block"
 desc = "Split"

@@ -51,26 +51,14 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 
 ### Python Scripts (`dot_local/scripts/py/`)
 
-**Yazi helpers** (convention: `executable_yazi-*.py`):
-| Script                      | Purpose                                      |
+**Consolidated CLI** (3 composite Click scripts):
+| Script                      | Subcommands                                  |
 | --------------------------- | -------------------------------------------- |
-| `executable_yazi-translate.py` | Translate filenames or file content via web APIs |
-| `executable_yazi-rename.py` | Batch rename files via `$EDITOR`             |
+| `executable_yazi.py`        | `extract`, `compress`, `concat`, `transcode`, `split`, `rename`, `translate` |
+| `executable_install.py`     | `aws`, `code`, firefox, fnm, gcloud, go, lf, `nerd-font`, pwsh, rclone, terraform, tools, vscode, yazi, `lsp` |
+| `executable_tools.py`       | `build`, `uninstall`, `url-decode`, `cloudsh`, `dotfiles`, `hello`, `start-vpn` |
 
-**Installers** (convention: `executable_install_*.py`):
-| Script                      | Purpose                                      |
-| --------------------------- | -------------------------------------------- |
-| `executable_install_tools.py` | Downloads all tools from GitHub Releases    |
-| `executable_install_*.py`   | Individual tool installers (yazi, go, fnm…)  |
-| `executable_uninstall_tools.py` | Removes all tools from `~/.local/bin`     |
-
-**Other utilities:**
-| Script                      | Purpose                                      |
-| --------------------------- | -------------------------------------------- |
-| `executable_install_nerd_font.py` | Install a Nerd Font (Linux/Windows)      |
-| `executable_url_decode_rename.py` | Decode URL-encoded filenames in a dir      |
-| `executable_build_tools.py` | CI build script for custom compiled tools    |
-| `common.py`                 | Shared utility module (no shebang)           |
+Before: 28 individual scripts. After: 3 scripts with subcommands. `common.py` remains as a shared module.
 
 ### Other Configs
 | File                         | Purpose                                      |
@@ -102,7 +90,7 @@ Platform-specific blocks in `.tmpl` files use `{{ if eq .chezmoi.os "..." }}` gu
 - Edit source files directly in this repo (`dot_*` prefix files, not deployed versions)
 - Keep template logic minimal and preserve `{{- ... -}}` whitespace-trimming
 - Add new Python scripts under `dot_local/scripts/py/` with appropriate `executable_` prefix
-- Use `executable_yazi-*` naming for all Yazi helper scripts
+- Add new Yazi helpers under `executable_yazi.py` as subcommands
 - Test with `chezmoi diff` before `chezmoi apply`
 - Run `python3 script.py --help` to verify new CLI scripts parse correctly
 
@@ -116,11 +104,12 @@ Platform-specific blocks in `.tmpl` files use `{{ if eq .chezmoi.os "..." }}` gu
 
 All executable Python scripts follow these conventions:
 - Shebang: `#!/usr/bin/env python3`
-- Use `eprint()` for user-facing messages (writes to stderr): `print(msg, file=sys.stderr)`
-- Use `print()` for pipeline-friendly output (stdout, consumed by other tools)
-- For Yazi-block scripts, end with `input("Press Enter to continue...")` to keep terminal open
-- Import standard library only; avoid external dependencies
+- Use `click.echo()` for user-facing messages (writes to stderr: `click.echo(msg, err=True)`)
+- Use `click.echo()` for pipeline-friendly output (stdout)
+- Use `click.prompt()` for user prompts
+- Import standard library only + vendored Click at `_vendor/`
 - Handle Yazi's single-quote-wrapped paths: `if len(p) >= 2 and p[0] == p[-1] and p[0] in "'\"": p = p[1:-1]`
+- Group into composite scripts (`yazi.py`, `install.py`, `tools.py`); avoid standalone scripts
 
 ### Yazi Configuration
 
