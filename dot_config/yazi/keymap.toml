@@ -5,8 +5,8 @@ desc = "Toggle hidden files"
 
 [[mgr.prepend_keymap]]
 on = ["v"]
-run = [ "escape", "toggle_all" ]
-desc = "Toggle select all files"
+run = "toggle_all"
+desc = "Toggle select all"
 
 [[mgr.prepend_keymap]]
 on = ["e"]
