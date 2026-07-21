@@ -47,7 +47,7 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `dot_config/yazi/keymap.toml`| Custom keybindings                           |
 | `dot_config/yazi/init.lua`   | Plugin setup (mime-ext overrides)            |
 | `dot_config/yazi/theme.toml` | Visual theme                                 |
-| `dot_config/yazi/plugins/`   | Custom plugins (mime-ext.yazi)               |
+| `dot_config/yazi/plugins/`   | Custom plugins (mime-broad.yazi)               |
 
 ### Python Scripts (`dot_local/scripts/py/`)
 
@@ -130,7 +130,7 @@ All executable Python scripts follow these conventions:
 
 - **Openers** (`yazi.toml`): Define scripts that run when opening files. MIME-based dispatch in `[open] rules`. Use `%s` for single file, `python3 -u` for unbuffered output, `--block` for interactive scripts.
 - **Keymaps** (`keymap.toml`): Bind keys to Yazi built-ins or `shell` commands. Use `%S` for batch (all selected files). Use `--block` to show terminal output. Append `2>&1` to merge stderr into the visible output.
-- **MIME detection** (`init.lua` + `mime-ext.yazi` plugin): Fast extension-based lookup. Add missing types via `with_exts`/`with_files` tables. `fallback_file1 = false` avoids shelling out to `file(1)`.
+- **MIME detection** (`mime-broad` plugin): Binary extension table (~180 entries) → proper type; everything else → `text/plain`. No `file(1)` overhead. Add new binary extensions to the table in `plugins/mime-broad.yazi/main.lua`.
 
 ## Custom Tools (`dot_local/src/`)
 
