@@ -7,8 +7,8 @@ edit = [
   { run = '${EDITOR:-nvim} "%s"', block = true, for = "unix" },
 ]
 play = [
-  { run = 'mpv "%s"', desc = "Play with mpv", for = "unix" },
-  { run = 'mpv "%s"', desc = "Play with mpv", for = "windows" },
+  { run = 'mpv %s', desc = "Play with mpv", for = "unix" },
+  { run = 'mpv %s', desc = "Play with mpv", for = "windows" },
 ]
 open = [
   { run = 'explorer "%s"', orphan = true, desc = "Open", for = "windows" },
