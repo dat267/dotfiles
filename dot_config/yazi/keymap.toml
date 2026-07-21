@@ -20,10 +20,10 @@ desc = "Bulk rename in editor"
 
 [[mgr.prepend_keymap]]
 on = ["t", "f"]
-run = "shell '$HOME/.local/scripts/py/translate.py --rename %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi-translate.py --rename %S 2>&1' --block"
 desc = "Translate filename(s) to English"
 
 [[mgr.prepend_keymap]]
 on = ["t", "c"]
-run = "shell '$HOME/.local/scripts/py/translate.py --quiet --file %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi-translate.py --quiet --file %S 2>&1' --block"
 desc = "Translate file content(s) to English"

@@ -21,12 +21,12 @@ compress_zip = [
   { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-compress.py" zip %s', block = true, desc = "Compress to Zip", for = "windows" },
 ]
 concat_media = [
-  { run = 'python3 -u ~/.local/scripts/py/ffmpeg-concat.py %s', block = true, desc = "Concat media", for = "unix" },
-  { run = 'python -u "%USERPROFILE%\.local\scripts\py\ffmpeg-concat.py" %s', block = true, desc = "Concat media", for = "windows" },
+  { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-concat.py %s', block = true, desc = "Concat media", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-concat.py" %s', block = true, desc = "Concat media", for = "windows" },
 ]
 transcode_media = [
-  { run = 'python3 -u ~/.local/scripts/py/ffmpeg-transcode.py %s', block = true, desc = "Transcode media", for = "unix" },
-  { run = 'python -u "%USERPROFILE%\.local\scripts\py\ffmpeg-transcode.py" %s', block = true, desc = "Transcode media", for = "windows" },
+  { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-transcode.py %s', block = true, desc = "Transcode media", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-transcode.py" %s', block = true, desc = "Transcode media", for = "windows" },
 ]
 
 [open]
