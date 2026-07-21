@@ -20,6 +20,7 @@ def main():
     args = sys.argv[1:]
     if not args:
         print_flush("Usage: yazi-ffmpeg-split.py <media-file>")
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     if len(args) > 1:
@@ -30,6 +31,7 @@ def main():
 
     if not shutil.which("ffmpeg"):
         print_flush("Error: ffmpeg is not installed.")
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     filepath = args[0]
@@ -38,6 +40,7 @@ def main():
 
     if not os.path.exists(filepath):
         print_flush(f"Error: File not found: {filepath}")
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     base, ext = os.path.splitext(filepath)

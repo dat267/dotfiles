@@ -16,6 +16,7 @@ def main():
     # 1. Check if 7z is installed
     if not shutil.which("7z"):
         print_flush("Error: 7z is not installed or not in PATH.")
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     # 2. Parse arguments
@@ -23,6 +24,7 @@ def main():
     # argv[2:] are target files
     if len(sys.argv) < 3:
         print_flush("Error: Missing arguments. Usage: yazi-compress.py <format> <file1> [file2 ...]")
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     archive_format = sys.argv[1].lower()
@@ -67,6 +69,7 @@ def main():
         cmd.extend(["-tzip", "-mx=9", "-mm=Deflate", "-mmt=on"])
     else:
         print_flush(f"Error: Unsupported format '{archive_format}'")
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     cmd.append(output_filename)

@@ -16,12 +16,14 @@ def main():
     # 1. Check if ffmpeg is installed
     if not shutil.which("ffmpeg"):
         print_flush("Error: ffmpeg is not installed or not in PATH.")
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     # 2. Check input arguments
     args = sys.argv[1:]
     if len(args) < 1:
         print_flush("Error: You must select at least 1 file to transcode.")
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     print_flush("\n>>> FFmpeg Media Transcoder <<<")

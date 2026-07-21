@@ -11,15 +11,23 @@ def fmt_path(p):
     return p
 
 
+def input_flush(prompt):
+    print(prompt, end="", flush=True)
+    return sys.stdin.readline().rstrip("
+")
+
+
 def main():
     paths = [fmt_path(a) for a in sys.argv[1:]]
     if not paths:
         print("Usage: yazi-rename.py <paths...>", file=sys.stderr)
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     dirs = set(os.path.dirname(p) for p in paths)
     if len(dirs) > 1:
         print("Error: files must be in the same directory", file=sys.stderr)
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     parent = os.path.dirname(paths[0])

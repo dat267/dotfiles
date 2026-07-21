@@ -147,6 +147,12 @@ def translate(text, target, source="auto"):
     return "\n".join(result)
 
 
+def input_flush(prompt):
+    print(prompt, end="", flush=True)
+    return sys.stdin.readline().rstrip("
+")
+
+
 def main():
     args = sys.argv[1:]
     quiet = False
@@ -158,6 +164,7 @@ def main():
     if args and args[0] == "--rename":
         if len(args) < 2:
             eprint("Error: --rename requires at least one file path")
+            input_flush("Press Enter to return to Yazi.")
             sys.exit(1)
         for p in args[1:]:
             if len(p) >= 2 and p[0] == p[-1] and p[0] in "'\"":
@@ -190,6 +197,7 @@ def main():
     if args and args[0] == "--file":
         if len(args) < 2:
             eprint("Error: --file requires at least one file path")
+            input_flush("Press Enter to return to Yazi.")
             sys.exit(1)
         for fp in args[1:]:
             if len(fp) >= 2 and fp[0] == fp[-1] and fp[0] in "'\"":
@@ -224,6 +232,7 @@ def main():
 
     if not text:
         eprint("Error: text cannot be empty")
+        input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     if not quiet:
