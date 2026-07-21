@@ -1,4 +1,1 @@
-[[mgr.prepend_keymap]]
-on = ["S"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-split.py %h 2>&1' --block"
-desc = "Split hovered media"
+# Using default Yazi keybindings

@@ -22,6 +22,10 @@ def main():
         print_flush("Usage: yazi-ffmpeg-split.py <media-file>")
         sys.exit(1)
 
+    if len(args) > 1:
+        print_flush("Error: Split only works on a single file. Select exactly one file.")
+        sys.exit(1)
+
     if not shutil.which("ffmpeg"):
         print_flush("Error: ffmpeg is not installed.")
         sys.exit(1)
