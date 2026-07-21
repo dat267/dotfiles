@@ -46,7 +46,7 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `dot_config/yazi/yazi.toml`  | Openers (edit, extract, concat, transcode, compress) |
 | `dot_config/yazi/keymap.toml`| Empty (using Yazi defaults)                   |
 | `dot_config/yazi/init.lua`   | Plugin setup (none currently)                |
-| `dot_config/yazi/theme.toml` | Visual theme                                 |
+| `dot_config/yazi/theme.toml` | Visual theme (needs Nerd Font for icons)     |
 | `dot_config/yazi/plugins/`   | Custom plugins (none currently)              |
 
 ### Python Scripts (`dot_local/scripts/py/`)
@@ -71,7 +71,8 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 **Other utilities:**
 | Script                      | Purpose                                      |
 | --------------------------- | -------------------------------------------- |
-| `executable_url_decode_rename.py` | Decode URL-encoded filenames in a dir  |
+| `executable_install_nerd_font.py` | Install a Nerd Font (Linux/Windows)      |
+| `executable_url_decode_rename.py` | Decode URL-encoded filenames in a dir      |
 | `executable_build_tools.py` | CI build script for custom compiled tools    |
 | `common.py`                 | Shared utility module (no shebang)           |
 
