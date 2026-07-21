@@ -1,6 +1,11 @@
 [tasks]
 suppress_preload = true
 
+[plugin]
+prepend_preloaders = [
+  { mime = "*", run = "noop" },
+]
+
 [opener]
 edit = [
   { run = 'nvim "%s"', block = true, for = "windows" },
