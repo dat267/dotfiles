@@ -18,7 +18,7 @@ function M:entry()
 	local files = sync_selected()
 	if #files == 0 then return ya.notify({ title = "Transcode", content = "No files", timeout = 3 }) end
 
-	local fmt = ya.input({ position = { "center", w = 50 }, title = "Target extension (e.g. mp4, mp3, mkv, wav):", default = "mp4" })
+	local fmt = ya.input({ position = "center", title = "Target extension (e.g. mp4, mp3, mkv, wav):", default = "mp4" })
 	if not fmt or (fmt[1].text or "") == "" then return end
 	local ext = fmt[1].text:lower()
 

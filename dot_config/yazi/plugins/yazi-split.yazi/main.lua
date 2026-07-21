@@ -22,7 +22,7 @@ function M:entry()
 	if not h then return ya.notify({ title = "Split", content = "No file", timeout = 3 }) end
 	if not h.ext then return ya.notify({ title = "Split", content = "Not media", timeout = 3 }) end
 
-	local result = ya.input({ position = { "center", w = 50 }, title = "Timestamps (comma-separated, e.g. 0:30, 1:00):" })
+	local result = ya.input({ position = "center", title = "Timestamps (comma-separated, e.g. 0:30, 1:00):" })
 	if not result then return end
 	local inp = (result[1].text or ""):gsub("^%s*(.-)%s*$", "%1")
 	if inp == "" then return end

@@ -24,7 +24,7 @@ function M:entry()
 	local parent_name = parent:match("[^/]+$") or "output"
 	local default = parent_name .. "_combined." .. (ext ~= "" and ext or "mkv")
 
-	local name = ya.input({ position = { "center", w = 50 }, title = "Output filename", default = default })
+	local name = ya.input({ position = "center", title = "Output filename", default = default })
 	if not name or (name[1].text or "") == "" then return end
 	local out = name[1].text
 	if not out:find("%.") then out = out .. "." .. (ext ~= "" and ext or "mkv") end

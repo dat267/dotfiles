@@ -21,14 +21,14 @@ function M:entry()
 		return ya.notify({ title = "Compress", content = "No files", timeout = 3 })
 	end
 
-	local fmt = ya.input({ position = { "center", w = 50 }, title = "Format: (z)ip or (7)z?" })
+	local fmt = ya.input({ position = "center", title = "Format: (z)ip or (7)z?" })
 	if not fmt then return end
 	local format = (fmt[1].text or ""):lower()
 	if format ~= "z" and format ~= "7" then
 		return ya.notify({ title = "Compress", content = "Enter z or 7", timeout = 3 })
 	end
 
-	local name = ya.input({ position = { "center", w = 50 }, title = "Output filename:" })
+	local name = ya.input({ position = "center", title = "Output filename:" })
 	if not name or (name[1].text or "") == "" then return end
 	local out = name[1].text .. (format == "z" and ".zip" or ".7z")
 
