@@ -70,6 +70,8 @@ def main():
         subprocess.run(cmd, capture_output=True)
 
     print_flush(f"\nDone — {len(segments)} files created.")
+    print_flush("")
+    input_flush("Press Enter to return to Yazi.")
 
 def input_flush(prompt):
     print(prompt, end="", flush=True)

@@ -45,7 +45,7 @@ rules = [
   { mime = "text/*", use = [ "edit", "compress_7z", "compress_zip" ] },
   { mime = "image/*", use = [ "open", "compress_7z", "compress_zip" ] },
   { mime = "{audio,video}/*", use = [
-    "play", "open", "concat_media", "split_media", "transcode_media",
+    "play", "open", "concat_media", "transcode_media",
     "compress_7z", "compress_zip",
   ] },
   { mime = "application/{,g}zip", use = [
