@@ -13,6 +13,13 @@ cmd open ${{
     $EDITOR $fx
 }}
 
+cmd rename ${{
+    read -r new <&0
+    for f in $fx; do
+        mv -- "$f" "$(dirname "$f")/$new"
+    done
+}}
+
 cmd mkdir %IFS=" "; mkdir -p -- "$*"
 cmd touch %touch -- "$1"
 cmd follow_link %lf -remote "send ${id} select '$(readlink $f)'"
@@ -50,20 +57,18 @@ cmd transcode_media ${{
 map d
 map dd cut
 map dD delete
-map x cut
 map p paste
 map a push :mkdir<space>
 map A push :touch<space>
 map gL follow_link
 map <enter> :open
+map e :open
 map o :open
 map <esc> clear
 
-map E extract_archive
-map cz compress_zip
-map c7 compress_7z
-map mc concat_media
-map mt transcode_media
+map x extract_archive
+map C concat_media
+map T transcode_media
 map . set hidden!
 
 map gh cd ~
