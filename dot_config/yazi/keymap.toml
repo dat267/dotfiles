@@ -14,6 +14,11 @@ run = "open --interactive"
 desc = "Open interactive"
 
 [[mgr.prepend_keymap]]
+on = ["R"]
+run = "shell '$HOME/.local/scripts/py/yazi-rename.py %S 2>&1' --block"
+desc = "Bulk rename in editor"
+
+[[mgr.prepend_keymap]]
 on = ["t", "f"]
 run = "shell '$HOME/.local/scripts/py/translate.py --rename %S 2>&1' --block"
 desc = "Translate filename(s) to English"

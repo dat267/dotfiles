@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+import os
+import sys
+import subprocess
+import tempfile
+
+
+def fmt_path(p):
+    if len(p) >= 2 and p[0] == p[-1] and p[0] in "'\"":
+        p = p[1:-1]
+    return p
+
+
+def main():
+    paths = [fmt_path(a) for a in sys.argv[1:]]
+    if not paths:
+        print("Usage: yazi-rename.py <paths...>", file=sys.stderr)
+        sys.exit(1)
+
+    dirs = set(os.path.dirname(p) for p in paths)
+    if len(dirs) > 1:
+        print("Error: files must be in the same directory", file=sys.stderr)
+        sys.exit(1)
+
+    parent = os.path.dirname(paths[0])
+    old = [os.path.basename(p) for p in paths]
+
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, dir=parent)
+    tmpname = tmp.name
+    for name in old:
+        tmp.write(name + "\n")
+    tmp.close()
+
+    editor = os.environ.get("EDITOR", "nvim")
+    subprocess.run([editor, tmpname])
+
+    with open(tmpname) as f:
+        new = [line.rstrip("\n") for line in f]
+    os.remove(tmpname)
+
+    changes = []
+    for a, b in zip(old, new):
+        if a != b:
+            changes.append((a, b))
+
+    if not changes:
+        print("No changes", file=sys.stderr)
+        return
+
+    for a, b in changes:
+        src = os.path.join(parent, a)
+        dst = os.path.join(parent, b)
+        if os.path.exists(dst) and a != b:
+            print(f"Skip: {b} already exists", file=sys.stderr)
+            continue
+        os.rename(src, dst)
+        print(f"Renamed -> {b}", file=sys.stderr)
+
+    input("Press Enter to continue...")
+
+
+if __name__ == "__main__":
+    main()
