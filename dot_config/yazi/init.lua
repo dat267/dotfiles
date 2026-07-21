@@ -29,6 +29,7 @@ require("mime-ext.local"):setup {
 		org = "text/plain",
 		rmd = "text/plain",
 		mdx = "text/markdown",
+		sql = "text/plain",
 		svelte = "text/html",
 		vue = "text/html",
 		astro = "text/html",
