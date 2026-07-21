@@ -1,1 +1,4 @@
-# Using default Yazi keybindings
+[[mgr.prepend_keymap]]
+on = ["S"]
+run = "plugin yazi-split"
+desc = "Split media by timestamps"

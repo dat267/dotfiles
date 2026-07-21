@@ -35,17 +35,12 @@ transcode_media = [
   { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-transcode.py %s', block = true, desc = "Transcode media", for = "unix" },
   { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-transcode.py" %s', block = true, desc = "Transcode media", for = "windows" },
 ]
-split_media = [
-  { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-split.py %s', block = true, desc = "Split media by timestamps", for = "unix" },
-  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-split.py" %s', block = true, desc = "Split media by timestamps", for = "windows" },
-]
-
 [open]
 rules = [
   { mime = "text/*", use = [ "edit", "compress_7z", "compress_zip" ] },
   { mime = "image/*", use = [ "open", "compress_7z", "compress_zip" ] },
   { mime = "{audio,video}/*", use = [
-    "play", "open", "concat_media", "split_media", "transcode_media",
+    "play", "open", "concat_media", "transcode_media",
     "compress_7z", "compress_zip",
   ] },
   { mime = "application/{,g}zip", use = [
