@@ -43,11 +43,11 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 ### Yazi File Manager
 | File                         | Purpose                                      |
 | ---------------------------- | -------------------------------------------- |
-| `dot_config/yazi/yazi.toml`  | Openers (edit, extract, concat, transcode, compress) |
-| `dot_config/yazi/keymap.toml`| Empty (using Yazi defaults)                   |
+| `dot_config/yazi/yazi.toml`  | Openers (edit, play, open)                  |
+| `dot_config/yazi/keymap.toml`| Custom: `t f/t c` translate, `z *` tools menu  |
 | `dot_config/yazi/init.lua`   | Plugin setup (none currently)                |
 | `dot_config/yazi/theme.toml` | Visual theme (needs Nerd Font for icons)     |
-| `dot_config/yazi/plugins/`   | Custom plugins (none currently)              |
+| `dot_config/yazi/plugins/`   | Lua plugins (extract, compress, concat, transcode, split) |
 
 ### Python Scripts (`dot_local/scripts/py/`)
 
@@ -56,10 +56,6 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | --------------------------- | -------------------------------------------- |
 | `executable_yazi-translate.py` | Translate filenames or file content via web APIs |
 | `executable_yazi-rename.py` | Batch rename files via `$EDITOR`             |
-| `executable_yazi-compress.py` | Compress selected files (7z/zip)            |
-| `executable_yazi-extract.py` | Extract archives interactively               |
-| `executable_yazi-ffmpeg-concat.py` | Concatenate media files                |
-| `executable_yazi-ffmpeg-transcode.py` | Transcode media files              |
 
 **Installers** (convention: `executable_install_*.py`):
 | Script                      | Purpose                                      |
@@ -129,8 +125,8 @@ All executable Python scripts follow these conventions:
 ### Yazi Configuration
 
 - **Openers** (`yazi.toml`): Define scripts that run when opening files. All openers accessed via keybindings. Single `open` rule for Enter → xdg-open.
-- **Keymaps** (`keymap.toml`): Bind keys to Yazi built-ins or `shell` commands. Use `%S` for batch (all selected files). Use `--block` to show terminal output. Append `2>&1` to merge stderr into the visible output.
-- **MIME detection** (Yazi built-in): Uses `file(1)` for content-based MIME detection.
+- **Keymaps** (`keymap.toml`): Bind keys to Yazi built-ins, `shell` commands, or `plugin` Lua plugins. Use `%S` for batch (all selected files). Use `--block` to show terminal output. Append `2>&1` to merge stderr into the visible output. Use `z` prefix for the tools menu (extract, compress, concat, transcode, split).
+- **MIME detection**: Yazi native `file(1)` based detection.
 
 ## Custom Tools (`dot_local/src/`)
 
