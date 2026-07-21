@@ -80,7 +80,7 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | ---------------------------- | -------------------------------------------- |
 | `dot_config/mpv/`            | MPV media player config                      |
 | `dot_config/aria2/`          | aria2 download manager config                |
-| `dot_config/lf/`             | lf file manager (unified template for Linux/Win) |
+| `dot_config/lf/`             | lf file manager (unified template, `.`, `x`, `Z`, `S`, `C`, `T`, `r`) |
 | `dot_config/wezterm/`        | WezTerm terminal config                      |
 | `dot_config/powershell/`     | PowerShell profile                           |
 | `private_dot_termux/`        | Android Termux configs                       |
