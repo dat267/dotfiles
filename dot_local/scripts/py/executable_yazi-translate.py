@@ -175,7 +175,6 @@ def main():
                 new = os.path.join(os.path.dirname(p), translated + ext)
                 os.rename(p, new)
                 eprint(f"Renamed -> {os.path.basename(new)}")
-        input("Press Enter to continue...")
         return
 
     if args and args[0] == "--langs":
@@ -204,7 +203,6 @@ def main():
             with open(fp, "w", encoding="utf-8") as f:
                 f.write(result + "\n")
             eprint(f"Translated -> {fp}")
-        input("Press Enter to continue...")
         return
 
     if len(args) == 0:

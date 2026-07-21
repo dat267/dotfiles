@@ -18,14 +18,12 @@ def main():
     # 1. Check if ffmpeg is installed
     if not shutil.which("ffmpeg"):
         print_flush("Error: ffmpeg is not installed or not in PATH.")
-        input_flush("Press Enter to exit...")
         sys.exit(1)
 
     # 2. Check input arguments
     args = sys.argv[1:]
     if len(args) < 2:
         print_flush("Error: You must select at least 2 files to concatenate.")
-        input_flush("Press Enter to exit...")
         sys.exit(1)
 
     first_file = args[0]
@@ -117,7 +115,6 @@ def main():
             print_flush("Error: Concatenation failed.")
 
     print_flush("")
-    input_flush("Press Enter to return to Yazi.")
 
 if __name__ == "__main__":
     try:

@@ -8,10 +8,6 @@ def print_flush(*args, **kwargs):
     print(*args, **kwargs)
     sys.stdout.flush()
 
-def input_flush(prompt):
-    print(prompt, end="", flush=True)
-    return sys.stdin.readline().rstrip('\r\n')
-
 def get_dest_dir(archive_path):
     abs_path = os.path.abspath(archive_path)
     parent_dir = os.path.dirname(abs_path)
@@ -34,14 +30,12 @@ def main():
     # 1. Check if 7z is installed
     if not shutil.which("7z"):
         print_flush("Error: 7z is not installed or not in PATH.")
-        input_flush("Press Enter to exit...")
         sys.exit(1)
 
     # 2. Check input arguments
     args = sys.argv[1:]
     if len(args) < 1:
         print_flush("Error: You must select at least 1 archive file to extract.")
-        input_flush("Press Enter to exit...")
         sys.exit(1)
 
     print_flush("\n>>> Yazi Archive Extractor <<<")
@@ -67,7 +61,6 @@ def main():
 
     print_flush("----------------------------------------")
     print_flush("")
-    input_flush("Press Enter to return to Yazi.")
 
 if __name__ == "__main__":
     try:
