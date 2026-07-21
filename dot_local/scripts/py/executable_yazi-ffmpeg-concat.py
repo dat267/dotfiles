@@ -115,6 +115,7 @@ def main():
             print_flush("Error: Concatenation failed.")
 
     print_flush("")
+    input_flush("Press Enter to return to Yazi.")
 
 if __name__ == "__main__":
     try:

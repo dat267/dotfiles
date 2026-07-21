@@ -65,6 +65,7 @@ def main():
             print_flush(f"Error: Transcoding failed for '{os.path.basename(abs_path)}'.")
 
     print_flush("")
+    input_flush("Press Enter to return to Yazi.")
 
 if __name__ == "__main__":
     try:

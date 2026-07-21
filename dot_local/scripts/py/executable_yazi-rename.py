@@ -56,6 +56,7 @@ def main():
         os.rename(src, dst)
         print(f"Renamed -> {b}", file=sys.stderr)
 
+    input("Press Enter to return to Yazi.")
 
 if __name__ == "__main__":
     main()

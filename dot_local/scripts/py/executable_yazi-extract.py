@@ -8,6 +8,10 @@ def print_flush(*args, **kwargs):
     print(*args, **kwargs)
     sys.stdout.flush()
 
+def input_flush(prompt):
+    print(prompt, end="", flush=True)
+    return sys.stdin.readline().rstrip('\r\n')
+
 def get_dest_dir(archive_path):
     abs_path = os.path.abspath(archive_path)
     parent_dir = os.path.dirname(abs_path)
@@ -61,6 +65,7 @@ def main():
 
     print_flush("----------------------------------------")
     print_flush("")
+    input_flush("Press Enter to return to Yazi.")
 
 if __name__ == "__main__":
     try:
