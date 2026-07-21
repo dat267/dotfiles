@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import json
-import os
 import platform
 import shutil
-import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -21,12 +22,11 @@ COLORS = {
 
 
 def log(message, color=None):
-    # Enable colors on TTY outputs. On Windows, check for compatibility.
     use_color = sys.stdout.isatty() and (os.name == "posix" or os.environ.get("TERM"))
     if color and use_color:
-        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
+        click.echo(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
     else:
-        print(message)
+        click.echo(message)
 
 
 def get_platform_info():
@@ -41,7 +41,7 @@ def get_platform_info():
         os_name = "darwin"
     else:
         log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     if machine in ("x86_64", "amd64", "em64t"):
         arch_name = "amd64"
@@ -49,12 +49,13 @@ def get_platform_info():
         arch_name = "arm64"
     else:
         log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     return os_name, arch_name
 
 
-def main():
+@click.command()
+def cli():
     os_name, arch_name = get_platform_info()
     log(f"Platform: {os_name}/{arch_name}", "cyan")
 
@@ -78,7 +79,6 @@ def main():
         log("Error: No release found.", "red")
         sys.exit(1)
 
-    # Sort lexicographically by created_at (ISO 8601) to get the latest
     tools_releases.sort(key=lambda r: r.get("created_at", ""))
     latest_release = tools_releases[-1]
     tag = latest_release["tag_name"]
@@ -118,13 +118,11 @@ def main():
                 ) as out_file:
                     shutil.copyfileobj(resp, out_file)
 
-                # Make executable on POSIX systems
                 if os_name != "windows":
                     os.chmod(temp_file_path, 0o755)
 
                 dest_path = os.path.join(INSTALL_DIR, binary_name)
 
-                # Avoid file locking issues on Windows by trying to delete first
                 try:
                     if os.path.exists(dest_path):
                         os.remove(dest_path)
@@ -144,4 +142,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise

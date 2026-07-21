@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import gzip
 import json
-import os
 import platform
 import shutil
 import socket
 import subprocess
-import sys
 import tarfile
 import urllib.request
 import zipfile
@@ -42,7 +42,7 @@ def get_platform():
 
 
 def download_file(url, dest, description="File"):
-    print(f"\n[Connecting] {description}...")
+    click.echo(f"\n[Connecting] {description}...")
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=10) as response:
@@ -58,21 +58,19 @@ def download_file(url, dest, description="File"):
                     current += len(chunk)
                     if total > 0:
                         pct = int(current * 100 / total)
-                        print(
+                        click.echo(
                             f"\r -> Progress: {pct}% ({current // 1024} KB / {total // 1024} KB)",
-                            end="",
-                            flush=True,
+                            nl=False,
                         )
                     else:
-                        print(
+                        click.echo(
                             f"\r -> Progress: {current // 1024} KB",
-                            end="",
-                            flush=True,
+                            nl=False,
                         )
-            print(f"\n[Finished] {description}")
+            click.echo(f"\n[Finished] {description}")
             return True
     except Exception as e:
-        print(f"\n[Error] Failed download: {e}")
+        click.echo(f"\n[Error] Failed download: {e}")
         return False
 
 
@@ -124,7 +122,7 @@ def create_proxy(target_bin, bin_name):
 
 
 def install_marksman(sys_os, arch):
-    print("\n=== Installing Marksman ===")
+    click.echo("\n=== Installing Marksman ===")
     if sys_os == "android":
         if shutil.which("pkg"):
             subprocess.run(["pkg", "install", "-y", "marksman"])
@@ -148,7 +146,7 @@ def install_marksman(sys_os, arch):
 
 
 def install_lua_lsp(sys_os, arch):
-    print("\n=== Installing Lua Language Server ===")
+    click.echo("\n=== Installing Lua Language Server ===")
     if sys_os == "android":
         if shutil.which("pkg"):
             subprocess.run(["pkg", "install", "-y", "lua-language-server"])
@@ -187,7 +185,7 @@ def install_lua_lsp(sys_os, arch):
 
 
 def install_node_tools(sys_os, arch):
-    print("\n=== Installing Node.js & npm Tools ===")
+    click.echo("\n=== Installing Node.js & npm Tools ===")
     node_target = os.path.join(SHARE_DIR, "node")
 
     if sys_os == "android":
@@ -207,7 +205,7 @@ def install_node_tools(sys_os, arch):
         if not os.path.exists(node_bin):
             node_v = get_latest_node_version()
             if not node_v:
-                print("\n[Error] Could not resolve Node.js version.")
+                click.echo("\n[Error] Could not resolve Node.js version.")
                 return
 
             os_str = (
@@ -270,7 +268,7 @@ def install_node_tools(sys_os, arch):
 
 
 def install_black(sys_os):
-    print("\n=== Installing Black Formatter ===")
+    click.echo("\n=== Installing Black Formatter ===")
     env_dir = os.path.join(SHARE_DIR, "black_env")
     bin_sub = "Scripts" if sys_os == "windows" else "bin"
     ext = ".exe" if sys_os == "windows" else ""
@@ -289,7 +287,7 @@ def install_black(sys_os):
 
 
 def install_gopls():
-    print("\n=== Installing Gopls ===")
+    click.echo("\n=== Installing Gopls ===")
     if shutil.which("go"):
         env = os.environ.copy()
         env["GOBIN"] = BIN_DIR
@@ -297,7 +295,7 @@ def install_gopls():
 
 
 def install_powershell_es():
-    print("\n=== Installing PowerShell Editor Services ===")
+    click.echo("\n=== Installing PowerShell Editor Services ===")
     target_dir = os.path.join(SHARE_DIR, "powershell_es")
     ps_script = os.path.join(
         target_dir, "PowerShellEditorServices", "Start-EditorServices.ps1"
@@ -314,7 +312,7 @@ def install_powershell_es():
 
 
 def install_rust_analyzer(sys_os, arch):
-    print("\n=== Installing Rust Analyzer ===")
+    click.echo("\n=== Installing Rust Analyzer ===")
     if sys_os == "android":
         if shutil.which("pkg"):
             subprocess.run(["pkg", "install", "-y", "rust-analyzer"])
@@ -363,14 +361,14 @@ def install_rust_analyzer(sys_os, arch):
 
 
 def uninstall_all(sys_os):
-    print("\n=== Uninstalling All LSPs & Runtimes ===")
+    click.echo("\n=== Uninstalling All LSPs & Runtimes ===")
 
     dirs_to_remove = ["lua-language-server", "node", "black_env", "powershell_es"]
     for d in dirs_to_remove:
         path = os.path.join(SHARE_DIR, d)
         if os.path.exists(path):
             shutil.rmtree(path)
-            print(f"[Removed] {path}")
+            click.echo(f"[Removed] {path}")
 
     bins_to_remove = [
         "marksman",
@@ -390,10 +388,10 @@ def uninstall_all(sys_os):
             path = os.path.join(BIN_DIR, b + ext)
             if os.path.exists(path):
                 os.remove(path)
-                print(f"[Removed] {path}")
+                click.echo(f"[Removed] {path}")
 
     if sys_os == "android" and shutil.which("pkg"):
-        print("\n[Running package manager cleanup]")
+        click.echo("\n[Running package manager cleanup]")
         subprocess.run(
             [
                 "pkg",
@@ -407,13 +405,11 @@ def uninstall_all(sys_os):
         )
 
 
-def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("install", "uninstall"):
-        print("Usage: lsp.py [install|uninstall]")
-        sys.exit(1)
-
+@click.command()
+@click.argument("action", type=click.Choice(["install", "uninstall"]))
+def cli(action):
+    """Install or uninstall LSP servers and runtimes."""
     sys_os, arch = get_platform()
-    action = sys.argv[1]
 
     if action == "uninstall":
         uninstall_all(sys_os)
@@ -429,4 +425,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise

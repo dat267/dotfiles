@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-import os
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import platform
 import shutil
-import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -24,9 +25,9 @@ def log(message, color=None):
         os.name == "posix" or os.environ.get("TERM")
     )
     if color and use_color:
-        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
+        click.echo(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
     else:
-        print(message)
+        click.echo(message)
 
 
 def get_platform_filename():
@@ -46,10 +47,11 @@ def get_platform_filename():
         return "fnm-macos"
     else:
         log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
 
-def main():
+@click.command()
+def cli():
     filename = get_platform_filename()
     log(f"Selected fnm package: {filename}", "cyan")
 
@@ -95,4 +97,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise

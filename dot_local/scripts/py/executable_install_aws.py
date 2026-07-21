@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import os
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import platform
 import shutil
 import subprocess
-import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -23,9 +24,9 @@ def log(message, color=None):
         os.name == "posix" or os.environ.get("TERM")
     )
     if color and use_color:
-        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
+        click.echo(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
     else:
-        print(message)
+        click.echo(message)
 
 
 def get_platform_info():
@@ -40,7 +41,7 @@ def get_platform_info():
         os_name = "darwin"
     else:
         log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     if machine in ("x86_64", "amd64", "em64t"):
         arch_name = "x86_64"
@@ -48,7 +49,7 @@ def get_platform_info():
         arch_name = "aarch64"
     else:
         log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     return os_name, arch_name
 
@@ -60,8 +61,6 @@ def install_unix(os_name, arch_name):
     if os_name == "darwin":
         url = "https://awscli.amazonaws.com/AWSCLIV2.pkg"
         log("Notice: On macOS, installing the official AWS CLI package...", "cyan")
-        # For macOS, we can download the pkg and install it. However, pkg requires admin.
-        # We can guide the user or run installer. Let's try downloading and installing.
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
                 pkg_path = os.path.join(temp_dir, "AWSCLIV2.pkg")
@@ -78,7 +77,6 @@ def install_unix(os_name, arch_name):
             sys.exit(1)
         return
 
-    # Linux / Android (Termux)
     url = f"https://awscli.amazonaws.com/awscli-exe-linux-{arch_name}.zip"
     log(f"Downloading AWS CLI for Linux from: {url}", "cyan")
 
@@ -101,7 +99,6 @@ def install_unix(os_name, arch_name):
 
             os.chmod(install_script, 0o755)
 
-            # Ensure execution permissions on internal binaries as well
             for root, dirs, files in os.walk(os.path.join(temp_dir, "aws")):
                 for file in files:
                     os.chmod(os.path.join(root, file), 0o755)
@@ -125,7 +122,6 @@ def install_unix(os_name, arch_name):
 
 
 def install_windows():
-    # Attempt Scoop first
     if shutil.which("scoop"):
         log("Found Scoop. Installing AWS CLI via Scoop...", "cyan")
         try:
@@ -135,7 +131,6 @@ def install_windows():
         except subprocess.CalledProcessError:
             pass
 
-    # Attempt Winget next
     if shutil.which("winget"):
         log("Found Winget. Installing AWS CLI via Winget...", "cyan")
         try:
@@ -155,7 +150,6 @@ def install_windows():
         except subprocess.CalledProcessError:
             pass
 
-    # Fallback to direct MSI download and execution
     url = "https://awscli.amazonaws.com/AWSCLIV2.msi"
     log("Downloading official AWS CLI MSI installer...", "cyan")
     try:
@@ -166,7 +160,6 @@ def install_windows():
                 shutil.copyfileobj(resp, out)
 
             log("Running MSI installer (may prompt for Administrator rights)...", "yellow")
-            # Run msiexec silently and wait for it
             subprocess.run(
                 ["msiexec.exe", "/i", msi_path, "/qn", "/norestart"], check=True
             )
@@ -176,7 +169,8 @@ def install_windows():
         sys.exit(1)
 
 
-def main():
+@click.command()
+def cli():
     system = platform.system().lower()
     if system == "android":
         log("Android (Termux) detected. Installing AWS CLI via pip...", "cyan")
@@ -201,4 +195,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise

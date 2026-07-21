@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-import os
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import platform
 import shutil
 import subprocess
-import sys
 import tarfile
 import tempfile
 import urllib.error
@@ -24,9 +25,9 @@ def log(message, color=None):
         os.name == "posix" or os.environ.get("TERM")
     )
     if color and use_color:
-        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
+        click.echo(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
     else:
-        print(message)
+        click.echo(message)
 
 
 def get_platform_info():
@@ -41,7 +42,7 @@ def get_platform_info():
         os_name = "darwin"
     else:
         log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     if machine in ("x86_64", "amd64", "em64t"):
         arch_name = "x86_64"
@@ -49,7 +50,7 @@ def get_platform_info():
         arch_name = "arm"
     else:
         log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     return os_name, arch_name
 
@@ -67,7 +68,8 @@ def clean_directory(path):
             sys.exit(1)
 
 
-def main():
+@click.command()
+def cli():
     os_name, arch_name = get_platform_info()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 
@@ -79,7 +81,6 @@ def main():
         install_root = os.path.expanduser("~/.local/opt")
         install_path = os.path.join(install_root, "google-cloud-sdk")
 
-    # Construct official download URL
     url = f"https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-{os_name}-{arch_name}.{archive_ext}"
     log(f"Downloading Google Cloud CLI from: {url}", "cyan")
 
@@ -110,7 +111,6 @@ def main():
             shutil.move(extracted_sdk, install_path)
             log(f"Google Cloud SDK files deployed to: {install_path}", "green")
 
-            # Run post-install configuration scripts
             log("Running gcloud post-install config...", "cyan")
             if os_name == "windows":
                 install_cmd = os.path.join(install_path, "install.bat")
@@ -120,7 +120,6 @@ def main():
                 install_cmd = os.path.join(install_path, "install.sh")
                 if os.path.exists(install_cmd):
                     os.chmod(install_cmd, 0o755)
-                    # Recursively ensure execution permissions for gcloud internal commands
                     for root, dirs, files in os.walk(os.path.join(install_path, "bin")):
                         for file in files:
                             os.chmod(os.path.join(root, file), 0o755)
@@ -134,4 +133,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise

@@ -5,15 +5,16 @@ Translate text between languages using free online APIs.
 Usage:
   %(name)s                              Interactive mode
   %(name)s --quiet                     Read text from stdin, output only translation
-   %(name)s --quiet --file <path>...    Read text from file(s), overwrite with translation
-   %(name)s --rename <path>...          Translate filename (stem) and rename file(s)
+  %(name)s --quiet --file <path>...    Read text from file(s), overwrite with translation
+  %(name)s --rename <path>...          Translate filename (stem) and rename file(s)
   %(name)s <text> [target] [source]     Translate <text> to target language (default: en)
   %(name)s --langs                     List supported language codes
   %(name)s --help                      Show this help
 """
-import sys
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import json
-import os
 import urllib.request
 import urllib.parse
 
@@ -38,7 +39,7 @@ _UA = "Mozilla/5.0 (X11; Linux x86_64)"
 
 
 def eprint(*a, **kw):
-    print(*a, file=sys.stderr, **kw)
+    click.echo(*a, err=True, **kw)
 
 
 def _guess_lang(text):
@@ -93,10 +94,6 @@ def translate_mymemory(text, target, source):
     return t
 
 
-# Lingva uses GET with text in the URL path. URL-encoded CJK text
-# expands ~3x (each UTF-8 byte → %XX), so cap at 200 raw chars to stay
-# under common 2000-char URI limits. Non-CJK text is fine since ASCII
-# is not percent-encoded by urllib.
 _MAX_CHUNK = 200
 _UA_LIMIT = 2000
 
@@ -113,10 +110,6 @@ def _translate_one(text, target, source):
     if source != "auto":
         providers.append(translate_mymemory)
     else:
-        # Lingva may fail on text containing '://' (midware decodes %2F → /
-        # before the app sees it, breaking the route). Fall back to MyMemory
-        # which uses a query param, avoiding the issue entirely. Guess the
-        # source language from script ranges.
         providers.append(lambda t, tg, src: translate_mymemory(t, tg, _guess_lang(t)))
     for fn in providers:
         try:
@@ -148,25 +141,26 @@ def translate(text, target, source="auto"):
 
 
 def input_flush(prompt):
-    print(prompt, end="", flush=True)
-    return sys.stdin.readline().rstrip("
-")
+    click.echo(prompt, nl=False, err=True)
+    return sys.stdin.readline().rstrip("\n")
 
 
-def main():
-    args = sys.argv[1:]
-    quiet = False
+@click.command()
+@click.option("--quiet", is_flag=True, help="Read text from stdin, output only translation")
+@click.option("--rename", is_flag=True, help="Translate filename (stem) and rename file(s)")
+@click.option("--file", is_flag=True, help="Read text from file(s), overwrite with translation")
+@click.option("--langs", is_flag=True, help="List supported language codes")
+@click.argument("args", nargs=-1)
+def cli(quiet, rename, file, langs, args):
+    """Translate text between languages using free online APIs."""
+    args = list(args)
 
-    if args and args[0] == "--quiet":
-        quiet = True
-        args = args[1:]
-
-    if args and args[0] == "--rename":
-        if len(args) < 2:
+    if rename:
+        if not args:
             eprint("Error: --rename requires at least one file path")
             input_flush("Press Enter to return to Yazi.")
-            sys.exit(1)
-        for p in args[1:]:
+            raise SystemExit(1)
+        for p in args:
             if len(p) >= 2 and p[0] == p[-1] and p[0] in "'\"":
                 p = p[1:-1]
             name = os.path.basename(p)
@@ -185,21 +179,17 @@ def main():
         input("Press Enter to return to Yazi.")
         return
 
-    if args and args[0] == "--langs":
+    if langs:
         for c in sorted(KNOWN_LANGS):
-            print(c)
+            click.echo(c)
         return
 
-    if args and args[0] in ("--help", "-h"):
-        print(__doc__ % {"name": "translate"})
-        return
-
-    if args and args[0] == "--file":
-        if len(args) < 2:
+    if file:
+        if not args:
             eprint("Error: --file requires at least one file path")
             input_flush("Press Enter to return to Yazi.")
-            sys.exit(1)
-        for fp in args[1:]:
+            raise SystemExit(1)
+        for fp in args:
             if len(fp) >= 2 and fp[0] == fp[-1] and fp[0] in "'\"":
                 fp = fp[1:-1]
             enc = _detect_encoding(fp)
@@ -215,14 +205,14 @@ def main():
         input("Press Enter to return to Yazi.")
         return
 
-    if len(args) == 0:
+    if not args:
         if quiet:
             text = sys.stdin.read().strip()
         else:
             eprint("=== Translator ===")
-            text = input("Enter text to translate: ").strip()
+            text = click.prompt("Enter text to translate", default="")
             if text:
-                t = input("Target language (default: en): ").strip()
+                t = click.prompt("Target language", default="")
                 if t:
                     target = t
     else:
@@ -233,7 +223,7 @@ def main():
     if not text:
         eprint("Error: text cannot be empty")
         input_flush("Press Enter to return to Yazi.")
-        sys.exit(1)
+        raise SystemExit(1)
 
     if not quiet:
         eprint(f"Text:     {text!r}")
@@ -244,11 +234,18 @@ def main():
     result = translate(text, target, source)
 
     if quiet:
-        print(result)
+        click.echo(result)
     else:
         eprint(f"Result:   {result}")
         eprint("-" * 40)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise

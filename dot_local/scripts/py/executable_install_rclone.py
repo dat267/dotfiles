@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-import os
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import platform
 import shutil
-import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -24,9 +25,9 @@ def log(message, color=None):
         os.name == "posix" or os.environ.get("TERM")
     )
     if color and use_color:
-        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
+        click.echo(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
     else:
-        print(message)
+        click.echo(message)
 
 
 def get_platform_info():
@@ -41,7 +42,7 @@ def get_platform_info():
         os_name = "osx"
     else:
         log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     if machine in ("x86_64", "amd64", "em64t"):
         arch_name = "amd64"
@@ -49,12 +50,13 @@ def get_platform_info():
         arch_name = "arm64"
     else:
         log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     return os_name, arch_name
 
 
-def main():
+@click.command()
+def cli():
     os_name, arch_name = get_platform_info()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 
@@ -77,7 +79,6 @@ def main():
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 zip_ref.extractall(temp_dir)
 
-            # Find the extracted directory nested inside (starts with rclone-v)
             extracted_dirs = [
                 d
                 for d in os.listdir(temp_dir)
@@ -110,4 +111,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise

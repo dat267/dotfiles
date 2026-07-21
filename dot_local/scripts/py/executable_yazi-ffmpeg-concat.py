@@ -1,78 +1,70 @@
 #!/usr/bin/env python3
-import os
-import sys
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+
 import subprocess
 import shutil
+import click
 
-def print_flush(*args, **kwargs):
-    print(*args, **kwargs)
-    sys.stdout.flush()
 
-def main():
+@click.command()
+@click.argument("files", nargs=-1, type=click.Path(exists=True), required=True)
+def concat(files):
     if not shutil.which("ffmpeg"):
-        print_flush("Error: ffmpeg is not installed or not in PATH.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(1)
+        click.echo("Error: ffmpeg is not installed.", err=True)
+        raise SystemExit(1)
 
-    args = sys.argv[1:]
-    if len(args) < 2:
-        print_flush("Error: You must select at least 2 files to concatenate.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(1)
+    if len(files) < 2:
+        click.echo("Error: need at least 2 files.", err=True)
+        raise SystemExit(1)
 
-    print_flush("\n>>> FFmpeg Media Concatenator <<<")
-    print_flush("Selected files in order:")
-    for f in args:
-        print_flush(f"  - {os.path.basename(f)}")
-    print_flush("")
+    click.echo(f"\n>>> Concatenating {len(files)} files <<<")
+    for f in files:
+        click.echo(f"  - {os.path.basename(f)}")
+    click.echo("")
 
-    first_file = args[0]
-    _, ext = os.path.splitext(first_file)
-    is_flac = all(f.lower().endswith('.flac') for f in args)
+    is_flac = all(f.lower().endswith(".flac") for f in files)
+    ext = os.path.splitext(files[0])[1]
+    parent = os.path.dirname(os.path.abspath(files[0]))
+    parent_name = os.path.basename(parent)
+    first_base = os.path.splitext(os.path.basename(files[0]))[0]
+    generic = {"downloads", "desktop", "documents", "temp", "tmp", "videos", "music", "pictures", "home", "dat"}
+    default = f"{parent_name}_combined{ext}" if parent_name.lower() not in generic else f"{first_base}_combined{ext}"
 
-    parent_dir = os.path.abspath(os.path.dirname(first_file))
-    parent_name = os.path.basename(parent_dir)
-    first_base, _ = os.path.splitext(os.path.basename(first_file))
-    generic_dirs = {"downloads", "desktop", "documents", "temp", "tmp", "videos", "music", "pictures", "home", "dat"}
-    default_name = f"{parent_name}_combined{ext}" if parent_name.lower() not in generic_dirs else f"{first_base}_combined{ext}"
-
-    output_name = input_flush(f"Enter output filename (default: {default_name}): ").strip()
-    if not output_name:
-        output_name = default_name
-
-    print_flush("")
-    print_flush("Concatenating...")
+    out_name = click.prompt("Output filename", default=default)
+    click.echo("")
 
     cmd = ["ffmpeg"]
-    for f in args:
+    for f in files:
         cmd.extend(["-i", f])
 
     if is_flac:
-        cmd += ["-filter_complex", f"concat=n={len(args)}:v=0:a=1",
-                "-c:a", "flac", "-y", output_name]
+        cmd += ["-filter_complex", f"concat=n={len(files)}:v=0:a=1",
+                "-c:a", "flac", "-y", out_name]
     else:
-        filter_str = "".join(f"[{i}:v][{i}:a]" for i in range(len(args)))
-        filter_str += f" concat=n={len(args)}:v=1:a=1 [v][a]"
+        filter_str = "".join(f"[{i}:v][{i}:a]" for i in range(len(files)))
+        filter_str += f" concat=n={len(files)}:v=1:a=1 [v][a]"
         cmd += ["-filter_complex", filter_str, "-map", "[v]", "-map", "[a]",
-                "-c:v", "libx264", "-c:a", "aac", "-y", output_name]
+                "-c:v", "libx264", "-c:a", "aac", "-y", out_name]
 
-    print_flush(f"Command: {' '.join(cmd)}\n")
+    click.echo(f"Running: {' '.join(cmd)}\n")
     res = subprocess.run(cmd)
     if res.returncode == 0:
-        print_flush(f"Successfully concatenated to '{output_name}'!")
+        click.echo(f"Created '{out_name}'!")
     else:
-        print_flush("Error: Concatenation failed.")
+        click.echo("Concat failed.", err=True)
 
-    print_flush("")
-    input_flush("Press Enter to return to Yazi.")
+    click.echo("")
+    click.echo("Press Enter to return to Yazi.", nl=False)
+    input()
 
-def input_flush(prompt):
-    print(prompt, end="", flush=True)
-    return sys.stdin.readline().rstrip('\r\n')
 
 if __name__ == "__main__":
     try:
-        main()
+        concat()
     except KeyboardInterrupt:
-        print_flush("\n\nOperation cancelled. Returning to Yazi...")
-        sys.exit(0)
+        click.echo("\n\nOperation cancelled.")
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter to return to Yazi. ")
+        raise

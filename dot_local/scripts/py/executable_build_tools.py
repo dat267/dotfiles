@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import os
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import subprocess
-import sys
 
 BASE_SRC_DIR = os.path.expanduser("~/.local/src")
 
@@ -17,15 +18,16 @@ COLORS = {
 def log(message, color=None):
     use_color = sys.stdout.isatty() and (os.name == "posix" or os.environ.get("TERM"))
     if color and use_color:
-        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
+        click.echo(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
     else:
-        print(message)
+        click.echo(message)
 
 
-def main():
+@click.command()
+def cli():
     if not os.path.isdir(BASE_SRC_DIR):
         log(f"Error: Base directory not found at {BASE_SRC_DIR}", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     log(f"Scanning for projects with Makefiles under {BASE_SRC_DIR}...", "cyan")
 
@@ -63,4 +65,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise

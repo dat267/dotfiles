@@ -1,77 +1,44 @@
 #!/usr/bin/env python3
-import os
-import sys
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+
 import subprocess
 import shutil
+import click
 
-def print_flush(*args, **kwargs):
-    print(*args, **kwargs)
-    sys.stdout.flush()
 
-def input_flush(prompt):
-    print(prompt, end="", flush=True)
-    return sys.stdin.readline().rstrip('\r\n')
-
-def main():
-    # 1. Check if ffmpeg is installed
+@click.command()
+@click.argument("files", nargs=-1, type=click.Path(exists=True), required=True)
+@click.option("--ext", "-e", default="mp4", help="Target extension (mp4, mp3, mkv, wav, etc.)")
+def transcode(files, ext):
     if not shutil.which("ffmpeg"):
-        print_flush("Error: ffmpeg is not installed or not in PATH.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(1)
+        click.echo("Error: ffmpeg is not installed.", err=True)
+        raise SystemExit(1)
 
-    # 2. Check input arguments
-    args = sys.argv[1:]
-    if len(args) < 1:
-        print_flush("Error: You must select at least 1 file to transcode.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(1)
+    ext = ext.lower()
+    if not ext.startswith("."):
+        ext = "." + ext
 
-    print_flush("\n>>> FFmpeg Media Transcoder <<<")
-    print_flush("Selected files:")
-    for f in args:
-        print_flush(f"  - {os.path.basename(f)}")
-    print_flush("")
+    for src in files:
+        base, _ = os.path.splitext(os.path.basename(src))
+        parent = os.path.dirname(os.path.abspath(src))
+        out = os.path.join(parent, base + ext)
+        click.echo(f"Transcoding {os.path.basename(src)} -> {os.path.basename(out)}")
+        res = subprocess.run(["ffmpeg", "-i", src, "-y", out])
+        if res.returncode != 0:
+            click.echo(f"Failed: {os.path.basename(src)}", err=True)
 
-    # Prompt user for the target format
-    target_ext = input_flush("Enter target extension (e.g., mp4, mp3, mkv, webm, wav) [default: mp4]: ").strip().lower()
-    if not target_ext:
-        target_ext = "mp4"
-    
-    # Strip leading dot if provided
-    if target_ext.startswith("."):
-        target_ext = target_ext[1:]
+    click.echo(f"\nDone — {len(files)} file(s)")
+    click.echo("Press Enter to return to Yazi.", nl=False)
+    input()
 
-    print_flush(f"\nTranscoding files to .{target_ext} format...")
-
-    for f in args:
-        abs_path = os.path.abspath(f)
-        parent_dir = os.path.dirname(abs_path)
-        base_name, old_ext = os.path.splitext(os.path.basename(abs_path))
-        
-        # If the target extension matches the old extension, append a suffix to avoid overwriting
-        if old_ext.lower().lstrip('.') == target_ext:
-            output_name = f"{base_name}_transcoded.{target_ext}"
-        else:
-            output_name = f"{base_name}.{target_ext}"
-            
-        output_path = os.path.join(parent_dir, output_name)
-
-        print_flush(f"\nProcessing: {os.path.basename(abs_path)} -> {output_name}")
-        cmd = ["ffmpeg", "-i", abs_path, "-y", output_path]
-        print_flush(f"Command: {' '.join(cmd)}\n")
-        
-        res = subprocess.run(cmd)
-        if res.returncode == 0:
-            print_flush(f"Successfully created '{output_name}'!")
-        else:
-            print_flush(f"Error: Transcoding failed for '{os.path.basename(abs_path)}'.")
-
-    print_flush("")
-    input_flush("Press Enter to return to Yazi.")
 
 if __name__ == "__main__":
     try:
-        main()
+        transcode()
     except KeyboardInterrupt:
-        print_flush("\n\nOperation cancelled. Returning to Yazi...")
-        sys.exit(0)
+        click.echo("\n\nOperation cancelled.")
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter to return to Yazi. ")
+        raise

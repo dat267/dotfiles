@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-import os
-import sys
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import re
 import socket
 import random
@@ -257,13 +258,13 @@ def resolve_endpoint_ip(hostname):
         sys.exit(1)
 
 
-def run():
-    if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <aws_client_dir> <ovpn_file>")
-        sys.exit(1)
-
-    client_dir = os.path.abspath(sys.argv[1])
-    profile = os.path.abspath(sys.argv[2])
+@click.command()
+@click.argument("aws_client_dir", type=click.Path(exists=True))
+@click.argument("ovpn_file", type=click.Path(exists=True))
+def cli(aws_client_dir, ovpn_file):
+    """Connect to AWS Client VPN via SAML authentication."""
+    client_dir = os.path.abspath(aws_client_dir)
+    profile = os.path.abspath(ovpn_file)
 
     global proc2
     proc2 = None
@@ -492,4 +493,11 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise

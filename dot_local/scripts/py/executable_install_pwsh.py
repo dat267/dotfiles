@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import json
-import os
 import platform
 import shutil
-import sys
 import tarfile
 import tempfile
 import urllib.error
@@ -24,9 +25,9 @@ def log(message, color=None):
         os.name == "posix" or os.environ.get("TERM")
     )
     if color and use_color:
-        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
+        click.echo(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
     else:
-        print(message)
+        click.echo(message)
 
 
 def get_platform_info():
@@ -41,7 +42,7 @@ def get_platform_info():
         os_name = "darwin"
     else:
         log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     if machine in ("x86_64", "amd64", "em64t"):
         arch_name = "x64"
@@ -49,7 +50,7 @@ def get_platform_info():
         arch_name = "arm64"
     else:
         log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
+        raise SystemExit(1)
 
     return os_name, arch_name
 
@@ -62,10 +63,6 @@ def fetch_latest_pwsh_release(os_name, arch_name):
             data = json.loads(resp.read().decode("utf-8"))
             assets = data.get("assets", [])
 
-            # Asset extension and naming pattern:
-            # Linux: *linux-x64.tar.gz or *linux-arm64.tar.gz
-            # Windows: *win-x64.zip or *win-arm64.zip
-            # OS X: *osx-x64.tar.gz or *osx-arm64.tar.gz
             if os_name == "windows":
                 pattern = f"win-{arch_name}.zip"
             elif os_name == "darwin":
@@ -77,7 +74,6 @@ def fetch_latest_pwsh_release(os_name, arch_name):
                 a for a in assets if a.get("name", "").endswith(pattern)
             ]
             if not matching_assets:
-                # Fallback check (some releases might have different architecture naming)
                 pattern_fallback = (
                     "win-x64.zip"
                     if os_name == "windows"
@@ -111,7 +107,8 @@ def clean_directory(path):
             sys.exit(1)
 
 
-def main():
+@click.command()
+def cli():
     os_name, arch_name = get_platform_info()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 
@@ -147,7 +144,6 @@ def main():
                 with tarfile.open(archive_path, "r:gz") as tar_ref:
                     tar_ref.extractall(extract_dir)
 
-            # Resolve source dir if it nested inside a subdirectory (rare but possible)
             src_dir = extract_dir
             subdirs = [
                 d
@@ -163,12 +159,10 @@ def main():
             shutil.move(src_dir, install_path)
 
             if os_name != "windows":
-                # Ensure main executable is runnable
                 binary_exec = os.path.join(install_path, "pwsh")
                 if os.path.exists(binary_exec):
                     os.chmod(binary_exec, 0o755)
 
-                # Set up launcher symlink
                 bin_dir = os.path.expanduser("~/.local/bin")
                 os.makedirs(bin_dir, exist_ok=True)
                 symlink_path = os.path.join(bin_dir, "pwsh")
@@ -187,4 +181,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise

@@ -8,11 +8,12 @@ Default font: FiraCode
 
 Known fonts: https://github.com/ryanoasis/nerd-fonts/releases
 """
-import os
+import os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
+import click
 import platform
 import shutil
 import subprocess
-import sys
 import tempfile
 import urllib.request
 import zipfile
@@ -43,7 +44,7 @@ def install_font(name):
     os.makedirs(dest, exist_ok=True)
 
     url = latest_release_url(name)
-    print(f"Downloading {name} Nerd Font...")
+    click.echo(f"Downloading {name} Nerd Font...")
     with urllib.request.urlopen(url) as resp:
         data = resp.read()
 
@@ -56,33 +57,39 @@ def install_font(name):
 
         fonts = [os.path.join(tmp, f) for f in os.listdir(tmp) if f.endswith((".ttf", ".otf"))]
         if not fonts:
-            print("Error: no .ttf or .otf files found in the archive")
-            sys.exit(1)
+            click.echo("Error: no .ttf or .otf files found in the archive")
+            raise SystemExit(1)
 
         for src in fonts:
             dst = os.path.join(dest, os.path.basename(src))
             shutil.copy2(src, dst)
-            print(f"  Installed {os.path.basename(src)}")
+            click.echo(f"  Installed {os.path.basename(src)}")
 
     if platform.system().lower() == "linux":
         subprocess.run(["fc-cache", "-f"], capture_output=True)
-        print("Font cache updated (fc-cache)")
+        click.echo("Font cache updated (fc-cache)")
 
-    print(f"\n{name} Nerd Font installed in {dest}")
+    click.echo(f"\n{name} Nerd Font installed in {dest}")
 
 
-def main():
-    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
-        print(__doc__)
-        return
-    name = sys.argv[1] if len(sys.argv) > 1 else "FiraCode"
-    if name not in KNOWN:
-        print(f"Unknown font '{name}'. Known fonts:")
+@click.command()
+@click.argument("font_name", default="FiraCode")
+def cli(font_name):
+    """Install a Nerd Font from the latest GitHub release."""
+    if font_name not in KNOWN:
+        click.echo(f"Unknown font '{font_name}'. Known fonts:")
         for f in KNOWN:
-            print(f"  {f}")
-        sys.exit(1)
-    install_font(name)
+            click.echo(f"  {f}")
+        raise SystemExit(1)
+    install_font(font_name)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        cli()
+    except KeyboardInterrupt:
+        ...
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
+        raise
