@@ -18,26 +18,26 @@ set smartcase
 set info
 set timefmt "2006-01-02T15:04:05Z"
 
-cmd open %{{ "$EDITOR" }} {{ "$fx" }}
+cmd open ${{ "$EDITOR" }} {{ "$fx" }}
 
 {{- if eq .chezmoi.os "windows" }}
 cmd mkdir %New-Item -ItemType Directory -Path "{{ "$*" }}" -Force
 cmd touch %New-Item -ItemType File -Path "{{ "$*" }}" -Force
 
-cmd extract_archive %[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-extract.py $files; lf -remote "send {{ "$env:id" }} reload"
-cmd compress_7z %[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-compress.py 7z $files; lf -remote "send {{ "$env:id" }} reload"
-cmd compress_zip %[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-compress.py zip $files; lf -remote "send {{ "$env:id" }} reload"
-cmd concat_media %[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-concat.py $files; lf -remote "send {{ "$env:id" }} reload"
-cmd transcode_media %[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-transcode.py $files; lf -remote "send {{ "$env:id" }} reload"
+cmd extract_archive $[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-extract.py $files; lf -remote "send {{ "$env:id" }} reload"
+cmd compress_7z $[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-compress.py 7z $files; lf -remote "send {{ "$env:id" }} reload"
+cmd compress_zip $[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-compress.py zip $files; lf -remote "send {{ "$env:id" }} reload"
+cmd concat_media $[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-concat.py $files; lf -remote "send {{ "$env:id" }} reload"
+cmd transcode_media $[array]$files = @(); if ({{ "$env:fx" }}) { $files = {{ "$env:fx" }}.Split(';') } else { $files = @({{ "$env:f" }}) }; & {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-transcode.py $files; lf -remote "send {{ "$env:id" }} reload"
 {{- else }}
 cmd mkdir %mkdir -p -- {{ "$*" }}
 cmd touch %touch -- {{ "$1" }}
 
-cmd extract_archive %[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-extract.py {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
-cmd compress_7z %[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-compress.py 7z {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
-cmd compress_zip %[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-compress.py zip {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
-cmd concat_media %[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-concat.py {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
-cmd transcode_media %[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-transcode.py {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
+cmd extract_archive $[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-extract.py {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
+cmd compress_7z $[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-compress.py 7z {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
+cmd compress_zip $[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-compress.py zip {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
+cmd concat_media $[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-concat.py {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
+cmd transcode_media $[ -n "{{ "$fx" }}" ] && set -- {{ "$fx" }} || set -- "{{ "$f" }}"; {{ $py }} ~/.local/scripts/py/yazi-ffmpeg-transcode.py {{ "$@" }}; lf -remote "send {{ "$id" }} reload"
 {{- end }}
 
 map <esc> clear
