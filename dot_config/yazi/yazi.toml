@@ -15,11 +15,39 @@ open = [
   { run = 'xdg-open "%s"', orphan = true, desc = "Open", for = "linux" },
   { run = 'open "%s"', orphan = true, desc = "Open", for = "macos" },
 ]
+extract = [
+  { run = 'python3 -u ~/.local/scripts/py/yazi-extract.py %s', block = true, desc = "Extract", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-extract.py" %s', block = true, desc = "Extract", for = "windows" },
+]
+compress_7z = [
+  { run = 'python3 -u ~/.local/scripts/py/yazi-compress.py 7z %s', block = true, desc = "Comp 7z", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-compress.py" 7z %s', block = true, desc = "Comp 7z", for = "windows" },
+]
+compress_zip = [
+  { run = 'python3 -u ~/.local/scripts/py/yazi-compress.py zip %s', block = true, desc = "Comp zip", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-compress.py" zip %s', block = true, desc = "Comp zip", for = "windows" },
+]
+concat_media = [
+  { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-concat.py %s', block = true, desc = "Concat", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-concat.py" %s', block = true, desc = "Concat", for = "windows" },
+]
+transcode_media = [
+  { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-transcode.py %s', block = true, desc = "Transcode", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-transcode.py" %s', block = true, desc = "Transcode", for = "windows" },
+]
+split_media = [
+  { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-split.py %s1', block = true, desc = "Split", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-split.py" %s1', block = true, desc = "Split", for = "windows" },
+]
 
 [open]
 rules = [
   { mime = "text/*", use = [ "edit" ] },
   { mime = "image/*", use = [ "open" ] },
-  { mime = "{audio,video}/*", use = [ "play", "open" ] },
-  { mime = "*", use = [ "edit", "open" ] },
+  { mime = "{audio,video}/*", use = [
+    "play", "open", "concat_media", "split_media", "transcode_media",
+  ] },
+  { mime = "application/{,g}zip", use = [ "extract", "open" ] },
+  { mime = "application/x-{tar,bzip*,7z-compressed,xz,rar}", use = [ "extract", "open" ] },
+  { mime = "*", use = [ "edit", "open", "compress_7z", "compress_zip" ] },
 ]
