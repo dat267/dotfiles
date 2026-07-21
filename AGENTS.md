@@ -45,9 +45,9 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | ---------------------------- | -------------------------------------------- |
 | `dot_config/yazi/yazi.toml`  | Openers (edit, extract, concat, transcode, compress) |
 | `dot_config/yazi/keymap.toml`| Custom keybindings (`.`, `e`, `O`, `R`, `x`, `C`, `T`, `tf`, `tc`) |
-| `dot_config/yazi/init.lua`   | Plugin setup (mime-broad)                    |
+| `dot_config/yazi/init.lua`   | Plugin setup (none currently)                |
 | `dot_config/yazi/theme.toml` | Visual theme                                 |
-| `dot_config/yazi/plugins/`   | Custom plugins (mime-broad.yazi)             |
+| `dot_config/yazi/plugins/`   | Custom plugins (none currently)              |
 
 ### Python Scripts (`dot_local/scripts/py/`)
 
@@ -130,7 +130,7 @@ All executable Python scripts follow these conventions:
 
 - **Openers** (`yazi.toml`): Define scripts that run when opening files. All openers accessed via keybindings. Single `open` rule for Enter → xdg-open.
 - **Keymaps** (`keymap.toml`): Bind keys to Yazi built-ins or `shell` commands. Use `%S` for batch (all selected files). Use `--block` to show terminal output. Append `2>&1` to merge stderr into the visible output.
-- **MIME detection** (`mime-broad` plugin): Returns `text/plain` for every file. No `file(1)` overhead, no extension tables to maintain. Specific actions (extract, concat, transcode) are triggered via dedicated keybindings, not MIME rules.
+- **MIME detection** (Yazi built-in): Uses `file(1)` for content-based MIME detection.
 
 ## Custom Tools (`dot_local/src/`)
 

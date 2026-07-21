@@ -48,16 +48,3 @@ rules = [
   { mime = "*", use = [ "edit", "open", "compress_7z", "compress_zip" ] },
 ]
 
-[[plugin.prepend_fetchers]]
-id    = "mime"
-group = "mime"
-url   = "local://*"
-run   = "mime-broad"
-prio  = "high"
-
-[[plugin.prepend_fetchers]]
-id    = "mime"
-group = "mime"
-url   = "remote://*"
-run   = "mime-broad"
-prio  = "high"
