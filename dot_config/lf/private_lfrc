@@ -1,8 +1,5 @@
 set nohidden
 set preview
-set previewer ~/.config/lf/preview.sh
-set nodrawbox
-set noroundbox
 set noicons
 set ignorecase
 set smartcase
@@ -13,16 +10,8 @@ cmd open ${{
     $EDITOR $fx
 }}
 
-cmd rename ${{
-    read -r new <&0
-    for f in $fx; do
-        mv -- "$f" "$(dirname "$f")/$new"
-    done
-}}
-
-cmd mkdir %IFS=" "; mkdir -p -- "$*"
+cmd mkdir %mkdir -p -- "$*"
 cmd touch %touch -- "$1"
-cmd follow_link %lf -remote "send ${id} select '$(readlink $f)'"
 
 cmd extract_archive ${{
     [ -n "$fx" ] && set -- $fx || set -- "$f"
@@ -54,29 +43,21 @@ cmd transcode_media ${{
     lf -remote "send $id reload"
 }}
 
-map v :select *
-map d
 map dd cut
 map dD delete
+map yy copy
 map p paste
-map a push :mkdir<space>
-map A push :touch<space>
-map gL follow_link
+map P paste
 map <enter> :open
 map e :open
 map o :open
-map <esc> clear
+map a push :mkdir<space>
+map A push :touch<space>
+map . set hidden!
+map r rename
 
 map x extract_archive
 map cz compress_zip
 map c7 compress_7z
 map C concat_media
 map T transcode_media
-map . set hidden!
-
-map gh cd ~
-map gc cd ~/.config
-map gd cd ~/Downloads
-map gD cd ~/Documents
-map gt cd /tmp
-map g/ cd /
