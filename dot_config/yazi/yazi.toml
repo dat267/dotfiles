@@ -65,12 +65,12 @@ rules = [
 id    = "mime"
 group = "mime"
 url   = "local://*"
-run   = "mime-ext.local"
+run   = "mime-broad"
 prio  = "high"
 
 [[plugin.prepend_fetchers]]
 id    = "mime"
 group = "mime"
 url   = "remote://*"
-run   = "mime-ext.remote"
+run   = "mime-broad"
 prio  = "high"
