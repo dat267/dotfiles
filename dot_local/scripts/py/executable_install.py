@@ -33,7 +33,7 @@ def log(message, color=None):
         click.echo(message)
 
 
-@click.group()
+@click.group(help="Install tools, runtimes, and language servers")
 def cli():
     pass
 
@@ -180,7 +180,7 @@ def _aws_install_windows():
         sys.exit(1)
 
 
-@cli.command()
+@cli.command(help="Install AWS CLI v2")
 def aws():
     system = platform.system().lower()
     if system == "android":
@@ -235,7 +235,7 @@ def _code_platform():
     return os_name, arch_name
 
 
-@cli.command()
+@cli.command(help="Install VS Code")
 def code():
     os_name, arch_name = _code_platform()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
@@ -354,7 +354,7 @@ def _firefox_install_windows():
         sys.exit(1)
 
 
-@cli.command()
+@cli.command(help="Install Firefox Developer Edition")
 def firefox():
     system = platform.system().lower()
     if system != "windows":
@@ -390,7 +390,7 @@ def _fnm_platform_filename():
         raise SystemExit(1)
 
 
-@cli.command()
+@cli.command(help="Install fnm (Fast Node Manager)")
 def fnm():
     filename = _fnm_platform_filename()
     log(f"Selected fnm package: {filename}", "cyan")
@@ -476,7 +476,7 @@ def _gcloud_clean_directory(path):
             sys.exit(1)
 
 
-@cli.command()
+@cli.command(help="Install Google Cloud SDK")
 def gcloud():
     os_name, arch_name = _gcloud_platform()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
@@ -612,7 +612,7 @@ def _go_clean_directory(path):
             sys.exit(1)
 
 
-@cli.command()
+@cli.command(help="Install Go programming language")
 def go():
     os_name, arch_name = _go_platform()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
@@ -692,7 +692,7 @@ def _lf_platform():
     return os_name, arch_name
 
 
-@cli.command()
+@cli.command(help="Install lf file manager")
 def lf():
     os_name, arch_name = _lf_platform()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
@@ -891,7 +891,7 @@ def _pwsh_clean_directory(path):
             sys.exit(1)
 
 
-@cli.command()
+@cli.command(help="Install PowerShell Core")
 def pwsh():
     os_name, arch_name = _pwsh_platform()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
@@ -991,7 +991,7 @@ def _rclone_platform():
     return os_name, arch_name
 
 
-@cli.command()
+@cli.command(help="Install rclone")
 def rclone():
     os_name, arch_name = _rclone_platform()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
@@ -1103,7 +1103,7 @@ def _terraform_fetch_latest_version():
         sys.exit(1)
 
 
-@cli.command()
+@cli.command(help="Install Terraform")
 def terraform():
     os_name, arch_name = _terraform_platform()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
@@ -1179,7 +1179,7 @@ def _tools_platform():
 _TOOLS_REPO = "dat267/dotfiles"
 
 
-@cli.command()
+@cli.command(help="Download and install all tools from GitHub Releases")
 def tools():
     os_name, arch_name = _tools_platform()
     log(f"Platform: {os_name}/{arch_name}", "cyan")
@@ -1370,7 +1370,7 @@ def _vscode_install_linux(arch):
         sys.exit(1)
 
 
-@cli.command()
+@cli.command(help="Install VS Code (alias for 'code')")
 def vscode():
     os_name, arch_name = _vscode_platform()
     if os_name == "windows":
@@ -1438,7 +1438,7 @@ def _yazi_install_binary(src_dir, binary_name, dest_dir):
     log(f"  \u2713 {binary_name} -> {dest}", "green")
 
 
-@cli.command()
+@cli.command(help="Install Yazi file manager")
 def yazi():
     os_name, arch_name = _yazi_platform()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
@@ -1882,7 +1882,7 @@ def _lsp_uninstall_all(sys_os):
         )
 
 
-@cli.command()
+@cli.command(help="Install or uninstall LSP servers and runtimes")
 @click.argument("action", type=click.Choice(["install", "uninstall"]))
 def lsp(action):
     """Install or uninstall LSP servers and runtimes."""
@@ -1906,7 +1906,5 @@ if __name__ == "__main__":
         cli()
     except KeyboardInterrupt:
         ...
-    except SystemExit as e:
-        if e.code:
-            input("Press Enter...")
+    except SystemExit:
         raise
