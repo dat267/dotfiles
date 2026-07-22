@@ -1,59 +1,77 @@
 #!/usr/bin/env python3
-import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
-
+import os
+import sys
 import subprocess
 import shutil
-import click
 
+def print_flush(*args, **kwargs):
+    print(*args, **kwargs)
+    sys.stdout.flush()
 
-def dest_dir(path):
-    abs_path = os.path.abspath(path)
-    parent = os.path.dirname(abs_path)
-    base = os.path.basename(abs_path)
-    name, ext1 = os.path.splitext(base)
+def input_flush(prompt):
+    print(prompt, end="", flush=True)
+    return sys.stdin.readline().rstrip('\r\n')
+
+def get_dest_dir(archive_path):
+    abs_path = os.path.abspath(archive_path)
+    parent_dir = os.path.dirname(abs_path)
+    filename = os.path.basename(abs_path)
+    
+    base, ext1 = os.path.splitext(filename)
+    # Check for double extensions (e.g. .tar.gz, .tar.xz)
     if ext1.lower() in {".gz", ".bz2", ".xz", ".zst", ".lzma", ".zip", ".7z", ".rar", ".tgz", ".txz", ".tbz2"}:
-        name2, ext2 = os.path.splitext(name)
+        base2, ext2 = os.path.splitext(base)
         if ext2.lower() == ".tar":
-            name = name2
-    return os.path.join(parent, name)
+            dest_name = base2
+        else:
+            dest_name = base
+    else:
+        dest_name = base
+        
+    return os.path.join(parent_dir, dest_name)
 
-
-@click.command()
-@click.argument("files", nargs=-1, type=click.Path(exists=True), required=True)
-def extract(files):
+def main():
+    # 1. Check if 7z is installed
     if not shutil.which("7z"):
-        click.echo("Error: 7z is not installed.", err=True)
-        raise SystemExit(1)
+        print_flush("Error: 7z is not installed or not in PATH.")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(1)
 
-    click.echo("\n>>> Yazi Archive Extractor <<<")
-    click.echo("Selected archives:")
-    for f in files:
-        click.echo(f"  - {os.path.basename(f)}")
-    click.echo("----------------------------------------")
+    # 2. Check input arguments
+    args = sys.argv[1:]
+    if len(args) < 1:
+        print_flush("Error: You must select at least 1 archive file to extract.")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(1)
 
-    for archive in files:
-        dst = dest_dir(archive)
-        click.echo(f"\nExtracting: {os.path.basename(archive)} -> {os.path.basename(dst)}/")
-        cmd = ["7z", "x", "-y", "-mmt=on", f"-o{dst}", "--", os.path.abspath(archive)]
-        click.echo(f"Command: {' '.join(cmd)}\n")
+    print_flush("\n>>> Yazi Archive Extractor <<<")
+    print_flush("Selected archives:")
+    for f in args:
+        print_flush(f"  - {os.path.basename(f)}")
+    print_flush("----------------------------------------")
+
+    for archive in args:
+        abs_path = os.path.abspath(archive)
+        dest_dir = get_dest_dir(abs_path)
+        
+        print_flush(f"\nExtracting: {os.path.basename(abs_path)} -> {os.path.basename(dest_dir)}/")
+        
+        cmd = ["7z", "x", "-y", "-mmt=on", f"-o{dest_dir}", "--", abs_path]
+        print_flush(f"Command: {' '.join(cmd)}\n")
+        
         res = subprocess.run(cmd)
         if res.returncode == 0:
-            click.echo(f"Extracted '{os.path.basename(archive)}'!")
+            print_flush(f"Successfully extracted '{os.path.basename(abs_path)}'!")
         else:
-            click.echo(f"Extraction failed for '{os.path.basename(archive)}'.", err=True)
+            print_flush(f"Error: Extraction failed for '{os.path.basename(abs_path)}'.")
 
-    click.echo("----------------------------------------")
-    click.echo("Press Enter to return to Yazi.", nl=False)
-    input()
-
+    print_flush("----------------------------------------")
+    print_flush("")
+    input_flush("Press Enter to return to Yazi.")
 
 if __name__ == "__main__":
     try:
-        extract()
+        main()
     except KeyboardInterrupt:
-        click.echo("\n\nOperation cancelled.")
-    except SystemExit as e:
-        if e.code:
-            input("Press Enter to return to Yazi. ")
-        raise
+        print_flush("\n\nOperation cancelled. Returning to Yazi...")
+        sys.exit(0)

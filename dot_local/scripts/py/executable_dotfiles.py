@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
-import click
+import argparse
 import getpass
+import os
 import platform
 import shutil
 import subprocess
+import sys
 from datetime import datetime
 
 DEFAULT_REMOTE = os.environ.get("DOTFILES_REMOTE", "")
@@ -15,14 +15,14 @@ DEFAULT_PATH = "chezmoi"
 def run_cmd(args, cwd=None, dry_run=False):
     cmd_str = " ".join(args)
     if dry_run:
-        click.echo(f"[DRY-RUN] Would run: {cmd_str}")
+        print(f"[DRY-RUN] Would run: {cmd_str}")
         return True
-    click.echo(f"Running: {cmd_str}")
+    print(f"Running: {cmd_str}")
     try:
         subprocess.run(args, cwd=cwd, check=True)
         return True
     except subprocess.CalledProcessError as e:
-        click.echo(f"Error: Command failed with exit code {e.returncode}", err=True)
+        print(f"Error: Command failed with exit code {e.returncode}", file=sys.stderr)
         return False
 
 
@@ -74,11 +74,11 @@ def get_remotes():
         )
         return parse_listremotes(res.stdout)
     except Exception:
-        click.echo(
+        print(
             "Error: Failed to read rclone configuration. Please check your password.",
-            err=True,
+            file=sys.stderr,
         )
-        raise SystemExit(1)
+        sys.exit(1)
 
 
 def check_dependencies(command):
@@ -87,118 +87,96 @@ def check_dependencies(command):
         deps.append("git")
     for dep in deps:
         if not shutil.which(dep):
-            click.echo(
+            print(
                 f"Error: Required dependency '{dep}' is not installed or not in PATH.",
-                err=True,
+                file=sys.stderr,
             )
-            raise SystemExit(1)
+            sys.exit(1)
 
 
-@click.group()
-@click.option("-r", "--remote", default=DEFAULT_REMOTE, help="Rclone remote name", required=not DEFAULT_REMOTE)
-@click.option("-p", "--path", default=DEFAULT_PATH, help="Path inside the remote")
-@click.option("-d", "--dry-run", is_flag=True, help="Preview the sync without modifying anything")
-@click.pass_context
-def cli(ctx, remote, path, dry_run):
-    """Secure dotfiles synchronization wrapper."""
-    ctx.ensure_object(dict)
-    ctx.obj["remote"] = remote
-    ctx.obj["path"] = path
-    ctx.obj["dry_run"] = dry_run
-
-
-@cli.command()
-@click.option("-m", "--message", help="Optional git commit message")
-@click.pass_context
-def up(ctx, message):
-    """Sync local dotfiles to GCS (push)"""
-    remote = ctx.obj["remote"]
-    path = ctx.obj["path"]
-    dry_run = ctx.obj["dry_run"]
-    check_dependencies("up")
+def main():
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument(
+        "-r",
+        "--remote",
+        default=DEFAULT_REMOTE,
+        required=not DEFAULT_REMOTE,
+        help="Rclone remote name",
+    )
+    parent_parser.add_argument(
+        "-p", "--path", default=DEFAULT_PATH, help="Path inside the remote"
+    )
+    parent_parser.add_argument(
+        "-d",
+        "--dry-run",
+        action="store_true",
+        help="Preview the sync without modifying anything",
+    )
+    parser = argparse.ArgumentParser(
+        description="Secure dotfiles synchronization wrapper."
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser_up = subparsers.add_parser(
+        "up", parents=[parent_parser], help="Sync local dotfiles to GCS (push)"
+    )
+    parser_up.add_argument("-m", "--message", help="Optional git commit message")
+    parser_down = subparsers.add_parser(
+        "down",
+        parents=[parent_parser],
+        help="Sync GCS dotfiles to local machine & apply (pull)",
+    )
+    args = parser.parse_args()
+    check_dependencies(args.command)
     remotes = get_remotes()
-    if remote not in remotes:
-        click.echo(
-            f"Error: Remote '{remote}' not found in rclone configuration.",
-            err=True,
+    if args.remote not in remotes:
+        print(
+            f"Error: Remote '{args.remote}' not found in rclone configuration.",
+            file=sys.stderr,
         )
-        raise SystemExit(1)
-    if remotes[remote] != "crypt":
-        click.echo(
-            f"Error: Remote '{remote}' has type '{remotes[remote]}'. Only 'crypt' remotes are allowed.",
-            err=True,
+        sys.exit(1)
+    if remotes[args.remote] != "crypt":
+        print(
+            f"Error: Remote '{args.remote}' has type '{remotes[args.remote]}'. Only 'crypt' remotes are allowed.",
+            file=sys.stderr,
         )
-        raise SystemExit(1)
+        sys.exit(1)
     if platform.system() == "Windows":
         local_dir = os.path.join(os.environ.get("APPDATA", ""), "chezmoi")
     else:
         local_dir = os.path.expanduser("~/.local/share/chezmoi")
-    gcs_target = f"{remote}:{path}"
-    if git_has_changes(local_dir):
-        click.echo("Detected uncommitted changes in chezmoi repository.")
-        msg = (
-            message
-            or f"Auto-commit: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        )
-        if not run_cmd(["git", "add", "-A"], cwd=local_dir, dry_run=dry_run):
-            raise SystemExit(1)
-        if not run_cmd(
-            ["git", "commit", "-m", msg], cwd=local_dir, dry_run=dry_run
-        ):
-            raise SystemExit(1)
-    else:
-        click.echo("No local changes to commit.")
-    rclone_args = ["rclone", "sync", local_dir, gcs_target, "-v"]
-    if dry_run:
-        rclone_args.append("--dry-run")
-    if run_cmd(rclone_args):
-        click.echo("Successfully synced up to GCS!")
-    else:
-        raise SystemExit(1)
-
-
-@cli.command()
-@click.pass_context
-def down(ctx):
-    """Sync GCS dotfiles to local machine & apply (pull)"""
-    remote = ctx.obj["remote"]
-    path = ctx.obj["path"]
-    dry_run = ctx.obj["dry_run"]
-    check_dependencies("down")
-    remotes = get_remotes()
-    if remote not in remotes:
-        click.echo(
-            f"Error: Remote '{remote}' not found in rclone configuration.",
-            err=True,
-        )
-        raise SystemExit(1)
-    if remotes[remote] != "crypt":
-        click.echo(
-            f"Error: Remote '{remote}' has type '{remotes[remote]}'. Only 'crypt' remotes are allowed.",
-            err=True,
-        )
-        raise SystemExit(1)
-    if platform.system() == "Windows":
-        local_dir = os.path.join(os.environ.get("APPDATA", ""), "chezmoi")
-    else:
-        local_dir = os.path.expanduser("~/.local/share/chezmoi")
-    gcs_target = f"{remote}:{path}"
-    rclone_args = ["rclone", "sync", gcs_target, local_dir, "-v"]
-    if dry_run:
-        rclone_args.append("--dry-run")
-    if not run_cmd(rclone_args):
-        raise SystemExit(1)
-    if not run_cmd(["chezmoi", "apply", "-v"], dry_run=dry_run):
-        raise SystemExit(1)
-    click.echo("Successfully pulled and applied dotfiles!")
+    gcs_target = f"{args.remote}:{args.path}"
+    if args.command == "up":
+        if git_has_changes(local_dir):
+            print("Detected uncommitted changes in chezmoi repository.")
+            msg = (
+                args.message
+                or f"Auto-commit: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            if not run_cmd(["git", "add", "-A"], cwd=local_dir, dry_run=args.dry_run):
+                sys.exit(1)
+            if not run_cmd(
+                ["git", "commit", "-m", msg], cwd=local_dir, dry_run=args.dry_run
+            ):
+                sys.exit(1)
+        else:
+            print("No local changes to commit.")
+        rclone_args = ["rclone", "sync", local_dir, gcs_target, "-v"]
+        if args.dry_run:
+            rclone_args.append("--dry-run")
+        if run_cmd(rclone_args):
+            print("Successfully synced up to GCS!")
+        else:
+            sys.exit(1)
+    elif args.command == "down":
+        rclone_args = ["rclone", "sync", gcs_target, local_dir, "-v"]
+        if args.dry_run:
+            rclone_args.append("--dry-run")
+        if not run_cmd(rclone_args):
+            sys.exit(1)
+        if not run_cmd(["chezmoi", "apply", "-v"], dry_run=args.dry_run):
+            sys.exit(1)
+        print("Successfully pulled and applied dotfiles!")
 
 
 if __name__ == "__main__":
-    try:
-        cli()
-    except KeyboardInterrupt:
-        ...
-    except SystemExit as e:
-        if e.code:
-            input("Press Enter...")
-        raise
+    main()

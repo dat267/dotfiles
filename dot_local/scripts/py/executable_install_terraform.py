@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
-import click
 import json
+import os
 import platform
 import shutil
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -26,9 +25,9 @@ def log(message, color=None):
         os.name == "posix" or os.environ.get("TERM")
     )
     if color and use_color:
-        click.echo(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
+        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
     else:
-        click.echo(message)
+        print(message)
 
 
 def get_platform_info():
@@ -43,7 +42,7 @@ def get_platform_info():
         os_name = "darwin"
     else:
         log(f"Error: OS '{system}' is not supported.", "red")
-        raise SystemExit(1)
+        sys.exit(1)
 
     if machine in ("x86_64", "amd64", "em64t"):
         arch_name = "amd64"
@@ -51,7 +50,7 @@ def get_platform_info():
         arch_name = "arm64"
     else:
         log(f"Error: Architecture '{machine}' is not supported.", "red")
-        raise SystemExit(1)
+        sys.exit(1)
 
     return os_name, arch_name
 
@@ -64,15 +63,18 @@ def fetch_latest_version():
             data = json.loads(resp.read().decode("utf-8"))
             versions = data.get("terraform", {}).get("versions", {})
 
+            # Filter out beta, rc, alpha releases
             stable_versions = []
             for v in versions.keys():
                 v_lower = v.lower()
                 if not any(x in v_lower for x in ("beta", "rc", "alpha", "preview")):
                     stable_versions.append(v)
 
+            # Sort helper (simple tuple key: major, minor, patch)
             def semver_key(version_str):
                 parts = []
                 for p in version_str.split("."):
+                    # strip leading v if present
                     p_clean = "".join(filter(str.isdigit, p))
                     parts.append(int(p_clean) if p_clean else 0)
                 return tuple(parts)
@@ -86,8 +88,7 @@ def fetch_latest_version():
         sys.exit(1)
 
 
-@click.command()
-def cli():
+def main():
     os_name, arch_name = get_platform_info()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 
@@ -133,11 +134,4 @@ def cli():
 
 
 if __name__ == "__main__":
-    try:
-        cli()
-    except KeyboardInterrupt:
-        ...
-    except SystemExit as e:
-        if e.code:
-            input("Press Enter...")
-        raise
+    main()

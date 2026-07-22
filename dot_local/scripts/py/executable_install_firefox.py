@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
-import click
+import os
 import platform
 import shutil
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -23,9 +22,9 @@ def log(message, color=None):
         os.name == "posix" or os.environ.get("TERM")
     )
     if color and use_color:
-        click.echo(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
+        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
     else:
-        click.echo(message)
+        print(message)
 
 
 def clean_directory(path):
@@ -60,6 +59,7 @@ def install_windows():
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 zip_ref.extractall(extract_temp)
 
+            # Find the extracted "firefox" subdirectory
             subdirs = [
                 d
                 for d in os.listdir(extract_temp)
@@ -88,8 +88,7 @@ def install_windows():
         sys.exit(1)
 
 
-@click.command()
-def cli():
+def main():
     system = platform.system().lower()
     if system != "windows":
         log(
@@ -97,17 +96,10 @@ def cli():
             f"On {platform.system()}, please install Firefox via the system package manager (e.g. apt, pacman, brew).",
             "yellow",
         )
-        raise SystemExit(0)
+        sys.exit(0)
 
     install_windows()
 
 
 if __name__ == "__main__":
-    try:
-        cli()
-    except KeyboardInterrupt:
-        ...
-    except SystemExit as e:
-        if e.code:
-            input("Press Enter...")
-        raise
+    main()

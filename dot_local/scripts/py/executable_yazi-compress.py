@@ -1,72 +1,95 @@
 #!/usr/bin/env python3
-import os, sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_vendor"))
-
+import os
+import sys
 import subprocess
 import shutil
-import click
 
+def print_flush(*args, **kwargs):
+    print(*args, **kwargs)
+    sys.stdout.flush()
 
-@click.command()
-@click.argument("format", type=click.Choice(["7z", "zip"]))
-@click.argument("files", nargs=-1, type=click.Path(exists=True), required=True)
-def compress(format, files):
+def input_flush(prompt):
+    print(prompt, end="", flush=True)
+    return sys.stdin.readline().rstrip('\r\n')
+
+def main():
+    # 1. Check if 7z is installed
     if not shutil.which("7z"):
-        click.echo("Error: 7z is not installed.", err=True)
-        raise SystemExit(1)
+        print_flush("Error: 7z is not installed or not in PATH.")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(1)
 
-    targets = [os.path.abspath(f) for f in files]
-    ext = f".{format}"
-    first = targets[0]
+    # 2. Parse arguments
+    # argv[1] is format ('7z' or 'zip')
+    # argv[2:] are target files
+    if len(sys.argv) < 3:
+        print_flush("Error: Missing arguments. Usage: yazi-compress.py <format> <file1> [file2 ...]")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(1)
+
+    archive_format = sys.argv[1].lower()
+    targets = sys.argv[2:]
+
+    # 3. Determine archive name
+    first_target = os.path.abspath(targets[0])
+    ext = f".{archive_format}"
 
     if len(targets) == 1:
-        if os.path.isdir(first):
-            name = os.path.basename(first)
+        # Single item selected
+        if os.path.isdir(first_target):
+            # Folder: use the folder name directly
+            archive_name = os.path.basename(first_target)
         else:
-            name, _ = os.path.splitext(os.path.basename(first))
+            # File: strip the extension
+            archive_name, _ = os.path.splitext(os.path.basename(first_target))
     else:
-        name = os.path.basename(os.path.dirname(first))
+        # Multiple items selected: use parent directory name
+        parent_dir = os.path.dirname(first_target)
+        archive_name = os.path.basename(parent_dir)
 
-    if not name:
-        name = "archive"
+    # Fallback if parent dir or base name is empty
+    if not archive_name:
+        archive_name = "archive"
 
-    out = f"{name}{ext}"
+    output_filename = f"{archive_name}{ext}"
 
-    click.echo(f"\n>>> Yazi Archive Compressor <<<")
-    click.echo(f"Format: {format.upper()}")
-    click.echo(f"Output: {out}")
-    click.echo("Files:")
-    for f in targets:
-        click.echo(f"  - {os.path.basename(f)}")
-    click.echo("----------------------------------------")
+    print_flush(f"\n>>> Yazi Archive Compressor <<<")
+    print_flush(f"Format: {archive_format.upper()}")
+    print_flush(f"Output: {output_filename}")
+    print_flush("Files to compress:")
+    for target in targets:
+        print_flush(f"  - {os.path.basename(target)}")
+    print_flush("----------------------------------------")
 
+    # 4. Build 7z command
     cmd = ["7z", "a"]
-    if format == "7z":
+    if archive_format == "7z":
         cmd.extend(["-t7z", "-mx=9", "-mmt=on", "-ms=on"])
-    else:
+    elif archive_format == "zip":
         cmd.extend(["-tzip", "-mx=9", "-mm=Deflate", "-mmt=on"])
-    cmd.append(out)
+    else:
+        print_flush(f"Error: Unsupported format '{archive_format}'")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(1)
+
+    cmd.append(output_filename)
     cmd.extend(targets)
 
-    click.echo(f"Running: {' '.join(cmd)}\n")
+    print_flush(f"Running command: {' '.join(cmd)}\n")
     res = subprocess.run(cmd)
 
-    click.echo("----------------------------------------")
+    print_flush("----------------------------------------")
     if res.returncode == 0:
-        click.echo(f"Created {out}!")
+        print_flush(f"Successfully compressed to '{output_filename}'!")
     else:
-        click.echo("Compression failed.", err=True)
+        print_flush("Error: Compression failed.")
 
-    click.echo("Press Enter to return to Yazi.", nl=False)
-    input()
-
+    print_flush("")
+    input_flush("Press Enter to return to Yazi.")
 
 if __name__ == "__main__":
     try:
-        compress()
+        main()
     except KeyboardInterrupt:
-        click.echo("\n\nOperation cancelled.")
-    except SystemExit as e:
-        if e.code:
-            input("Press Enter to return to Yazi. ")
-        raise
+        print_flush("\n\nOperation cancelled. Returning to Yazi...")
+        sys.exit(0)
