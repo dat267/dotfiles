@@ -85,11 +85,7 @@ else
   end
 end
 
-if vim.o.background == "light" then
-  vim.cmd.colorscheme("morning")
-else
-  vim.cmd.colorscheme("habamax")
-end
+require("theme").setup(vim.o.background)
 
 vim.diagnostic.config({
   virtual_text = false,
