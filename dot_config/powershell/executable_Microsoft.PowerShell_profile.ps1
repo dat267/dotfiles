@@ -667,7 +667,13 @@ function prompt {
     "$color$path$reset > "
 }
 
-function czd { cd $(chezmoi source-path) }
+function cm {
+    if ($args[0] -eq "cd") {
+        cd (chezmoi source-path)
+    } else {
+        chezmoi @args
+    }
+}
 
 if (Get-Command Set-PSReadLineOption -ErrorAction SilentlyContinue) {
     if (-not [Console]::IsOutputRedirected) {
