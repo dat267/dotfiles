@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import platform
 import shutil
@@ -89,6 +90,9 @@ def install_windows():
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Install Firefox (Windows only, portable zip).")
+    parser.parse_args()
+
     system = platform.system().lower()
     if system != "windows":
         log(

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 import platform
@@ -55,6 +56,9 @@ def get_platform_info():
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Download and install tools from GitHub Releases.")
+    parser.parse_args()
+
     os_name, arch_name = get_platform_info()
     log(f"Platform: {os_name}/{arch_name}", "cyan")
 

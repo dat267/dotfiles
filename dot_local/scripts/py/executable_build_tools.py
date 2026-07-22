@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import subprocess
 import sys
@@ -23,6 +24,9 @@ def log(message, color=None):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Build all tools from local source.")
+    parser.parse_args()
+
     if not os.path.isdir(BASE_SRC_DIR):
         log(f"Error: Base directory not found at {BASE_SRC_DIR}", "red")
         sys.exit(1)

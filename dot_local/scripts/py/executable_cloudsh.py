@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import argparse
 import subprocess
 import sys
 import os
@@ -35,23 +36,30 @@ if not os.path.exists(key):
     sys.stderr.write("Private key does not exist!\n")
     sys.exit(1)
 
-cmd: list[str] = [
-    "ssh",
-    "-t",
-    "-o",
-    "StrictHostKeyChecking=no",
-    "-o",
-    "LogLevel=ERROR",
-    "-p",
-    port,
-    "-i",
-    key,
-    addr,
-    " ".join(sys.argv[2:]),
-]
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="SSH into Google Cloud Shell.")
+    parser.add_argument('command', nargs='*', help='Command to run on remote')
+    args = parser.parse_args()
+    # Preserve original behavior of sys.argv[2:] (first positional arg is dropped)
+    command = " ".join(args.command[1:] if args.command else [])
 
-print(f"Trying to SSH into {addr}, tunnel port {port}...")
-try:
-    subprocess.check_call(cmd)
-except subprocess.CalledProcessError as e:
-    sys.exit(e.returncode)
+    cmd: list[str] = [
+        "ssh",
+        "-t",
+        "-o",
+        "StrictHostKeyChecking=no",
+        "-o",
+        "LogLevel=ERROR",
+        "-p",
+        port,
+        "-i",
+        key,
+        addr,
+        command,
+    ]
+
+    print(f"Trying to SSH into {addr}, tunnel port {port}...")
+    try:
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError as e:
+        sys.exit(e.returncode)

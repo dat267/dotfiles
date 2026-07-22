@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import sys
 import subprocess
@@ -13,16 +14,15 @@ def fmt_path(p):
 
 def input_flush(prompt):
     print(prompt, end="", flush=True)
-    return sys.stdin.readline().rstrip("
-")
+    return sys.stdin.readline().rstrip("\n")
 
 
 def main():
-    paths = [fmt_path(a) for a in sys.argv[1:]]
-    if not paths:
-        print("Usage: yazi-rename.py <paths...>", file=sys.stderr)
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Batch rename files via $EDITOR.")
+    parser.add_argument('paths', nargs='+', help='Files to rename')
+    args = parser.parse_args()
+
+    paths = [fmt_path(p) for p in args.paths]
 
     dirs = set(os.path.dirname(p) for p in paths)
     if len(dirs) > 1:

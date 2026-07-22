@@ -11,6 +11,7 @@ Usage:
   %(name)s --langs                     List supported language codes
   %(name)s --help                      Show this help
 """
+import argparse
 import sys
 import json
 import os
@@ -149,24 +150,25 @@ def translate(text, target, source="auto"):
 
 def input_flush(prompt):
     print(prompt, end="", flush=True)
-    return sys.stdin.readline().rstrip("
-")
+    return sys.stdin.readline().rstrip("\n")
 
 
 def main():
-    args = sys.argv[1:]
-    quiet = False
+    parser = argparse.ArgumentParser(
+        description="Translate text between languages using free online APIs.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument('text', nargs='?', help='Text to translate')
+    parser.add_argument('target', nargs='?', default='en', help='Target language (default: en)')
+    parser.add_argument('source', nargs='?', default='auto', help='Source language (default: auto)')
+    parser.add_argument('--quiet', action='store_true', help='Read text from stdin, output only translation')
+    parser.add_argument('--rename', nargs='+', metavar='PATH', help='Translate filename stem and rename file(s)')
+    parser.add_argument('--langs', action='store_true', help='List supported language codes')
+    parser.add_argument('--file', nargs='+', metavar='PATH', help='Read text from file(s), overwrite with translation')
+    args = parser.parse_args()
 
-    if args and args[0] == "--quiet":
-        quiet = True
-        args = args[1:]
-
-    if args and args[0] == "--rename":
-        if len(args) < 2:
-            eprint("Error: --rename requires at least one file path")
-            input_flush("Press Enter to return to Yazi.")
-            sys.exit(1)
-        for p in args[1:]:
+    if args.rename:
+        for p in args.rename:
             if len(p) >= 2 and p[0] == p[-1] and p[0] in "'\"":
                 p = p[1:-1]
             name = os.path.basename(p)
@@ -185,21 +187,13 @@ def main():
         input("Press Enter to return to Yazi.")
         return
 
-    if args and args[0] == "--langs":
+    if args.langs:
         for c in sorted(KNOWN_LANGS):
             print(c)
         return
 
-    if args and args[0] in ("--help", "-h"):
-        print(__doc__ % {"name": "translate"})
-        return
-
-    if args and args[0] == "--file":
-        if len(args) < 2:
-            eprint("Error: --file requires at least one file path")
-            input_flush("Press Enter to return to Yazi.")
-            sys.exit(1)
-        for fp in args[1:]:
+    if args.file:
+        for fp in args.file:
             if len(fp) >= 2 and fp[0] == fp[-1] and fp[0] in "'\"":
                 fp = fp[1:-1]
             enc = _detect_encoding(fp)
@@ -215,8 +209,8 @@ def main():
         input("Press Enter to return to Yazi.")
         return
 
-    if len(args) == 0:
-        if quiet:
+    if args.text is None:
+        if args.quiet:
             text = sys.stdin.read().strip()
         else:
             eprint("=== Translator ===")
@@ -225,17 +219,19 @@ def main():
                 t = input("Target language (default: en): ").strip()
                 if t:
                     target = t
+                else:
+                    target = "en"
     else:
-        text = args[0]
-        target = args[1] if len(args) > 1 else "en"
-        source = args[2] if len(args) > 2 else "auto"
+        text = args.text
+        target = args.target
+        source = args.source
 
     if not text:
         eprint("Error: text cannot be empty")
         input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
-    if not quiet:
+    if not args.quiet:
         eprint(f"Text:     {text!r}")
         eprint(f"From:     {source}")
         eprint(f"To:       {target}")
@@ -243,7 +239,7 @@ def main():
 
     result = translate(text, target, source)
 
-    if quiet:
+    if args.quiet:
         print(result)
     else:
         eprint(f"Result:   {result}")

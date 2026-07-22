@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Install yazi (and ya) from the latest GitHub release into ~/.local/bin."""
+import argparse
 import os
 import platform
 import shutil
@@ -86,6 +87,9 @@ def install_binary(src_dir, binary_name, dest_dir):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Install yazi (and ya) from the latest GitHub release.")
+    parser.parse_args()
+
     os_name, arch_name = get_platform_info()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 

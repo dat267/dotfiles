@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import platform
 import shutil
@@ -177,6 +178,9 @@ def install_windows():
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Install AWS CLI.")
+    parser.parse_args()
+
     system = platform.system().lower()
     if system == "android":
         log("Android (Termux) detected. Installing AWS CLI via pip...", "cyan")

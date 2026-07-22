@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import sys
 import subprocess
@@ -38,19 +39,18 @@ def main():
         sys.exit(1)
 
     # 2. Check input arguments
-    args = sys.argv[1:]
-    if len(args) < 1:
-        print_flush("Error: You must select at least 1 archive file to extract.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Extract archives using 7z.")
+    parser.add_argument('archives', nargs='+', help='Archive files to extract')
+    args = parser.parse_args()
+    archives = args.archives
 
     print_flush("\n>>> Yazi Archive Extractor <<<")
     print_flush("Selected archives:")
-    for f in args:
+    for f in archives:
         print_flush(f"  - {os.path.basename(f)}")
     print_flush("----------------------------------------")
 
-    for archive in args:
+    for archive in archives:
         abs_path = os.path.abspath(archive)
         dest_dir = get_dest_dir(abs_path)
         

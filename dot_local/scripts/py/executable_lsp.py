@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import gzip
 import json
 import os
@@ -408,12 +409,12 @@ def uninstall_all(sys_os):
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("install", "uninstall"):
-        print("Usage: lsp.py [install|uninstall]")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Install or uninstall LSP servers and runtimes.")
+    parser.add_argument('action', choices=['install', 'uninstall'], help='Action to perform')
+    args = parser.parse_args()
 
     sys_os, arch = get_platform()
-    action = sys.argv[1]
+    action = args.action
 
     if action == "uninstall":
         uninstall_all(sys_os)

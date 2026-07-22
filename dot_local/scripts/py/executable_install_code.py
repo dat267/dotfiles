@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import platform
 import shutil
@@ -56,6 +57,9 @@ def get_platform_info():
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Install VS Code CLI to ~/.local/bin.")
+    parser.parse_args()
+
     os_name, arch_name = get_platform_info()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 

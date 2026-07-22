@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import sys
 import re
@@ -258,12 +259,13 @@ def resolve_endpoint_ip(hostname):
 
 
 def run():
-    if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <aws_client_dir> <ovpn_file>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Start AWS Client VPN via SAML SSO.")
+    parser.add_argument('client_dir', help='AWS VPN client directory')
+    parser.add_argument('ovpn_file', help='OpenVPN profile file')
+    args = parser.parse_args()
 
-    client_dir = os.path.abspath(sys.argv[1])
-    profile = os.path.abspath(sys.argv[2])
+    client_dir = os.path.abspath(args.client_dir)
+    profile = os.path.abspath(args.ovpn_file)
 
     global proc2
     proc2 = None

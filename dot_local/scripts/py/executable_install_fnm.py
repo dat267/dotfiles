@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import platform
 import shutil
@@ -50,6 +51,9 @@ def get_platform_filename():
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Install fnm from the latest GitHub release.")
+    parser.parse_args()
+
     filename = get_platform_filename()
     log(f"Selected fnm package: {filename}", "cyan")
 

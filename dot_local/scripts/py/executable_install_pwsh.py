@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 import platform
@@ -112,6 +113,9 @@ def clean_directory(path):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Install PowerShell from the latest GitHub release.")
+    parser.parse_args()
+
     os_name, arch_name = get_platform_info()
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 

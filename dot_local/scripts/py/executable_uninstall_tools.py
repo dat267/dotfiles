@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import json
 import os
 import platform
@@ -52,6 +53,9 @@ def get_platform_info():
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Uninstall tools downloaded from GitHub Releases.")
+    parser.parse_args()
+
     os_name, arch_name = get_platform_info()
 
     suffix = f"-{os_name}-{arch_name}"

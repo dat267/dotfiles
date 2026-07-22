@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import sys
 import subprocess
@@ -14,21 +15,24 @@ def main():
         input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
-    args = sys.argv[1:]
-    if len(args) < 2:
+    parser = argparse.ArgumentParser(description="Concatenate media files using ffmpeg.")
+    parser.add_argument('files', nargs='+', help='Files to concatenate (at least 2)')
+    args = parser.parse_args()
+    files = args.files
+    if len(files) < 2:
         print_flush("Error: You must select at least 2 files to concatenate.")
         input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
     print_flush("\n>>> FFmpeg Media Concatenator <<<")
     print_flush("Selected files in order:")
-    for f in args:
+    for f in files:
         print_flush(f"  - {os.path.basename(f)}")
     print_flush("")
 
-    first_file = args[0]
+    first_file = files[0]
     _, ext = os.path.splitext(first_file)
-    is_flac = all(f.lower().endswith('.flac') for f in args)
+    is_flac = all(f.lower().endswith('.flac') for f in files)
 
     parent_dir = os.path.abspath(os.path.dirname(first_file))
     parent_name = os.path.basename(parent_dir)
@@ -44,15 +48,15 @@ def main():
     print_flush("Concatenating...")
 
     cmd = ["ffmpeg"]
-    for f in args:
+    for f in files:
         cmd.extend(["-i", f])
 
     if is_flac:
-        cmd += ["-filter_complex", f"concat=n={len(args)}:v=0:a=1",
+        cmd += ["-filter_complex", f"concat=n={len(files)}:v=0:a=1",
                 "-c:a", "flac", "-y", output_name]
     else:
-        filter_str = "".join(f"[{i}:v][{i}:a]" for i in range(len(args)))
-        filter_str += f" concat=n={len(args)}:v=1:a=1 [v][a]"
+        filter_str = "".join(f"[{i}:v][{i}:a]" for i in range(len(files)))
+        filter_str += f" concat=n={len(files)}:v=1:a=1 [v][a]"
         cmd += ["-filter_complex", filter_str, "-map", "[v]", "-map", "[a]",
                 "-c:v", "libx264", "-c:a", "aac", "-y", output_name]
 

@@ -8,6 +8,7 @@ Default font: FiraCode
 
 Known fonts: https://github.com/ryanoasis/nerd-fonts/releases
 """
+import argparse
 import os
 import platform
 import shutil
@@ -72,10 +73,14 @@ def install_font(name):
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
-        print(__doc__)
-        return
-    name = sys.argv[1] if len(sys.argv) > 1 else "FiraCode"
+    parser = argparse.ArgumentParser(
+        description="Install a Nerd Font from the latest GitHub release into user fonts dir.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument('font', nargs='?', default='FiraCode',
+                        help='Font name (default: FiraCode). See https://github.com/ryanoasis/nerd-fonts/releases')
+    args = parser.parse_args()
+    name = args.font
     if name not in KNOWN:
         print(f"Unknown font '{name}'. Known fonts:")
         for f in KNOWN:

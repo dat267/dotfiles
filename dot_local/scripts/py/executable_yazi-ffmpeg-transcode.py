@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import sys
 import subprocess
@@ -20,15 +21,14 @@ def main():
         sys.exit(1)
 
     # 2. Check input arguments
-    args = sys.argv[1:]
-    if len(args) < 1:
-        print_flush("Error: You must select at least 1 file to transcode.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Transcode media files using ffmpeg.")
+    parser.add_argument('files', nargs='+', help='Files to transcode')
+    args = parser.parse_args()
+    files = args.files
 
     print_flush("\n>>> FFmpeg Media Transcoder <<<")
     print_flush("Selected files:")
-    for f in args:
+    for f in files:
         print_flush(f"  - {os.path.basename(f)}")
     print_flush("")
 
@@ -43,7 +43,7 @@ def main():
 
     print_flush(f"\nTranscoding files to .{target_ext} format...")
 
-    for f in args:
+    for f in files:
         abs_path = os.path.abspath(f)
         parent_dir = os.path.dirname(abs_path)
         base_name, old_ext = os.path.splitext(os.path.basename(abs_path))

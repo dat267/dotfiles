@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import sys
 import subprocess
@@ -20,15 +21,13 @@ def main():
         sys.exit(1)
 
     # 2. Parse arguments
-    # argv[1] is format ('7z' or 'zip')
-    # argv[2:] are target files
-    if len(sys.argv) < 3:
-        print_flush("Error: Missing arguments. Usage: yazi-compress.py <format> <file1> [file2 ...]")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Compress files using 7z.")
+    parser.add_argument('format', choices=['7z', 'zip'], help='Archive format')
+    parser.add_argument('targets', nargs='+', help='Files/dirs to compress')
+    args = parser.parse_args()
 
-    archive_format = sys.argv[1].lower()
-    targets = sys.argv[2:]
+    archive_format = args.format
+    targets = args.targets
 
     # 3. Determine archive name
     first_target = os.path.abspath(targets[0])
