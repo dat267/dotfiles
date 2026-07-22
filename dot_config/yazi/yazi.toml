@@ -16,28 +16,28 @@ open = [
   { run = 'open "%s"', orphan = true, desc = "Open", for = "macos" },
 ]
 extract = [
-  { run = 'python3 -u ~/.local/scripts/py/yazi.py extract %s', block = true, desc = "Extract", for = "unix" },
-  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi.py" extract %s', block = true, desc = "Extract", for = "windows" },
+  { run = 'python3 -u ~/.local/scripts/py/yazi-extract.py %s', block = true, desc = "Extract", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-extract.py" %s', block = true, desc = "Extract", for = "windows" },
 ]
 compress_7z = [
-  { run = 'python3 -u ~/.local/scripts/py/yazi.py compress 7z %s', block = true, desc = "Comp 7z", for = "unix" },
-  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi.py" compress 7z %s', block = true, desc = "Comp 7z", for = "windows" },
+  { run = 'python3 -u ~/.local/scripts/py/yazi-compress.py 7z %s', block = true, desc = "Comp 7z", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-compress.py" 7z %s', block = true, desc = "Comp 7z", for = "windows" },
 ]
 compress_zip = [
-  { run = 'python3 -u ~/.local/scripts/py/yazi.py compress zip %s', block = true, desc = "Comp zip", for = "unix" },
-  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi.py" compress zip %s', block = true, desc = "Comp zip", for = "windows" },
+  { run = 'python3 -u ~/.local/scripts/py/yazi-compress.py zip %s', block = true, desc = "Comp zip", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-compress.py" zip %s', block = true, desc = "Comp zip", for = "windows" },
 ]
 concat_media = [
-  { run = 'python3 -u ~/.local/scripts/py/yazi.py concat %s', block = true, desc = "Concat", for = "unix" },
-  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi.py" concat %s', block = true, desc = "Concat", for = "windows" },
+  { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-concat.py %s', block = true, desc = "Concat", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-concat.py" %s', block = true, desc = "Concat", for = "windows" },
 ]
 transcode_media = [
-  { run = 'python3 -u ~/.local/scripts/py/yazi.py transcode %s', block = true, desc = "Transcode", for = "unix" },
-  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi.py" transcode %s', block = true, desc = "Transcode", for = "windows" },
+  { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-transcode.py %s', block = true, desc = "Transcode", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-transcode.py" %s', block = true, desc = "Transcode", for = "windows" },
 ]
 split_media = [
-  { run = 'python3 -u ~/.local/scripts/py/yazi.py split %s1', block = true, desc = "Split", for = "unix" },
-  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi.py" split %s1', block = true, desc = "Split", for = "windows" },
+  { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-split.py %s1', block = true, desc = "Split", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-split.py" %s1', block = true, desc = "Split", for = "windows" },
 ]
 
 [open]
