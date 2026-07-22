@@ -89,11 +89,23 @@ require("theme").setup(vim.o.background)
 
 vim.diagnostic.config({
   virtual_text = false,
-  virtual_lines = { current_line = true },
+  virtual_lines = false,
   signs = true,
   underline = true,
   update_in_insert = false,
   severity_sort = true,
+  float = {
+    source = true,
+    prefix = function(diag)
+      return ({ "E", "W", "I", "H" })[diag.severity] or "?"
+    end,
+  },
+})
+
+vim.api.nvim_create_autocmd("CursorHold", {
+  callback = function()
+    vim.diagnostic.open_float({ scope = "cursor" })
+  end,
 })
 
 vim.api.nvim_create_autocmd("LspAttach", {
