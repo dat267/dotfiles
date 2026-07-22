@@ -39,7 +39,7 @@ def log(message, color=None):
         click.echo(message)
 
 
-@click.group(help="Utility tools — build, uninstall, URL-decode, cloud shell, dotfiles, VPN")
+@click.group()
 def cli():
     pass
 
@@ -49,7 +49,7 @@ def cli():
 BASE_SRC_DIR = os.path.expanduser("~/.local/src")
 
 
-@cli.command(help="Build custom tools locally (CI use)")
+@cli.command()
 def build():
     if not os.path.isdir(BASE_SRC_DIR):
         log(f"Error: Base directory not found at {BASE_SRC_DIR}", "red")
@@ -121,7 +121,7 @@ def _uninstall_platform():
     return os_name, arch_name
 
 
-@cli.command(help="Remove all tools from ~/.local/bin")
+@cli.command()
 def uninstall():
     os_name, arch_name = _uninstall_platform()
 
@@ -198,7 +198,7 @@ def _url_decode_rename_files(directory="."):
         os.rename(f, new_name)
 
 
-@cli.command(help="Decode URL-encoded characters in filenames")
+@cli.command()
 @click.argument("directory", default=".")
 def url_decode(directory):
     """Rename files by decoding URL-encoded characters."""
@@ -207,7 +207,7 @@ def url_decode(directory):
 
 # --- cloudsh ---
 
-@cli.command(context_settings=dict(ignore_unknown_options=True), help="SSH into cloud instances")
+@cli.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("ssh_args", nargs=-1)
 def cloudsh(ssh_args):
     gcloud = shutil.which("gcloud")
@@ -349,7 +349,7 @@ def _df_check_dependencies(command):
             raise SystemExit(1)
 
 
-@cli.group(help="Secure dotfiles sync wrapper (up/down)")
+@cli.group()
 @click.option("-r", "--remote", default=DEFAULT_REMOTE, help="Rclone remote name", required=not DEFAULT_REMOTE)
 @click.option("-p", "--path", default=DEFAULT_PATH, help="Path inside the remote")
 @click.option("-d", "--dry-run", is_flag=True, help="Preview the sync without modifying anything")
@@ -362,7 +362,7 @@ def dotfiles(ctx, remote, path, dry_run):
     ctx.obj["dry_run"] = dry_run
 
 
-@dotfiles.command(help="Push dotfiles to remote")
+@dotfiles.command()
 @click.option("-m", "--message", help="Optional git commit message")
 @click.pass_context
 def up(ctx, message):
@@ -412,7 +412,7 @@ def up(ctx, message):
         raise SystemExit(1)
 
 
-@dotfiles.command(help="Pull dotfiles from remote")
+@dotfiles.command()
 @click.pass_context
 def down(ctx):
     """Sync GCS dotfiles to local machine & apply (pull)"""
@@ -450,7 +450,7 @@ def down(ctx):
 
 # --- hello ---
 
-@cli.command(help="Print a hello world greeting")
+@cli.command()
 def hello():
     click.echo("Hello World!")
 
@@ -700,7 +700,7 @@ def _vpn_resolve_endpoint_ip(hostname):
         sys.exit(1)
 
 
-@cli.command(help="Connect to AWS Client VPN via SAML")
+@cli.command()
 @click.argument("aws_client_dir", type=click.Path(exists=True))
 @click.argument("ovpn_file", type=click.Path(exists=True))
 def start_vpn(aws_client_dir, ovpn_file):
@@ -939,5 +939,7 @@ if __name__ == "__main__":
         cli()
     except KeyboardInterrupt:
         ...
-    except SystemExit:
+    except SystemExit as e:
+        if e.code:
+            input("Press Enter...")
         raise

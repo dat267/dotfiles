@@ -10,7 +10,7 @@ import urllib.request
 import urllib.parse
 
 
-@click.group(help="Yazi helper utilities — extract, compress, concat, transcode, split, rename, translate")
+@click.group()
 def cli():
     pass
 
@@ -29,7 +29,7 @@ def dest_dir(path):
     return os.path.join(parent, name)
 
 
-@cli.command(help="Extract archive files (7z, zip, rar, tar, etc.)")
+@cli.command()
 @click.argument("files", nargs=-1, type=click.Path(exists=True), required=True)
 def extract(files):
     if not shutil.which("7z"):
@@ -60,7 +60,7 @@ def extract(files):
 
 # --- compress ---
 
-@cli.command(help="Compress selected files to 7z or zip archive")
+@cli.command()
 @click.argument("format", type=click.Choice(["7z", "zip"]))
 @click.argument("files", nargs=-1, type=click.Path(exists=True), required=True)
 def compress(format, files):
@@ -116,7 +116,7 @@ def compress(format, files):
 
 # --- concat ---
 
-@cli.command(help="Concatenate multiple media files into one (re-encodes)")
+@cli.command()
 @click.argument("files", nargs=-1, type=click.Path(exists=True), required=True)
 def concat(files):
     if not shutil.which("ffmpeg"):
@@ -170,7 +170,7 @@ def concat(files):
 
 # --- transcode ---
 
-@cli.command(help="Transcode media files to a different format")
+@cli.command()
 @click.argument("files", nargs=-1, type=click.Path(exists=True), required=True)
 @click.option("--ext", "-e", default="mp4", help="Target extension (mp4, mp3, mkv, wav, etc.)")
 def transcode(files, ext):
@@ -207,7 +207,7 @@ def parse_ts(s):
     return float(parts[0])
 
 
-@cli.command(help="Split a media file into segments by timestamps")
+@cli.command()
 @click.argument("filepath", type=click.Path(exists=True))
 def split(filepath):
     if not shutil.which("ffmpeg"):
@@ -252,7 +252,7 @@ def split(filepath):
 
 # --- rename ---
 
-@cli.command(help="Batch rename files by editing filenames in $EDITOR")
+@cli.command()
 @click.argument("paths", nargs=-1, type=click.Path(exists=True), required=True)
 def rename(paths):
     dirs = set(os.path.dirname(p) for p in paths)
@@ -423,7 +423,7 @@ def input_flush(prompt):
     return sys.stdin.readline().rstrip("\n")
 
 
-@cli.command(help="Translate text between languages using free online APIs")
+@cli.command()
 @click.option("--quiet", is_flag=True, help="Read text from stdin, output only translation")
 @click.option("--rename", is_flag=True, help="Translate filename (stem) and rename file(s)")
 @click.option("--file", is_flag=True, help="Read text from file(s), overwrite with translation")
