@@ -64,7 +64,19 @@ vim.keymap.set("i", "<CR>", function()
 end, { expr = true })
 
 
-vim.cmd.colorscheme("habamax")
+local colorfgbg = os.getenv("COLORFGBG")
+if colorfgbg then
+  local bg_val = colorfgbg:match(".*;(%d+)$")
+  if bg_val and tonumber(bg_val) > 0 then
+    vim.o.background = "light"
+  end
+end
+
+if vim.o.background == "light" then
+  vim.cmd.colorscheme("morning")
+else
+  vim.cmd.colorscheme("habamax")
+end
 
 vim.diagnostic.config({
   virtual_text = false,

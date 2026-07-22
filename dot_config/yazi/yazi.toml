@@ -49,5 +49,5 @@ rules = [
   ] },
   { mime = "application/{,g}zip", use = [ "extract", "open" ] },
   { mime = "application/x-{tar,bzip*,7z-compressed,xz,rar}", use = [ "extract", "open" ] },
-  { mime = "*", use = [ "edit", "open", "compress_7z", "compress_zip" ] },
+  { mime = "*", use = [ "open", "edit", "compress_7z", "compress_zip" ] },
 ]
