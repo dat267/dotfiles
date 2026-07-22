@@ -3,7 +3,7 @@ suppress_preload = true
 
 [opener]
 edit = [
-  { run = 'nvim "%s"', block = true, for = "windows" },
+  { run = 'pwsh -NoProfile -Command nvim "%s"', block = true, for = "windows" },
   { run = '${EDITOR:-nvim} "%s"', block = true, for = "unix" },
 ]
 play = [
