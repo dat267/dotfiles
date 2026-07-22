@@ -667,6 +667,8 @@ function prompt {
     "$color$path$reset > "
 }
 
+function czd { cd $(chezmoi source-path) }
+
 if (Get-Command Set-PSReadLineOption -ErrorAction SilentlyContinue) {
     if (-not [Console]::IsOutputRedirected) {
         try {
