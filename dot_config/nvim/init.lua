@@ -104,7 +104,7 @@ vim.diagnostic.config({
 
 vim.api.nvim_create_autocmd("CursorHold", {
   callback = function()
-    vim.diagnostic.open_float({ scope = "line" })
+    vim.diagnostic.open_float({ scope = "cursor" })
   end,
 })
 

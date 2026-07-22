@@ -253,7 +253,6 @@ function global:codeat {
 }
 
 Set-Alias vim nvim
-Set-Alias cm chezmoi
 
 function global:Expand-CustomArchive {
     param([string]$Path)
