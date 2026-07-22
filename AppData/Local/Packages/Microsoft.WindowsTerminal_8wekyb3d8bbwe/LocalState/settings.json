@@ -34,7 +34,7 @@
                 "light": "One Light"
             },
             "font": {
-                "face": "Cascadia Code"
+                "face": "FiraCode Nerd Font, Cascadia Code, Consolas, Lucida Console"
             },
             "suppressApplicationTitle": false
         },
