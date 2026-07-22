@@ -246,6 +246,12 @@ function y {
     }
 }
 
+function global:codeat {
+    param([string]$Path = '.')
+    $target = Resolve-Path $Path -ErrorAction Stop
+    code $target -r
+}
+
 Set-Alias vim nvim
 Set-Alias cm chezmoi
 
@@ -294,26 +300,27 @@ function global:Invoke-Up {
 }
 Set-Alias up Invoke-Up
 
+function global:..  { Set-Location .. }
+function global:... { Set-Location ../.. }
+
 function global:Invoke-Which {
     param(
         [Parameter(ValueFromPipeline = $true, Position = 0)]
-        [string]$Name
+        [string]$Name,
+        [switch]$All
     )
     process {
         if (-not $Name) {
             Write-Host "Usage: which <command-name>"
             return
         }
-        $cmd = Get-Command -Name $Name -ErrorAction SilentlyContinue
-        if ($cmd) {
-            if ($cmd.Path) {
-                $cmd.Path
-            }
-            elseif ($cmd.Source) {
-                $cmd.Source
-            }
-            else {
-                $cmd.Definition
+        $cmds = Get-Command -Name $Name -All -ErrorAction SilentlyContinue
+        if (-not $All) { $cmds = $cmds | Select-Object -First 1 }
+        if ($cmds) {
+            foreach ($cmd in $cmds) {
+                if ($cmd.Path) { $cmd.Path }
+                elseif ($cmd.Source) { $cmd.Source }
+                else { $cmd.Definition }
             }
         }
         else {
@@ -372,6 +379,12 @@ function global:sudo {
 
 if (-not (Get-Command grep -ErrorAction SilentlyContinue)) {
     Set-Alias grep Select-String -ErrorAction SilentlyContinue
+}
+
+function global:mtmp {
+    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+    New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+    Set-Location $tmp
 }
 
 function global:mkcd {
@@ -578,6 +591,17 @@ function global:tee {
 # md5 / sha256 shorthands
 function global:md5    { param([string]$Path) Get-FileHash $Path -Algorithm MD5    | Select-Object -Expand Hash }
 function global:sha256 { param([string]$Path) Get-FileHash $Path -Algorithm SHA256 | Select-Object -Expand Hash }
+
+# ports — show listening TCP ports
+function global:ports {
+    if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+        Get-NetTCPConnection -State Listen |
+            Select-Object LocalAddress, LocalPort, OwningProcess |
+            Format-Table -AutoSize
+    } else {
+        netstat -an | Select-String 'LISTEN'
+    }
+}
 
 # pkill — kill processes by name pattern
 function global:pkill {
