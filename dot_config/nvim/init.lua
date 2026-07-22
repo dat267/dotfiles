@@ -64,11 +64,24 @@ vim.keymap.set("i", "<CR>", function()
 end, { expr = true })
 
 
-local colorfgbg = os.getenv("COLORFGBG")
-if colorfgbg then
-  local bg_val = colorfgbg:match(".*;(%d+)$")
-  if bg_val and tonumber(bg_val) > 0 then
-    vim.o.background = "light"
+if vim.fn.has("win32") == 1 or vim.fn.has("wsl") == 1 then
+  local handle = io.popen("reg query HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize /v AppsUseLightTheme 2>nul")
+  if handle then
+    local result = handle:read("*a")
+    handle:close()
+    if result:match("0x1") then
+      vim.o.background = "light"
+    elseif result:match("0x0") then
+      vim.o.background = "dark"
+    end
+  end
+else
+  local colorfgbg = os.getenv("COLORFGBG")
+  if colorfgbg then
+    local bg_val = colorfgbg:match(".*;(%d+)$")
+    if bg_val and tonumber(bg_val) > 0 then
+      vim.o.background = "light"
+    end
   end
 end
 
