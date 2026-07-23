@@ -257,6 +257,15 @@ def install_cmdline_tools(os_name, sdk_root):
         else:
             shutil.move(extract_dir, tools_target)
 
+        # zip extract doesn't preserve execute bits
+        if os.name != "nt":
+            bin_dir = os.path.join(tools_target, "bin")
+            if os.path.isdir(bin_dir):
+                for f in os.listdir(bin_dir):
+                    fpath = os.path.join(bin_dir, f)
+                    if os.path.isfile(fpath):
+                        os.chmod(fpath, 0o755)
+
         log(f"cmdline-tools installed -> {tools_target}", "green")
 
 
