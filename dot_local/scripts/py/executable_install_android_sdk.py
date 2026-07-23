@@ -4,6 +4,7 @@
 import argparse
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,8 @@ COLORS = {
     "red": "\033[91m",
     "reset": "\033[0m",
 }
+
+REPO_XML = "https://dl.google.com/android/repository/repository2-3.xml"
 
 
 def log(message, color=None):
@@ -144,6 +147,66 @@ def resolve_cmdline_url(os_name):
     sys.exit(1)
 
 
+def fetch_repository_xml():
+    req = urllib.request.Request(REPO_XML, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        return urllib.request.urlopen(req).read()
+    except Exception as e:
+        log(f"Error fetching repository manifest: {e}", "red")
+        sys.exit(1)
+
+
+def find_latest_platform(raw):
+    root = ET.fromstring(raw)
+    max_api = 0
+    for pkg in root.findall('.//remotePackage'):
+        m = re.match(r"platforms;android-(\d+)$", pkg.get("path", ""))
+        if m:
+            max_api = max(max_api, int(m.group(1)))
+    if max_api == 0:
+        log("Error: No platform packages found in repository XML.", "red")
+        sys.exit(1)
+    return f"platforms;android-{max_api}"
+
+
+def find_latest_build_tools(raw, api_level, fallback=True):
+    root = ET.fromstring(raw)
+    prefix = f"build-tools;{api_level}."
+    latest, latest_parts = None, (-1,)
+    for pkg in root.findall('.//remotePackage'):
+        path = pkg.get("path", "")
+        if path.startswith(prefix):
+            v = path[len("build-tools;"):]
+            try:
+                parts = tuple(int(x) for x in v.split("."))
+                if parts > latest_parts:
+                    latest_parts, latest = parts, v
+            except ValueError:
+                continue
+    if latest is None and fallback and api_level > 1:
+        log(f"No stable build-tools for API {api_level}, trying API {api_level - 1}...", "yellow")
+        return find_latest_build_tools(raw, api_level - 1, fallback=False)
+    if latest is None:
+        log(f"Error: No build-tools found for API {api_level}.", "red")
+        sys.exit(1)
+    return f"build-tools;{latest}"
+
+
+def find_latest_ndk(raw):
+    root = ET.fromstring(raw)
+    best, best_parts = None, (-1,)
+    for pkg in root.findall('.//remotePackage'):
+        m = re.match(r"^ndk;(\d+(?:\.\d+)*)$", pkg.get("path", ""))
+        if m:
+            parts = tuple(int(x) for x in m.group(1).split("."))
+            if parts > best_parts:
+                best_parts, best = parts, m.group(1)
+    if best is None:
+        log("Error: No NDK packages found in repository XML.", "red")
+        sys.exit(1)
+    return f"ndk;{best}"
+
+
 def install_cmdline_tools(os_name, sdk_root):
     url = resolve_cmdline_url(os_name)
     log(f"Downloading cmdline-tools from: {url}", "cyan")
@@ -258,9 +321,18 @@ def main():
         log(f"Using JAVA_HOME={java_home}", "cyan")
         os.environ["JAVA_HOME"] = java_home
 
-    components = ["platform-tools", "platforms;android@latest", "build-tools@latest"]
+    raw = fetch_repository_xml()
+    platform_pkg = find_latest_platform(raw)
+    log(f"Latest platform: {platform_pkg}", "green")
+
+    build_tools = find_latest_build_tools(raw, int(platform_pkg.rsplit("-", 1)[-1]))
+    log(f"Latest build-tools: {build_tools}", "green")
+
+    components = ["platform-tools", platform_pkg, build_tools]
     if args.install_ndk:
-        components.append("ndk@latest")
+        ndk_pkg = find_latest_ndk(raw)
+        log(f"Latest NDK: {ndk_pkg}", "green")
+        components.append(ndk_pkg)
     if args.install_emulator:
         components.append("emulator")
 
