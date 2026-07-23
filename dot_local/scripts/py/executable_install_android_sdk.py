@@ -269,37 +269,51 @@ def install_cmdline_tools(os_name, sdk_root):
         log(f"cmdline-tools installed -> {tools_target}", "green")
 
 
-def run_sdkmanager(sdk_root, components):
-    sdkmanager = os.path.join(sdk_root, "cmdline-tools", "latest", "bin", "sdkmanager")
+def _sdkmanager_path(sdk_root):
+    base = os.path.join(sdk_root, "cmdline-tools", "latest", "bin", "sdkmanager")
     if os.name == "nt":
-        sdkmanager += ".bat"
-
-    if not os.path.isfile(sdkmanager):
-        log(f"Error: sdkmanager not found at {sdkmanager}", "red")
+        base += ".bat"
+    if not os.path.isfile(base):
+        log(f"Error: sdkmanager not found at {base}", "red")
         sys.exit(1)
+    return base
 
+
+def run_sdkmanager(sdk_root, components):
+    sdkmanager = _sdkmanager_path(sdk_root)
     env = os.environ.copy()
     env["ANDROID_HOME"] = sdk_root
     env["JAVA_HOME"] = os.environ.get("JAVA_HOME", "")
 
-    yes_pipe = subprocess.Popen(
-        ["echo", "y"] if os.name == "posix" else ["cmd", "/c", "echo y"],
-        stdout=subprocess.PIPE,
+    def _yes():
+        return subprocess.Popen(
+            ["echo", "y"] if os.name == "posix" else ["cmd", "/c", "echo y"],
+            stdout=subprocess.PIPE,
+        )
+
+    # Pre-accept licenses
+    lic = _yes()
+    subprocess.run(
+        [sdkmanager, "--sdk_root=" + sdk_root, "--licenses"],
+        env=env, stdin=lic.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
+    lic.stdout.close()
+    lic.wait()
 
     log("Installing SDK components (this may take a while)...", "cyan")
     for component in components:
         log(f"  {component}", "yellow")
 
     cmd = [sdkmanager, "--sdk_root=" + sdk_root] + components
+    install = _yes()
     try:
-        subprocess.run(cmd, env=env, stdin=yes_pipe.stdout, check=True)
+        subprocess.run(cmd, env=env, stdin=install.stdout, check=True)
     except subprocess.CalledProcessError as e:
         log(f"Error: sdkmanager failed with exit code {e.returncode}", "red")
         sys.exit(1)
     finally:
-        yes_pipe.stdout.close()
-        yes_pipe.wait()
+        install.stdout.close()
+        install.wait()
 
     log("SDK components installed successfully.", "green")
 
