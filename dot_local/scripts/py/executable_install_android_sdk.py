@@ -269,18 +269,20 @@ def install_cmdline_tools(os_name, sdk_root):
         log(f"cmdline-tools installed -> {tools_target}", "green")
 
 
-def _sdkmanager_path(sdk_root):
-    base = os.path.join(sdk_root, "cmdline-tools", "latest", "bin", "sdkmanager")
-    if os.name == "nt":
-        base += ".bat"
-    if not os.path.isfile(base):
-        log(f"Error: sdkmanager not found at {base}", "red")
-        sys.exit(1)
-    return base
+def _sdkcli_path(sdk_root):
+    ext = ".bat" if os.name == "nt" else ""
+    android = os.path.join(sdk_root, "cmdline-tools", "latest", "bin", "android" + ext)
+    if os.path.isfile(android):
+        return android, "android"
+    sdkmanager = os.path.join(sdk_root, "cmdline-tools", "latest", "bin", "sdkmanager" + ext)
+    if os.path.isfile(sdkmanager):
+        return sdkmanager, "sdkmanager"
+    log(f"Error: Neither 'android' nor 'sdkmanager' found in cmdline-tools.", "red")
+    sys.exit(1)
 
 
 def run_sdkmanager(sdk_root, components):
-    sdkmanager = _sdkmanager_path(sdk_root)
+    cli_path, cli_type = _sdkcli_path(sdk_root)
     env = os.environ.copy()
     env["ANDROID_HOME"] = sdk_root
     env["JAVA_HOME"] = os.environ.get("JAVA_HOME", "")
@@ -292,10 +294,14 @@ def run_sdkmanager(sdk_root, components):
         )
 
     # Pre-accept licenses
+    if cli_type == "android":
+        lic_cmd = [cli_path, "sdk", "--licenses"]
+    else:
+        lic_cmd = [cli_path, "--sdk_root=" + sdk_root, "--licenses"]
     lic = _yes()
     subprocess.run(
-        [sdkmanager, "--sdk_root=" + sdk_root, "--licenses"],
-        env=env, stdin=lic.stdout, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        lic_cmd, env=env, stdin=lic.stdout,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     lic.stdout.close()
     lic.wait()
@@ -304,12 +310,15 @@ def run_sdkmanager(sdk_root, components):
     for component in components:
         log(f"  {component}", "yellow")
 
-    cmd = [sdkmanager, "--sdk_root=" + sdk_root] + components
+    if cli_type == "android":
+        cmd = [cli_path, "sdk", "--install"] + components
+    else:
+        cmd = [cli_path, "--sdk_root=" + sdk_root] + components
     install = _yes()
     try:
         subprocess.run(cmd, env=env, stdin=install.stdout, check=True)
     except subprocess.CalledProcessError as e:
-        log(f"Error: sdkmanager failed with exit code {e.returncode}", "red")
+        log(f"Error: failed with exit code {e.returncode}", "red")
         sys.exit(1)
     finally:
         install.stdout.close()
