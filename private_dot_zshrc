@@ -85,27 +85,9 @@ done
 
 PROMPT='%F{cyan}%~%f %F{yellow}%#%f '
 
-if [[ -d "$HOME/.sdkman" ]]; then
+if [[ -d "$HOME/.sdkman" ]] && [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
     export SDKMAN_DIR="$HOME/.sdkman"
-    
-    # Pre-add candidate bin directories to PATH to avoid loading SDKMAN on startup
-    () {
-        setopt localoptions extendedglob
-        for candidate in "$SDKMAN_DIR"/candidates/*(N/); do
-            if [[ -d "$candidate/current/bin" ]]; then
-                path=("$candidate/current/bin" $path)
-            elif [[ -d "$candidate/current" ]]; then
-                path=("$candidate/current" $path)
-            fi
-        done
-    }
-
-    # Lazy-load SDKMAN on demand
-    sdk() {
-        unset -f sdk
-        [[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"
-        sdk "$@"
-    }
+    source "$SDKMAN_DIR/bin/sdkman-init.sh"
 fi
 
 bindkey '^[[H' beginning-of-line
