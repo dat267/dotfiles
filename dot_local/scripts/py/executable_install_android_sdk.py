@@ -311,7 +311,7 @@ def run_sdkmanager(sdk_root, components):
         log(f"  {component}", "yellow")
 
     if cli_type == "android":
-        cmd = [cli_path, "sdk", "--install"] + components
+        cmd = [cli_path, "sdk", "install"] + components
     else:
         cmd = [cli_path, "--sdk_root=" + sdk_root] + components
     install = _yes()
