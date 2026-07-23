@@ -4,7 +4,6 @@
 import argparse
 import os
 import platform
-import re
 import shutil
 import subprocess
 import sys
@@ -21,8 +20,6 @@ COLORS = {
     "red": "\033[91m",
     "reset": "\033[0m",
 }
-
-REPO_XML = "https://dl.google.com/android/repository/repository2-3.xml"
 
 
 def log(message, color=None):
@@ -100,17 +97,9 @@ def parse_args():
         help="Android SDK root directory (default: ~/Android/Sdk)",
     )
     parser.add_argument(
-        "--platform",
-        help="Platform version override (e.g. android-35). Auto-detected if omitted.",
-    )
-    parser.add_argument(
-        "--build-tools",
-        help="Build-tools version override (e.g. 35.0.0). Auto-detected if omitted.",
-    )
-    parser.add_argument(
-        "--no-sdkmanager",
+        "--no-install",
         action="store_true",
-        help="Only install cmdline-tools, skip sdkmanager component install",
+        help="Only install cmdline-tools, skip component installation",
     )
     parser.add_argument(
         "--install-ndk",
@@ -125,18 +114,16 @@ def parse_args():
     return parser.parse_args()
 
 
-def fetch_repository_xml():
-    req = urllib.request.Request(REPO_XML, headers={"User-Agent": "Mozilla/5.0"})
+def resolve_cmdline_url(os_name):
+    REPO = "https://dl.google.com/android/repository/repository2-3.xml"
+    req = urllib.request.Request(REPO, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        with urllib.request.urlopen(req) as resp:
-            return resp.read()
+        raw = urllib.request.urlopen(req).read()
     except Exception as e:
         log(f"Error fetching repository manifest: {e}", "red")
         sys.exit(1)
 
-
-def extract(url, archive, host_os):
-    root = ET.fromstring(archive)
+    root = ET.fromstring(raw)
     cmdline_pkg = root.find('.//remotePackage[@path="cmdline-tools;latest"]')
     if cmdline_pkg is None:
         log("Error: cmdline-tools;latest not found in repository XML.", "red")
@@ -144,84 +131,17 @@ def extract(url, archive, host_os):
 
     for arch in cmdline_pkg.findall('archives/archive'):
         host_os_el = arch.find('host-os')
-        if host_os_el is None or host_os_el.text.strip() != host_os:
+        if host_os_el is None or host_os_el.text.strip() != os_name:
             continue
         complete = arch.find('complete')
         if complete is None:
             continue
         url_el = complete.find('url')
         if url_el is not None:
-            url.append(url_el.text.strip())
-            return
+            return "https://dl.google.com/android/repository/" + url_el.text.strip()
 
-    log(f"Error: No cmdline-tools archive for host-os={host_os}.", "red")
+    log(f"Error: No cmdline-tools archive for host-os={os_name}.", "red")
     sys.exit(1)
-
-
-def resolve_cmdline_url(os_name):
-    raw = fetch_repository_xml()
-    url = []
-    extract(url, raw, os_name)
-    return "https://dl.google.com/android/repository/" + url[0]
-
-
-def find_latest_platform_version(raw):
-    root = ET.fromstring(raw)
-    max_api = 0
-    for pkg in root.findall('.//remotePackage'):
-        path = pkg.get("path", "")
-        m = re.match(r"platforms;android-(\d+)$", path)
-        if m:
-            api = int(m.group(1))
-            if api > max_api:
-                max_api = api
-    if max_api == 0:
-        log("Error: No platform packages found in repository XML.", "red")
-        sys.exit(1)
-    return max_api
-
-
-def find_latest_build_tools(raw, api_level, fallback=True):
-    root = ET.fromstring(raw)
-    prefix = f"build-tools;{api_level}."
-    latest = None
-    latest_parts = (-1,)
-    for pkg in root.findall('.//remotePackage'):
-        path = pkg.get("path", "")
-        if path.startswith(prefix):
-            version_str = path[len("build-tools;"):]
-            try:
-                parts = tuple(int(x) for x in version_str.split("."))
-                if parts > latest_parts:
-                    latest_parts = parts
-                    latest = version_str
-            except ValueError:
-                continue
-    if latest is None and fallback and api_level > 1:
-        log(f"No stable build-tools for API {api_level}, trying API {api_level - 1}...", "yellow")
-        return find_latest_build_tools(raw, api_level - 1, fallback=False)
-    if latest is None:
-        log(f"Error: No build-tools found for API {api_level}.", "red")
-        sys.exit(1)
-    return latest
-
-
-def find_latest_ndk(raw):
-    root = ET.fromstring(raw)
-    best = None
-    best_parts = (-1,)
-    for pkg in root.findall('.//remotePackage'):
-        path = pkg.get("path", "")
-        m = re.match(r"^ndk;(\d+(?:\.\d+)*)$", path)
-        if m:
-            parts = tuple(int(x) for x in m.group(1).split("."))
-            if parts > best_parts:
-                best_parts = parts
-                best = m.group(1)
-    if best is None:
-        log("Error: No NDK packages found in repository XML.", "red")
-        sys.exit(1)
-    return best
 
 
 def install_cmdline_tools(os_name, sdk_root):
@@ -257,7 +177,6 @@ def install_cmdline_tools(os_name, sdk_root):
         else:
             shutil.move(extract_dir, tools_target)
 
-        # zip extract doesn't preserve execute bits
         if os.name != "nt":
             bin_dir = os.path.join(tools_target, "bin")
             if os.path.isdir(bin_dir):
@@ -269,60 +188,51 @@ def install_cmdline_tools(os_name, sdk_root):
         log(f"cmdline-tools installed -> {tools_target}", "green")
 
 
-def _sdkcli_path(sdk_root):
+def _android_path(sdk_root):
     ext = ".bat" if os.name == "nt" else ""
-    android = os.path.join(sdk_root, "cmdline-tools", "latest", "bin", "android" + ext)
-    if os.path.isfile(android):
-        return android, "android"
-    sdkmanager = os.path.join(sdk_root, "cmdline-tools", "latest", "bin", "sdkmanager" + ext)
-    if os.path.isfile(sdkmanager):
-        return sdkmanager, "sdkmanager"
-    log(f"Error: Neither 'android' nor 'sdkmanager' found in cmdline-tools.", "red")
-    sys.exit(1)
+    p = os.path.join(sdk_root, "cmdline-tools", "latest", "bin", "android" + ext)
+    if not os.path.isfile(p):
+        log(f"Error: 'android' CLI not found at {p}", "red")
+        sys.exit(1)
+    return p
 
 
-def run_sdkmanager(sdk_root, components):
-    cli_path, cli_type = _sdkcli_path(sdk_root)
+def _yes():
+    return subprocess.Popen(
+        ["echo", "y"] if os.name == "posix" else ["cmd", "/c", "echo y"],
+        stdout=subprocess.PIPE,
+    )
+
+
+def run_android_sdk(sdk_root, components):
+    android = _android_path(sdk_root)
     env = os.environ.copy()
     env["ANDROID_HOME"] = sdk_root
     env["JAVA_HOME"] = os.environ.get("JAVA_HOME", "")
 
-    def _yes():
-        return subprocess.Popen(
-            ["echo", "y"] if os.name == "posix" else ["cmd", "/c", "echo y"],
-            stdout=subprocess.PIPE,
-        )
-
-    # Pre-accept licenses
-    if cli_type == "android":
-        lic_cmd = [cli_path, "sdk", "--licenses"]
-    else:
-        lic_cmd = [cli_path, "--sdk_root=" + sdk_root, "--licenses"]
-    lic = _yes()
+    lic_pipe = _yes()
     subprocess.run(
-        lic_cmd, env=env, stdin=lic.stdout,
+        [android, "sdk", "--licenses"],
+        env=env, stdin=lic_pipe.stdout,
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
-    lic.stdout.close()
-    lic.wait()
+    lic_pipe.stdout.close()
+    lic_pipe.wait()
 
     log("Installing SDK components (this may take a while)...", "cyan")
     for component in components:
         log(f"  {component}", "yellow")
 
-    if cli_type == "android":
-        cmd = [cli_path, "sdk", "install"] + components
-    else:
-        cmd = [cli_path, "--sdk_root=" + sdk_root] + components
-    install = _yes()
+    cmd = [android, "sdk", "install"] + components
+    install_pipe = _yes()
     try:
-        subprocess.run(cmd, env=env, stdin=install.stdout, check=True)
+        subprocess.run(cmd, env=env, stdin=install_pipe.stdout, check=True)
     except subprocess.CalledProcessError as e:
-        log(f"Error: failed with exit code {e.returncode}", "red")
+        log(f"Error: 'android sdk install' failed with exit code {e.returncode}", "red")
         sys.exit(1)
     finally:
-        install.stdout.close()
-        install.wait()
+        install_pipe.stdout.close()
+        install_pipe.wait()
 
     log("SDK components installed successfully.", "green")
 
@@ -338,10 +248,9 @@ def main():
     if not os.path.isdir(os.path.join(sdk_root, "cmdline-tools", "latest", "bin")):
         install_cmdline_tools(os_name, sdk_root)
 
-    if args.no_sdkmanager:
-        log("Skipping component installation (--no-sdkmanager).", "yellow")
+    if args.no_install:
+        log("Skipping component installation (--no-install).", "yellow")
         log(f"Export ANDROID_HOME={sdk_root}", "green")
-        log('Then run: sdkmanager "platform-tools" "platforms;android-XX" ...', "green")
         return
 
     if not (os.environ.get("JAVA_HOME") or os.environ.get("JDK_HOME")):
@@ -349,35 +258,13 @@ def main():
         log(f"Using JAVA_HOME={java_home}", "cyan")
         os.environ["JAVA_HOME"] = java_home
 
-    raw = fetch_repository_xml()
-
-    platform_id = args.platform
-    if not platform_id:
-        api = find_latest_platform_version(raw)
-        platform_id = f"android-{api}"
-        log(f"Auto-detected latest platform: {platform_id}", "green")
-
-    build_tools = args.build_tools
-    if not build_tools:
-        api_level = int(platform_id.split("-", 1)[1])
-        build_tools = find_latest_build_tools(raw, api_level)
-        log(f"Auto-detected latest build-tools: {build_tools}", "green")
-
-    components = [
-        "platform-tools",
-        f"platforms;{platform_id}",
-        f"build-tools;{build_tools}",
-    ]
-
+    components = ["platform-tools", "platforms;android", "build-tools"]
     if args.install_ndk:
-        ndk_ver = find_latest_ndk(raw)
-        log(f"Auto-detected latest NDK: {ndk_ver}", "green")
-        components.append(f"ndk;{ndk_ver}")
-
+        components.append("ndk")
     if args.install_emulator:
         components.append("emulator")
 
-    run_sdkmanager(sdk_root, components)
+    run_android_sdk(sdk_root, components)
 
     log("", "reset")
     log(f"Android SDK ready: ANDROID_HOME={sdk_root}", "green")
