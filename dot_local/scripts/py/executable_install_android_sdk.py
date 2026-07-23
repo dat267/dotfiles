@@ -258,9 +258,9 @@ def main():
         log(f"Using JAVA_HOME={java_home}", "cyan")
         os.environ["JAVA_HOME"] = java_home
 
-    components = ["platform-tools", "platforms;android", "build-tools"]
+    components = ["platform-tools", "platforms;android@latest", "build-tools@latest"]
     if args.install_ndk:
-        components.append("ndk")
+        components.append("ndk@latest")
     if args.install_emulator:
         components.append("emulator")
 
