@@ -181,14 +181,14 @@ def find_latest_platform_version(raw):
     return max_api
 
 
-def find_latest_build_tools(raw, api_level):
+def find_latest_build_tools(raw, api_level, fallback=True):
     root = ET.fromstring(raw)
     prefix = f"build-tools;{api_level}."
     latest = None
     latest_parts = (-1,)
     for pkg in root.findall('.//remotePackage'):
         path = pkg.get("path", "")
-        if path.startswith(prefix) and "-" not in path:
+        if path.startswith(prefix):
             version_str = path[len("build-tools;"):]
             try:
                 parts = tuple(int(x) for x in version_str.split("."))
@@ -197,6 +197,9 @@ def find_latest_build_tools(raw, api_level):
                     latest = version_str
             except ValueError:
                 continue
+    if latest is None and fallback and api_level > 1:
+        log(f"No stable build-tools for API {api_level}, trying API {api_level - 1}...", "yellow")
+        return find_latest_build_tools(raw, api_level - 1, fallback=False)
     if latest is None:
         log(f"Error: No build-tools found for API {api_level}.", "red")
         sys.exit(1)
