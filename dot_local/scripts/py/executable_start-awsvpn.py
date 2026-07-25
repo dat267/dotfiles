@@ -262,6 +262,10 @@ def run():
     parser = argparse.ArgumentParser(description="Start AWS Client VPN via SAML SSO.")
     parser.add_argument('client_dir', help='AWS VPN client directory')
     parser.add_argument('ovpn_file', help='OpenVPN profile file')
+    parser.add_argument('--headless', action='store_true',
+                        help='Headless mode: print SAML URL, wait for pasted response')
+    parser.add_argument('--saml-response-file',
+                        help='Read SAML response from file (ignored without --headless)')
     args = parser.parse_args()
 
     client_dir = os.path.abspath(args.client_dir)
@@ -364,19 +368,38 @@ def run():
         print(f"[-] Missing authentication variables. Check full log at: {OPENVPN_LOG}")
         sys.exit(1)
 
-    httpd.expected_request_id = extract_saml_request_id(saml_url)
-    try:
-        webbrowser.open(saml_url)
-    except Exception:
-        pass
+    if args.headless:
+        print(f"\n=== SAML login required ===")
+        print(f"Open this URL in a browser on any machine:\n")
+        print(f"{saml_url}\n")
+        if args.saml_response_file:
+            with open(args.saml_response_file) as f:
+                raw_saml = f.read().strip()
+            saml_response = urllib.parse.quote_plus(raw_saml, safe='')
+            print(f"[+] Read SAML response from {args.saml_response_file}")
+        else:
+            print("After authenticating, the browser will POST to http://127.0.0.1:35001/")
+            print("You can capture the SAMLResponse parameter from the POST body.")
+            print("Paste the encoded SAMLResponse value below and press Ctrl+D:")
+            raw_saml = sys.stdin.read().strip()
+            if not raw_saml:
+                print("[-] No SAML response provided.")
+                sys.exit(1)
+            saml_response = raw_saml.strip()
+    else:
+        httpd.expected_request_id = extract_saml_request_id(saml_url)
+        try:
+            webbrowser.open(saml_url)
+        except Exception:
+            pass
 
-    try:
-        while httpd.saml_response is None:
-            time.sleep(0.2)
-    except KeyboardInterrupt:
-        sys.exit(1)
+        try:
+            while httpd.saml_response is None:
+                time.sleep(0.2)
+        except KeyboardInterrupt:
+            sys.exit(1)
 
-    saml_response = httpd.saml_response
+        saml_response = httpd.saml_response
     with open(second_stage_creds, "w", newline="\n") as f:
         f.write(f"N/A\nCRV1::{vpn_sid}::{saml_response}\n")
 
