@@ -57,7 +57,7 @@ if [ -d "$HOME/.sdkman" ] && [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
 	export SDKMAN_DIR="$HOME/.sdkman"
 	. "$SDKMAN_DIR/bin/sdkman-init.sh"
 fi
-if [ -d "$HOME/.termux" ]; then
+if [ -d "$HOME/.termux" ] && { [ -n "$TERMUX_VERSION" ] || [ -f /data/data/com.termux/files/usr/bin/termux-info ]; }; then
 	DISTRO_NAME="android"
 elif [ -r /etc/os-release ]; then
 	. /etc/os-release
