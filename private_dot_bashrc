@@ -24,11 +24,6 @@ if [ -f "$HOME/lib/azure-cli/az.completion" ]; then
 	source "$HOME/lib/azure-cli/az.completion"
 fi
 export PS1='\[$(if [[ $? -eq 0 ]]; then printf "\e[0;32m"; else printf "\e[0;31m"; fi)\]\w\[\e[0m\] \$ '
-if [[ -d "$HOME/.sdkman" ]] && [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
-	export SDKMAN_DIR="$HOME/.sdkman"
-	source "$SDKMAN_DIR/bin/sdkman-init.sh"
-fi
-
 # Auto-detect and activate Python virtual environment in current or parent directories
 _auto_run_venv() {
 	[[ -t 1 ]] || return

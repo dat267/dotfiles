@@ -85,11 +85,6 @@ done
 
 PROMPT='%F{cyan}%~%f %F{yellow}%#%f '
 
-if [[ -d "$HOME/.sdkman" ]] && [[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]]; then
-    export SDKMAN_DIR="$HOME/.sdkman"
-    source "$SDKMAN_DIR/bin/sdkman-init.sh"
-fi
-
 bindkey '^[[H' beginning-of-line
 bindkey '^[[F' end-of-line
 bindkey '^[OH' beginning-of-line

@@ -14,8 +14,6 @@ Chezmoi uses filename prefixes to control how files are deployed — understand 
 | `dot_`                 | Deployed as a dotfile (e.g. `dot_vimrc` → `~/.vimrc`) |
 | `private_`             | Deployed with mode `0600` (user-only permissions)     |
 | `executable_`          | Deployed with executable bit set; prefix stripped      |
-| `create_`              | Created if absent on target; never updated             |
-| `modify_`              | Applied on top of existing files                       |
 | `run_once_`            | Script runs once on first `chezmoi apply`              |
 | `run_onchange_`        | Script runs whenever its content changes               |
 | `*.tmpl`               | Processed as a Go template before deployment           |
@@ -70,7 +68,8 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `executable_install_nerd_font.py` | Install a Nerd Font (Linux/Windows)      |
 | `executable_url_decode_rename.py` | Decode URL-encoded filenames in a dir      |
 | `executable_build_tools.py` | CI build script for custom compiled tools    |
-| `common.py`                 | Shared utility module (no shebang)           |
+| `executable_start-awsvpn.py` | AWS Client VPN via SAML SSO                |
+| `executable_install_android_sdk.py` | Install Android SDK cmdline-tools       |
 
 ### Other Configs
 | File                         | Purpose                                      |
@@ -83,7 +82,6 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `private_dot_gitconfig`      | Git config (aliases, autosquash, etc.)       |
 | `.chezmoi.toml.tmpl`         | Chezmoi config template (Git auto-push, OS paths) |
 | `.chezmoiignore`             | Files excluded from deployment (OS-conditional) |
-| `.github/workflows/build-tools.yml` | CI: auto-discovers tools, builds & releases |
 | `run_once_before_bootstrap-local-configs.*` | First-run bootstrap (local config stubs) |
 | `run_onchange_after_create-symlinks.sh.tmpl` | Post-apply symlink creation (Linux) |
 | `run_onchange_after_create-junctions.ps1.tmpl` | Post-apply junction creation (Windows) |
@@ -130,13 +128,13 @@ All executable Python scripts follow these conventions:
 
 ## Custom Tools (`dot_local/src/`)
 
-Each subdirectory under `dot_local/src/` containing a `Makefile` is auto-discovered by CI and built for all supported platforms.
+Each subdirectory under `dot_local/src/` containing a `Makefile` can be built for all supported platforms.
 
 ### Adding a New Tool
 
 1. Create `dot_local/src/{toolname}/` with your source code
 2. Add a `Makefile` implementing the build contract below
-3. Push to `main` — CI does the rest (no config files to edit)
+3. Push to `main`
 
 ### Makefile Build Contract
 

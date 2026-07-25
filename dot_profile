@@ -53,6 +53,10 @@ if [ -d "$HOME/Android/Sdk" ]; then
 	export ANDROID_HOME="$HOME/Android/Sdk"
 	append_paths "$ANDROID_HOME/platform-tools" "$ANDROID_HOME/emulator"
 fi
+if [ -d "$HOME/.sdkman" ] && [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
+	export SDKMAN_DIR="$HOME/.sdkman"
+	. "$SDKMAN_DIR/bin/sdkman-init.sh"
+fi
 if [ -d "$HOME/.termux" ]; then
 	DISTRO_NAME="android"
 elif [ -r /etc/os-release ]; then
