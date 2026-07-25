@@ -5,11 +5,11 @@ LICENSE
 
 
 {{- if ne (env "CLOUD_SHELL") "true" }}
-dot_customize_environment
+.customize_environment
 {{- end }}
 
 {{- if ne .chezmoi.os "android" }}
-private_dot_termux
+.termux
 {{- end }}
 
 {{- if ne .chezmoi.os "windows" }}
@@ -19,9 +19,13 @@ run_onchange_after_create-junctions.ps1.tmpl
 {{- end }}
 
 {{- if eq .chezmoi.os "windows" }}
-dot_profile
-private_dot_bashrc
-private_dot_zshrc
+.bash_aliases
+.bash_login
+.bash_logout
+.bash_profile
+.bashrc
+.profile
+.zshrc
 run_once_before_bootstrap-local-configs.sh.tmpl
 run_onchange_after_create-symlinks.sh.tmpl
 {{- end }}
