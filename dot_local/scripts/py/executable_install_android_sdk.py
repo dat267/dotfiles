@@ -14,25 +14,9 @@ import urllib.error
 import xml.etree.ElementTree as ET
 import zipfile
 
-COLORS = {
-    "cyan": "\033[96m",
-    "green": "\033[92m",
-    "yellow": "\033[93m",
-    "red": "\033[91m",
-    "reset": "\033[0m",
-}
+from _shared import COLORS, log
 
 REPO_XML = "https://dl.google.com/android/repository/repository2-3.xml"
-
-
-def log(message, color=None):
-    use_color = sys.stdout.isatty() and (
-        os.name == "posix" or os.environ.get("TERM")
-    )
-    if color and use_color:
-        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
-    else:
-        print(message)
 
 
 def get_platform_info():
