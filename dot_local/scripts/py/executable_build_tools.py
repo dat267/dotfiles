@@ -4,23 +4,9 @@ import os
 import subprocess
 import sys
 
+from _shared import COLORS, log
+
 BASE_SRC_DIR = os.path.expanduser("~/.local/src")
-
-COLORS = {
-    "cyan": "\033[96m",
-    "green": "\033[92m",
-    "yellow": "\033[93m",
-    "red": "\033[91m",
-    "reset": "\033[0m",
-}
-
-
-def log(message, color=None):
-    use_color = sys.stdout.isatty() and (os.name == "posix" or os.environ.get("TERM"))
-    if color and use_color:
-        print(f"{COLORS.get(color, '')}{message}{COLORS['reset']}")
-    else:
-        print(message)
 
 
 def main():

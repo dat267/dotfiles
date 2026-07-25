@@ -71,6 +71,11 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `executable_start-awsvpn.py` | AWS Client VPN via SAML SSO                |
 | `executable_install_android_sdk.py` | Install Android SDK cmdline-tools       |
 
+**Shared module:**
+| Script                      | Purpose                                      |
+| --------------------------- | -------------------------------------------- |
+| `_shared.py`                | COLORS/log()/get_platform_info() shared by installers |
+
 ### Other Configs
 | File                         | Purpose                                      |
 | ---------------------------- | -------------------------------------------- |
