@@ -69,7 +69,6 @@ def promote_subtitle(filepath, target_sub_idx):
     for i in range(sub_count):
         if i != target_sub_idx:
             cmd.extend(["-map", f"0:s:{i}"])
-    cmd.extend(["-map", "0:t?", "-map", "0:d?"])
     cmd.extend(["-c", "copy"])
     cmd.extend(["-disposition:s:0", "default"])
     cmd.append(tmp)
