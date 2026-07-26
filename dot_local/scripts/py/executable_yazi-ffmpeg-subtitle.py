@@ -104,36 +104,59 @@ def main():
         input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
-    # Show first file's subtitle tracks as reference
-    subs = get_subtitle_streams(files[0])
-    if not subs:
-        print_flush(f"No subtitle streams found in {os.path.basename(files[0])}.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(0)
-    if len(subs) < 2:
-        print_flush(f"Only 1 subtitle track in {os.path.basename(files[0])} — nothing to reorder.")
+    # Scan all files
+    file_subs = {}
+    counts = {}
+    for f in files:
+        subs = get_subtitle_streams(f)
+        file_subs[f] = subs
+        n = len(subs)
+        counts.setdefault(n, []).append(f)
+
+    if not any(file_subs.values()):
+        print_flush("No subtitle streams found in any selected file.")
         input_flush("Press Enter to return to Yazi.")
         sys.exit(0)
 
-    print_flush(f"\nReference: {os.path.basename(files[0])}")
-    print_flush("Subtitle tracks:")
-    for i, s in enumerate(subs):
+    # Show summary
+    print_flush(f"\nSelected {len(files)} file(s):")
+    for n, flist in sorted(counts.items()):
+        print_flush(f"  {len(flist)} file(s) with {n} subtitle track(s)")
+    print_flush("")
+
+    # Show first file's tracks as reference
+    ref_file = files[0]
+    ref_subs = file_subs[ref_file]
+    print_flush(f"Reference ({os.path.basename(ref_file)}):")
+    for i, s in enumerate(ref_subs):
         title = f" - {s['title']}" if s["title"] else ""
-        print_flush(f"  [{i}]  index={s['index']}  lang={s['lang']}  codec={s['codec']}{title}")
+        print_flush(f"  [{i}]  lang={s['lang']}  codec={s['codec']}{title}")
 
-    choice = input_flush(f"\nTrack to promote to position 1 (0-{len(subs)-1}): ").strip()
+    if len(counts) > 1:
+        odd = [os.path.basename(f) for n, flist in sorted(counts.items())
+               if n != len(ref_subs) for f in flist]
+        print_flush(f"\nWarning: {len(odd)} file(s) have different subtitle track counts:")
+        for name in odd[:10]:
+            print_flush(f"  - {name}")
+        if len(odd) > 10:
+            print_flush(f"  ... and {len(odd) - 10} more")
+
+    if len(ref_subs) < 2:
+        print_flush(f"\nOnly {len(ref_subs)} subtitle track(s) in reference file — nothing to reorder.")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(0)
+
+    choice = input_flush(f"\nTrack to promote to position 1 (0-{len(ref_subs)-1}): ").strip()
     try:
         target = int(choice)
     except ValueError:
-        print_flush(f"Invalid choice: {choice}")
+        print_flush(f"Invalid choice.")
         input_flush("Press Enter to return to Yazi.")
         sys.exit(0)
-
-    if target < 0 or target >= len(subs):
+    if target < 0 or target >= len(ref_subs):
         print_flush(f"Track {target} is out of range.")
         input_flush("Press Enter to return to Yazi.")
         sys.exit(0)
-
     if target == 0:
         print_flush("Track 0 is already first. Nothing to do.")
         input_flush("Press Enter to return to Yazi.")
@@ -141,10 +164,12 @@ def main():
 
     ok = 0
     fail = 0
+    skip = 0
     for f in files:
-        subs = get_subtitle_streams(f)
-        if len(subs) < 2:
-            print_flush(f"\n  {os.path.basename(f)}: {len(subs)} track(s), skipping")
+        subs = file_subs[f]
+        if len(subs) < 2 or target >= len(subs):
+            print_flush(f"  {os.path.basename(f)}: {len(subs)} track(s), skipping")
+            skip += 1
             continue
         if promote_subtitle(f, target):
             print_flush(f"  {os.path.basename(f)}: OK")
