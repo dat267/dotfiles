@@ -70,7 +70,7 @@ def main():
             cmd += ["-t", str(end - start)]
         cmd += ["-c", "copy", "-y", out]
         print_flush(f"  {label}: {start}s → {end or 'end'} -> {os.path.basename(out)}")
-        subprocess.run(cmd, capture_output=True)
+        subprocess.run(cmd, stderr=subprocess.STDOUT)
 
     print_flush(f"\nDone — {len(segments)} files created.")
     print_flush("Press Enter to return to Yazi.", end="")

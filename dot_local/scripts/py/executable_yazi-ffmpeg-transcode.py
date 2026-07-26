@@ -60,7 +60,7 @@ def main():
         cmd = ["ffmpeg", "-i", abs_path, "-y", output_path]
         print_flush(f"Command: {' '.join(cmd)}\n")
         
-        res = subprocess.run(cmd)
+        subprocess.run(cmd, stderr=subprocess.STDOUT)
         if res.returncode == 0:
             print_flush(f"Successfully created '{output_name}'!")
         else:

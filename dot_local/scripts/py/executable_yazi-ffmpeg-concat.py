@@ -61,7 +61,7 @@ def main():
                 "-c:v", "libx264", "-c:a", "aac", "-y", output_name]
 
     print_flush(f"Command: {' '.join(cmd)}\n")
-    res = subprocess.run(cmd)
+    res = subprocess.run(cmd, stderr=subprocess.STDOUT)
     if res.returncode == 0:
         print_flush(f"Successfully concatenated to '{output_name}'!")
     else:

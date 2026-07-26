@@ -76,7 +76,7 @@ def promote_subtitle(filepath, target_sub_idx):
 
     print_flush(f"\nRunning: {' '.join(cmd)}\n")
     try:
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         print_flush(f"Error: ffmpeg failed with exit code {e.returncode}")
         if os.path.exists(tmp):
