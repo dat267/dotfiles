@@ -191,9 +191,24 @@ case "$DISTRO_NAME" in
 		cpkgs() { $SUDO apt-get autoremove --purge -y; }
 		;;
 	android)
-		ipkgs() { pkg install -y "$@"; }
-		upkgs() { pkg update && pkg upgrade -y; }
-		rpkgs() { apt remove --yes "$@"; }
+		if command -v pacman >/dev/null 2>&1; then
+			ipkgs() { pacman -S --noconfirm --needed "$@"; }
+			upkgs() { pacman -Syu --noconfirm; }
+			rpkgs() { pacman -Rns --noconfirm "$@"; }
+			cpkgs() {
+				local orphans
+				orphans=$(pacman -Qtdq)
+				if [ -z "$orphans" ]; then
+					echo "No orphan packages to remove."
+				else
+					pacman -Rns --noconfirm "$orphans"
+				fi
+			}
+		else
+			ipkgs() { pkg install -y "$@"; }
+			upkgs() { pkg update && pkg upgrade -y; }
+			rpkgs() { apt remove --yes "$@"; }
+		fi
 		;;
 	*)
 		if command -v pacman >/dev/null 2>&1; then
