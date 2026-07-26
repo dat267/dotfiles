@@ -37,3 +37,8 @@ desc = "Transcode"
 on = ["z", "s"]
 run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-split.py %S 2>&1' --block"
 desc = "Split"
+
+[[mgr.prepend_keymap]]
+on = ["z", "r"]
+run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-subtitle.py %s1 2>&1' --block"
+desc = "Reorder subtitles"
