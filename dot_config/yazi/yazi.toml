@@ -4,7 +4,7 @@ suppress_preload = true
 [opener]
 edit = [
   { run = 'nvim "%s"', block = true, for = "windows" },
-  { run = '${EDITOR:-nvim} "%s"', block = true, for = "unix" },
+  { run = 'nvim "%s1"', block = true, for = "unix" },
 ]
 play = [
   { run = 'mpv %s', orphan = true, desc = "Play with mpv", for = "unix" },
