@@ -115,82 +115,53 @@ def main():
         input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
-    # Scan all files
-    file_subs = {}
-    counts = {}
+    # Group files by subtitle track titles
+    groups = {}
     for f in files:
         subs = get_subtitle_streams(f)
-        file_subs[f] = subs
-        n = len(subs)
-        counts.setdefault(n, []).append(f)
+        sig = tuple(s["title"] for s in subs)
+        groups.setdefault(sig, {"subs": subs, "files": []})["files"].append(f)
 
-    if not any(file_subs.values()):
-        print_flush("No subtitle streams found in any selected file.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(0)
+    print_flush(f"\nSelected {len(files)} file(s), {len(groups)} track layout(s):\n")
 
-    # Show summary
-    print_flush(f"\nSelected {len(files)} file(s):")
-    for n, flist in sorted(counts.items()):
-        print_flush(f"  {len(flist)} file(s) with {n} subtitle track(s)")
-    print_flush("")
+    ok = fail = skip = 0
+    for sig, grp in groups.items():
+        subs = grp["subs"]
+        flist = grp["files"]
 
-    # Show first file's tracks as reference
-    ref_file = files[0]
-    ref_subs = file_subs[ref_file]
-    print_flush(f"Reference ({os.path.basename(ref_file)}):")
-    for i, s in enumerate(ref_subs):
-        title = f" - {s['title']}" if s["title"] else ""
-        print_flush(f"  [{i}]  lang={s['lang']}  codec={s['codec']}{title}")
-
-    if len(counts) > 1:
-        odd = [os.path.basename(f) for n, flist in sorted(counts.items())
-               if n != len(ref_subs) for f in flist]
-        print_flush(f"\nWarning: {len(odd)} file(s) have different subtitle track counts:")
-        for name in odd[:10]:
-            print_flush(f"  - {name}")
-        if len(odd) > 10:
-            print_flush(f"  ... and {len(odd) - 10} more")
-
-    if len(ref_subs) < 2:
-        print_flush(f"\nOnly {len(ref_subs)} subtitle track(s) in reference file — nothing to reorder.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(0)
-
-    choice = input_flush(f"\nTrack to promote to position 1 (0-{len(ref_subs)-1}): ").strip()
-    if choice == "":
-        print_flush("Cancelled.")
-        sys.exit(0)
-    try:
-        target = int(choice)
-    except ValueError:
-        print_flush(f"Invalid choice.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(0)
-    if target < 0 or target >= len(ref_subs):
-        print_flush(f"Track {target} is out of range.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(0)
-    if target == 0:
-        print_flush("Track 0 is already first. Nothing to do.")
-        input_flush("Press Enter to return to Yazi.")
-        sys.exit(0)
-
-    ok = 0
-    fail = 0
-    skip = 0
-    for f in files:
-        subs = file_subs[f]
-        if len(subs) < 2 or target >= len(subs):
-            print_flush(f"  {os.path.basename(f)}: {len(subs)} track(s), skipping")
-            skip += 1
+        if len(subs) < 2:
+            skip += len(flist)
             continue
-        if promote_subtitle(f, target):
-            print_flush(f"  {os.path.basename(f)}: OK")
-            ok += 1
-        else:
-            print_flush(f"  {os.path.basename(f)}: FAILED")
-            fail += 1
+
+        print_flush(f"── {len(flist)} file(s) ──")
+        for i, s in enumerate(subs):
+            title = f" - {s['title']}" if s["title"] else ""
+            print_flush(f"  [{i}]  lang={s['lang']}  codec={s['codec']}{title}")
+
+        choice = input_flush(f"  Track to promote to pos 1 (0-{len(subs)-1}, Enter=skip): ").strip()
+        if choice == "":
+            skip += len(flist)
+            print_flush("")
+            continue
+        try:
+            target = int(choice)
+        except ValueError:
+            skip += len(flist)
+            print_flush("")
+            continue
+        if target < 0 or target >= len(subs) or target == 0:
+            skip += len(flist)
+            print_flush("")
+            continue
+
+        for f in flist:
+            if promote_subtitle(f, target):
+                print_flush(f"  {os.path.basename(f)}: OK")
+                ok += 1
+            else:
+                print_flush(f"  {os.path.basename(f)}: FAILED")
+                fail += 1
+        print_flush("")
 
     input_flush("Press Enter to return to Yazi.")
 
