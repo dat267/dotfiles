@@ -127,6 +127,8 @@ All executable Python scripts follow these conventions:
 
 ### Yazi Configuration
 
+- **Openers (`%s` quoting)**: NEVER wrap `%s` or `%s1` in quotes. Yazi internally escapes paths (likely single-quote wrapping). Adding extra `"` creates `"'/path/file'"` which breaks paths with spaces/special chars. Use bare `%s`, e.g. `'nvim %s1'` not `'nvim "%s1"'`.
+
 - **Openers** (`yazi.toml`): Define scripts that run when opening files. All openers accessed via keybindings. Single `open` rule for Enter → xdg-open.
 - **Keymaps** (`keymap.toml`): Bind keys to Yazi built-ins, `shell` commands, or `plugin` Lua plugins. Use `%S` for batch (all selected files). Use `--block` to show terminal output. Append `2>&1` to merge stderr into the visible output. Use `z` prefix for the tools menu (extract, compress, concat, transcode, split).
 - **MIME detection**: Yazi native `file(1)` based detection.
