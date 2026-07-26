@@ -95,10 +95,21 @@ def main():
 
     import argparse
     parser = argparse.ArgumentParser(description="Reorder subtitle tracks in media files.")
-    parser.add_argument("files", nargs="+", help="Media files to process")
+    parser.add_argument("files", nargs="*", help="Media files to process")
+    parser.add_argument("--dir", metavar="DIR", help="Process all video files in a directory")
     args = parser.parse_args()
 
-    files = [os.path.abspath(f) for f in args.files if os.path.isfile(f)]
+    files = []
+    if args.files:
+        files = [os.path.abspath(f) for f in args.files if os.path.isfile(f)]
+    elif args.dir:
+        d = os.path.abspath(args.dir)
+        if os.path.isdir(d):
+            video_exts = {".mkv", ".mp4", ".avi", ".mov", ".m4v"}
+            files = sorted(
+                os.path.join(d, f) for f in os.listdir(d)
+                if os.path.splitext(f)[1].lower() in video_exts
+            )
     if not files:
         print_flush("Error: No valid files provided.")
         input_flush("Press Enter to return to Yazi.")
