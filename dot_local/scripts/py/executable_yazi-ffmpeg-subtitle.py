@@ -117,14 +117,14 @@ def main():
 
     # Collect all unique track titles across all files
     all_titles = {}
-    title_examples = {}
+    title_at_index = {}  # title -> {index -> [filenames]}
     for f in files:
         subs = get_subtitle_streams(f)
-        for s in subs:
+        for i, s in enumerate(subs):
             t = s["title"] or f"(untitled {s['lang']})"
             if t not in all_titles:
-                all_titles[t] = {"file": os.path.basename(f), "lang": s["lang"], "codec": s["codec"]}
-            title_examples.setdefault(t, []).append(f)
+                all_titles[t] = {"lang": s["lang"], "codec": s["codec"]}
+            title_at_index.setdefault(t, {}).setdefault(i, []).append(os.path.basename(f))
 
     sorted_titles = sorted(all_titles.keys())
     if not sorted_titles:
@@ -134,8 +134,14 @@ def main():
 
     print_flush(f"\nAll unique subtitle tracks across {len(files)} file(s):")
     for i, t in enumerate(sorted_titles):
-        count = len(title_examples[t])
-        print_flush(f"  [{i}] {t} (x{count})")
+        info = all_titles[t]
+        print_flush(f"  [{i}] {t} ({info['lang']}, {info['codec']})")
+        for idx in sorted(title_at_index[t]):
+            names = title_at_index[t][idx]
+            if len(names) <= 3:
+                print_flush(f"      @{idx}: {', '.join(names)}")
+            else:
+                print_flush(f"      @{idx}: {names[0]}, {names[1]}, ... ({len(names)} files)")
 
     choice = input_flush(f"\nTrack to promote to position 1 (0-{len(sorted_titles)-1}, Enter=skip): ").strip()
     if choice == "":
