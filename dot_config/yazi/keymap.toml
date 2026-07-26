@@ -40,5 +40,5 @@ desc = "Split"
 
 [[mgr.prepend_keymap]]
 on = ["z", "r"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-subtitle.py --dir '%d' 2>&1' --block"
+run = "shell 'for f in %s; do yazi-ffmpeg-subtitle.py \"$f\" 2>&1; done' --block"
 desc = "Reorder subtitles"
