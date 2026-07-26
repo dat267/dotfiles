@@ -14,7 +14,7 @@ INSTALL_DIR = os.path.expanduser("~/.local/bin")
 from _shared import COLORS, log
 
 
-def get_platform_pair():
+def get_platform_filename():
     system = platform.system().lower()
     machine = platform.machine().lower()
 
@@ -29,26 +29,23 @@ def get_platform_pair():
         sys.exit(1)
 
     if machine in ("x86_64", "amd64", "em64t"):
-        arch_name = "amd64"
+        arch_name = "x64"
     elif machine in ("aarch64", "arm64"):
         arch_name = "arm64"
     else:
         log(f"Error: Architecture '{machine}' is not supported.", "red")
         sys.exit(1)
 
-    return os_name, arch_name
+    return f"opencode-{os_name}-{arch_name}.tar.gz"
 
 
 def main():
     parser = argparse.ArgumentParser(description="Install OpenCode from GitHub releases.")
     parser.parse_args()
 
-    os_name, arch_name = get_platform_pair()
-    binary_name = "opencode.exe" if os_name == "windows" else "opencode"
-    url = (
-        f"https://github.com/anomalyco/opencode/releases/latest/download/"
-        f"opencode_{os_name}_{arch_name}.tar.gz"
-    )
+    filename = get_platform_filename()
+    binary_name = "opencode.exe" if "windows" in filename else "opencode"
+    url = f"https://github.com/anomalyco/opencode/releases/latest/download/{filename}"
 
     log(f"Downloading OpenCode from: {url}", "cyan")
     os.makedirs(INSTALL_DIR, exist_ok=True)
@@ -83,7 +80,7 @@ def main():
                 log("Error: Binary not found in archive.", "red")
                 sys.exit(1)
 
-            if os_name != "windows":
+            if "windows" not in filename:
                 os.chmod(src, 0o755)
 
             try:
