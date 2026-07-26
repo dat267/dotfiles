@@ -115,53 +115,67 @@ def main():
         input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
-    # Group files by subtitle track titles
-    groups = {}
+    # Collect all unique track titles across all files
+    all_titles = {}
+    title_examples = {}
     for f in files:
         subs = get_subtitle_streams(f)
-        sig = tuple(s["title"] for s in subs)
-        groups.setdefault(sig, {"subs": subs, "files": []})["files"].append(f)
+        for s in subs:
+            t = s["title"] or f"(untitled {s['lang']})"
+            if t not in all_titles:
+                all_titles[t] = {"file": os.path.basename(f), "lang": s["lang"], "codec": s["codec"]}
+            title_examples.setdefault(t, []).append(f)
 
-    print_flush(f"\nSelected {len(files)} file(s), {len(groups)} track layout(s):\n")
+    sorted_titles = sorted(all_titles.keys())
+    if not sorted_titles:
+        print_flush("No subtitle tracks found.")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(0)
 
+    print_flush(f"\nAll unique subtitle tracks across {len(files)} file(s):")
+    for i, t in enumerate(sorted_titles):
+        count = len(title_examples[t])
+        print_flush(f"  [{i}] {t} (x{count})")
+
+    choice = input_flush(f"\nTrack to promote to position 1 (0-{len(sorted_titles)-1}, Enter=skip): ").strip()
+    if choice == "":
+        print_flush("Cancelled.")
+        sys.exit(0)
+    try:
+        target_idx = int(choice)
+    except ValueError:
+        print_flush("Invalid choice.")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(0)
+    if target_idx < 0 or target_idx >= len(sorted_titles):
+        print_flush("Out of range.")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(0)
+
+    target_title = sorted_titles[target_idx]
     ok = fail = skip = 0
-    for sig, grp in groups.items():
-        subs = grp["subs"]
-        flist = grp["files"]
 
-        if len(subs) < 2:
-            skip += len(flist)
-            continue
-
-        print_flush(f"── {len(flist)} file(s) ──")
+    for f in files:
+        subs = get_subtitle_streams(f)
+        # Find target track's local subtitle index by title
+        target_sub_idx = None
         for i, s in enumerate(subs):
-            title = f" - {s['title']}" if s["title"] else ""
-            print_flush(f"  [{i}]  lang={s['lang']}  codec={s['codec']}{title}")
-
-        choice = input_flush(f"  Track to promote to pos 1 (0-{len(subs)-1}, Enter=skip): ").strip()
-        if choice == "":
-            skip += len(flist)
-            print_flush("")
+            t = s["title"] or f"(untitled {s['lang']})"
+            if t == target_title:
+                target_sub_idx = i
+                break
+        if target_sub_idx is None or len(subs) < 2:
+            skip += 1
             continue
-        try:
-            target = int(choice)
-        except ValueError:
-            skip += len(flist)
-            print_flush("")
+        if target_sub_idx == 0:
+            skip += 1
             continue
-        if target < 0 or target >= len(subs) or target == 0:
-            skip += len(flist)
-            print_flush("")
-            continue
-
-        for f in flist:
-            if promote_subtitle(f, target):
-                print_flush(f"  {os.path.basename(f)}: OK")
-                ok += 1
-            else:
-                print_flush(f"  {os.path.basename(f)}: FAILED")
-                fail += 1
-        print_flush("")
+        if promote_subtitle(f, target_sub_idx):
+            print_flush(f"  {os.path.basename(f)}: OK")
+            ok += 1
+        else:
+            print_flush(f"  {os.path.basename(f)}: FAILED")
+            fail += 1
 
     input_flush("Press Enter to return to Yazi.")
 
