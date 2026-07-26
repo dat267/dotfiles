@@ -61,7 +61,8 @@ def promote_subtitle(filepath, target_sub_idx):
         return False
 
     import tempfile
-    tmp = filepath + ".tmp"
+    ext = os.path.splitext(filepath)[1] or ".mkv"
+    tmp = filepath + ".reorder" + ext
     cmd = ["ffmpeg", "-y", "-i", filepath]
     cmd.extend(["-map", "0:v"])
     cmd.extend(["-map", "0:a"])
