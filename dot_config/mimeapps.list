@@ -1,4 +1,26 @@
 [Default Applications]
+text/plain=nvim.desktop
+text/x-python=nvim.desktop
+text/x-shellscript=nvim.desktop
+text/x-markdown=nvim.desktop
+text/x-c=nvim.desktop
+text/x-c++=nvim.desktop
+text/x-java=nvim.desktop
+text/x-json=nvim.desktop
+text/x-yaml=nvim.desktop
+text/x-toml=nvim.desktop
+text/xml=nvim.desktop
+text/css=nvim.desktop
+text/javascript=nvim.desktop
+text/x-lua=nvim.desktop
+text/x-rust=nvim.desktop
+text/x-go=nvim.desktop
+text/x-typescript=nvim.desktop
+text/x-tcl=nvim.desktop
+text/x-sql=nvim.desktop
+text/x-ruby=nvim.desktop
+text/x-tex=nvim.desktop
+text/csv=nvim.desktop
 video/mp4=mpv.desktop
 video/x-matroska=mpv.desktop
 video/webm=mpv.desktop
