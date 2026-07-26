@@ -9,7 +9,8 @@
         "*.json": "jsonc",
         "*.opf": "xml",
         ".lfrc": "properties",
-        "*.tmpl": "gotmpl"
+        "*.tmpl": "gotmpl",
+        "justfile": "yaml"
     },
     "[dockerfile]": {
         "editor.defaultFormatter": "ms-azuretools.vscode-docker"
