@@ -137,8 +137,8 @@ def main():
         info = all_titles[t]
         print_flush(f"  [{i}] {t} ({info['lang']}, {info['codec']})")
         for idx in sorted(title_at_index[t]):
-            names = title_at_index[t][idx]
-            print_flush(f"      @{idx}: {', '.join(names)}")
+            for name in title_at_index[t][idx]:
+                print_flush(f"      @{idx}: {name}")
 
     choice = input_flush(f"\nTrack to promote to position 1 (0-{len(sorted_titles)-1}, Enter=skip): ").strip()
     if choice == "":
