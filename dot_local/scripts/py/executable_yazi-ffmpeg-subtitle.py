@@ -54,13 +54,56 @@ def get_subtitle_count(filepath):
     return len([s for s in data.get("streams", []) if s.get("codec_type") == "subtitle"])
 
 
+def _promote_mkvmerge(filepath, stream_type, target_local_idx):
+    result = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_streams", filepath],
+        capture_output=True, text=True, check=True
+    )
+    streams = json.loads(result.stdout).get("streams", [])
+    type_streams = [s for s in streams if s.get("codec_type") == stream_type]
+    if len(type_streams) < 2:
+        print_flush("Need at least 2 tracks to reorder.")
+        return False
+
+    target_global = type_streams[target_local_idx]["index"]
+
+    order_items = []
+    for s in streams:
+        if s.get("codec_type") != stream_type:
+            order_items.append(str(s["index"]))
+    order_items.append(str(target_global))
+    for s in type_streams:
+        if s["index"] != target_global:
+            order_items.append(str(s["index"]))
+
+    ext = os.path.splitext(filepath)[1] or ".mkv"
+    tmp = filepath + ".reorder" + ext
+    cmd = ["mkvmerge", "-o", tmp, "--track-order", ",".join(order_items), filepath]
+    print_flush(f"\nRunning: {' '.join(cmd)}\n")
+    try:
+        p = subprocess.run(cmd, capture_output=True)
+        if p.returncode >= 2:
+            print_flush(p.stderr.decode())
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            return False
+    except FileNotFoundError:
+        print_flush("mkvmerge not found.")
+        return False
+
+    os.replace(tmp, filepath)
+    return True
+
+
 def promote_subtitle(filepath, target_sub_idx):
+    if shutil.which("mkvmerge") and filepath.lower().endswith('.mkv'):
+        return _promote_mkvmerge(filepath, "subtitle", target_sub_idx)
+
     sub_count = get_subtitle_count(filepath)
     if sub_count < 2:
         print_flush("Need at least 2 subtitle tracks to reorder.")
         return False
 
-    import tempfile
     ext = os.path.splitext(filepath)[1] or ".mkv"
     tmp = filepath + ".reorder" + ext
     cmd = ["ffmpeg", "-y", "-i", filepath]
