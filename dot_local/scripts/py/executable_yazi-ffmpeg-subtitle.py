@@ -4,8 +4,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
-import time
 
 
 def print_flush(*args, **kwargs):
@@ -159,35 +157,16 @@ def main():
         input_flush("Press Enter to return to Yazi.")
         sys.exit(0)
 
-    # Cache: reuse previous choice within 30 seconds (for Yazi per-file invocation)
-    cache = os.path.join(tempfile.gettempdir(), "yazi-subtitle-reorder")
-    choice = None
-    if os.path.isfile(cache) and time.time() - os.path.getmtime(cache) < 30:
-        with open(cache) as f:
-            choice = f.read().strip()
-
-    if choice is not None:
-        try:
-            target = int(choice)
-        except ValueError:
-            choice = None
-
-    if choice is None:
-        raw = input_flush(f"\nTrack to promote to position 1 (0-{len(ref_subs)-1}): ").strip()
-        if raw == "":
-            print_flush("Cancelled.")
-            sys.exit(0)
-        try:
-            target = int(raw)
-        except ValueError:
-            print_flush(f"Invalid choice.")
-            input_flush("Press Enter to return to Yazi.")
-            sys.exit(0)
-        with open(cache, "w") as f:
-            f.write(str(target))
-    else:
+    choice = input_flush(f"\nTrack to promote to position 1 (0-{len(ref_subs)-1}): ").strip()
+    if choice == "":
+        print_flush("Cancelled.")
+        sys.exit(0)
+    try:
         target = int(choice)
-        print_flush(f"Using cached choice: track {target}")
+    except ValueError:
+        print_flush(f"Invalid choice.")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(0)
     if target < 0 or target >= len(ref_subs):
         print_flush(f"Track {target} is out of range.")
         input_flush("Press Enter to return to Yazi.")
