@@ -138,10 +138,7 @@ def main():
         print_flush(f"  [{i}] {t} ({info['lang']}, {info['codec']})")
         for idx in sorted(title_at_index[t]):
             names = title_at_index[t][idx]
-            if len(names) <= 3:
-                print_flush(f"      @{idx}: {', '.join(names)}")
-            else:
-                print_flush(f"      @{idx}: {names[0]}, {names[1]}, ... ({len(names)} files)")
+            print_flush(f"      @{idx}: {', '.join(names)}")
 
     choice = input_flush(f"\nTrack to promote to position 1 (0-{len(sorted_titles)-1}, Enter=skip): ").strip()
     if choice == "":
