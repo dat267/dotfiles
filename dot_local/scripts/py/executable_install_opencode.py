@@ -18,7 +18,10 @@ def get_platform_filename():
     system = platform.system().lower()
     machine = platform.machine().lower()
 
-    if system in ("linux", "android"):
+    if system == "android":
+        log("Error: OpenCode does not provide builds for Termux/Android.", "red")
+        sys.exit(1)
+    elif system == "linux":
         os_name = "linux"
     elif system == "windows":
         os_name = "windows"
@@ -69,7 +72,7 @@ def main():
 
             log("Extracting archive...", "cyan")
             with tarfile.open(archive_path, "r:gz") as tar:
-                tar.extractall(path=temp_dir)
+                tar.extractall(path=temp_dir, filter="data")
 
             src = None
             for dirpath, _, filenames in os.walk(temp_dir):
