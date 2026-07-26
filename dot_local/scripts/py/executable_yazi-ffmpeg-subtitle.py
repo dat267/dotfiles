@@ -58,11 +58,11 @@ def promote_subtitle(filepath, target_sub_idx):
     sub_count = get_subtitle_count(filepath)
     if sub_count < 2:
         print_flush("Need at least 2 subtitle tracks to reorder.")
-        return None
+        return False
 
-    output = os.path.splitext(filepath)[0] + "_fixed" + os.path.splitext(filepath)[1]
-
-    cmd = ["ffmpeg", "-i", filepath]
+    import tempfile
+    tmp = filepath + ".tmp"
+    cmd = ["ffmpeg", "-y", "-i", filepath]
     cmd.extend(["-map", "0:v"])
     cmd.extend(["-map", "0:a"])
     cmd.extend(["-map", f"0:s:{target_sub_idx}"])
@@ -72,16 +72,19 @@ def promote_subtitle(filepath, target_sub_idx):
     cmd.extend(["-map", "0:t?", "-map", "0:d?"])
     cmd.extend(["-c", "copy"])
     cmd.extend(["-disposition:s:0", "default"])
-    cmd.append(output)
+    cmd.append(tmp)
 
     print_flush(f"\nRunning: {' '.join(cmd)}\n")
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         print_flush(f"Error: ffmpeg failed with exit code {e.returncode}")
-        return None
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        return False
 
-    return output
+    os.replace(tmp, filepath)
+    return True
 
 
 def main():
@@ -133,7 +136,7 @@ def main():
 
     output = promote_subtitle(filepath, target)
     if output:
-        print_flush(f"\nCreated: {os.path.basename(output)}")
+        print_flush(f"\nSubtitles reordered: {os.path.basename(filepath)}")
     else:
         print_flush("Failed to reorder subtitles.")
 
