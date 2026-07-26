@@ -43,13 +43,17 @@ reorder_subs = [
   { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-subtitle.py %s', block = true, desc = "Reorder subs", for = "unix" },
   { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-subtitle.py" %s', block = true, desc = "Reorder subs", for = "windows" },
 ]
+reorder_audio = [
+  { run = 'python3 -u ~/.local/scripts/py/yazi-ffmpeg-audio.py %s', block = true, desc = "Reorder audio", for = "unix" },
+  { run = 'python -u "%USERPROFILE%\.local\scripts\py\yazi-ffmpeg-audio.py" %s', block = true, desc = "Reorder audio", for = "windows" },
+]
 
 [open]
 rules = [
   { mime = "text/*", use = [ "edit" ] },
   { mime = "image/*", use = [ "open" ] },
   { mime = "{audio,video}/*", use = [
-    "play", "open", "concat_media", "split_media", "transcode_media", "reorder_subs",
+    "play", "open", "concat_media", "split_media", "transcode_media", "reorder_subs", "reorder_audio",
   ] },
   { mime = "application/{,g}zip", use = [ "extract", "open" ] },
   { mime = "application/x-{tar,bzip*,7z-compressed,xz,rar}", use = [ "extract", "open" ] },
