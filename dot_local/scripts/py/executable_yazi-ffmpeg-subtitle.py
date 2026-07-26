@@ -94,23 +94,28 @@ def main():
         sys.exit(1)
 
     import argparse
-    parser = argparse.ArgumentParser(description="Reorder subtitle tracks in a media file.")
-    parser.add_argument("file", help="Media file to process (single file)")
+    parser = argparse.ArgumentParser(description="Reorder subtitle tracks in media files.")
+    parser.add_argument("files", nargs="+", help="Media files to process")
     args = parser.parse_args()
 
-    filepath = os.path.abspath(args.file)
-    if not os.path.isfile(filepath):
-        print_flush(f"Error: File not found: {filepath}")
+    files = [os.path.abspath(f) for f in args.files if os.path.isfile(f)]
+    if not files:
+        print_flush("Error: No valid files provided.")
         input_flush("Press Enter to return to Yazi.")
         sys.exit(1)
 
-    subs = get_subtitle_streams(filepath)
+    # Show first file's subtitle tracks as reference
+    subs = get_subtitle_streams(files[0])
     if not subs:
-        print_flush(f"No subtitle streams found in {os.path.basename(filepath)}.")
+        print_flush(f"No subtitle streams found in {os.path.basename(files[0])}.")
+        input_flush("Press Enter to return to Yazi.")
+        sys.exit(0)
+    if len(subs) < 2:
+        print_flush(f"Only 1 subtitle track in {os.path.basename(files[0])} — nothing to reorder.")
         input_flush("Press Enter to return to Yazi.")
         sys.exit(0)
 
-    print_flush(f"\nFile: {os.path.basename(filepath)}")
+    print_flush(f"\nReference: {os.path.basename(files[0])}")
     print_flush("Subtitle tracks:")
     for i, s in enumerate(subs):
         title = f" - {s['title']}" if s["title"] else ""
@@ -134,11 +139,19 @@ def main():
         input_flush("Press Enter to return to Yazi.")
         sys.exit(0)
 
-    output = promote_subtitle(filepath, target)
-    if output:
-        print_flush(f"\nSubtitles reordered: {os.path.basename(filepath)}")
-    else:
-        print_flush("Failed to reorder subtitles.")
+    ok = 0
+    fail = 0
+    for f in files:
+        subs = get_subtitle_streams(f)
+        if len(subs) < 2:
+            print_flush(f"\n  {os.path.basename(f)}: {len(subs)} track(s), skipping")
+            continue
+        if promote_subtitle(f, target):
+            print_flush(f"  {os.path.basename(f)}: OK")
+            ok += 1
+        else:
+            print_flush(f"  {os.path.basename(f)}: FAILED")
+            fail += 1
 
     input_flush("Press Enter to return to Yazi.")
 
