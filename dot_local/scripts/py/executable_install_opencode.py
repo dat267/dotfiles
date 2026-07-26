@@ -6,6 +6,7 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
@@ -69,19 +70,18 @@ def main():
                     log(f"Error downloading: HTTP {e.code}", "red")
                 sys.exit(1)
 
-            log("Extracting binary...", "cyan")
+            log("Extracting archive...", "cyan")
             with tarfile.open(archive_path, "r:gz") as tar:
-                tar.extract(binary_name, path=temp_dir)
+                tar.extractall(path=temp_dir)
 
-            src = os.path.join(temp_dir, binary_name)
-            if not os.path.exists(src):
-                # Try without extension
-                src_noexe = os.path.join(temp_dir, "opencode")
-                if os.path.exists(src_noexe):
-                    src = src_noexe
-                else:
-                    log("Error: Binary not found in archive.", "red")
-                    sys.exit(1)
+            src = None
+            for dirpath, _, filenames in os.walk(temp_dir):
+                if binary_name in filenames:
+                    src = os.path.join(dirpath, binary_name)
+                    break
+            if not src:
+                log("Error: Binary not found in archive.", "red")
+                sys.exit(1)
 
             if os_name != "windows":
                 os.chmod(src, 0o755)

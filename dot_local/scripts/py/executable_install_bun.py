@@ -58,13 +58,17 @@ def main():
             with urllib.request.urlopen(req) as resp, open(zip_path, "wb") as out:
                 shutil.copyfileobj(resp, out)
 
-            log("Extracting binary...", "cyan")
+            log("Extracting archive...", "cyan")
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extract(binary_name, path=temp_dir)
+                zip_ref.extractall(temp_dir)
 
-            src = os.path.join(temp_dir, binary_name)
-            if not os.path.exists(src):
-                log("Error: Extracted binary not found in archive.", "red")
+            src = None
+            for dirpath, _, filenames in os.walk(temp_dir):
+                if binary_name in filenames:
+                    src = os.path.join(dirpath, binary_name)
+                    break
+            if not src:
+                log("Error: Binary not found in archive.", "red")
                 sys.exit(1)
 
             if not suffix.startswith("windows"):
