@@ -18,8 +18,12 @@ def get_platform_suffix():
     machine = platform.machine().lower()
 
     if system == "android":
-        log("Error: Bun does not provide builds for Termux/Android.", "red")
-        sys.exit(1)
+        if os.path.exists("/lib/ld-linux-aarch64.so.1"):
+            suffix = "linux-aarch64"
+        else:
+            log("Error: Bun's Linux ARM64 builds need glibc (incompatible with Termux's bionic).", "red")
+            log("Install glibc-runner first: pkg install glibc-runner", "yellow")
+            sys.exit(1)
     elif system in ("linux",):
         if machine in ("aarch64", "arm64"):
             suffix = "linux-aarch64"

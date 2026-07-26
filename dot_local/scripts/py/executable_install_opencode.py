@@ -19,8 +19,12 @@ def get_platform_filename():
     machine = platform.machine().lower()
 
     if system == "android":
-        log("Error: OpenCode does not provide builds for Termux/Android.", "red")
-        sys.exit(1)
+        if os.path.exists("/lib/ld-linux-aarch64.so.1"):
+            os_name = "linux"
+        else:
+            log("Error: OpenCode's Linux ARM64 builds need glibc (incompatible with Termux's bionic).", "red")
+            log("Install glibc-runner first: pkg install glibc-runner", "yellow")
+            sys.exit(1)
     elif system == "linux":
         os_name = "linux"
     elif system == "windows":
