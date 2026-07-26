@@ -3,6 +3,7 @@ import argparse
 import os
 import platform
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -19,7 +20,7 @@ def get_platform_filename():
     machine = platform.machine().lower()
 
     if system == "android":
-        if os.path.exists("/lib/ld-linux-aarch64.so.1"):
+        if shutil.which("glibc-runner"):
             os_name = "linux"
         else:
             log("Error: OpenCode's Linux ARM64 builds need glibc (incompatible with Termux's bionic).", "red")
@@ -97,6 +98,12 @@ def main():
                 log(f"Warning: Could not remove existing file: {e}", "yellow")
 
             shutil.move(src, dest_path)
+
+            if platform.system().lower() == "android" and shutil.which("glibc-runner"):
+                subprocess.run(
+                    ["glibc-runner", "--configure", dest_path],
+                    capture_output=True,
+                )
             log(f"OpenCode installed successfully -> {dest_path}", "green")
 
     except Exception as e:

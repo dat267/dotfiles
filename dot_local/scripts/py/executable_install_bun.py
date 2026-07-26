@@ -3,6 +3,7 @@ import argparse
 import os
 import platform
 import shutil
+import subprocess
 import sys
 import tempfile
 import urllib.request
@@ -18,7 +19,7 @@ def get_platform_suffix():
     machine = platform.machine().lower()
 
     if system == "android":
-        if os.path.exists("/lib/ld-linux-aarch64.so.1"):
+        if shutil.which("glibc-runner"):
             suffix = "linux-aarch64"
         else:
             log("Error: Bun's Linux ARM64 builds need glibc (incompatible with Termux's bionic).", "red")
@@ -88,6 +89,10 @@ def main():
                 log(f"Warning: Could not remove existing file: {e}", "yellow")
 
             shutil.move(src, dest_path)
+
+            if shutil.which("glibc-runner"):
+                subprocess.run(["glibc-runner", "--configure", dest_path], capture_output=True)
+
             log(f"Bun installed successfully -> {dest_path}", "green")
 
     except Exception as e:
