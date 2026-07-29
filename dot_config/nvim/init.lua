@@ -159,16 +159,17 @@ vim.api.nvim_create_autocmd("LspAttach", {
 vim.api.nvim_create_autocmd("TextChangedI", {
   group = vim.api.nvim_create_augroup("LspAutoComplete", { clear = true }),
   callback = function()
-    if vim.bo.omnifunc == "" then return end
     if vim.fn.pumvisible() > 0 then return end
     local col = vim.fn.col(".")
     local line = vim.fn.getline(".")
     if col < 2 then return end
     if line:sub(col - 1, col - 1):match("[%w_]") then
-      vim.schedule(function()
+      if vim.lsp.completion then
+        vim.lsp.completion.trigger()
+      elseif vim.bo.omnifunc ~= "" then
         local keys = vim.api.nvim_replace_termcodes("<C-x><C-o>", true, false, true)
-        vim.api.nvim_feedkeys(keys, "n", false)
-      end)
+        vim.api.nvim_feedkeys(keys, "i", false)
+      end
     end
   end,
 })
