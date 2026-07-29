@@ -166,23 +166,12 @@ vim.api.nvim_create_autocmd("TextChangedI", {
     if col < 2 then return end
     if line:sub(col - 1, col - 1):match("[%w_]") then
       vim.schedule(function()
-        vim.fn.feedkeys(vim.api.nvim_replace_termcodes("<C-x><C-o>", true, false, true), "n")
+        local keys = vim.api.nvim_replace_termcodes("<C-x><C-o>", true, false, true)
+        vim.api.nvim_feedkeys(keys, "n", false)
       end)
     end
   end,
 })
-
-local function is_executable(bin)
-  if vim.fn.executable(bin) == 1 then
-    return true
-  end
-  if vim.fn.has("win32") == 1 then
-    if vim.fn.executable(bin .. ".cmd") == 1 or vim.fn.executable(bin .. ".exe") == 1 or vim.fn.executable(bin .. ".bat") == 1 then
-      return true
-    end
-  end
-  return false
-end
 
 local lsp_modules = {
   go_lsp = "gopls",
@@ -195,7 +184,7 @@ local lsp_modules = {
   sh_lsp = "bash-language-server",
 }
 for module, binary in pairs(lsp_modules) do
-  if is_executable(binary) then
+  if vim.fn.executable(binary) == 1 then
     if module ~= "ps1_lsp" or not vim.env.TERMUX_VERSION then
       local ok, err = pcall(require, module)
       if not ok then
