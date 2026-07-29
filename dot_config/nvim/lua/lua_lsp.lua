@@ -10,9 +10,20 @@ vim.api.nvim_create_autocmd("FileType", {
       root_dir = buf_dir
     end
 
+    local cmd = "lua-language-server"
+    if vim.fn.has("win32") == 1 then
+      if vim.fn.executable("lua-language-server.cmd") == 1 then
+        cmd = "lua-language-server.cmd"
+      elseif vim.fn.executable("lua-language-server.exe") == 1 then
+        cmd = "lua-language-server.exe"
+      elseif vim.fn.executable("lua-language-server.bat") == 1 then
+        cmd = "lua-language-server.bat"
+      end
+    end
+
     vim.lsp.start({
       name = "lua-language-server",
-      cmd = { "lua-language-server" },
+      cmd = { cmd },
       root_dir = root_dir,
       settings = {
         Lua = {

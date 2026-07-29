@@ -159,6 +159,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 vim.api.nvim_create_autocmd("TextChangedI", {
   group = vim.api.nvim_create_augroup("LspAutoComplete", { clear = true }),
   callback = function()
+    if vim.bo.omnifunc == "" then return end
     if vim.fn.pumvisible() > 0 then return end
     local col = vim.fn.col(".")
     local line = vim.fn.getline(".")
@@ -171,6 +172,18 @@ vim.api.nvim_create_autocmd("TextChangedI", {
   end,
 })
 
+local function is_executable(bin)
+  if vim.fn.executable(bin) == 1 then
+    return true
+  end
+  if vim.fn.has("win32") == 1 then
+    if vim.fn.executable(bin .. ".cmd") == 1 or vim.fn.executable(bin .. ".exe") == 1 or vim.fn.executable(bin .. ".bat") == 1 then
+      return true
+    end
+  end
+  return false
+end
+
 local lsp_modules = {
   go_lsp = "gopls",
   lua_lsp = "lua-language-server",
@@ -182,7 +195,7 @@ local lsp_modules = {
   sh_lsp = "bash-language-server",
 }
 for module, binary in pairs(lsp_modules) do
-  if vim.fn.executable(binary) == 1 then
+  if is_executable(binary) then
     if module ~= "ps1_lsp" or not vim.env.TERMUX_VERSION then
       local ok, err = pcall(require, module)
       if not ok then
