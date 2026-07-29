@@ -164,7 +164,7 @@ vim.api.nvim_create_autocmd("TextChangedI", {
     local line = vim.fn.getline(".")
     if col < 2 then return end
     if line:sub(col - 1, col - 1):match("[%w_]") then
-      if vim.lsp.completion then
+      if type(vim.lsp.completion) == "table" and type(vim.lsp.completion.trigger) == "function" then
         vim.lsp.completion.trigger()
       elseif vim.bo.omnifunc ~= "" then
         local keys = vim.api.nvim_replace_termcodes("<C-x><C-o>", true, false, true)
