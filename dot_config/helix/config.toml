@@ -15,6 +15,9 @@ select = "underline"
 [editor.file-picker]
 hidden = false
 
+[keys.normal]
+G = ["goto_file_end", "goto_line_end"]
+
 [editor.statusline]
 left = ["mode", "spinner", "file-name", "file-modification-indicator"]
 center = []
