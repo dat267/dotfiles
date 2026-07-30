@@ -11,6 +11,7 @@ if ($lfItem -and $lfItem.Attributes -match "ReparsePoint") {
 $folderMap = @{
     "$HOME\-chezmoi"                                 = "{{ .chezmoi.sourceDir }}"
     "$env:LOCALAPPDATA\nvim"                         = "{{ .chezmoi.homeDir }}/.config/nvim"
+    "$env:APPDATA\helix"                             = "{{ .chezmoi.homeDir }}/.config/helix"
     "$env:LOCALAPPDATA\aria2"                        = "{{ .chezmoi.homeDir }}/.config/aria2"
     "$env:APPDATA\Code\User"                         = "{{ .chezmoi.homeDir }}/.config/Code/User"
     "$env:APPDATA\Code - OSS\User"                   = "{{ .chezmoi.homeDir }}/.config/Code/User"
@@ -91,5 +92,9 @@ if (Get-Command wt.exe -ErrorAction SilentlyContinue) {
     $Shortcut.TargetPath = "wt.exe"
     $Shortcut.Hotkey = "CTRL+ALT+T"
     $Shortcut.Save()
+}
+# Ensure hx function alias exists if helix is found on Windows
+if ((Get-Command helix -ErrorAction SilentlyContinue) -and -not (Get-Command hx -ErrorAction SilentlyContinue)) {
+    Set-Alias -Name hx -Value helix -Scope CurrentUser -ErrorAction SilentlyContinue
 }
 {{ end -}}

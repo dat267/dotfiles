@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import shutil
 import sys
 import subprocess
 import tempfile
@@ -39,7 +40,14 @@ def main():
         tmp.write(name + "\n")
     tmp.close()
 
-    editor = os.environ.get("EDITOR", "nvim")
+    editor = os.environ.get("EDITOR")
+    if not editor or not shutil.which(editor):
+        for e in ["helix", "hx", "nvim", "vim"]:
+            if shutil.which(e):
+                editor = e
+                break
+        else:
+            editor = "vi"
     subprocess.run([editor, tmpname])
 
     with open(tmpname) as f:

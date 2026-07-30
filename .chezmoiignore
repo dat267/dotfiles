@@ -36,3 +36,4 @@ run_onchange_after_create-symlinks.sh.tmpl
 **/__pycache__
 **/*.zwc
 **/*.zcompdump*
+**/*.log

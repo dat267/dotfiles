@@ -30,7 +30,7 @@ Both files are gitignored (not tracked in the repo).
 | Category | Tools / Configs |
 |---|---|
 | **Shell** | Bash (`~/.bashrc`), Zsh (`~/.zshrc`), `~/.profile` |
-| **Editors** | Neovim (built-in LSP for Go/JS/Lua/MD/PowerShell/Python/Rust/Sh), Vim (vim-plug, ALE, Monokai) |
+| **Editors** | Neovim (minimal, fast setup), Vim (vim-plug, ALE, Monokai) |
 | **Terminal** | WezTerm, Windows Terminal |
 | **File Managers** | Yazi, lf (Linux + Windows) |
 | **Media** | mpv (autoload scripts), aria2 |
@@ -65,7 +65,7 @@ Both are auto-built by CI on every push for `linux` / `windows` / `darwin` × `a
 ## Repository Structure
 
 ```
-dot_config/nvim/          Neovim Lua config (built-in LSP, per-language modules)
+dot_config/nvim/          Neovim minimal Lua config (fast startup, zero plugins)
 dot_config/wezterm/       WezTerm terminal config
 dot_config/yazi/          Yazi file manager
 dot_config/powershell/    PowerShell profile + module

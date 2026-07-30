@@ -22,6 +22,14 @@ do
     fi
 done
 
+# Ensure hx executable symlink exists for helix if needed
+if command -v helix >/dev/null 2>&1 && ! command -v hx >/dev/null 2>&1; then
+    helix_path="$(command -v helix)"
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$helix_path" "$HOME/.local/bin/hx"
+fi
+
+
 # Remove the legacy ~/-chezmoi symlink if it still exists
 if [ -L "$HOME/-chezmoi" ]; then
     echo "Removing legacy symlink: $HOME/-chezmoi"

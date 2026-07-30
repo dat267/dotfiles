@@ -10,7 +10,7 @@ $global:__dotfiles_profile_loaded = $true
         New-Variable -Name IsMacOS -Value (-not $isWin -and (uname -s 2>$null) -eq 'Darwin') -Scope Global
     }
 
-    $env:EDITOR = if (Get-Command nvim -ErrorAction SilentlyContinue) { 'nvim' } else { 'vim' }
+    $env:EDITOR = if (Get-Command hx -ErrorAction SilentlyContinue) { 'hx' } elseif (Get-Command helix -ErrorAction SilentlyContinue) { 'helix' } elseif (Get-Command nvim -ErrorAction SilentlyContinue) { 'nvim' } else { 'vim' }
 
     $paths = @(
         "$HOME/.config/powershell/scripts",
@@ -253,6 +253,7 @@ function global:codeat {
 }
 
 Set-Alias vim nvim
+Set-Alias hx helix
 
 function global:Expand-CustomArchive {
     param([string]$Path)
