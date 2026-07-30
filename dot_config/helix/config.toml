@@ -19,7 +19,7 @@ hidden = false
 G = ["goto_file_end", "goto_line_end"]
 
 [keys.select]
-G = ["goto_file_end", "goto_line_end"]
+G = ["goto_last_line", "goto_line_end"]
 
 [editor.statusline]
 left = ["mode", "spinner", "file-name", "file-modification-indicator"]
