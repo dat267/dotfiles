@@ -1,6 +1,5 @@
-theme = "default"
-
 [editor]
+
 line-number = "relative"
 mouse = true
 bufferline = "multiple"
