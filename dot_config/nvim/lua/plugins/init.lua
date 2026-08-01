@@ -16,6 +16,7 @@ return {
         javascript = { "prettierd", "prettier", stop_after_first = true },
         typescript = { "prettierd", "prettier", stop_after_first = true },
         json = { "prettierd", "prettier", stop_after_first = true },
+        markdown = { "prettierd", "prettier", stop_after_first = true },
         yaml = { "yamlfmt" },
         bash = { "shfmt" },
       },
@@ -49,6 +50,29 @@ return {
         "regex",
       },
     },
+  },
+
+  {
+    "MeanderingProgrammer/render-markdown.nvim",
+    ft = { "markdown" },
+    dependencies = { "nvim-treesitter/nvim-treesitter" },
+    opts = {},
+  },
+
+  {
+    "mfussenegger/nvim-lint",
+    ft = { "markdown" },
+    config = function()
+      local lint = require "lint"
+      lint.linters_by_ft = {
+        markdown = { "markdownlint_cli2" },
+      }
+      vim.api.nvim_create_autocmd({ "BufWritePost", "BufReadPost" }, {
+        callback = function()
+          lint.try_lint()
+        end,
+      })
+    end,
   },
 
   {

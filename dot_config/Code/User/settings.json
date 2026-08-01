@@ -4,6 +4,14 @@
     "files.insertFinalNewline": true,
     "files.trimFinalNewlines": true,
     "files.trimTrailingWhitespace": true,
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/*/**": true,
+        "**/.hg/store/**": true,
+        "**/dist/**": true,
+        "**/build/**": true
+    },
     "files.associations": {
         "*.code-snippets": "jsonc",
         "*.json": "jsonc",
@@ -51,15 +59,16 @@
     "[yaml]": {},
     "[dockercompose]": {},
     "editor.fontFamily": "'FiraCode Nerd Font', Consolas, 'Courier New', monospace",
-    "editor.fontLigatures": true,
+    "editor.fontLigatures": false,
     "editor.fontSize": 14,
     "editor.formatOnSave": true,
     "editor.selectionClipboard": false,
-    "editor.snippetSuggestions": "top",
-    "editor.wordWrap": "bounded",
-    "editor.wordWrapColumn": 120,
+    "editor.wordWrap": "off",
     "editor.lightbulb.enabled": "off",
-    "editor.inlineSuggest.enabled": false,
+    "editor.minimap.enabled": false,
+    "editor.hover.delay": 500,
+    "editor.guides.bracketPairs": false,
+    "editor.semanticHighlighting.enabled": false,
     "editor.codeActionsOnSave": {
         "source.addMissingImports": "explicit",
         "source.fixAll": "explicit",
@@ -101,6 +110,7 @@
     "git.enableSmartCommit": true,
     "git.openRepositoryInParentFolders": "always",
     "git.allowForcePush": true,
+    "git.decorations.enabled": true,
     "debug.showInStatusBar": "always",
     "debug.toolBarLocation": "docked",
     "testing.automaticallyOpenPeekView": "never",
@@ -112,9 +122,8 @@
     "window.openFoldersInNewWindow": "off",
     "window.openWithoutArgumentsInNewWindow": "off",
     "window.restoreWindows": "none",
-    "window.systemColorTheme": "auto",
     "window.titleBarStyle": "custom",
-    "remote.tunnels.alwaysUpdateCLI": true,
+    "remote.tunnels.alwaysUpdateCLI": false,
     "remote.SSH.remotePlatform": {
         "datbox": "linux",
         "vpx": "linux",
@@ -134,13 +143,13 @@
     "code-runner.saveFileBeforeRun": true,
     "eslint.codeActionsOnSave.rules": [],
     "eslint.format.enable": true,
-    "go.toolsManagement.autoUpdate": true,
+    "go.toolsManagement.autoUpdate": false,
     "gopls": {
-        "ui.semanticTokens": true
+        "ui.semanticTokens": false
     },
-    "java.compile.nullAnalysis.mode": "automatic",
-    "java.configuration.updateBuildConfiguration": "automatic",
-    "java.debug.settings.hotCodeReplace": "auto",
+    "java.compile.nullAnalysis.mode": "manual",
+    "java.configuration.updateBuildConfiguration": "disabled",
+    "java.debug.settings.hotCodeReplace": "manual",
     "js/ts.implicitProjectConfig.target": "ESNext",
     "latex-workshop.formatting.latex": "tex-fmt",
     "markdown.preview.fontSize": 14,
@@ -148,28 +157,25 @@
     "plantuml.server": "https://www.plantuml.com/plantuml",
     "hediet.vscode-drawio.resizeImages": null,
     "powershell.buttons.showRunButtons": false,
-    "powershell.codeFormatting.autoCorrectAliases": true,
-    "powershell.codeFormatting.trimWhitespaceAroundPipe": true,
-    "powershell.codeFormatting.useCorrectCasing": true,
-    "powershell.codeFormatting.whitespaceBetweenParameters": true,
-    "powershell.codeFormatting.avoidSemicolonsAsLineTerminators": true,
-    "powershell.integratedConsole.startInBackground": true,
+    "powershell.codeFormatting.autoCorrectAliases": false,
+    "powershell.codeFormatting.trimWhitespaceAroundPipe": false,
+    "powershell.codeFormatting.useCorrectCasing": false,
+    "powershell.codeFormatting.whitespaceBetweenParameters": false,
+    "powershell.codeFormatting.avoidSemicolonsAsLineTerminators": false,
+    "powershell.integratedConsole.startInBackground": false,
     "powershell.powerShellAdditionalExePaths": {
         "linux": "${env:HOME}/.local/bin/pwsh"
     },
-    "python.analysis.autoFormatStrings": true,
-    "python.analysis.autoImportCompletions": true,
-    "python.analysis.completeFunctionParens": true,
+    "python.analysis.autoFormatStrings": false,
+    "python.analysis.autoImportCompletions": false,
+    "python.analysis.completeFunctionParens": false,
     "python.analysis.diagnosticSeverityOverrides": {
         "reportMissingImports": "information"
     },
-    "python.analysis.fixAll": [
-        "source.convertImportFormat",
-        "source.unusedImports"
-    ],
-    "python.analysis.inlayHints.functionReturnTypes": true,
-    "python.analysis.inlayHints.variableTypes": true,
-    "python.analysis.typeCheckingMode": "standard",
+    "python.analysis.fixAll": [],
+    "python.analysis.inlayHints.functionReturnTypes": false,
+    "python.analysis.inlayHints.variableTypes": false,
+    "python.analysis.typeCheckingMode": "off",
     "rust-analyzer.runnables.extraArgs": [
         "--release"
     ],
@@ -186,19 +192,10 @@
         "sortJSONValues": false,
         "sortJSONValuesReverse": false
     },
-    "svelte.enable-ts-plugin": true,
-    "task.allowAutomaticTasks": "on",
-    "terraform.codelens.referenceCount": true,
-    "json.schemaDownload.trustedDomains": {
-        "https://aka.ms": true,
-        "https://developer.microsoft.com/json-schemas/": true,
-        "https://json-schema.org/": true,
-        "https://json.schemastore.org/": true,
-        "https://raw.githubusercontent.com/devcontainers/spec/": true,
-        "https://raw.githubusercontent.com/microsoft/vscode/": true,
-        "https://schemastore.azurewebsites.net/": true,
-        "https://wails.io": true,
-        "https://www.schemastore.org/": true
-    },
-    "editor.minimap.renderCharacters": false
+    "svelte.enable-ts-plugin": false,
+    "task.allowAutomaticTasks": "off",
+    "terraform.codelens.referenceCount": false,
+    "json.schemaDownload.trustedDomains": {},
+    "json.schemas": [],
+    "editor.snippetSuggestions": "top"
 }
