@@ -38,7 +38,7 @@ permit_execution_extension() {
 	done
 	prepend_paths "$@"
 }
-for editor in hx helix nvim vim nano; do
+for editor in nvim vim hx helix nano; do
 	if command -v "$editor" >/dev/null 2>&1; then
 		export EDITOR="$editor"
 		break

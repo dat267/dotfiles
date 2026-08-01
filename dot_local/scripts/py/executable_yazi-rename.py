@@ -42,7 +42,7 @@ def main():
 
     editor = os.environ.get("EDITOR")
     if not editor or not shutil.which(editor):
-        for e in ["helix", "hx", "nvim", "vim"]:
+        for e in ["nvim", "vim", "helix", "hx"]:
             if shutil.which(e):
                 editor = e
                 break

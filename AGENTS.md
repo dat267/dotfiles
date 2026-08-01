@@ -36,7 +36,7 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | ---------------------------- | -------------------------------------------- |
 | `dot_config/helix/`          | Helix editor config (`config.toml`)          |
 | `dot_vimrc`                  | Vim config (vim-plug, ALE, monokai)          |
-| `dot_config/nvim/`           | Neovim minimal Lua config (fast startup, zero plugins) |
+| `dot_config/nvim/`           | Neovim: NvChad v2.5 as lazy plugin (customizations in `lua/`); nvim-dap for debugging; Go/Python/TS LSP via Mason |
 | `dot_config/Code/`           | VS Code settings                             |
 
 ### Yazi File Manager

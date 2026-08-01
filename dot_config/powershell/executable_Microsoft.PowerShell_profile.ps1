@@ -10,7 +10,7 @@ $global:__dotfiles_profile_loaded = $true
         New-Variable -Name IsMacOS -Value (-not $isWin -and (uname -s 2>$null) -eq 'Darwin') -Scope Global
     }
 
-    $env:EDITOR = if (Get-Command hx -ErrorAction SilentlyContinue) { 'hx' } elseif (Get-Command helix -ErrorAction SilentlyContinue) { 'helix' } elseif (Get-Command nvim -ErrorAction SilentlyContinue) { 'nvim' } else { 'vim' }
+    $env:EDITOR = if (Get-Command nvim -ErrorAction SilentlyContinue) { 'nvim' } elseif (Get-Command vim -ErrorAction SilentlyContinue) { 'vim' } elseif (Get-Command hx -ErrorAction SilentlyContinue) { 'hx' } elseif (Get-Command helix -ErrorAction SilentlyContinue) { 'helix' } else { 'vi' }
 
     $paths = @(
         "$HOME/.config/powershell/scripts",
