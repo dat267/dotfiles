@@ -130,6 +130,3 @@ dap.configurations.cpp = dap.configurations.c
 dap.configurations.rust = dap.configurations.c
 
 require("nvim-dap-virtual-text").setup()
-
-local debug_log = vim.fn.stdpath "log" .. "/dap.log"
-dap.defaults.fallback.force_external_terminal = false

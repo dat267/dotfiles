@@ -27,13 +27,6 @@ vim.lsp.config("pyright", {
 vim.lsp.config("jsonls", {
   settings = {
     json = {
-      schemas = (function()
-        local ok, schemastore = pcall(require, "schemastore")
-        if ok then
-          return schemastore.json.schemas()
-        end
-        return {}
-      end)(),
       validate = { enable = true },
     },
   },
