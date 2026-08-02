@@ -62,6 +62,13 @@ GH_VERSION="$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | 
 curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${GOARCH}.tar.gz" \
     | tar -C /usr/local --strip-components=2 -xzf - "gh_${GH_VERSION}_linux_${GOARCH}/bin/gh"
 mv /usr/local/gh /usr/local/bin/gh
+
+# golangci-lint (v2)
+LINT_VERSION="2.12.2"
+curl -fsSL "https://github.com/golangci/golangci-lint/releases/download/v${LINT_VERSION}/golangci-lint-${LINT_VERSION}-linux-${GOARCH}.tar.gz" \
+    | tar -C /tmp -xzf -
+mv "/tmp/golangci-lint-${LINT_VERSION}-linux-${GOARCH}/golangci-lint" /usr/local/bin/golangci-lint
+rm -rf "/tmp/golangci-lint-${LINT_VERSION}-linux-${GOARCH}"
 """
 
 CONTAINERFILE = """\

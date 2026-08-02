@@ -3,7 +3,7 @@
   "model": "opencode/deepseek-v4-flash-free",
   "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
   "permission": {
-    "external_directory": { "*": "deny" },
+    "external_directory": { "*": "deny", "/tmp/opencode/**": "allow" },
     "read": {
       "*": "allow",
       "*.env": "deny",
@@ -47,7 +47,9 @@
       "*id_rsa*": "deny",
       "*id_ed25519*": "deny",
       "*google_compute_engine*": "deny",
-      "*.env*": "deny",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow",
       "*~/.aws*": "deny",
       "*.pem*": "deny",
       "*.key*": "deny"
