@@ -149,3 +149,8 @@ cython_debug/
 
 # macOS
 .DS_Store
+
+# opencode runtime artifacts (repo-root state dirs, not chezmoi-managed)
+.npm/
+.local/
+.config/opencode/
