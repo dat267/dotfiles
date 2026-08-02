@@ -41,7 +41,16 @@
       "* | sh": "deny",
       "* | sh -c *": "deny",
       "* | bash": "deny",
-      "* | sudo *": "deny"
+      "* | sudo *": "deny",
+      "*~/.ssh*": "deny",
+      "*/.ssh/*": "deny",
+      "*id_rsa*": "deny",
+      "*id_ed25519*": "deny",
+      "*google_compute_engine*": "deny",
+      "*.env*": "deny",
+      "*~/.aws*": "deny",
+      "*.pem*": "deny",
+      "*.key*": "deny"
     }
   }
 }

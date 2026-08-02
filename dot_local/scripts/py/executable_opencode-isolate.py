@@ -20,6 +20,7 @@ apt-get install -y --no-install-recommends \
     file \
     git \
     jq \
+    openssh-client \
     pkg-config \
     build-essential \
     xz-utils \
@@ -54,6 +55,12 @@ curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-$
 
 # opencode (latest)
 npm i -g opencode-ai
+
+# GitHub CLI (latest)
+GH_VERSION="$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | jq -r '.tag_name' | sed 's/^v//')"
+curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${GOARCH}.tar.gz" \
+    | tar -C /usr/local --strip-components=2 -xzf - "gh_${GH_VERSION}_linux_${GOARCH}/bin/gh"
+mv /usr/local/gh /usr/local/bin/gh
 """
 
 CONTAINERFILE = """\
@@ -61,8 +68,9 @@ FROM {base_image}
 
 COPY build.sh /build.sh
 RUN chmod +x /build.sh && /build.sh && rm /build.sh \\
+    && useradd -u 1000 -m -d /home/opencode opencode \\
     && mkdir -p /home/opencode/.config /home/opencode/.local/share/opencode \\
-    && chown -R 1000:1000 /home/opencode
+    && chown -R opencode:opencode /home/opencode
 
 ENV PATH="/usr/local/go/bin:/usr/local/cargo/bin:$PATH" \\
     RUSTUP_HOME="/usr/local/rustup" \\
@@ -130,10 +138,19 @@ def mount_specs(project_dir):
     home = os.path.expanduser("~")
     opencode_config = os.path.join(home, ".config", "opencode")
     auth_json = os.path.join(home, ".local", "share", "opencode", "auth.json")
+    ssh_dir = os.path.join(home, ".ssh")
+    gh_config = os.path.join(home, ".config", "gh")
+    gitconfig = os.path.join(home, ".gitconfig")
     if os.path.isdir(opencode_config):
         specs.append(f"{opencode_config}:/home/opencode/.config/opencode:ro")
     if os.path.isfile(auth_json):
         specs.append(f"{auth_json}:/home/opencode/.local/share/opencode/auth.json:ro")
+    if os.path.isdir(ssh_dir):
+        specs.append(f"{ssh_dir}:/home/opencode/.ssh:ro")
+    if os.path.isdir(gh_config):
+        specs.append(f"{gh_config}:/home/opencode/.config/gh:ro")
+    if os.path.isfile(gitconfig):
+        specs.append(f"{gitconfig}:/home/opencode/.gitconfig:ro")
     return specs
 
 
