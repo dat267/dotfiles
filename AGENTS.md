@@ -59,7 +59,6 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 **Installers** (convention: `executable_install_*.py`):
 | Script                      | Purpose                                      |
 | --------------------------- | -------------------------------------------- |
-| `executable_install_tools.py` | Downloads all tools from GitHub Releases    |
 | `executable_install_*.py`   | Individual tool installers (yazi, go, fnm…)  |
 | `executable_uninstall_tools.py` | Removes all tools from `~/.local/bin`     |
 
@@ -68,7 +67,6 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | --------------------------- | -------------------------------------------- |
 | `executable_install_nerd_font.py` | Install a Nerd Font (Linux/Windows)      |
 | `executable_url_decode_rename.py` | Decode URL-encoded filenames in a dir      |
-| `executable_build_tools.py` | CI build script for custom compiled tools    |
 | `executable_start-awsvpn.py` | AWS Client VPN via SAML SSO                |
 | `executable_install_android_sdk.py` | Install Android SDK cmdline-tools       |
 
@@ -133,70 +131,6 @@ All executable Python scripts follow these conventions:
 - **Openers** (`yazi.toml`): Define scripts that run when opening files. All openers accessed via keybindings. Single `open` rule for Enter → xdg-open.
 - **Keymaps** (`keymap.toml`): Bind keys to Yazi built-ins, `shell` commands, or `plugin` Lua plugins. Use `%S` for batch (all selected files). Use `--block` to show terminal output. Append `2>&1` to merge stderr into the visible output. Use `z` prefix for the tools menu (extract, compress, concat, transcode, split).
 - **MIME detection**: Yazi native `file(1)` based detection.
-
-## Custom Tools (`dot_local/src/`)
-
-Each subdirectory under `dot_local/src/` containing a `Makefile` can be built for all supported platforms.
-
-### Adding a New Tool
-
-1. Create `dot_local/src/{toolname}/` with your source code
-2. Add a `Makefile` implementing the build contract below
-3. Push to `main`
-
-### Makefile Build Contract
-
-CI calls your Makefile as:
-```sh
-make -C dot_local/src/{tool} build OUT=/absolute/path/to/binary
-```
-
-With these environment variables set:
-
-| Variable      | Example value               | Meaning                          |
-| ------------- | --------------------------- | -------------------------------- |
-| `GOOS`        | `linux`, `windows`          | Target OS                        |
-| `GOARCH`      | `amd64`, `arm64`            | Target architecture              |
-| `VERSION`     | `tools/20260604-032500`     | Release tag (embed if desired)   |
-| `OUT`         | `/abs/path/tool-linux-amd64`| Where to write the binary        |
-| `CGO_ENABLED` | `0`                         | Always disabled                  |
-
-Your `Makefile` **must** write an executable to `$(OUT)`. Language examples:
-
-**Go:**
-```makefile
-build:
-	go build -ldflags="-s -w -X main.version=$(VERSION)" -o "$(OUT)" .
-```
-
-**Rust:**
-```makefile
-build:
-	cargo build --release --target $(RUST_TARGET)
-	cp target/$(RUST_TARGET)/release/$(BINARY) "$(OUT)"
-```
-
-**Python (PyInstaller):**
-```makefile
-build:
-	pyinstaller --onefile --distpath "$(dir $(OUT))" --name "$(notdir $(OUT))" main.py
-```
-
-### Supported Platforms
-
-| `GOOS`    | `GOARCH`         |
-| --------- | ---------------- |
-| `linux`   | `amd64`, `arm64` |
-| `windows` | `amd64`          |
-
-### Install / Uninstall
-
-```sh
-~/.local/scripts/py/install_tools.py      # downloads all tools for current platform
-~/.local/scripts/py/uninstall_tools.py    # removes them from ~/.local/bin
-```
-
-Both scripts auto-detect available tools from the latest GitHub Release assets — no config needed.
 
 ## Out of Scope
 

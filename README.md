@@ -47,21 +47,6 @@ Flagged by `.chezmoiignore` and `.tmpl` template guards:
 - **Windows** — PowerShell profile, VS Code settings, Windows Terminal, junctions
 - **Android (Termux)** — `~/.termux/termux.properties`, platform-adjusted shell config
 
-## Custom Tools (`dot_local/src/`)
-
-| Tool | Language | Purpose |
-|---|---|---|
-| [audiotag](dot_local/src/audiotag/) | Go | Audio file metadata tagging |
-| [keepawake](dot_local/src/keepawake/) | Go | Prevent system sleep (Linux/macOS/Windows) |
-
-Both are auto-built by CI on every push for `linux` / `windows` / `darwin` × `amd64` / `arm64`, cross-compiled with `CGO_ENABLED=0`, and published as GitHub Release assets.
-
-**Install all tools for the current platform:**
-
-```sh
-~/.local/scripts/py/executable_install_tools.py
-```
-
 ## Repository Structure
 
 ```
@@ -73,7 +58,6 @@ dot_config/lf/            lf file manager
 dot_config/mpv/           mpv media player
 dot_config/aria2/         aria2 download manager
 dot_config/Code/User/     VS Code settings + snippets
-dot_local/src/{tool}/     Custom Go/CLI tools (built by CI)
 dot_local/scripts/py/     Python utility scripts (added to PATH)
 dot_local/scripts/sh/     Shell scripts
 dot_local/scripts/ps1/    PowerShell scripts
