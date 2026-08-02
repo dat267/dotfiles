@@ -23,7 +23,7 @@
     },
     "task": "ask",
     "bash": {
-      "*": "ask",
+      "*": "deny",
       "ls *": "allow",
       "pwd": "allow",
       "git status *": "allow",
@@ -34,20 +34,10 @@
       "git checkout *": "allow",
       "git stash *": "allow",
       "git add *": "allow",
-      "git commit *": "ask",
-      "git push *": "ask",
-      "git pull *": "ask",
-      "git fetch *": "ask",
+      "git commit *": "allow",
       "npm run *": "allow",
       "npm test *": "allow",
-      "npm build *": "allow",
-      "npm install *": "ask",
-      "pnpm *": "ask",
-      "yarn *": "ask",
-      "sudo *": "deny",
-      "su *": "deny",
-      "doas *": "deny",
-      "pkexec *": "deny"
+      "npm build *": "allow"
     }
   }
 }
