@@ -1,4 +1,5 @@
 {
+    "editor.minimap.renderCharacters": false,
     "files.enableTrash": true,
     "files.autoSave": "afterDelay",
     "files.insertFinalNewline": true,
@@ -65,7 +66,7 @@
     "editor.selectionClipboard": false,
     "editor.wordWrap": "off",
     "editor.lightbulb.enabled": "off",
-    "editor.minimap.enabled": false,
+    "editor.minimap.enabled": true,
     "editor.hover.delay": 500,
     "editor.guides.bracketPairs": false,
     "editor.semanticHighlighting.enabled": false,
