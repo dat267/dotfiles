@@ -69,7 +69,7 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `executable_url_decode_rename.py` | Decode URL-encoded filenames in a dir      |
 | `executable_start-awsvpn.py` | AWS Client VPN via SAML SSO                |
 | `executable_install_android_sdk.py` | Install Android SDK cmdline-tools       |
-| `executable_opencode-isolate.py` | Run opencode in an isolated podman container (Debian + latest toolchains), mounting only the current project dir |
+| `executable_codi.py`            | Run opencode in an isolated podman container (Debian + latest toolchains), mounting only the current project dir |
 
 **Shared module:**
 | Script                      | Purpose                                      |

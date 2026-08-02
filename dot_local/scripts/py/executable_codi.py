@@ -7,6 +7,7 @@ import sys
 import tempfile
 
 IMAGE_NAME = "opencode-isolate:latest"
+DATA_VOLUME = "opencode-isolate-data"
 BASE_IMAGE = "debian:stable-slim"
 
 BUILD_SCRIPT = r"""#!/bin/sh
@@ -162,6 +163,13 @@ def main():
     parser.add_argument("--image", default=IMAGE_NAME, help="Container image to use")
     parser.add_argument("--rebuild", action="store_true", help="Force image rebuild")
     parser.add_argument("--no-network", action="store_true", help="Disable container network access")
+    parser.add_argument(
+        "-c",
+        "--continue",
+        dest="continue_conversation",
+        action="store_true",
+        help="Continue the last conversation for this project",
+    )
     args = parser.parse_args()
 
     require_podman()
@@ -186,11 +194,16 @@ def main():
     for spec in mount_specs(project_dir):
         cmd.append("-v")
         cmd.append(spec)
+    cmd.append("-v")
+    cmd.append(f"{DATA_VOLUME}:/home/opencode/.local/share/opencode")
     cmd.append(args.image)
     cmd.append("opencode")
     cmd.append("--auto")
+    if args.continue_conversation:
+        cmd.append("--continue")
 
-    log("Launching isolated opencode --auto (Ctrl-D to exit)...", "cyan")
+    flag = " --continue" if args.continue_conversation else ""
+    log(f"Launching isolated opencode --auto{flag} (Ctrl-D to exit)...", "cyan")
     try:
         subprocess.run(cmd)
     except KeyboardInterrupt:
