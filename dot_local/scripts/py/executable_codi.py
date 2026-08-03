@@ -27,6 +27,7 @@ apt-get install -y --no-install-recommends \
     openssh-client \
     pkg-config \
     build-essential \
+    unzip \
     xz-utils \
     python3 \
     python3-pip \
@@ -99,6 +100,22 @@ rm -rf "/tmp/golangci-lint-${LINT_VERSION}-linux-${GOARCH}"
 # uv (latest)
 curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 """,
+    "playwright.sh": r"""#!/bin/sh
+set -e
+
+# bun (latest) — copy binary out of /root/.bun so uid 1000 can exec it
+curl -fsSL https://bun.sh/install | bash
+cp /root/.bun/bin/bun /usr/local/bin/bun
+
+# Playwright JS + chromium, installed for the runtime user so browser
+# binaries live in /home/opencode/.cache/ms-playwright (writable by uid 1000).
+mkdir -p /home/opencode/.cache
+chown -R opencode:opencode /home/opencode/.cache
+export PLAYWRIGHT_BROWSERS_PATH=/home/opencode/.cache/ms-playwright
+npm i -g playwright
+playwright install --with-deps chromium
+chown -R opencode:opencode /home/opencode/.cache/ms-playwright
+""",
 }
 
 CONTAINERFILE = """\
@@ -107,6 +124,10 @@ FROM {base_image}
 COPY *.sh /build/
 RUN chmod +x /build/*.sh
 
+RUN useradd -u 1000 -m -d /home/opencode opencode \\
+    && mkdir -p /home/opencode/.config /home/opencode/.local/share/opencode \\
+    && chown -R opencode:opencode /home/opencode
+
 # Cache apt and npm downloads across rebuilds
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt/lists \\
     sh /build/apt.sh
@@ -114,16 +135,16 @@ RUN sh /build/go.sh
 RUN sh /build/rust.sh
 RUN sh /build/node.sh
 RUN --mount=type=cache,target=/root/.npm sh /build/tools.sh
+RUN --mount=type=cache,target=/root/.npm \\
+    sh /build/playwright.sh
 
 RUN rm -rf /build \\
-    && useradd -u 1000 -m -d /home/opencode opencode \\
-    && mkdir -p /home/opencode/.config /home/opencode/.local/share/opencode \\
-    && chown -R opencode:opencode /home/opencode \\
     && mkdir -p /tmp/opencode && chown opencode:opencode /tmp/opencode
 
 ENV PATH="/usr/local/go/bin:/usr/local/cargo/bin:$PATH" \\
     RUSTUP_HOME="/usr/local/rustup" \\
     CARGO_HOME="/usr/local/cargo" \\
+    NODE_PATH="/usr/local/lib/node_modules" \\
     HOME="/home/opencode"
 
 WORKDIR /workspace
@@ -220,6 +241,10 @@ def main():
         help="Continue the last conversation for this project",
     )
     args = parser.parse_args()
+
+    if sys.platform.startswith("win"):
+        log("Error: codi is not supported on Windows yet (requires Linux podman).", "red")
+        sys.exit(1)
 
     require_podman()
     project_dir = resolve_project_dir(os.getcwd(), args.dir)
