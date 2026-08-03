@@ -41,3 +41,14 @@ autocmd("BufWritePre", {
     vim.fn.winrestview(save)
   end,
 })
+
+-- Quickfix / location list: <CR> jumps and closes, q / <Esc> close it.
+autocmd("FileType", {
+  pattern = { "qf" },
+  callback = function()
+    local map = vim.keymap.set
+    map("n", "q", "<cmd>lclose<cr>", { buffer = true, desc = "close location list" })
+    map("n", "<Esc>", "<cmd>lclose<cr>", { buffer = true, desc = "close location list" })
+    map("n", "<CR>", "<CR><cmd>lclose<cr>", { buffer = true, desc = "jump and close" })
+  end,
+})

@@ -115,3 +115,25 @@ autocmd("LspAttach", {
 
 -- Inlay hints on by default
 vim.lsp.inlay_hint.enable(true, nil)
+
+-- Inline diagnostics as virtual text (prefix with severity), plus the
+-- location-list view stays available via <leader>dx.
+local severity_prefix = {
+  [vim.diagnostic.severity.ERROR] = "E:",
+  [vim.diagnostic.severity.WARN] = "W:",
+  [vim.diagnostic.severity.INFO] = "I:",
+  [vim.diagnostic.severity.HINT] = "H:",
+}
+vim.diagnostic.config({
+  virtual_text = {
+    prefix = function(diagnostic)
+      return severity_prefix[diagnostic.severity] or "?"
+    end,
+  },
+  signs = true,
+  update_in_insert = false,
+  float = {
+    border = "rounded",
+    source = true,
+  },
+})

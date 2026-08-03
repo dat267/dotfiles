@@ -26,16 +26,11 @@ map("n", "<leader>bd", "<cmd>bd<cr>", { desc = "delete buffer" })
 map("n", "<leader>ff", "<cmd>find **/*<cr>", { desc = "find files" })
 map("n", "<leader>fg", "<cmd>vimgrep // **/*<left><left><left><left><left><left>", { desc = "live grep" })
 
--- Quickfix / location list navigation
-map("n", "[q", "<cmd>cprev<cr>", { desc = "previous quickfix item" })
-map("n", "]q", "<cmd>cnext<cr>", { desc = "next quickfix item" })
-map("n", "[Q", "<cmd>cfirst<cr>", { desc = "first quickfix item" })
-map("n", "]Q", "<cmd>clast<cr>", { desc = "last quickfix item" })
-map("n", "[l", "<cmd>lprev<cr>", { desc = "previous location item" })
-map("n", "]l", "<cmd>lnext<cr>", { desc = "next location item" })
-map("n", "<leader>cq", "<cmd>copen<cr>", { desc = "open quickfix" })
-map("n", "<leader>cl", "<cmd>lopen<cr>", { desc = "open location list" })
-map("n", "<leader>cx", "<cmd>cclose<cr>", { desc = "close quickfix" })
+-- Outline (LSP document symbols)
+map("n", "<leader>o", "<cmd>lua vim.lsp.buf.document_symbol()<cr>", { desc = "outline" })
+
+-- Code issues (diagnostics) in the location list
+map("n", "<leader>dx", "<cmd>lua vim.diagnostic.setloclist({open=true})<cr>", { desc = "toggle diagnostics list" })
 
 -- Terminal
 map("n", "<leader>t", "<cmd>terminal<cr>", { desc = "open terminal" })

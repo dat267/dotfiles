@@ -11,3 +11,5 @@ require "brackets"
 require "comments"
 require "format"
 require "lsp"
+
+vim.cmd.colorscheme("catppuccin")
