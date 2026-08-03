@@ -10,10 +10,13 @@ IMAGE_NAME = "opencode-isolate:latest"
 DATA_VOLUME = "opencode-isolate-data"
 BASE_IMAGE = "debian:stable-slim"
 
-BUILD_SCRIPT = r"""#!/bin/sh
+# Each toolchain is its own RUN layer so podman's layer cache reuses
+# unchanged tools across builds. Only the layer that changed (e.g. a bumped
+# tool version) rebuilds; apt/go/rust/node stay cached.
+SCRIPTS = {
+    "apt.sh": r"""#!/bin/sh
 set -e
 export DEBIAN_FRONTEND=noninteractive
-
 apt-get update
 apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -29,11 +32,13 @@ apt-get install -y --no-install-recommends \
     python3-pip \
     python3-venv
 rm -rf /var/lib/apt/lists/*
-
+""",
+    "go.sh": r"""#!/bin/sh
+set -e
 ARCH="$(uname -m)"
 case "$ARCH" in
-    x86_64)  GOARCH="amd64"; NODEARCH="x64"  ;;
-    aarch64) GOARCH="arm64"; NODEARCH="arm64" ;;
+    x86_64)  GOARCH="amd64" ;;
+    aarch64) GOARCH="arm64" ;;
     *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
 esac
 
@@ -42,17 +47,38 @@ GO_VERSION="$(curl -fsSL 'https://go.dev/dl/?mode=json' | jq -r '.[0].version')"
 curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-${GOARCH}.tar.gz" \
     | tar -C /usr/local -xzf -
 echo 'export PATH="/usr/local/go/bin:$PATH"' >> /etc/profile.d/go.sh
+""",
+    "rust.sh": r"""#!/bin/sh
+set -e
 
 # Rust (latest via rustup)
 export RUSTUP_HOME=/usr/local/rustup
 export CARGO_HOME=/usr/local/cargo
 curl -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile default
 echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/profile.d/rust.sh
+""",
+    "node.sh": r"""#!/bin/sh
+set -e
+ARCH="$(uname -m)"
+case "$ARCH" in
+    x86_64)  NODEARCH="x64"  ;;
+    aarch64) NODEARCH="arm64" ;;
+    *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
+esac
 
 # Node.js (latest LTS)
 NODE_VERSION="$(curl -fsSL https://nodejs.org/dist/index.json | jq -r '[.[] | select(.lts != false)][0].version')"
 curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODEARCH}.tar.xz" \
     | tar -C /usr/local --strip-components=1 -xJf -
+""",
+    "tools.sh": r"""#!/bin/sh
+set -e
+ARCH="$(uname -m)"
+case "$ARCH" in
+    x86_64)  GOARCH="amd64" ;;
+    aarch64) GOARCH="arm64" ;;
+    *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
+esac
 
 # opencode (latest)
 npm i -g opencode-ai
@@ -69,16 +95,31 @@ curl -fsSL "https://github.com/golangci/golangci-lint/releases/download/v${LINT_
     | tar -C /tmp -xzf -
 mv "/tmp/golangci-lint-${LINT_VERSION}-linux-${GOARCH}/golangci-lint" /usr/local/bin/golangci-lint
 rm -rf "/tmp/golangci-lint-${LINT_VERSION}-linux-${GOARCH}"
-"""
+
+# uv (latest)
+curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+""",
+}
 
 CONTAINERFILE = """\
 FROM {base_image}
 
-COPY build.sh /build.sh
-RUN chmod +x /build.sh && /build.sh && rm /build.sh \\
+COPY *.sh /build/
+RUN chmod +x /build/*.sh
+
+# Cache apt and npm downloads across rebuilds
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt/lists \\
+    sh /build/apt.sh
+RUN sh /build/go.sh
+RUN sh /build/rust.sh
+RUN sh /build/node.sh
+RUN --mount=type=cache,target=/root/.npm sh /build/tools.sh
+
+RUN rm -rf /build \\
     && useradd -u 1000 -m -d /home/opencode opencode \\
     && mkdir -p /home/opencode/.config /home/opencode/.local/share/opencode \\
-    && chown -R opencode:opencode /home/opencode
+    && chown -R opencode:opencode /home/opencode \\
+    && mkdir -p /tmp/opencode && chown opencode:opencode /tmp/opencode
 
 ENV PATH="/usr/local/go/bin:/usr/local/cargo/bin:$PATH" \\
     RUSTUP_HOME="/usr/local/rustup" \\
@@ -116,11 +157,12 @@ def build_image():
     log("Building opencode-isolate image (first run only)...", "cyan")
     with tempfile.TemporaryDirectory() as tmp:
         containerfile = os.path.join(tmp, "Containerfile")
-        build_script = os.path.join(tmp, "build.sh")
         with open(containerfile, "w", encoding="utf-8") as f:
             f.write(CONTAINERFILE.format(base_image=BASE_IMAGE))
-        with open(build_script, "w", encoding="utf-8") as f:
-            f.write(BUILD_SCRIPT)
+        for name, script in SCRIPTS.items():
+            path = os.path.join(tmp, name)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(script)
         result = subprocess.run(
             ["podman", "build", "-t", IMAGE_NAME, "-f", containerfile, tmp],
         )
