@@ -116,24 +116,24 @@ autocmd("LspAttach", {
 -- Inlay hints on by default
 vim.lsp.inlay_hint.enable(true, nil)
 
--- Inline diagnostics as virtual text (prefix with severity), plus the
--- location-list view stays available via <leader>dx.
-local severity_prefix = {
-  [vim.diagnostic.severity.ERROR] = "E:",
-  [vim.diagnostic.severity.WARN] = "W:",
-  [vim.diagnostic.severity.INFO] = "I:",
-  [vim.diagnostic.severity.HINT] = "H:",
-}
+-- Diagnostics: full message in a bounded float (never clipped), capped to
+-- 60% terminal width / 40% height. No inline virtual text or virtual lines.
 vim.diagnostic.config({
-  virtual_text = {
-    prefix = function(diagnostic)
-      return severity_prefix[diagnostic.severity] or "?"
-    end,
-  },
+  virtual_text = false,
   signs = true,
   update_in_insert = false,
   float = {
     border = "rounded",
     source = true,
+    max_width = math.floor(vim.o.columns * 0.6),
+    max_height = math.floor(vim.o.lines * 0.4),
   },
+})
+
+-- Auto-open the diagnostic float (bounded box) when pausing on a line that
+-- has issues. <leader>d still opens it manually.
+vim.api.nvim_create_autocmd("CursorHold", {
+  callback = function()
+    vim.diagnostic.open_float(nil, { focusable = false })
+  end,
 })
