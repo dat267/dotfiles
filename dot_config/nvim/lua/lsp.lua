@@ -105,6 +105,10 @@ autocmd("LspAttach", {
     map("]d", vim.diagnostic.goto_next, "next diagnostic")
     map("<leader>d", vim.diagnostic.open_float, "diagnostic float")
 
+    -- Manual omni-completion intellisense (no plugin): <C-Space> in insert
+    -- mode triggers LSP completion; <C-n>/<C-p> continue keyword completion.
+    vim.keymap.set("i", "<C-Space>", "<C-x><C-o>", { buffer = bufnr, desc = "LSP omni-completion" })
+
     vim.api.nvim_buf_set_option(bufnr, "omnifunc", "v:lua.vim.lsp.omnifunc")
   end,
 })
