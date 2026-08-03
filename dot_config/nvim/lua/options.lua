@@ -5,6 +5,9 @@ opt.relativenumber = true
 opt.scrolloff = 8
 opt.inccommand = "split"
 
+-- Show the completion menu without auto-inserting the first item
+opt.completeopt = "menu,menuone,noselect"
+
 opt.tabstop = 4
 opt.shiftwidth = 4
 opt.softtabstop = 4
