@@ -149,6 +149,23 @@ Key gotchas learned the hard way:
 - **LSP formatting needs an attached client**: `vim.lsp.buf.format`; external formatter fallback in `lua/format.lua` uses `vim.fn.executable` to pick gofmt/rustfmt/black/prettier/shfmt/etc. and silently skips when missing.
 - When testing the source config (not deployed), prepend rtp: `nvim --headless --cmd 'set rtp^=/home/dat/.local/share/chezmoi/dot_config/nvim' -u dot_config/nvim/init.lua`.
 
+**Per-module verification checklist** (headless, each line is one check):
+
+| Module | What to verify | Headless one-liner |
+| ------ | -------------- | ------------------ |
+| options | settings applied | `+'lua print(vim.o.completeopt, vim.bo.tabstop)'` |
+| keymaps | mappings registered | `+'lua for _,m in ipairs(vim.api.nvim_buf_get_keymap(0,"n")) do if m.lhs=="<leader>w" then print(m.lhs) end end'` |
+| autocmds | hooks exist | `+'lua print(#vim.api.nvim_get_autocmds({event="BufWritePre"}))'` |
+| treesitter | parser available | `+'edit f.go' +'lua vim.treesitter.start(); print("ts ok")'` |
+| netrw | options set | `+'lua print(vim.g.netrw_liststyle, vim.g.netrw_banner)'` |
+| statusline | builds valid string | `+'lua print(type(require("statusline").build()) == "string")'` |
+| brackets | decision logic | `+'lua ... (replicate pair/skip/backspace checks, feedkeys won't dispatch)'` |
+| format | formatter chosen | `+'lua local m=require("format")'` + filetype-specific `:w` on a sample file |
+| lsp | client attaches + completes | `+'edit f.go' +'lua vim.wait(800); vim.lsp.buf_request(0,"textDocument/completion",{textDocument={uri=vim.uri_from_bufnr(0)},position={0,0}},function(_,r) print(#(r and r.items or {})) end); vim.wait(1000)'` |
+| lsp | diagnostics flow | `+'edit f.go' +'lua vim.wait(800); print(#vim.diagnostic.get(0))'` |
+
+General rules: LSP checks need `vim.wait()` after load (clients attach async); invoke module functions directly rather than simulating keypresses; keep test files under `/tmp/opencode/**`.
+
 ### Yazi Configuration
 
 - **Openers (`%s` quoting)**: NEVER wrap `%s` or `%s1` in quotes. Yazi internally escapes paths (likely single-quote wrapping). Adding extra `"` creates `"'/path/file'"` which breaks paths with spaces/special chars. Use bare `%s`, e.g. `'nvim %s1'` not `'nvim "%s1"'`.
