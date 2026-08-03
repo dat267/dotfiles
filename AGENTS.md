@@ -125,6 +125,30 @@ All executable Python scripts follow these conventions:
 - Import standard library only; avoid external dependencies
 - Handle Yazi's single-quote-wrapped paths: `if len(p) >= 2 and p[0] == p[-1] and p[0] in "'\"": p = p[1:-1]`
 
+### Neovim Configuration & Testing
+
+The nvim config in `dot_config/nvim/` is **zero-plugin** (built-ins only: `vim.lsp`, native treesitter, netrw, custom statusline/brackets/format). Modules load from `init.lua` in order: options, keymaps, autocmds, treesitter, netrw, statusline, brackets, format, lsp.
+
+**Headless testing** — logic and integration can be verified, but NOT visuals/UI:
+
+```sh
+# Config loads cleanly
+nvim --headless -u ~/.config/nvim/init.lua +'lua print("ok")' +qa
+
+# Test per-filetype LSP attach + clients
+nvim --headless -u ~/.config/nvim/init.lua +'edit file.go' \
+  +'lua vim.wait(800); for _,c in ipairs(vim.lsp.get_clients({bufnr=0})) do print(c.name) end' +qa
+```
+
+Key gotchas learned the hard way:
+- **`nvim_input()` hangs headless** — don't use it to simulate typing. `normal! iX` inserts fine; feedkeys in insert mode often fails to dispatch callback keymaps.
+- **Insert-mode keymaps/autocmds** (like `InsertCharPre` brackets, `<C-Space>` omni) can't be fully verified headless — test the decision logic directly by invoking module functions or replicating the check.
+- **`nvim_feedkeys` needs `nvim_replace_termcodes("<Left>", true, false, true)`** — a literal `"<Left>"` string inserts as text, not a keypress (e.g. produced `()<Left>`).
+- **Test files must be inside the workspace** (`/tmp/opencode/**` or repo) — other external dirs are blocked by opencode permission rules.
+- **`vim.lsp.enable` requires `filetypes` per server**; without it servers attach to every buffer. Only enable servers whose binary exists (`vim.fn.executable`), else loading a file errors/spams.
+- **LSP formatting needs an attached client**: `vim.lsp.buf.format`; external formatter fallback in `lua/format.lua` uses `vim.fn.executable` to pick gofmt/rustfmt/black/prettier/shfmt/etc. and silently skips when missing.
+- When testing the source config (not deployed), prepend rtp: `nvim --headless --cmd 'set rtp^=/home/dat/.local/share/chezmoi/dot_config/nvim' -u dot_config/nvim/init.lua`.
+
 ### Yazi Configuration
 
 - **Openers (`%s` quoting)**: NEVER wrap `%s` or `%s1` in quotes. Yazi internally escapes paths (likely single-quote wrapping). Adding extra `"` creates `"'/path/file'"` which breaks paths with spaces/special chars. Use bare `%s`, e.g. `'nvim %s1'` not `'nvim "%s1"'`.
