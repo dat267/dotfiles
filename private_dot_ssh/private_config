@@ -3,6 +3,8 @@ Host *
   StrictHostKeyChecking no
   UserKnownHostsFile=/dev/null
   LogLevel ERROR
+  ServerAliveInterval 30
+  ServerAliveCountMax 3
 Host nexus
   User root
   Hostname 100.64.0.3
