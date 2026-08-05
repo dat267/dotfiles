@@ -52,3 +52,25 @@ autocmd("FileType", {
     map("n", "<CR>", "<CR><cmd>lclose<cr>", { buffer = true, desc = "jump and close" })
   end,
 })
+
+-- Restore last edit position when reopening a file.
+autocmd("BufReadPost", {
+  pattern = "*",
+  callback = function()
+    local mark = vim.api.nvim_buf_get_mark(0, '"')
+    local line_count = vim.api.nvim_buf_line_count(0)
+    if mark[1] > 0 and mark[1] <= line_count then
+      vim.api.nvim_win_set_cursor(0, { mark[1], mark[2] })
+    end
+  end,
+})
+
+-- Highlight the text just yanked (flash the region briefly).
+autocmd("TextYankPost", {
+  pattern = "*",
+  callback = function()
+    if vim.v.event.operator == "y" then
+      vim.highlight.on_yank({ higroup = "IncSearch", timeout = 150 })
+    end
+  end,
+})

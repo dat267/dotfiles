@@ -97,6 +97,16 @@ vim.keymap.set("i", "<BS>", function()
   vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(keys, true, false, true), "in", false)
 end, { desc = "smart backspace" })
 
+-- <Tab> jumps past a closing bracket (or inserts a tab if not at one).
+vim.keymap.set("i", "<Tab>", function()
+  local after = char_after_cursor()
+  if vim.tbl_contains(vim.tbl_values(bracket_pairs), after) then
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Right>", true, false, true), "in", false)
+    return ""
+  end
+  return "<Tab>"
+end, { expr = true, desc = "jump out of bracket" })
+
 -- Visual mode: wrap the selection with a bracket pair.
 for open, close in pairs(bracket_pairs) do
   vim.keymap.set("v", open, function()

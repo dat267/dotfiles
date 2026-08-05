@@ -97,6 +97,8 @@ autocmd("LspAttach", {
     end
 
     map("gd", vim.lsp.buf.definition, "goto definition")
+    map("gD", vim.lsp.buf.type_definition, "goto type definition")
+    map("gI", vim.lsp.buf.implementation, "goto implementation")
     map("K", vim.lsp.buf.hover, "hover")
     map("<leader>rn", vim.lsp.buf.rename, "rename")
     map("<leader>ca", vim.lsp.buf.code_action, "code action")
@@ -137,3 +139,19 @@ vim.api.nvim_create_autocmd("CursorHold", {
     vim.diagnostic.open_float(nil, { focusable = false })
   end,
 })
+
+-- <Esc> dismisses an open diagnostic float.
+vim.keymap.set("n", "<Esc>", function()
+  if vim.fn.mode() == "n" then
+    local floats = vim.tbl_filter(function(w)
+      return vim.api.nvim_win_get_config(w).relative ~= ""
+    end, vim.api.nvim_list_wins())
+    if #floats > 0 then
+      for _, w in ipairs(floats) do
+        vim.api.nvim_win_close(w, false)
+      end
+      return
+    end
+  end
+  return "<Esc>"
+end, { expr = true, desc = "dismiss diagnostic float" })
