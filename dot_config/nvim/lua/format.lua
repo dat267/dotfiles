@@ -48,7 +48,7 @@ local function format_buffer()
   -- Prefer LSP formatting when a client is attached.
   local clients = vim.lsp.get_clients({ bufnr = 0 })
   for _, client in ipairs(clients) do
-    if client.supports_method("textDocument/formatting") then
+    if client:supports_method("textDocument/formatting") then
       vim.lsp.buf.format({ bufnr = 0, async = false })
       return
     end

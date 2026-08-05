@@ -103,15 +103,24 @@ autocmd("LspAttach", {
     map("<leader>rn", vim.lsp.buf.rename, "rename")
     map("<leader>ca", vim.lsp.buf.code_action, "code action")
     map("gr", vim.lsp.buf.references, "references")
-    map("[d", vim.diagnostic.goto_prev, "prev diagnostic")
-    map("]d", vim.diagnostic.goto_next, "next diagnostic")
+    local function open_float_on_jump(_, bufnr)
+      if bufnr then
+        vim.diagnostic.open_float(bufnr, { focusable = false })
+      end
+    end
+    map("[d", function()
+      vim.diagnostic.jump({ count = -1, on_jump = open_float_on_jump })
+    end, "prev diagnostic")
+    map("]d", function()
+      vim.diagnostic.jump({ count = 1, on_jump = open_float_on_jump })
+    end, "next diagnostic")
     map("<leader>d", vim.diagnostic.open_float, "diagnostic float")
 
     -- Manual omni-completion intellisense (no plugin): <C-Space> in insert
     -- mode triggers LSP completion; <C-n>/<C-p> continue keyword completion.
     vim.keymap.set("i", "<C-Space>", "<C-x><C-o>", { buffer = bufnr, desc = "LSP omni-completion" })
 
-    vim.api.nvim_buf_set_option(bufnr, "omnifunc", "v:lua.vim.lsp.omnifunc")
+    vim.bo[bufnr].omnifunc = "v:lua.vim.lsp.omnifunc"
   end,
 })
 

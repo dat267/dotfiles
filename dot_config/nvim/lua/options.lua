@@ -40,11 +40,25 @@ autocmd("OptionSet", {
 })
 
 if vim.env.SSH_TTY then
+  -- OSC 52 clipboard: Termux garbles the editor when the base64 payload
+  -- exceeds its buffer (~64KB is safe). Larger yanks stay in the Neovim
+  -- register (pasteable with p / "0p). The size is measured on the base64
+  -- payload actually transmitted (lines joined with "\n", then encoded),
+  -- which expands ~4/3 over the raw bytes.
+  local max_osc52_payload = 64 * 1024
+  local function osc52_copy(reg)
+    return function(lines)
+      local payload = vim.base64.encode(table.concat(lines, "\n"))
+      if #payload <= max_osc52_payload then
+        return require("vim.ui.clipboard.osc52").copy(reg)(lines)
+      end
+    end
+  end
   vim.g.clipboard = {
     name = "OSC 52",
     copy = {
-      ["+"] = require("vim.ui.clipboard.osc52").copy("+"),
-      ["*"] = require("vim.ui.clipboard.osc52").copy("*"),
+      ["+"] = osc52_copy("+"),
+      ["*"] = osc52_copy("*"),
     },
     paste = {
       ["+"] = function()
