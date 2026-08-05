@@ -87,6 +87,7 @@ prepend_paths \
 	"$HOME/.local/scripts/js" \
 	"$HOME/.local/scripts/sh" \
 	"$HOME/.local/scripts/ps1" \
+	"$HOME/.local/scripts/lua" \
 	"$HOME/.local/opt/go/bin" \
 	"$HOME/.local/opt/VSCode-linux/bin" \
 	"$HOME/.local/bin" \

@@ -7,9 +7,10 @@
 --
 -- Exits 0 if all matching tests pass, 1 otherwise. Prints PASS/FAIL/SKIP.
 
--- Bootstrap: find the config to test. Defaults to the sibling source repo
--- (this script lives in dot_local/scripts/lua/), overridable via
--- NVIM_TEST_CONFIG for testing a deployed config.
+-- Bootstrap: find the config to test.
+--   1. $NVIM_TEST_CONFIG (explicit override)
+--   2. sibling source repo (script lives in dot_local/scripts/lua/)
+--   3. deployed config at ~/.config/nvim (when run from ~/.local after apply)
 local function find_config_dir()
   if vim.env.NVIM_TEST_CONFIG and vim.fn.isdirectory(vim.env.NVIM_TEST_CONFIG) == 1 then
     return vim.env.NVIM_TEST_CONFIG
@@ -22,10 +23,15 @@ local function find_config_dir()
     end
     local parent = vim.fn.fnamemodify(dir, ":h")
     if parent == dir then
-      return nil
+      break
     end
     dir = parent
   end
+  local deployed = vim.fn.expand("~/.config/nvim")
+  if vim.fn.isdirectory(deployed) == 1 then
+    return deployed
+  end
+  return nil
 end
 
 local CONFIG_DIR = find_config_dir()
