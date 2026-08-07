@@ -306,8 +306,9 @@ def create_container(project_dir, no_network):
     cmd.append("-v")
     cmd.append(f"{HOME_VOLUME}:/home/opencode")
     cmd.append(IMAGE_NAME)
-    cmd.append("sleep")
-    cmd.append("infinity")
+    cmd.append("sh")
+    cmd.append("-c")
+    cmd.append('trap "exit 0" TERM; while :; do sleep 1; done')
     result = podman(*cmd)
     if result.returncode != 0:
         sys.exit(result.returncode)
@@ -361,10 +362,9 @@ def bootstrap_if_needed():
 
 
 def stop_container():
-    """Stop the container quickly. Its main process is `sleep infinity`, which
-    ignores SIGTERM, so podman would otherwise wait its full default timeout
-    (10s) before SIGKILL. A 2s grace is enough since there's nothing to flush."""
-    podman("stop", "--time", "2", CONTAINER_NAME, check=False)
+    """Stop the container. Its main process is an idle loop that traps SIGTERM
+    and exits cleanly, so podman stop returns quickly without needing SIGKILL."""
+    podman("stop", CONTAINER_NAME, check=False)
 
 
 def run_container(continue_conversation, root_shell=False, shell=False):
