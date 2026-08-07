@@ -91,11 +91,10 @@ curl -fsSL "https://github.com/twpayne/chezmoi/releases/download/v${CZ_VERSION}/
 # opencode, npm-global into ~/.local (uses fnm node via ~/.local/bin/npm)
 npm i -g --prefix "$HOME/.local" opencode-ai >/dev/null
 
-# PATH for all future shells (persists in the home volume)
-cat >> "$HOME/.profile" <<'EOF'
-
-export PATH="$HOME/.local/bin:$HOME/.local/share/fnm:$HOME/.local/go/bin:$HOME/.cargo/bin:$PATH"
-EOF
+# Sentinel: marks a fully-completed toolchain so bootstrap_if_needed can
+# detect partial failures and re-run on the next launch.
+mkdir -p "$HOME/.local/share/codi"
+touch "$HOME/.local/share/codi/toolchain-done"
 
 echo "toolchain ready"
 """
@@ -286,7 +285,7 @@ def container_mounts_match(project_dir, no_network):
     return True
 
 
-def create_container(project_dir, no_network):
+def create_container(project_dir, no_network, image=IMAGE_NAME):
     log("Creating persistent container...", "cyan")
     cmd = [
         "create",
@@ -305,7 +304,7 @@ def create_container(project_dir, no_network):
         cmd.append(spec)
     cmd.append("-v")
     cmd.append(f"{HOME_VOLUME}:/home/opencode")
-    cmd.append(IMAGE_NAME)
+    cmd.append(image)
     cmd.append("sh")
     cmd.append("-c")
     cmd.append('trap "exit 0" TERM; while :; do sleep 1; done')
@@ -328,20 +327,21 @@ def bootstrap_if_needed():
     then clone and apply dotfiles via chezmoi."""
     ensure_container_running()
     toolchain_done = podman(
-        "exec", CONTAINER_NAME, "sh", "-c", "[ -x ~/.local/bin/opencode ] && echo yes || echo no",
+        "exec", "-u", "opencode", CONTAINER_NAME, "sh", "-c",
+        "[ -f ~/.local/share/codi/toolchain-done ] && echo yes || echo no",
         check=False,
     ).stdout.strip()
     if toolchain_done != "yes":
         log("First launch: installing toolchain into the home volume (fnm+node, uv, go, rust, chezmoi, opencode)...", "cyan")
         result = podman("exec", "-i", "-u", "opencode", CONTAINER_NAME, "sh", "-s", input=BOOTSTRAP, check=False)
         if result.returncode != 0:
-            log("Warning: toolchain bootstrap did not complete; you can re-run it manually inside the container.", "yellow")
+            log("Warning: toolchain bootstrap did not complete; it will retry on the next launch.", "yellow")
         # Ensure the whole home volume is owned by the opencode user, in case
         # earlier bootstrap attempts ran as root and left root-owned dirs.
         podman("exec", "-u", "root", CONTAINER_NAME, "chown", "-R", "opencode:opencode", "/home/opencode", check=False)
 
     home_exists = podman(
-        "exec", CONTAINER_NAME, "sh", "-c", "[ -f ~/.local/share/chezmoi/.chezmoi.toml.tmpl ] && echo yes || echo no",
+        "exec", "-u", "opencode", CONTAINER_NAME, "sh", "-c", "[ -f ~/.local/share/chezmoi/.chezmoi.toml.tmpl ] && echo yes || echo no",
         check=False,
     ).stdout.strip()
     if home_exists != "yes":
@@ -443,16 +443,16 @@ def main():
         if container_exists(CONTAINER_NAME):
             log("Removing existing container (data volume kept)...", "yellow")
             podman("rm", "-f", CONTAINER_NAME)
-        create_container(project_dir, args.no_network)
+        create_container(project_dir, args.no_network, image=args.image)
     elif not container_exists(CONTAINER_NAME):
-        create_container(project_dir, args.no_network)
+        create_container(project_dir, args.no_network, image=args.image)
     elif not container_mounts_match(project_dir, args.no_network):
         log(
             f"Container was created for a different project dir or network setting; recreating (state on the home volume is kept, no tools to reset — the toolchain lives in the volume).",
             "yellow",
         )
         podman("rm", "-f", CONTAINER_NAME)
-        create_container(project_dir, args.no_network)
+        create_container(project_dir, args.no_network, image=args.image)
 
     bootstrap_if_needed()
     run_container(args.continue_conversation, root_shell=args.root, shell=args.shell)
