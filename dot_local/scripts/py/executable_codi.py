@@ -157,7 +157,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 RUN rm -rf /build \\
     && mkdir -p /tmp/opencode && chown opencode:opencode /tmp/opencode
 
-ENV PATH="/home/opencode/.local/bin:/home/opencode/.local/share/fnm:$PATH" \\
+ENV PATH="/home/opencode/.local/bin:/home/opencode/.local/share/fnm:/home/opencode/.local/go/bin:/home/opencode/.cargo/bin:$PATH" \\
     HOME="/home/opencode"
 
 WORKDIR /workspace
@@ -397,8 +397,10 @@ def run_container(continue_conversation, root_shell=False, shell=False):
         inner.append("--continue")
     flag = " --continue" if continue_conversation else ""
     log(f"Running opencode --auto{flag} (Ctrl-D to exit)...", "cyan")
+    # Exec opencode directly (non-login), so it inherits the container's PATH
+    # (with go/cargo) instead of a login shell's PATH mangled by ~/.profile.
     try:
-        subprocess.run(["podman", "exec", "-it", CONTAINER_NAME, "bash", "-lc", " ".join(inner)])
+        subprocess.run(["podman", "exec", "-it", CONTAINER_NAME, *inner])
     except KeyboardInterrupt:
         pass
 
