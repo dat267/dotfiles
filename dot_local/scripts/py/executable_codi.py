@@ -360,6 +360,13 @@ def bootstrap_if_needed():
     write_sandbox_config()
 
 
+def stop_container():
+    """Stop the container quickly. Its main process is `sleep infinity`, which
+    ignores SIGTERM, so podman would otherwise wait its full default timeout
+    (10s) before SIGKILL. A 2s grace is enough since there's nothing to flush."""
+    podman("stop", "--time", "2", CONTAINER_NAME, check=False)
+
+
 def run_container(continue_conversation, root_shell=False, shell=False):
     """Start the container if stopped, then exec opencode, a shell (as the
     opencode user), or a root shell inside; stop it afterwards."""
@@ -372,7 +379,7 @@ def run_container(continue_conversation, root_shell=False, shell=False):
         except KeyboardInterrupt:
             pass
         log("Stopping container (state preserved)...", "cyan")
-        podman("stop", CONTAINER_NAME, check=False)
+        stop_container()
         return
 
     if shell:
@@ -382,7 +389,7 @@ def run_container(continue_conversation, root_shell=False, shell=False):
         except KeyboardInterrupt:
             pass
         log("Stopping container (state preserved)...", "cyan")
-        podman("stop", CONTAINER_NAME, check=False)
+        stop_container()
         return
 
     inner = ["opencode", "--auto"]
@@ -396,7 +403,7 @@ def run_container(continue_conversation, root_shell=False, shell=False):
         pass
 
     log("Stopping container (state preserved)...", "cyan")
-    podman("stop", CONTAINER_NAME, check=False)
+    stop_container()
 
 
 def main():
