@@ -6,9 +6,6 @@ __pycache__/
 dot_local/scripts/js/node_modules/
 dot_local/scripts/js/node_modules
 
-# Generated at runtime by executable_codi.py (embedded SANDBOX_CONFIG)
-dot_local/scripts/py/codi-opencode.json
-
 # Secrets
 .env
 .env.*

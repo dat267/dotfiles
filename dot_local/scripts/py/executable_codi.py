@@ -7,17 +7,16 @@ import sys
 import tempfile
 
 IMAGE_NAME = "opencode-isolate:latest"
-DATA_VOLUME = "opencode-isolate-data"
 HOME_VOLUME = "opencode-home-data"
 BASE_IMAGE = "debian:stable-slim"
 CONTAINER_NAME = "opencode-isolate-ctr"
 PROJECT_DIR_LABEL = "codi.project_dir"
+NETWORK_LABEL = "codi.no_network"
 GITHUB_USERNAME = "dat267"
 
-# Image keeps only what's needed to bootstrap a dev environment. Each step is
-# its own RUN layer so podman caches unchanged steps across builds. Heavy
-# toolchains (go/rust/gh/linters/playwright) are NOT baked in — install them
-# on demand with `codi --setup <name>` into the persistent home volume.
+# Image keeps only base packages; the toolchain is installed on first launch
+# into the persistent home volume (user dirs), so it survives any project
+# switch and container recreation. Each step is its own RUN layer for caching.
 SCRIPTS = {
     "apt.sh": r"""#!/bin/sh
 set -e
@@ -40,105 +39,66 @@ apt-get install -y --no-install-recommends \
     python3-venv
 rm -rf /var/lib/apt/lists/*
 """,
-    "node.sh": r"""#!/bin/sh
-set -e
-ARCH="$(uname -m)"
-case "$ARCH" in
-    x86_64)  NODEARCH="x64"  ;;
-    aarch64) NODEARCH="arm64" ;;
-    *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
-esac
-
-# Node.js (latest LTS)
-NODE_VERSION="$(curl -fsSL https://nodejs.org/dist/index.json | jq -r '[.[] | select(.lts != false)][0].version')"
-curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODEARCH}.tar.xz" \
-    | tar -C /usr/local --strip-components=1 -xJf -
-""",
-    "opencode.sh": r"""#!/bin/sh
-set -e
-
-# opencode (latest)
-npm i -g opencode-ai
-
-# chezmoi (latest) — static binary for dotfile management
-ARCH="$(uname -m)"
-case "$ARCH" in
-    x86_64)  CZARCH="amd64" ;;
-    aarch64) CZARCH="arm64" ;;
-    *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
-esac
-CZ_VERSION="$(curl -fsSL https://api.github.com/repos/twpayne/chezmoi/releases/latest | jq -r '.tag_name' | sed 's/^v//')"
-curl -fsSL "https://github.com/twpayne/chezmoi/releases/download/v${CZ_VERSION}/chezmoi_${CZ_VERSION}_linux_${CZARCH}.tar.gz" \
-    | tar -C /usr/local/bin -xzf - chezmoi
-""",
 }
 
-# On-demand toolchains: installed into the persistent home volume with
-# `codi --setup <name>`. Keeps the image minimal and builds fast.
-SETUP_SCRIPTS = {
-    "go": r"""#!/bin/sh
+# Toolchain installed into the home volume on first launch (user dirs only, so
+# it survives project switches and `codi --reset`). Contains: fnm+node, uv,
+# go, rust, chezmoi, opencode. Run as the `opencode` user.
+BOOTSTRAP = r"""#!/bin/sh
 set -e
 ARCH="$(uname -m)"
 case "$ARCH" in
-    x86_64)  GOARCH="amd64" ;;
-    aarch64) GOARCH="arm64" ;;
+    x86_64)  GOARCH="amd64"  ;;
+    aarch64) GOARCH="arm64"  ;;
     *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
 esac
+export PATH="$HOME/.local/bin:$HOME/.local/share/fnm:$HOME/.local/go/bin:$HOME/.cargo/bin:$PATH"
+mkdir -p "$HOME/.local/bin"
 
+# fnm + node (latest LTS), user-local
+FNM_VERSION="$(curl -fsSL https://api.github.com/repos/Schniz/fnm/releases/latest | jq -r '.tag_name' | sed 's/^v//')"
+curl -fsSL "https://github.com/Schniz/fnm/releases/download/v${FNM_VERSION}/fnm-linux.zip" -o /tmp/fnm.zip
+unzip -o /tmp/fnm.zip -d "$HOME/.local/bin" >/dev/null
+chmod +x "$HOME/.local/bin/fnm"
+fnm install --lts >/dev/null
+# Link the installed node/npm/npx into ~/.local/bin so they are always on PATH
+# regardless of shell/fnm env inference.
+NODE_BIN="$(ls -d "$HOME/.local/share/fnm/node-versions"/*/installation/bin 2>/dev/null | tail -1)"
+if [ -n "$NODE_BIN" ]; then
+    ln -sf "$NODE_BIN/node" "$HOME/.local/bin/node"
+    ln -sf "$NODE_BIN/npm"  "$HOME/.local/bin/npm"
+    ln -sf "$NODE_BIN/npx"  "$HOME/.local/bin/npx"
+fi
+
+# uv (python manager), user-local
+curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$HOME/.local/bin" sh
+
+# Go, user-local
 GO_VERSION="$(curl -fsSL 'https://go.dev/dl/?mode=json' | jq -r '.[0].version')"
 curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-${GOARCH}.tar.gz" \
-    | tar -C /usr/local -xzf -
-echo 'export PATH="/usr/local/go/bin:$PATH"' > /etc/profile.d/go.sh
-""",
-    "rust": r"""#!/bin/sh
-set -e
-export RUSTUP_HOME=/usr/local/rustup
-export CARGO_HOME=/usr/local/cargo
-curl -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile default
-echo 'export PATH="/usr/local/cargo/bin:$PATH"' > /etc/profile.d/rust.sh
-""",
-    "tools": r"""#!/bin/sh
-set -e
-ARCH="$(uname -m)"
-case "$ARCH" in
-    x86_64)  GOARCH="amd64" ;;
-    aarch64) GOARCH="arm64" ;;
-    *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
-esac
+    | tar -C "$HOME/.local" -xzf -      # -> ~/.local/go
 
-# GitHub CLI (latest)
-GH_VERSION="$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | jq -r '.tag_name' | sed 's/^v//')"
-curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${GOARCH}.tar.gz" \
-    | tar -C /usr/local --strip-components=2 -xzf - "gh_${GH_VERSION}_linux_${GOARCH}/bin/gh"
-mv /usr/local/gh /usr/local/bin/gh
+# Rust, user-local
+export RUSTUP_HOME="$HOME/.rustup"
+export CARGO_HOME="$HOME/.cargo"
+curl -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile default >/dev/null
 
-# golangci-lint (v2)
-LINT_VERSION="2.12.2"
-curl -fsSL "https://github.com/golangci/golangci-lint/releases/download/v${LINT_VERSION}/golangci-lint-${LINT_VERSION}-linux-${GOARCH}.tar.gz" \
-    | tar -C /tmp -xzf -
-mv "/tmp/golangci-lint-${LINT_VERSION}-linux-${GOARCH}/golangci-lint" /usr/local/bin/golangci-lint
-rm -rf "/tmp/golangci-lint-${LINT_VERSION}-linux-${GOARCH}"
+# chezmoi, user-local
+CZ_VERSION="$(curl -fsSL https://api.github.com/repos/twpayne/chezmoi/releases/latest | jq -r '.tag_name' | sed 's/^v//')"
+curl -fsSL "https://github.com/twpayne/chezmoi/releases/download/v${CZ_VERSION}/chezmoi_${CZ_VERSION}_linux_${GOARCH}.tar.gz" \
+    | tar -C "$HOME/.local/bin" -xzf - chezmoi
 
-# uv (latest)
-curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
-""",
-    "playwright": r"""#!/bin/sh
-set -e
+# opencode, npm-global into ~/.local (uses fnm node via ~/.local/bin/npm)
+npm i -g --prefix "$HOME/.local" opencode-ai >/dev/null
 
-# bun (latest) — copy binary out of /root/.bun so uid 1000 can exec it
-curl -fsSL https://bun.sh/install | bash
-cp /root/.bun/bin/bun /usr/local/bin/bun
+# PATH for all future shells (persists in the home volume)
+cat >> "$HOME/.profile" <<'EOF'
 
-# Playwright JS + chromium, installed for the runtime user so browser
-# binaries live in /home/opencode/.cache/ms-playwright (writable by uid 1000).
-mkdir -p /home/opencode/.cache
-chown -R opencode:opencode /home/opencode/.cache
-export PLAYWRIGHT_BROWSERS_PATH=/home/opencode/.cache/ms-playwright
-npm i -g playwright
-playwright install --with-deps chromium
-chown -R opencode:opencode /home/opencode/.cache/ms-playwright
-""",
-}
+export PATH="$HOME/.local/bin:$HOME/.local/share/fnm:$HOME/.local/go/bin:$HOME/.cargo/bin:$PATH"
+EOF
+
+echo "toolchain ready"
+"""
 
 # Permissive opencode config for the sandboxed container. The container only
 # sees the workspace + its own home volume, so bash/file access is largely
@@ -190,19 +150,14 @@ RUN mkdir -p /etc/sudoers.d \\
     && echo 'opencode ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/opencode \\
     && chmod 440 /etc/sudoers.d/opencode
 
-# Cache apt and npm downloads across rebuilds
+# Cache apt downloads across rebuilds
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt/lists \\
     sh /build/apt.sh
-RUN sh /build/node.sh
-RUN --mount=type=cache,target=/root/.npm sh /build/opencode.sh
 
 RUN rm -rf /build \\
     && mkdir -p /tmp/opencode && chown opencode:opencode /tmp/opencode
 
-ENV PATH="/usr/local/go/bin:/usr/local/cargo/bin:$PATH" \\
-    RUSTUP_HOME="/usr/local/rustup" \\
-    CARGO_HOME="/usr/local/cargo" \\
-    NODE_PATH="/usr/local/lib/node_modules" \\
+ENV PATH="/home/opencode/.local/bin:/home/opencode/.local/share/fnm:$PATH" \\
     HOME="/home/opencode"
 
 WORKDIR /workspace
@@ -270,17 +225,24 @@ def mount_specs(project_dir):
 
 
 def write_sandbox_config():
-    """Persist the permissive sandbox opencode config next to this script so it
-    can be bind-mounted into the container, surviving container recreation."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "codi-opencode.json")
-    if not os.path.exists(path):
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(SANDBOX_CONFIG)
-    return path
+    """Write the permissive sandbox opencode config into the container's home
+    volume, overriding the repo's restrictive one after chezmoi applies."""
+    ensure_container_running()
+    podman(
+        "exec", "-i", "-u", "opencode", CONTAINER_NAME,
+        "sh", "-c", "mkdir -p ~/.config/opencode && cat > ~/.config/opencode/opencode.json",
+        input=SANDBOX_CONFIG,
+    )
 
 
-def podman(*args, check=True):
-    result = subprocess.run(["podman", *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+def podman(*args, check=True, input=None):
+    result = subprocess.run(
+        ["podman", *args],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        input=input,
+    )
     if check and result.returncode != 0:
         log(f"Error: podman {' '.join(args)} failed: {result.stderr.strip()}", "red")
         sys.exit(result.returncode)
@@ -305,17 +267,27 @@ def get_container_project_dir(name):
     return result.stdout.strip()
 
 
+def get_container_network(name):
+    result = podman(
+        "inspect", name, "--format", "{{index .Config.Labels \"" + NETWORK_LABEL + "\"}}",
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
 def container_mounts_match(project_dir, no_network):
     """Recreate is needed when the frozen mount or network setting drifted."""
-    current = get_container_project_dir(CONTAINER_NAME)
-    if current != project_dir:
+    if get_container_project_dir(CONTAINER_NAME) != project_dir:
+        return False
+    if get_container_network(CONTAINER_NAME) != ("1" if no_network else "0"):
         return False
     return True
 
 
 def create_container(project_dir, no_network):
     log("Creating persistent container...", "cyan")
-    sandbox_config = write_sandbox_config()
     cmd = [
         "create",
         "--name", CONTAINER_NAME,
@@ -324,6 +296,7 @@ def create_container(project_dir, no_network):
         "-w", "/workspace",
         "--security-opt", "label=disable",
         "--label", f"{PROJECT_DIR_LABEL}={project_dir}",
+        "--label", f"{NETWORK_LABEL}={'1' if no_network else '0'}",
     ]
     if no_network:
         cmd.append("--network=none")
@@ -332,10 +305,9 @@ def create_container(project_dir, no_network):
         cmd.append(spec)
     cmd.append("-v")
     cmd.append(f"{HOME_VOLUME}:/home/opencode")
-    cmd.append("-v")
-    cmd.append(f"{sandbox_config}:/home/opencode/.config/opencode/opencode.json:ro")
     cmd.append(IMAGE_NAME)
-    cmd.append("opencode")
+    cmd.append("sleep")
+    cmd.append("infinity")
     result = podman(*cmd)
     if result.returncode != 0:
         sys.exit(result.returncode)
@@ -350,39 +322,42 @@ def ensure_container_running():
         podman("start", CONTAINER_NAME)
 
 
-def run_setup(tool):
-    if tool not in SETUP_SCRIPTS:
-        log(f"Error: unknown tool '{tool}'. Available: {', '.join(sorted(SETUP_SCRIPTS))}", "red")
-        sys.exit(1)
-    ensure_container_running()
-    script = SETUP_SCRIPTS[tool]
-    log(f"Installing {tool} into the container (persists in the home volume)...", "cyan")
-    result = podman("exec", "-i", "-u", "root", CONTAINER_NAME, "sh", "-s", input=script)
-    if result.returncode != 0:
-        log(f"Error: {tool} install failed.", "red")
-        sys.exit(result.returncode)
-    log(f"{tool} installed.", "green")
-    podman("stop", CONTAINER_NAME, check=False)
-
-
 def bootstrap_if_needed():
-    """First launch: clone and apply dotfiles via chezmoi into the home volume."""
+    """First launch: install the toolchain into the home volume (user dirs),
+    then clone and apply dotfiles via chezmoi."""
     ensure_container_running()
+    toolchain_done = podman(
+        "exec", CONTAINER_NAME, "sh", "-c", "[ -x ~/.local/bin/opencode ] && echo yes || echo no",
+        check=False,
+    ).stdout.strip()
+    if toolchain_done != "yes":
+        log("First launch: installing toolchain into the home volume (fnm+node, uv, go, rust, chezmoi, opencode)...", "cyan")
+        result = podman("exec", "-i", "-u", "opencode", CONTAINER_NAME, "sh", "-s", input=BOOTSTRAP, check=False)
+        if result.returncode != 0:
+            log("Warning: toolchain bootstrap did not complete; you can re-run it manually inside the container.", "yellow")
+        # Ensure the whole home volume is owned by the opencode user, in case
+        # earlier bootstrap attempts ran as root and left root-owned dirs.
+        podman("exec", "-u", "root", CONTAINER_NAME, "chown", "-R", "opencode:opencode", "/home/opencode", check=False)
+
     home_exists = podman(
         "exec", CONTAINER_NAME, "sh", "-c", "[ -f ~/.local/share/chezmoi/.chezmoi.toml.tmpl ] && echo yes || echo no",
         check=False,
     ).stdout.strip()
-    if home_exists == "yes":
-        return
-    log("First launch: cloning and applying dotfiles with chezmoi...", "cyan")
-    result = podman(
-        "exec", CONTAINER_NAME, "sh", "-c",
-        f"chezmoi init --apply {GITHUB_USERNAME} && "
-        "chmod 600 ~/.ssh/config 2>/dev/null || true",
-        check=False,
-    )
-    if result.returncode != 0:
-        log("Warning: chezmoi bootstrap did not complete; you can re-run it manually inside the container.", "yellow")
+    if home_exists != "yes":
+        log("Applying dotfiles with chezmoi...", "cyan")
+        result = podman(
+            "exec", "-i", "-u", "opencode", CONTAINER_NAME, "bash", "-s",
+            input=f"export PATH=\"$HOME/.local/bin:$PATH\"\n"
+                  f"chezmoi init --apply {GITHUB_USERNAME} || true\n"
+                  "chmod 600 ~/.ssh/config 2>/dev/null || true",
+            check=False,
+        )
+        if result.returncode != 0:
+            log("Warning: chezmoi bootstrap did not complete; you can re-run it manually inside the container.", "yellow")
+
+    # Always enforce the permissive sandbox config (wins over the repo's
+    # restrictive one that chezmoi just applied).
+    write_sandbox_config()
 
 
 def run_container(continue_conversation, root_shell=False, shell=False):
@@ -416,7 +391,7 @@ def run_container(continue_conversation, root_shell=False, shell=False):
     flag = " --continue" if continue_conversation else ""
     log(f"Running opencode --auto{flag} (Ctrl-D to exit)...", "cyan")
     try:
-        subprocess.run(["podman", "exec", "-it", CONTAINER_NAME, *inner])
+        subprocess.run(["podman", "exec", "-it", CONTAINER_NAME, "bash", "-lc", " ".join(inner)])
     except KeyboardInterrupt:
         pass
 
@@ -435,11 +410,6 @@ def main():
     parser.add_argument("--reset", action="store_true", help="Recreate the container (keeps the home volume)")
     parser.add_argument("--root", action="store_true", help="Open a root shell in the container to install system tools (changes persist)")
     parser.add_argument("--shell", action="store_true", help="Open an interactive shell in the container as the opencode user instead of launching opencode")
-    parser.add_argument(
-        "--setup",
-        metavar="TOOL",
-        help="Install an on-demand toolchain into the container: " + ", ".join(sorted(SETUP_SCRIPTS)),
-    )
     parser.add_argument(
         "-c",
         "--continue",
@@ -469,15 +439,11 @@ def main():
         create_container(project_dir, args.no_network)
     elif not container_mounts_match(project_dir, args.no_network):
         log(
-            f"Container was created for a different project dir or network setting; recreating (state on the data volume is kept, system tools reset).",
+            f"Container was created for a different project dir or network setting; recreating (state on the home volume is kept, no tools to reset — the toolchain lives in the volume).",
             "yellow",
         )
         podman("rm", "-f", CONTAINER_NAME)
         create_container(project_dir, args.no_network)
-
-    if args.setup:
-        run_setup(args.setup)
-        return
 
     bootstrap_if_needed()
     run_container(args.continue_conversation, root_shell=args.root, shell=args.shell)
