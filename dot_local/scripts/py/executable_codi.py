@@ -8,13 +8,16 @@ import tempfile
 
 IMAGE_NAME = "opencode-isolate:latest"
 DATA_VOLUME = "opencode-isolate-data"
+HOME_VOLUME = "opencode-home-data"
 BASE_IMAGE = "debian:stable-slim"
 CONTAINER_NAME = "opencode-isolate-ctr"
 PROJECT_DIR_LABEL = "codi.project_dir"
+GITHUB_USERNAME = "dat267"
 
-# Each toolchain is its own RUN layer so podman's layer cache reuses
-# unchanged tools across builds. Only the layer that changed (e.g. a bumped
-# tool version) rebuilds; apt/go/rust/node stay cached.
+# Image keeps only what's needed to bootstrap a dev environment. Each step is
+# its own RUN layer so podman caches unchanged steps across builds. Heavy
+# toolchains (go/rust/gh/linters/playwright) are NOT baked in — install them
+# on demand with `codi --setup <name>` into the persistent home volume.
 SCRIPTS = {
     "apt.sh": r"""#!/bin/sh
 set -e
@@ -29,36 +32,13 @@ apt-get install -y --no-install-recommends \
     openssh-client \
     pkg-config \
     build-essential \
+    sudo \
     unzip \
     xz-utils \
     python3 \
     python3-pip \
     python3-venv
 rm -rf /var/lib/apt/lists/*
-""",
-    "go.sh": r"""#!/bin/sh
-set -e
-ARCH="$(uname -m)"
-case "$ARCH" in
-    x86_64)  GOARCH="amd64" ;;
-    aarch64) GOARCH="arm64" ;;
-    *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
-esac
-
-# Go (latest)
-GO_VERSION="$(curl -fsSL 'https://go.dev/dl/?mode=json' | jq -r '.[0].version')"
-curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-${GOARCH}.tar.gz" \
-    | tar -C /usr/local -xzf -
-echo 'export PATH="/usr/local/go/bin:$PATH"' >> /etc/profile.d/go.sh
-""",
-    "rust.sh": r"""#!/bin/sh
-set -e
-
-# Rust (latest via rustup)
-export RUSTUP_HOME=/usr/local/rustup
-export CARGO_HOME=/usr/local/cargo
-curl -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile default
-echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/profile.d/rust.sh
 """,
     "node.sh": r"""#!/bin/sh
 set -e
@@ -74,7 +54,29 @@ NODE_VERSION="$(curl -fsSL https://nodejs.org/dist/index.json | jq -r '[.[] | se
 curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-${NODEARCH}.tar.xz" \
     | tar -C /usr/local --strip-components=1 -xJf -
 """,
-    "tools.sh": r"""#!/bin/sh
+    "opencode.sh": r"""#!/bin/sh
+set -e
+
+# opencode (latest)
+npm i -g opencode-ai
+
+# chezmoi (latest) — static binary for dotfile management
+ARCH="$(uname -m)"
+case "$ARCH" in
+    x86_64)  CZARCH="amd64" ;;
+    aarch64) CZARCH="arm64" ;;
+    *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
+esac
+CZ_VERSION="$(curl -fsSL https://api.github.com/repos/twpayne/chezmoi/releases/latest | jq -r '.tag_name' | sed 's/^v//')"
+curl -fsSL "https://github.com/twpayne/chezmoi/releases/download/v${CZ_VERSION}/chezmoi_${CZ_VERSION}_linux_${CZARCH}.tar.gz" \
+    | tar -C /usr/local/bin -xzf - chezmoi
+""",
+}
+
+# On-demand toolchains: installed into the persistent home volume with
+# `codi --setup <name>`. Keeps the image minimal and builds fast.
+SETUP_SCRIPTS = {
+    "go": r"""#!/bin/sh
 set -e
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -83,8 +85,26 @@ case "$ARCH" in
     *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
 esac
 
-# opencode (latest)
-npm i -g opencode-ai
+GO_VERSION="$(curl -fsSL 'https://go.dev/dl/?mode=json' | jq -r '.[0].version')"
+curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-${GOARCH}.tar.gz" \
+    | tar -C /usr/local -xzf -
+echo 'export PATH="/usr/local/go/bin:$PATH"' > /etc/profile.d/go.sh
+""",
+    "rust": r"""#!/bin/sh
+set -e
+export RUSTUP_HOME=/usr/local/rustup
+export CARGO_HOME=/usr/local/cargo
+curl -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile default
+echo 'export PATH="/usr/local/cargo/bin:$PATH"' > /etc/profile.d/rust.sh
+""",
+    "tools": r"""#!/bin/sh
+set -e
+ARCH="$(uname -m)"
+case "$ARCH" in
+    x86_64)  GOARCH="amd64" ;;
+    aarch64) GOARCH="arm64" ;;
+    *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
+esac
 
 # GitHub CLI (latest)
 GH_VERSION="$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | jq -r '.tag_name' | sed 's/^v//')"
@@ -102,7 +122,7 @@ rm -rf "/tmp/golangci-lint-${LINT_VERSION}-linux-${GOARCH}"
 # uv (latest)
 curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
 """,
-    "playwright.sh": r"""#!/bin/sh
+    "playwright": r"""#!/bin/sh
 set -e
 
 # bun (latest) — copy binary out of /root/.bun so uid 1000 can exec it
@@ -120,6 +140,40 @@ chown -R opencode:opencode /home/opencode/.cache/ms-playwright
 """,
 }
 
+# Permissive opencode config for the sandboxed container. The container only
+# sees the workspace + its own home volume, so bash/file access is largely
+# trusted; we keep just a few sanity rules.
+SANDBOX_CONFIG = """\
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/deepseek-v4-flash-free",
+  "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
+  "permission": {
+    "external_directory": {
+      "/tmp/opencode/**": "allow",
+      "/home/opencode": "allow",
+      "/home/opencode/**": "allow",
+      "/workspace": "allow",
+      "/workspace/**": "allow",
+      "*": "deny"
+    },
+    "read": { "*": "allow" },
+    "task": "ask",
+    "bash": {
+      "*": "allow",
+      "sudo *": "allow",
+      "rm -rf /": "deny",
+      "rm -rf /*": "deny",
+      "shutdown*": "deny",
+      "reboot*": "deny",
+      "poweroff*": "deny",
+      "dd *": "deny",
+      "mkfs*": "deny"
+    }
+  }
+}
+"""
+
 CONTAINERFILE = """\
 FROM {base_image}
 
@@ -130,15 +184,17 @@ RUN useradd -u 1000 -m -d /home/opencode opencode \\
     && mkdir -p /home/opencode/.config /home/opencode/.local/share/opencode \\
     && chown -R opencode:opencode /home/opencode
 
+# Passwordless sudo for opencode so tools can be installed inside the
+# container during a session (codi --root is the manual alternative).
+RUN mkdir -p /etc/sudoers.d \\
+    && echo 'opencode ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/opencode \\
+    && chmod 440 /etc/sudoers.d/opencode
+
 # Cache apt and npm downloads across rebuilds
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt/lists \\
     sh /build/apt.sh
-RUN sh /build/go.sh
-RUN sh /build/rust.sh
 RUN sh /build/node.sh
-RUN --mount=type=cache,target=/root/.npm sh /build/tools.sh
-RUN --mount=type=cache,target=/root/.npm \\
-    sh /build/playwright.sh
+RUN --mount=type=cache,target=/root/.npm sh /build/opencode.sh
 
 RUN rm -rf /build \\
     && mkdir -p /tmp/opencode && chown opencode:opencode /tmp/opencode
@@ -207,24 +263,20 @@ def resolve_project_dir(cwd, arg_dir):
 
 
 def mount_specs(project_dir):
-    specs = [f"{project_dir}:/workspace"]
-    home = os.path.expanduser("~")
-    opencode_config = os.path.join(home, ".config", "opencode")
-    auth_json = os.path.join(home, ".local", "share", "opencode", "auth.json")
-    ssh_dir = os.path.join(home, ".ssh")
-    gh_config = os.path.join(home, ".config", "gh")
-    gitconfig = os.path.join(home, ".gitconfig")
-    if os.path.isdir(opencode_config):
-        specs.append(f"{opencode_config}:/home/opencode/.config/opencode:ro")
-    if os.path.isfile(auth_json):
-        specs.append(f"{auth_json}:/home/opencode/.local/share/opencode/auth.json:ro")
-    if os.path.isdir(ssh_dir):
-        specs.append(f"{ssh_dir}:/home/opencode/.ssh:ro")
-    if os.path.isdir(gh_config):
-        specs.append(f"{gh_config}:/home/opencode/.config/gh:ro")
-    if os.path.isfile(gitconfig):
-        specs.append(f"{gitconfig}:/home/opencode/.gitconfig:ro")
-    return specs
+    """Only the workspace is mounted from the host. Secrets and dotfiles are
+    managed inside the container (chezmoi init --apply on first launch, manual
+    auth), so nothing sensitive from the host ever crosses into the container."""
+    return [f"{project_dir}:/workspace"]
+
+
+def write_sandbox_config():
+    """Persist the permissive sandbox opencode config next to this script so it
+    can be bind-mounted into the container, surviving container recreation."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "codi-opencode.json")
+    if not os.path.exists(path):
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(SANDBOX_CONFIG)
+    return path
 
 
 def podman(*args, check=True):
@@ -263,6 +315,7 @@ def container_mounts_match(project_dir, no_network):
 
 def create_container(project_dir, no_network):
     log("Creating persistent container...", "cyan")
+    sandbox_config = write_sandbox_config()
     cmd = [
         "create",
         "--name", CONTAINER_NAME,
@@ -278,7 +331,9 @@ def create_container(project_dir, no_network):
         cmd.append("-v")
         cmd.append(spec)
     cmd.append("-v")
-    cmd.append(f"{DATA_VOLUME}:/home/opencode/.local/share/opencode")
+    cmd.append(f"{HOME_VOLUME}:/home/opencode")
+    cmd.append("-v")
+    cmd.append(f"{sandbox_config}:/home/opencode/.config/opencode/opencode.json:ro")
     cmd.append(IMAGE_NAME)
     cmd.append("opencode")
     result = podman(*cmd)
@@ -286,20 +341,69 @@ def create_container(project_dir, no_network):
         sys.exit(result.returncode)
     log(f"Container {CONTAINER_NAME} created.", "green")
 
-def run_container(continue_conversation, root_shell=False):
-    """Start the container if stopped, exec opencode (or a root shell) inside, then stop it."""
+def ensure_container_running():
     if not container_exists(CONTAINER_NAME):
         log("Error: container does not exist; run codi without --reset first.", "red")
         sys.exit(1)
-
     if not container_running(CONTAINER_NAME):
         log("Starting container...", "cyan")
         podman("start", CONTAINER_NAME)
+
+
+def run_setup(tool):
+    if tool not in SETUP_SCRIPTS:
+        log(f"Error: unknown tool '{tool}'. Available: {', '.join(sorted(SETUP_SCRIPTS))}", "red")
+        sys.exit(1)
+    ensure_container_running()
+    script = SETUP_SCRIPTS[tool]
+    log(f"Installing {tool} into the container (persists in the home volume)...", "cyan")
+    result = podman("exec", "-i", "-u", "root", CONTAINER_NAME, "sh", "-s", input=script)
+    if result.returncode != 0:
+        log(f"Error: {tool} install failed.", "red")
+        sys.exit(result.returncode)
+    log(f"{tool} installed.", "green")
+    podman("stop", CONTAINER_NAME, check=False)
+
+
+def bootstrap_if_needed():
+    """First launch: clone and apply dotfiles via chezmoi into the home volume."""
+    ensure_container_running()
+    home_exists = podman(
+        "exec", CONTAINER_NAME, "sh", "-c", "[ -f ~/.local/share/chezmoi/.chezmoi.toml.tmpl ] && echo yes || echo no",
+        check=False,
+    ).stdout.strip()
+    if home_exists == "yes":
+        return
+    log("First launch: cloning and applying dotfiles with chezmoi...", "cyan")
+    result = podman(
+        "exec", CONTAINER_NAME, "sh", "-c",
+        f"chezmoi init --apply {GITHUB_USERNAME} && "
+        "chmod 600 ~/.ssh/config 2>/dev/null || true",
+        check=False,
+    )
+    if result.returncode != 0:
+        log("Warning: chezmoi bootstrap did not complete; you can re-run it manually inside the container.", "yellow")
+
+
+def run_container(continue_conversation, root_shell=False, shell=False):
+    """Start the container if stopped, then exec opencode, a shell (as the
+    opencode user), or a root shell inside; stop it afterwards."""
+    ensure_container_running()
 
     if root_shell:
         log("Starting root shell (install system tools; changes persist)...", "cyan")
         try:
             subprocess.run(["podman", "exec", "-it", "-u", "root", CONTAINER_NAME, "bash"])
+        except KeyboardInterrupt:
+            pass
+        log("Stopping container (state preserved)...", "cyan")
+        podman("stop", CONTAINER_NAME, check=False)
+        return
+
+    if shell:
+        log("Starting shell in the container...", "cyan")
+        try:
+            subprocess.run(["podman", "exec", "-it", CONTAINER_NAME, "bash"])
         except KeyboardInterrupt:
             pass
         log("Stopping container (state preserved)...", "cyan")
@@ -328,8 +432,14 @@ def main():
     parser.add_argument("--image", default=IMAGE_NAME, help="Container image to use")
     parser.add_argument("--rebuild", action="store_true", help="Force image rebuild")
     parser.add_argument("--no-network", action="store_true", help="Disable container network access")
-    parser.add_argument("--reset", action="store_true", help="Recreate the container (keeps opencode data volume)")
+    parser.add_argument("--reset", action="store_true", help="Recreate the container (keeps the home volume)")
     parser.add_argument("--root", action="store_true", help="Open a root shell in the container to install system tools (changes persist)")
+    parser.add_argument("--shell", action="store_true", help="Open an interactive shell in the container as the opencode user instead of launching opencode")
+    parser.add_argument(
+        "--setup",
+        metavar="TOOL",
+        help="Install an on-demand toolchain into the container: " + ", ".join(sorted(SETUP_SCRIPTS)),
+    )
     parser.add_argument(
         "-c",
         "--continue",
@@ -365,7 +475,12 @@ def main():
         podman("rm", "-f", CONTAINER_NAME)
         create_container(project_dir, args.no_network)
 
-    run_container(args.continue_conversation, root_shell=args.root)
+    if args.setup:
+        run_setup(args.setup)
+        return
+
+    bootstrap_if_needed()
+    run_container(args.continue_conversation, root_shell=args.root, shell=args.shell)
 
 
 if __name__ == "__main__":
