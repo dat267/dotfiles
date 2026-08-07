@@ -416,7 +416,8 @@ def main():
     parser.add_argument("--image", default=IMAGE_NAME, help="Container image to use")
     parser.add_argument("--rebuild", action="store_true", help="Force image rebuild")
     parser.add_argument("--no-network", action="store_true", help="Disable container network access")
-    parser.add_argument("--reset", action="store_true", help="Recreate the container (keeps the home volume)")
+    parser.add_argument("--reset", action="store_true", help="Recreate the container rootfs (keeps the home volume)")
+    parser.add_argument("--reset-home", action="store_true", help="Recreate the container AND wipe the home volume (full reset: removes toolchain, dotfiles, opencode auth/sessions)")
     parser.add_argument("--root", action="store_true", help="Open a root shell in the container to install system tools (changes persist)")
     parser.add_argument("--shell", action="store_true", help="Open an interactive shell in the container as the opencode user instead of launching opencode")
     parser.add_argument(
@@ -439,9 +440,15 @@ def main():
     if args.rebuild or not image_exists(args.image):
         build_image()
 
-    if args.reset:
+    if args.reset_home:
+        log("Resetting container and home volume (all toolchain, dotfiles, and auth will be wiped)...", "red")
         if container_exists(CONTAINER_NAME):
-            log("Removing existing container (data volume kept)...", "yellow")
+            podman("rm", "-f", CONTAINER_NAME)
+        podman("volume", "rm", "-f", HOME_VOLUME, check=False)
+        create_container(project_dir, args.no_network, image=args.image)
+    elif args.reset:
+        if container_exists(CONTAINER_NAME):
+            log("Removing existing container (home volume kept)...", "yellow")
             podman("rm", "-f", CONTAINER_NAME)
         create_container(project_dir, args.no_network, image=args.image)
     elif not container_exists(CONTAINER_NAME):
