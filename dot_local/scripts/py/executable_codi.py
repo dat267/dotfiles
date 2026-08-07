@@ -9,6 +9,8 @@ import tempfile
 IMAGE_NAME = "opencode-isolate:latest"
 DATA_VOLUME = "opencode-isolate-data"
 BASE_IMAGE = "debian:stable-slim"
+CONTAINER_NAME = "opencode-isolate-ctr"
+PROJECT_DIR_LABEL = "codi.project_dir"
 
 # Each toolchain is its own RUN layer so podman's layer cache reuses
 # unchanged tools across builds. Only the layer that changed (e.g. a bumped
@@ -225,6 +227,99 @@ def mount_specs(project_dir):
     return specs
 
 
+def podman(*args, check=True):
+    result = subprocess.run(["podman", *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if check and result.returncode != 0:
+        log(f"Error: podman {' '.join(args)} failed: {result.stderr.strip()}", "red")
+        sys.exit(result.returncode)
+    return result
+
+
+def container_exists(name):
+    return podman("container", "exists", name, check=False).returncode == 0
+
+
+def container_running(name):
+    return podman("ps", "-a", "--filter", f"name={name}", "--format", "{{.Status}}", check=False).stdout.strip().startswith("Up")
+
+
+def get_container_project_dir(name):
+    result = podman(
+        "inspect", name, "--format", "{{index .Config.Labels \"" + PROJECT_DIR_LABEL + "\"}}",
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def container_mounts_match(project_dir, no_network):
+    """Recreate is needed when the frozen mount or network setting drifted."""
+    current = get_container_project_dir(CONTAINER_NAME)
+    if current != project_dir:
+        return False
+    return True
+
+
+def create_container(project_dir, no_network):
+    log("Creating persistent container...", "cyan")
+    cmd = [
+        "create",
+        "--name", CONTAINER_NAME,
+        "-it",
+        "--userns=keep-id",
+        "-w", "/workspace",
+        "--security-opt", "label=disable",
+        "--label", f"{PROJECT_DIR_LABEL}={project_dir}",
+    ]
+    if no_network:
+        cmd.append("--network=none")
+    for spec in mount_specs(project_dir):
+        cmd.append("-v")
+        cmd.append(spec)
+    cmd.append("-v")
+    cmd.append(f"{DATA_VOLUME}:/home/opencode/.local/share/opencode")
+    cmd.append(IMAGE_NAME)
+    cmd.append("opencode")
+    result = podman(*cmd)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+    log(f"Container {CONTAINER_NAME} created.", "green")
+
+def run_container(continue_conversation, root_shell=False):
+    """Start the container if stopped, exec opencode (or a root shell) inside, then stop it."""
+    if not container_exists(CONTAINER_NAME):
+        log("Error: container does not exist; run codi without --reset first.", "red")
+        sys.exit(1)
+
+    if not container_running(CONTAINER_NAME):
+        log("Starting container...", "cyan")
+        podman("start", CONTAINER_NAME)
+
+    if root_shell:
+        log("Starting root shell (install system tools; changes persist)...", "cyan")
+        try:
+            subprocess.run(["podman", "exec", "-it", "-u", "root", CONTAINER_NAME, "bash"])
+        except KeyboardInterrupt:
+            pass
+        log("Stopping container (state preserved)...", "cyan")
+        podman("stop", CONTAINER_NAME, check=False)
+        return
+
+    inner = ["opencode", "--auto"]
+    if continue_conversation:
+        inner.append("--continue")
+    flag = " --continue" if continue_conversation else ""
+    log(f"Running opencode --auto{flag} (Ctrl-D to exit)...", "cyan")
+    try:
+        subprocess.run(["podman", "exec", "-it", CONTAINER_NAME, *inner])
+    except KeyboardInterrupt:
+        pass
+
+    log("Stopping container (state preserved)...", "cyan")
+    podman("stop", CONTAINER_NAME, check=False)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Launch opencode inside an isolated podman container, mounting only the current project directory."
@@ -233,6 +328,8 @@ def main():
     parser.add_argument("--image", default=IMAGE_NAME, help="Container image to use")
     parser.add_argument("--rebuild", action="store_true", help="Force image rebuild")
     parser.add_argument("--no-network", action="store_true", help="Disable container network access")
+    parser.add_argument("--reset", action="store_true", help="Recreate the container (keeps opencode data volume)")
+    parser.add_argument("--root", action="store_true", help="Open a root shell in the container to install system tools (changes persist)")
     parser.add_argument(
         "-c",
         "--continue",
@@ -253,38 +350,22 @@ def main():
     if args.rebuild or not image_exists(args.image):
         build_image()
 
-    cmd = [
-        "podman",
-        "run",
-        "--rm",
-        "-it",
-        "--name", "opencode-isolate",
-        "--userns=keep-id",
-        "-w", "/workspace",
-        "--security-opt", "label=disable",
-    ]
-    if args.no_network:
-        cmd.append("--network=none")
-    for spec in mount_specs(project_dir):
-        cmd.append("-v")
-        cmd.append(spec)
-    cmd.append("-v")
-    cmd.append(f"{DATA_VOLUME}:/home/opencode/.local/share/opencode")
-    cmd.append(args.image)
-    cmd.append("opencode")
-    cmd.append("--auto")
-    if args.continue_conversation:
-        cmd.append("--continue")
+    if args.reset:
+        if container_exists(CONTAINER_NAME):
+            log("Removing existing container (data volume kept)...", "yellow")
+            podman("rm", "-f", CONTAINER_NAME)
+        create_container(project_dir, args.no_network)
+    elif not container_exists(CONTAINER_NAME):
+        create_container(project_dir, args.no_network)
+    elif not container_mounts_match(project_dir, args.no_network):
+        log(
+            f"Container was created for a different project dir or network setting; recreating (state on the data volume is kept, system tools reset).",
+            "yellow",
+        )
+        podman("rm", "-f", CONTAINER_NAME)
+        create_container(project_dir, args.no_network)
 
-    flag = " --continue" if args.continue_conversation else ""
-    log(f"Launching isolated opencode --auto{flag} (Ctrl-D to exit)...", "cyan")
-    try:
-        subprocess.run(cmd)
-    except KeyboardInterrupt:
-        pass
-    except FileNotFoundError:
-        log("Error: podman not found.", "red")
-        sys.exit(1)
+    run_container(args.continue_conversation, root_shell=args.root)
 
 
 if __name__ == "__main__":
