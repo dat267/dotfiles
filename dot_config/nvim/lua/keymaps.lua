@@ -42,3 +42,17 @@ map("v", "p", '"_dP', { desc = "paste without overwriting register" })
 -- Move lines
 map("v", "<A-j>", ":m '>+1<CR>gv=gv", { desc = "move line down" })
 map("v", "<A-k>", ":m '<-2<CR>gv=gv", { desc = "move line up" })
+
+-- Snippet placeholder navigation (vim.snippet; only jumps while a snippet is active)
+map({ "i", "s" }, "<Tab>", function()
+  if vim.snippet.active({ direction = 1 }) then
+    return "<Cmd>lua vim.snippet.jump(1)<CR>"
+  end
+  return "<Tab>"
+end, { expr = true, desc = "next snippet placeholder" })
+map({ "i", "s" }, "<S-Tab>", function()
+  if vim.snippet.active({ direction = -1 }) then
+    return "<Cmd>lua vim.snippet.jump(-1)<CR>"
+  end
+  return "<S-Tab>"
+end, { expr = true, desc = "prev snippet placeholder" })
