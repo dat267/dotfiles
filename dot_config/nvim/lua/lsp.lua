@@ -92,6 +92,7 @@ local autocmd = vim.api.nvim_create_autocmd
 autocmd("LspAttach", {
   callback = function(args)
     local bufnr = args.buf
+    local client = vim.lsp.get_client_by_id(args.data.client_id)
     local map = function(keys, fn, desc)
       vim.keymap.set("n", keys, fn, { buffer = bufnr, desc = desc })
     end
@@ -116,9 +117,18 @@ autocmd("LspAttach", {
     end, "next diagnostic")
     map("<leader>d", vim.diagnostic.open_float, "diagnostic float")
 
-    -- Manual omni-completion intellisense (no plugin): <C-Space> in insert
-    -- mode triggers LSP completion; <C-n>/<C-p> continue keyword completion.
-    vim.keymap.set("i", "<C-Space>", "<C-x><C-o>", { buffer = bufnr, desc = "LSP omni-completion" })
+    -- On-type completion (native, no plugin): extend the server's trigger
+    -- characters with identifier characters so the completion menu appears as
+    -- you type, then enable autotrigger. gopls ships only ".", so without
+    -- extension on-type would never fire for identifiers. <C-Space> manual
+    -- completion was replaced by this; <C-x><C-o> stays available via omnifunc.
+    if client and client:supports_method("textDocument/completion") then
+      local provider = vim.tbl_get(client.server_capabilities, "completionProvider")
+      if provider then
+        provider.triggerCharacters = require("snippets").merge_trigger_chars(provider.triggerCharacters)
+        vim.lsp.completion.enable(true, client.id, bufnr, { autotrigger = true })
+      end
+    end
 
     vim.bo[bufnr].omnifunc = "v:lua.vim.lsp.omnifunc"
   end,
