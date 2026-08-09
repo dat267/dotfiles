@@ -164,8 +164,23 @@ autocmd("LspAttach", {
   end,
 })
 
--- Inlay hints on by default
+-- Inlay hints on by default, but hidden while typing: they otherwise refresh
+-- on every text change during insert, adding per-keystroke render + recompute
+-- load. Re-enabled on leaving insert mode.
 vim.lsp.inlay_hint.enable(true, nil)
+local inlay_augroup = vim.api.nvim_create_augroup("nvim.lsp.inlay_hints", { clear = true })
+vim.api.nvim_create_autocmd("InsertEnter", {
+  group = inlay_augroup,
+  callback = function()
+    vim.lsp.inlay_hint.enable(false)
+  end,
+})
+vim.api.nvim_create_autocmd("InsertLeave", {
+  group = inlay_augroup,
+  callback = function()
+    vim.lsp.inlay_hint.enable(true)
+  end,
+})
 
 -- Diagnostics: full message in a bounded float (never clipped), capped to
 -- 60% terminal width / 40% height. No inline virtual text or virtual lines.
