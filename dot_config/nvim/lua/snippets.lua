@@ -2,6 +2,7 @@ local M = {}
 
 local snippets = {
   go = {
+    { trig = "iferr", body = "if err != nil {\n\t${1:return err}\n}", desc = "error handling" },
     { trig = "main",   body = "func main() {\n\t${1:}\n}",   desc = "main function" },
     { trig = "struct", body = "type ${1:Name} struct {\n\t${2}\n}", desc = "struct type" },
     { trig = "iface",  body = "type ${1:Name} interface {\n\t${2}\n}", desc = "interface type" },
