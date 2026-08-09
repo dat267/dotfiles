@@ -10,6 +10,7 @@ local servers = {
         analyses = { unusedparams = true, unusedwrite = true },
         staticcheck = true,
         gofumpt = true,
+        experimentalPostfixCompletions = false,
       },
     },
   },
