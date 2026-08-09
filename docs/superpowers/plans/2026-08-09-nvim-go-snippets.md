@@ -534,3 +534,16 @@ The live completion popup requires insert mode, which cannot be driven headless.
 - **Spec coverage:** on-type enable (T2), snippets module with dedup/prefix/expand (T1), Tab/S-Tab navigation (T3), init wiring (T4), cross-platform pure-Lua constraint (all tasks), manual popup verification (T5). `iferr` intentionally excluded per spec.
 - **Type consistency:** `merge_trigger_chars(string[]) -> string[]`, `merge_items(table[], number) -> table[]`, `expand_completed(table) -> boolean`, `setup()` — identical names/signatures across tasks.
 - **Known limitation (accepted, in spec):** snippets only appear where LSP completion fires (gopls attached). On Termux without gopls they do not appear.
+
+---
+
+## Execution Notes (post-implementation corrections)
+
+These reflect the actual implementation and test scripts on disk in `/tmp/opencode/`, which differ from the plan's embedded scripts in the following ways:
+
+1. **Test 1 (`test_snippets.lua`)** — the expansion assertion in the plan used cursor `{2,5}` on line `"\tmain"`; headless nvim clamps end-of-line cursor columns to `len-1` (verified: `{2,5}` → `{2,4}`), which silently made `start = col - #word = 0` and deleted the leading tab — the old assertion passed for the wrong reason. The on-disk test places a sentinel after the trigger (`"\tmainZ"`, cursor col 5), asserts the **full** buffer contents after expansion, and additionally tests: deterministic snippet order (`main,struct,iface`), malformed-body rollback (trigger word restored), and the patched `complete()` delegating unchanged for string lists and empty lists (`E785` in normal mode).
+2. **Test 3 (`test_keymaps.lua`)** — the plan queried `nvim_buf_get_keymap(0, "i")`, which returns only buffer-local mappings; `keymaps.lua` registers global ones, so the plan's lookup returned nothing. The on-disk test uses `vim.api.nvim_get_keymap("i")`. Also, `vim.snippet.active({ direction = -1 })` is `false` at the first tabstop (nothing to jump back to), so the plan's "S-Tab jumps immediately after expand" assertion was wrong; the on-disk test first asserts S-Tab falls through at tabstop 1, then jumps forward and asserts S-Tab jumps back at tabstop 2.
+3. **Production guard (code review finding):** `setup()`'s `complete()` patch now only merges when `matches` is a non-empty list of dicts (`type(matches[1]) == "table"`), so `vim.snippet` choice tabstops (string lists) and their close call (empty list) are never polluted/reopened by snippet injection.
+4. **Snippet bodies** drop the trailing `\n` (e.g. `"func main() {\n\t${1:}\n}"`), avoiding a stray blank line after expansion. Equivalent to the spec's `$0`-terminated bodies (the final cursor sits after the closing brace).
+5. **`merge_items` iteration is deterministic** — `items[ft]` is an ordered array (definition order), not a `pairs()` dict, so menu order is stable.
+6. **`expand_completed` wraps `vim.snippet.expand` in `pcall`** and restores the trigger word on failure.
