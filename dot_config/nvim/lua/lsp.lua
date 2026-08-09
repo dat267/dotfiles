@@ -121,12 +121,26 @@ autocmd("LspAttach", {
     -- On-type completion (native, no plugin): extend the server's trigger
     -- characters with identifier characters so the completion menu appears as
     -- you type, then enable autotrigger. gopls ships only ".", so without
-    -- extension on-type would never fire for identifiers. <C-Space> manual
-    -- completion was replaced by this; <C-x><C-o> stays available via omnifunc.
+    -- extension on-type would never fire for identifiers. <C-x><C-o> stays
+    -- available via omnifunc.
+    local function merge_trigger_chars(server_chars)
+      local set = {}
+      for _, c in ipairs(server_chars or {}) do
+        set[c] = true
+      end
+      for c in ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"):gmatch(".") do
+        set[c] = true
+      end
+      local out = {}
+      for c in pairs(set) do
+        out[#out + 1] = c
+      end
+      return out
+    end
     if client and client:supports_method("textDocument/completion") then
       local provider = vim.tbl_get(client.server_capabilities, "completionProvider")
       if provider then
-        provider.triggerCharacters = require("snippets").merge_trigger_chars(provider.triggerCharacters)
+        provider.triggerCharacters = merge_trigger_chars(provider.triggerCharacters)
         vim.lsp.completion.enable(true, client.id, bufnr, { autotrigger = true })
       end
     end
