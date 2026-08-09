@@ -113,4 +113,25 @@ for open, close in pairs(bracket_pairs) do
     return open .. vim.fn.getreg("v") .. close
   end, { expr = true, desc = "wrap selection in " .. open .. close })
 end
+
+-- <CR> inside an empty auto-paired {} expands into a block with the cursor
+-- centered on an indented line. Any other <CR> falls through unchanged.
+vim.keymap.set("i", "<CR>", function()
+  if not (char_before_cursor() == "{" and char_after_cursor() == "}") then
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<CR>", true, false, true), "in", false)
+    return
+  end
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local line = vim.api.nvim_get_current_line()
+  local base_indent = line:match("^%s*") or ""
+  local indent_unit = vim.bo.expandtab and string.rep(" ", vim.fn.shiftwidth()) or "\t"
+  local middle = base_indent .. indent_unit
+  vim.api.nvim_buf_set_text(0, row - 1, col, row - 1, col + 1, { "", middle, base_indent .. "}" })
+  vim.api.nvim_feedkeys(
+    vim.api.nvim_replace_termcodes(("<C-o>:call cursor(%d, %d)<CR>"):format(row + 1, #middle + 1), true, false, true),
+    "in",
+    false
+  )
+end, { desc = "expand {} block on <CR>" })
+
 return M
