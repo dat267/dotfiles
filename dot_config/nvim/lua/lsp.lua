@@ -134,26 +134,24 @@ autocmd("LspAttach", {
     -- Native autotrigger only fires on InsertCharPre (typing). Backspace,
     -- delete, and cursor movement in insert mode close the popup without
     -- re-triggering, so re-fire completion after those keys when the popup is
-    -- closed and the cursor sits on an identifier. Debounced 80ms so rapid
-    -- editing doesn't spam the server; get() no-ops for buffers with no
-    -- completion-enabled client.
+    -- closed and the cursor sits on an identifier. The popup/word state is
+    -- evaluated inside the debounced timer, after the native key has settled
+    -- (reading it right after feedkeys still sees the popup as open, which
+    -- caused the popup to flicker on/off across repeated presses).
     local rt_timer = vim.uv.new_timer()
     local function retrigger(key)
       return function()
         vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(key, true, false, true), "n", false)
-        if vim.fn.pumvisible() ~= 0 then
-          return
-        end
-        local line = vim.api.nvim_get_current_line()
-        local col = vim.api.nvim_win_get_cursor(0)[2]
-        if col > 0 and line:sub(col, col):match("[%w_]") then
-          rt_timer:stop()
-          rt_timer:start(80, 0, vim.schedule_wrap(function()
-            if vim.fn.pumvisible() == 0 then
+        rt_timer:stop()
+        rt_timer:start(80, 0, vim.schedule_wrap(function()
+          if vim.fn.pumvisible() == 0 then
+            local line = vim.api.nvim_get_current_line()
+            local col = vim.api.nvim_win_get_cursor(0)[2]
+            if col > 0 and line:sub(col, col):match("[%w_]") then
               vim.lsp.completion.get()
             end
-          end))
-        end
+          end
+        end))
       end
     end
     for _, key in ipairs({ "<BS>", "<C-h>", "<Del>", "<Left>", "<Right>" }) do
