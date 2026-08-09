@@ -10,7 +10,6 @@ require "statusline"
 require "brackets"
 require "comments"
 require "format"
-require("snippets").setup()
 require "lsp"
 
 vim.cmd.colorscheme("catppuccin")
