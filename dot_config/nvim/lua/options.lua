@@ -1,5 +1,8 @@
 local opt = vim.opt
 
+-- Wrap the cursor across line boundaries with h/l and arrow keys
+opt.whichwrap:append("h,l,<,>,[,]")
+
 opt.number = true
 opt.relativenumber = true
 opt.scrolloff = 8
