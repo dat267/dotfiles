@@ -52,10 +52,15 @@ punctuation. Latency is handled by the native debounce; no custom timers.
 ### 2. Snippet module (`dot_config/nvim/lua/snippets.lua`, new)
 
 - `snippets` table keyed by filetype; initial Go set:
-  - `main`   → `func main() {\n\t${1:}\n}\n$0`
-  - `struct` → `type ${1:Name} struct {\n\t${2}\n}\n$0`
-  - `iface`  → `type ${1:Name} interface {\n\t${2}\n}\n$0`
-  - (`iferr` intentionally omitted — gopls provides it natively.)
+  - `iferr`  → `if err != nil {\n\t${1:return err}\n}`
+  - `main`   → `func main() {\n\t${1:}\n}`
+  - `struct` → `type ${1:Name} struct {\n\t${2}\n}`
+  - `iface`  → `type ${1:Name} interface {\n\t${2}\n}`
+  - (Note: gopls does **not** provide snippet completions such as `iferr` —
+    those ship with the vscode-go extension, not gopls. Verified against the
+    gopls settings doc, which exposes no snippet feature, and by direct gopls
+    probes returning zero items for the `iferr`/`forr` prefixes. Hence a custom
+    `iferr` snippet is required.)
 - Precompute a completion-item template per snippet at module load:
   `{ word = trig, abbr = trig, menu = "[snip]", user_data = vim.json.encode({ snip = body, trig = trig }) }`
   so JSON encoding happens once, not per keystroke.
