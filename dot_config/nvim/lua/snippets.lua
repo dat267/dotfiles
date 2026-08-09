@@ -2,9 +2,9 @@ local M = {}
 
 local snippets = {
   go = {
-    { trig = "main",   body = "func main() {\n\t${1:}\n}\n",   desc = "main function" },
-    { trig = "struct", body = "type ${1:Name} struct {\n\t${2}\n}\n", desc = "struct type" },
-    { trig = "iface",  body = "type ${1:Name} interface {\n\t${2}\n}\n", desc = "interface type" },
+    { trig = "main",   body = "func main() {\n\t${1:}\n}",   desc = "main function" },
+    { trig = "struct", body = "type ${1:Name} struct {\n\t${2}\n}", desc = "struct type" },
+    { trig = "iface",  body = "type ${1:Name} interface {\n\t${2}\n}", desc = "interface type" },
   },
 }
 
@@ -12,11 +12,14 @@ local items = {}
 for ft, list in pairs(snippets) do
   items[ft] = {}
   for _, s in ipairs(list) do
-    items[ft][s.trig] = {
-      word = s.trig,
-      abbr = s.trig,
-      menu = "[snip]",
-      user_data = vim.json.encode({ snip = s.body, trig = s.trig }),
+    items[ft][#items[ft] + 1] = {
+      trig = s.trig,
+      item = {
+        word = s.trig,
+        abbr = s.trig,
+        menu = "[snip]",
+        user_data = vim.json.encode({ snip = s.body, trig = s.trig }),
+      },
     }
   end
 end
@@ -55,9 +58,9 @@ function M.merge_items(matches, start_col)
   if start_col and start_col >= 1 and start_col <= cursor_col + 1 then
     prefix = line:sub(start_col, cursor_col + 1)
   end
-  for trig, item in pairs(ft_items) do
-    if trig:sub(1, #prefix) == prefix then
-      cleaned[#cleaned + 1] = item
+  for _, entry in ipairs(ft_items) do
+    if entry.trig:sub(1, #prefix) == prefix then
+      cleaned[#cleaned + 1] = entry.item
     end
   end
   return cleaned
@@ -79,7 +82,12 @@ function M.expand_completed(item)
   end
   vim.api.nvim_buf_set_text(0, row - 1, start, row - 1, col, {})
   vim.api.nvim_win_set_cursor(0, { row, start })
-  vim.snippet.expand(ud.snip)
+  local ok, err = pcall(vim.snippet.expand, ud.snip)
+  if not ok then
+    vim.api.nvim_buf_set_text(0, row - 1, start, row - 1, start, { word })
+    vim.api.nvim_win_set_cursor(0, { row, start + #word })
+    return false
+  end
   return true
 end
 
@@ -91,7 +99,15 @@ function M.setup()
 
   local orig = vim.fn.complete
   vim.fn.complete = function(start_col, matches)
-    if type(matches) == "table" and items[vim.bo.filetype] then
+    -- Only merge into dict-based completion lists (nvim's LSP completion
+    -- handler). Skip string choice lists and the empty close call used by
+    -- vim.snippet choice tabstops, so they are never polluted or reopened.
+    if
+      type(matches) == "table"
+      and #matches > 0
+      and type(matches[1]) == "table"
+      and items[vim.bo.filetype]
+    then
       matches = M.merge_items(matches, start_col)
     end
     return orig(start_col, matches)
