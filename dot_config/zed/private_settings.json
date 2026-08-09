@@ -1,0 +1,40 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+  "soft_wrap": "prefer_line",
+  "minimap": {
+    "show": "auto"
+  },
+  "edit_predictions": {
+    "ollama": {
+      "model": "gemma4:e4b-it-qat"
+    },
+    "provider": "ollama"
+  },
+  "disable_ai": true,
+  "agent": {
+    "button": false,
+    "favorite_models": [],
+    "model_parameters": []
+  },
+  "title_bar": {
+    "show_sign_in": false
+  },
+  "session": {
+    "trust_all_worktrees": false
+  },
+  "vim_mode": true,
+  "ui_font_size": 16,
+  "buffer_font_size": 15,
+  "theme": {
+    "mode": "system",
+    "light": "One Light",
+    "dark": "One Dark",
+  },
+}
