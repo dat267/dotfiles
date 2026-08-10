@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import argparse
+import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -12,6 +14,8 @@ BASE_IMAGE = "debian:stable-slim"
 CONTAINER_NAME = "opencode-isolate-ctr"
 PROJECT_DIR_LABEL = "codi.project_dir"
 NETWORK_LABEL = "codi.no_network"
+MOUNT_VERSION = "2"
+MOUNT_VERSION_LABEL = "codi.mount_version"
 GITHUB_USERNAME = "dat267"
 
 # Image keeps only base packages; the toolchain is installed on first launch
@@ -102,36 +106,35 @@ echo "toolchain ready"
 # Permissive opencode config for the sandboxed container. The container only
 # sees the workspace + its own home volume, so bash/file access is largely
 # trusted; we keep just a few sanity rules.
-SANDBOX_CONFIG = """\
-{
-  "$schema": "https://opencode.ai/config.json",
-  "model": "opencode/deepseek-v4-flash-free",
-  "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
-  "permission": {
-    "external_directory": {
-      "/tmp/opencode/**": "allow",
-      "/home/opencode": "allow",
-      "/home/opencode/**": "allow",
-      "/workspace": "allow",
-      "/workspace/**": "allow",
-      "*": "deny"
-    },
-    "read": { "*": "allow" },
-    "task": "ask",
-    "bash": {
-      "*": "allow",
-      "sudo *": "allow",
-      "rm -rf /": "deny",
-      "rm -rf /*": "deny",
-      "shutdown*": "deny",
-      "reboot*": "deny",
-      "poweroff*": "deny",
-      "dd *": "deny",
-      "mkfs*": "deny"
-    }
-  }
-}
-"""
+def sandbox_config(workspace):
+    return json.dumps({
+        "$schema": "https://opencode.ai/config.json",
+        "model": "opencode/deepseek-v4-flash-free",
+        "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
+        "permission": {
+            "external_directory": {
+                "/tmp/opencode/**": "allow",
+                "/home/opencode": "allow",
+                "/home/opencode/**": "allow",
+                workspace: "allow",
+                workspace + "/**": "allow",
+                "*": "deny",
+            },
+            "read": {"*": "allow"},
+            "task": "ask",
+            "bash": {
+                "*": "allow",
+                "sudo *": "allow",
+                "rm -rf /": "deny",
+                "rm -rf /*": "deny",
+                "shutdown*": "deny",
+                "reboot*": "deny",
+                "poweroff*": "deny",
+                "dd *": "deny",
+                "mkfs*": "deny",
+            },
+        },
+    }, indent=2)
 
 CONTAINERFILE = """\
 FROM {base_image}
@@ -216,11 +219,19 @@ def resolve_project_dir(cwd, arg_dir):
     return project_dir
 
 
-def mount_specs(project_dir):
+def workspace_path(project_dir):
+    """Deterministic per-directory container path. opencode keys sessions by
+    the directory it runs in, so each host project directory gets its own
+    session bucket. A hash avoids sanitization collisions and long paths."""
+    digest = hashlib.sha256(project_dir.encode()).hexdigest()[:16]
+    return f"/home/opencode/projects/{digest}"
+
+
+def mount_specs(project_dir, workspace):
     """Only the workspace is mounted from the host. Secrets and dotfiles are
     managed inside the container (chezmoi init --apply on first launch, manual
     auth), so nothing sensitive from the host ever crosses into the container."""
-    return [f"{project_dir}:/workspace"]
+    return [f"{project_dir}:{workspace}"]
 
 
 def write_sandbox_config():
@@ -285,21 +296,21 @@ def container_mounts_match(project_dir, no_network):
     return True
 
 
-def create_container(project_dir, no_network, image=IMAGE_NAME):
-    log("Creating persistent container...", "cyan")
+def create_container_cmd(project_dir, no_network, workspace, image):
     cmd = [
         "create",
         "--name", CONTAINER_NAME,
         "-it",
         "--userns=keep-id",
-        "-w", "/workspace",
+        "-w", "/home/opencode",
         "--security-opt", "label=disable",
         "--label", f"{PROJECT_DIR_LABEL}={project_dir}",
         "--label", f"{NETWORK_LABEL}={'1' if no_network else '0'}",
+        "--label", f"{MOUNT_VERSION_LABEL}={MOUNT_VERSION}",
     ]
     if no_network:
         cmd.append("--network=none")
-    for spec in mount_specs(project_dir):
+    for spec in mount_specs(project_dir, workspace):
         cmd.append("-v")
         cmd.append(spec)
     cmd.append("-v")
@@ -308,6 +319,13 @@ def create_container(project_dir, no_network, image=IMAGE_NAME):
     cmd.append("sh")
     cmd.append("-c")
     cmd.append('trap "exit 0" TERM; while :; do sleep 1; done')
+    return cmd
+
+
+def create_container(project_dir, no_network, image=IMAGE_NAME):
+    log("Creating persistent container...", "cyan")
+    workspace = workspace_path(project_dir)
+    cmd = create_container_cmd(project_dir, no_network, workspace, image)
     result = podman(*cmd)
     if result.returncode != 0:
         sys.exit(result.returncode)
