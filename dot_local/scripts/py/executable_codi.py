@@ -234,14 +234,14 @@ def mount_specs(project_dir, workspace):
     return [f"{project_dir}:{workspace}"]
 
 
-def write_sandbox_config():
+def write_sandbox_config(workspace):
     """Write the permissive sandbox opencode config into the container's home
     volume, overriding the repo's restrictive one after chezmoi applies."""
     ensure_container_running()
     podman(
         "exec", "-i", "-u", "opencode", CONTAINER_NAME,
         "sh", "-c", "mkdir -p ~/.config/opencode && cat > ~/.config/opencode/opencode.json",
-        input=SANDBOX_CONFIG,
+        input=sandbox_config(workspace),
     )
 
 
@@ -287,11 +287,24 @@ def get_container_network(name):
     return result.stdout.strip()
 
 
+def get_container_mount_version(name):
+    result = podman(
+        "inspect", name, "--format", "{{index .Config.Labels \"" + MOUNT_VERSION_LABEL + "\"}}",
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
 def container_mounts_match(project_dir, no_network):
-    """Recreate is needed when the frozen mount or network setting drifted."""
+    """Recreate is needed when the frozen mount, network setting, or mount
+    scheme version drifted."""
     if get_container_project_dir(CONTAINER_NAME) != project_dir:
         return False
     if get_container_network(CONTAINER_NAME) != ("1" if no_network else "0"):
+        return False
+    if get_container_mount_version(CONTAINER_NAME) != MOUNT_VERSION:
         return False
     return True
 
@@ -340,7 +353,7 @@ def ensure_container_running():
         podman("start", CONTAINER_NAME)
 
 
-def bootstrap_if_needed():
+def bootstrap_if_needed(workspace):
     """First launch: install the toolchain into the home volume (user dirs),
     then clone and apply dotfiles via chezmoi."""
     ensure_container_running()
@@ -376,7 +389,7 @@ def bootstrap_if_needed():
 
     # Always enforce the permissive sandbox config (wins over the repo's
     # restrictive one that chezmoi just applied).
-    write_sandbox_config()
+    write_sandbox_config(workspace)
 
 
 def stop_container():
@@ -385,15 +398,17 @@ def stop_container():
     podman("stop", CONTAINER_NAME, check=False)
 
 
-def run_container(continue_conversation, root_shell=False, shell=False):
+def run_container(continue_conversation, root_shell=False, shell=False, workspace=None):
     """Start the container if stopped, then exec opencode, a shell (as the
     opencode user), or a root shell inside; stop it afterwards."""
     ensure_container_running()
 
+    exec_ws = ["-w", workspace] if workspace else []
+
     if root_shell:
         log("Starting root shell (install system tools; changes persist)...", "cyan")
         try:
-            subprocess.run(["podman", "exec", "-it", "-u", "root", CONTAINER_NAME, "bash"])
+            subprocess.run(["podman", "exec", "-it", *exec_ws, "-u", "root", CONTAINER_NAME, "bash"])
         except KeyboardInterrupt:
             pass
         log("Stopping container (state preserved)...", "cyan")
@@ -403,7 +418,7 @@ def run_container(continue_conversation, root_shell=False, shell=False):
     if shell:
         log("Starting shell in the container...", "cyan")
         try:
-            subprocess.run(["podman", "exec", "-it", CONTAINER_NAME, "bash"])
+            subprocess.run(["podman", "exec", "-it", *exec_ws, CONTAINER_NAME, "bash"])
         except KeyboardInterrupt:
             pass
         log("Stopping container (state preserved)...", "cyan")
@@ -418,7 +433,7 @@ def run_container(continue_conversation, root_shell=False, shell=False):
     # Exec opencode directly (non-login), so it inherits the container's PATH
     # (with go/cargo) instead of a login shell's PATH mangled by ~/.profile.
     try:
-        subprocess.run(["podman", "exec", "-it", CONTAINER_NAME, *inner])
+        subprocess.run(["podman", "exec", "-it", *exec_ws, CONTAINER_NAME, *inner])
     except KeyboardInterrupt:
         pass
 
@@ -453,7 +468,8 @@ def main():
 
     require_podman()
     project_dir = resolve_project_dir(os.getcwd(), args.dir)
-    log(f"Project: {project_dir}", "cyan")
+    workspace = workspace_path(project_dir)
+    log(f"Project: {project_dir} -> {workspace}", "cyan")
 
     if args.rebuild or not image_exists(args.image):
         build_image()
@@ -479,8 +495,8 @@ def main():
         podman("rm", "-f", CONTAINER_NAME)
         create_container(project_dir, args.no_network, image=args.image)
 
-    bootstrap_if_needed()
-    run_container(args.continue_conversation, root_shell=args.root, shell=args.shell)
+    bootstrap_if_needed(workspace)
+    run_container(args.continue_conversation, root_shell=args.root, shell=args.shell, workspace=workspace)
 
 
 if __name__ == "__main__":
