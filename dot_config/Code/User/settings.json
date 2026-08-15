@@ -132,7 +132,6 @@
     "git.enableSmartCommit": true,
     "git.openRepositoryInParentFolders": "always",
     "git.allowForcePush": true,
-    "git.decorations.enabled": true,
     "debug.showInStatusBar": "always",
     "debug.toolBarLocation": "docked",
     "testing.automaticallyOpenPeekView": "never",
@@ -199,7 +198,6 @@
     "rust-analyzer.runnables.extraArgs": [
         "--release"
     ],
-    "shellcheck.run": "onSave",
     "shellformat.flag": "-i 2 -ci",
     "svelte.enable-ts-plugin": false,
     "task.allowAutomaticTasks": "off",
