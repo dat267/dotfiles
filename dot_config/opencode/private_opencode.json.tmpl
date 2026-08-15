@@ -2,10 +2,24 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "opencode/deepseek-v4-flash-free",
   "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
-  "permission": {
-    "external_directory": { "*": "deny", "/tmp/opencode/**": "allow" },
-    "read": {
+  "permission": {{ if env "container" }}{
+    "read": { "*": "allow" },
+    "edit": { "*": "allow" },
+    "bash": {
       "*": "allow",
+      "rm -rf /": "deny",
+      "rm -rf /*": "deny",
+      "shutdown*": "deny",
+      "reboot*": "deny",
+      "poweroff*": "deny",
+      "dd *": "deny",
+      "mkfs*": "deny"
+    },
+    "task": "allow",
+    "external_directory": { "*": "allow" }
+  }{{ else }}{
+    "read": {
+      "*": "ask",
       "*.env": "deny",
       "*.env.*": "deny",
       "*.env.example": "allow",
@@ -21,7 +35,10 @@
       "**/*.jks": "deny",
       "**/credentials": "deny"
     },
+    "edit": { "*": "ask" },
     "task": "ask",
+    "webfetch": "ask",
+    "websearch": "ask",
     "bash": {
       "*": "ask",
       "sudo *": "deny",
@@ -53,6 +70,7 @@
       "*~/.aws*": "deny",
       "*.pem*": "deny",
       "*.key*": "deny"
-    }
-  }
+    },
+    "external_directory": { "*": "ask" }
+  }{{ end }}
 }
