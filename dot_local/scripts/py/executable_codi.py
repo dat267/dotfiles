@@ -105,26 +105,17 @@ echo "toolchain ready"
 
 # Permissive opencode config for the sandboxed container. The container only
 # sees the workspace + its own home volume, so bash/file access is largely
-# trusted; we keep just a few sanity rules.
+# trusted; we keep just a few destructive-safety rules.
 def sandbox_config(workspace):
     return json.dumps({
         "$schema": "https://opencode.ai/config.json",
         "model": "opencode/deepseek-v4-flash-free",
         "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
         "permission": {
-            "external_directory": {
-                "/tmp/opencode/**": "allow",
-                "/home/opencode": "allow",
-                "/home/opencode/**": "allow",
-                workspace: "allow",
-                workspace + "/**": "allow",
-                "*": "deny",
-            },
             "read": {"*": "allow"},
-            "task": "ask",
+            "edit": {"*": "allow"},
             "bash": {
                 "*": "allow",
-                "sudo *": "allow",
                 "rm -rf /": "deny",
                 "rm -rf /*": "deny",
                 "shutdown*": "deny",
@@ -133,6 +124,8 @@ def sandbox_config(workspace):
                 "dd *": "deny",
                 "mkfs*": "deny",
             },
+            "task": "allow",
+            "external_directory": {"*": "allow"},
         },
     }, indent=2)
 
