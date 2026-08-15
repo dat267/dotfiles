@@ -3,21 +3,6 @@
 # Copy from ~/.gitconfig.local.example and fill in values for this machine.
 
 # ---------------------------------------------------------------------------
-# Corporate HTTP proxy
-# Proxy host/port come from the PowerShell profile's HTTP(S)_PROXY env vars
-# (derived from the system proxy + Credential Manager), so nothing is embedded
-# here. `proxyAuthMethod = negotiate` makes git authenticate to the proxy with
-# the current Windows user's integrated credentials (SSPI) — the same
-# `currentuser@default` scoop uses. This avoids GCM being invoked for the
-# proxy, which would otherwise persist `provider = generic` into the
-# chezmoi-managed ~/.gitconfig.
-# ---------------------------------------------------------------------------
-# [http]
-# 	proxyAuthMethod = negotiate
-# 	# Windows: disable revocation checks if corporate proxy breaks them
-# 	schannelCheckRevoke = false
-
-# ---------------------------------------------------------------------------
 # Identity override
 # Use this to override the default email for all repos on this machine,
 # OR use per-directory overrides with ~/.gitconfig-work / ~/.gitconfig-personal
