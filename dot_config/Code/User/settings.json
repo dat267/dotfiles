@@ -176,9 +176,9 @@
     "powershell.codeFormatting.useCorrectCasing": false,
     "powershell.codeFormatting.whitespaceBetweenParameters": false,
     "powershell.codeFormatting.avoidSemicolonsAsLineTerminators": false,
-    "powershell.integratedConsole.startInBackground": false,
+    "powershell.integratedConsole.startInBackground": true,
     "powershell.integratedConsole.showOnStartup": false,
-    "powershell.startAutomatically": false,
+    "powershell.startAutomatically": true,
     "powershell.powerShellAdditionalExePaths": {
         "linux": "${env:HOME}/.local/bin/pwsh"
     },
