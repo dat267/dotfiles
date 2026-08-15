@@ -252,9 +252,13 @@ $global:__dotfiles_profile_loaded = $true
             }
         }
 
-        if (-not ('DotfilesCredentialManager' -as [type])) {
-            try {
-                Add-Type @"
+        # Compile the Credential Manager P/Invoke type lazily, on first use.
+        # Compiling at every shell start is ~800ms of C# (Roslyn) — most shells
+        # never touch proxy credentials, so defer the cost until they do.
+        function global:Initialize-CredentialManagerType {
+            if (-not ('DotfilesCredentialManager' -as [type])) {
+                try {
+                    Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 
@@ -288,9 +292,11 @@ public class DotfilesCredentialManager {
     public static extern void CredFree(IntPtr buffer);
 }
 "@
-            } catch {
-                Write-Verbose "Credential Manager type unavailable: $($_.Exception.Message)"
+                } catch {
+                    Write-Verbose "Credential Manager type unavailable: $($_.Exception.Message)"
+                }
             }
+            return ('DotfilesCredentialManager' -as [type]) -ne $null
         }
 
         $global:ProxyCredentialTarget = 'dotfiles:proxy'
@@ -301,6 +307,10 @@ public class DotfilesCredentialManager {
                 [string]$UserName,
                 [securestring]$Password
             )
+            if (-not (Initialize-CredentialManagerType)) {
+                Write-Error "Credential Manager type is unavailable; cannot store proxy credentials."
+                return
+            }
             if (-not $UserName) { $UserName = Read-Host 'Proxy username' }
             if (-not $Password) { $Password = Read-Host 'Proxy password' -AsSecureString }
 
@@ -324,7 +334,7 @@ public class DotfilesCredentialManager {
         }
 
         function global:Get-ProxyCredential {
-            if (-not ('DotfilesCredentialManager' -as [type])) { return $null }
+            if (-not (Initialize-CredentialManagerType)) { return $null }
             $ptr = [IntPtr]::Zero
             if (-not [DotfilesCredentialManager]::CredRead($global:ProxyCredentialTarget, 1, 0, [ref]$ptr)) {
                 return $null
@@ -342,6 +352,10 @@ public class DotfilesCredentialManager {
         }
 
         function global:Clear-ProxyCredential {
+            if (-not (Initialize-CredentialManagerType)) {
+                Write-Warning "Clear-ProxyCredential: Credential Manager type unavailable."
+                return
+            }
             if ([DotfilesCredentialManager]::CredDelete($global:ProxyCredentialTarget, 1, 0)) {
                 Write-Host 'Proxy credential removed.'
             } else {
