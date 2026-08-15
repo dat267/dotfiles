@@ -1,5 +1,6 @@
 {{ if eq .chezmoi.os "windows" -}}
 $docsDir = [System.Environment]::GetFolderPath('MyDocuments')
+$script:junctionFailures = 0
 
 # Normalize a path for junction-target comparison: strip trailing separators
 # and resolve to a full path so "C:\Users\x\.config\nvim" and
@@ -70,7 +71,16 @@ function Create-Junction($link, $target) {
         # Otherwise backup real directory or remove link so we can re-create
         if ($item.Attributes -notmatch "ReparsePoint") {
             $bakPath = New-UniqueBackupPath $link
-            Rename-Item -LiteralPath $link -NewName (Split-Path $bakPath -Leaf) -Force
+            try {
+                Rename-Item -LiteralPath $link -NewName (Split-Path $bakPath -Leaf) -Force -ErrorAction Stop
+            } catch {
+                # The directory is in use (e.g. VS Code is open). Backing it up
+                # fails, so creating the junction would too. Skip this one with a
+                # clear message and flag the apply as incomplete.
+                Write-Warning "Junction for '$link' skipped: the directory is in use (close the app using it, then re-run 'chezmoi apply'). Error: $($_.Exception.Message)"
+                $script:junctionFailures++
+                return
+            }
         } else {
             Remove-ReparsePointSafely $link
         }
@@ -81,11 +91,21 @@ function Create-Junction($link, $target) {
         New-Item -ItemType Directory -Force -Path $parentDir | Out-Null
     }
 
-    New-Item -ItemType Junction -Path $link -Target $target -Force | Out-Null
+    try {
+        New-Item -ItemType Junction -Path $link -Target $target -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Warning "Junction for '$link' failed: $($_.Exception.Message)"
+        $script:junctionFailures++
+    }
 }
 
 foreach ($pair in $folderMap.GetEnumerator()) {
     Create-Junction $pair.Name $pair.Value
+}
+
+if ($script:junctionFailures -gt 0) {
+    Write-Warning "$($script:junctionFailures) junction(s) could not be created. Close the affected apps and re-run 'chezmoi apply'."
+    exit 1
 }
 
 # PS7: ensure stub $PROFILE sources the chezmoi-managed profile.
