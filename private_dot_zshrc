@@ -141,7 +141,13 @@ bindkey '^H' backward-delete-char
 # SSH agent: use a clean OpenSSH ssh-agent (not gpg-agent).
 # Start it on demand, persist the socket across shells.
 # Keys are auto-added on first use via AddKeysToAgent yes (see ~/.ssh/config).
-export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/tmp}/ssh-agent-$UID.sock"
+# Prefer a writable runtime dir: $XDG_RUNTIME_DIR on desktop Linux, $TMPDIR on
+# Termux/Android (where /tmp is not writable).
+if [[ -n "$XDG_RUNTIME_DIR" && -w "$XDG_RUNTIME_DIR" ]]; then
+  export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent-$UID.sock"
+else
+  export SSH_AUTH_SOCK="${TMPDIR:-/tmp}/ssh-agent-$UID.sock"
+fi
 if [[ ! -S "$SSH_AUTH_SOCK" ]]; then
   eval "$(ssh-agent -s -a "$SSH_AUTH_SOCK")" >/dev/null 2>&1
 fi
