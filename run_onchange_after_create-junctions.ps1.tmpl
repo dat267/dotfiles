@@ -1,11 +1,53 @@
 {{ if eq .chezmoi.os "windows" -}}
 $docsDir = [System.Environment]::GetFolderPath('MyDocuments')
 
+# Normalize a path for junction-target comparison: strip trailing separators
+# and resolve to a full path so "C:\Users\x\.config\nvim" and
+# "c:\users\x\.config\nvim\"" compare equal. Both '/' and '\' are treated as
+# separators so comparison stays correct on any host.
+function Test-SameTarget {
+    param($a, $b)
+    if (-not $a -or -not $b) { return $false }
+    $a = $a.Trim().Replace('\', '/')
+    $b = $b.Trim().Replace('\', '/')
+    try { $a = [System.IO.Path]::GetFullPath($a) } catch {}
+    try { $b = [System.IO.Path]::GetFullPath($b) } catch {}
+    $a = $a.Replace('\', '/').TrimEnd('/')
+    $b = $b.Replace('\', '/').TrimEnd('/')
+    $a -ieq $b
+}
+
+# Remove a reparse point (junction/symlink) without ever touching its target.
+# (Get-Item).Delete() removes only the link itself. Do NOT use
+# Remove-Item -Recurse -Force here: under Windows PowerShell 5.1 it follows the
+# junction and deletes the target directory's contents.
+function Remove-ReparsePointSafely {
+    param($link)
+    $item = Get-Item -Force -LiteralPath $link -ErrorAction SilentlyContinue
+    if ($item -and $item.Attributes -match "ReparsePoint") {
+        $item.Delete()
+    }
+}
+
+# Timestamped backup name that never collides with an existing backup. Existing
+# backups are never deleted — an old .bak may be the only copy of user data.
+function New-UniqueBackupPath {
+    param($link)
+    $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $candidate = "$link.bak-$stamp"
+    $n = 1
+    while (Test-Path -LiteralPath $candidate) {
+        $candidate = "$link.bak-$stamp-$n"
+        $n++
+    }
+    $candidate
+}
+
 # Clean up legacy lf junction if it exists to allow chezmoi to write a real directory
 $legacyLf = "$env:LOCALAPPDATA\lf"
-$lfItem = Get-Item -Force $legacyLf -ErrorAction SilentlyContinue
+$lfItem = Get-Item -Force -LiteralPath $legacyLf -ErrorAction SilentlyContinue
 if ($lfItem -and $lfItem.Attributes -match "ReparsePoint") {
-    Remove-Item -Recurse -Force $legacyLf -ErrorAction SilentlyContinue
+    Remove-ReparsePointSafely $legacyLf
 }
 
 $folderMap = @{
@@ -21,22 +63,21 @@ $folderMap = @{
 
 function Create-Junction($link, $target) {
     $target = $target.Replace('/', '\')
-    $item = Get-Item -Force $link -ErrorAction SilentlyContinue
+    $item = Get-Item -Force -LiteralPath $link -ErrorAction SilentlyContinue
     if ($item) {
         # Already a junction pointing to the right place — skip
-        if ($item.Attributes -match "ReparsePoint" -and $item.Target -eq $target) { return }
+        if ($item.Attributes -match "ReparsePoint" -and (Test-SameTarget $item.Target $target)) { return }
         # Otherwise backup real directory or remove link so we can re-create
         if ($item.Attributes -notmatch "ReparsePoint") {
-            $bakPath = "${link}.bak"
-            if (Test-Path $bakPath) { Remove-Item -Recurse -Force $bakPath -ErrorAction SilentlyContinue }
-            Rename-Item -Path $link -NewName (Split-Path $bakPath -Leaf) -Force
+            $bakPath = New-UniqueBackupPath $link
+            Rename-Item -LiteralPath $link -NewName (Split-Path $bakPath -Leaf) -Force
         } else {
-            Remove-Item -Recurse -Force $link -ErrorAction SilentlyContinue
+            Remove-ReparsePointSafely $link
         }
     }
 
     $parentDir = Split-Path -Parent $link
-    if (-not (Test-Path $parentDir)) {
+    if (-not (Test-Path -LiteralPath $parentDir)) {
         New-Item -ItemType Directory -Force -Path $parentDir | Out-Null
     }
 
