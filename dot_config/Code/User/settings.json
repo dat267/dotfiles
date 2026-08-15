@@ -24,7 +24,6 @@
     "files.associations": {
         "*.code-snippets": "jsonc",
         "*.json": "jsonc",
-        "*.opf": "xml",
         ".lfrc": "properties",
         "*.tmpl": "gotmpl",
         "justfile": "plaintext"
@@ -180,6 +179,7 @@
     "rust-analyzer.runnables.extraArgs": [
         "--release"
     ],
+    "svelte.enable-ts-plugin": false,
     "task.allowAutomaticTasks": "off",
     "editor.snippetSuggestions": "top"
 }
