@@ -66,6 +66,9 @@
     "[typescriptreact]": {
         "editor.defaultFormatter": "vscode.typescript-language-features"
     },
+    "[xml]": {
+        "editor.defaultFormatter": "redhat.vscode-xml"
+    },
     "editor.fontFamily": "'FiraCode Nerd Font', Consolas, 'Courier New', monospace",
     "editor.fontLigatures": false,
     "editor.fontSize": 14,
