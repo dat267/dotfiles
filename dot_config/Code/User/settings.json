@@ -7,6 +7,7 @@
     "files.insertFinalNewline": true,
     "files.trimFinalNewlines": true,
     "files.trimTrailingWhitespace": true,
+    "files.simpleDialog.enable": true,
     "files.watcherExclude": {
         "**/.git/objects/**": true,
         "**/.git/subtree-cache/**": true,
@@ -29,6 +30,16 @@
         "justfile": "plaintext"
     },
     "search.followSymlinks": false,
+    "search.useIgnoreFiles": true,
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/dist": true,
+        "**/build": true,
+        "**/.git": true,
+        "**/.cache": true,
+        "**/.venv": true,
+        "**/__pycache__": true
+    },
     "[dockerfile]": {
         "editor.defaultFormatter": "ms-azuretools.vscode-docker"
     },
@@ -72,10 +83,19 @@
     "editor.selectionClipboard": false,
     "editor.wordWrap": "off",
     "editor.lightbulb.enabled": "off",
-    "editor.minimap.enabled": true,
     "editor.hover.delay": 500,
     "editor.guides.bracketPairs": false,
     "editor.semanticHighlighting.enabled": false,
+    "editor.stickyScroll.enabled": false,
+    "editor.codeLens": false,
+    "editor.inlayHints.enabled": "off",
+    "editor.bracketPairColorization.enabled": false,
+    "editor.occurrencesHighlight": false,
+    "editor.smoothScrolling": false,
+    "editor.cursorSmoothCaretAnimation": "off",
+    "editor.parameterHints.enabled": false,
+    "editor.wordBasedSuggestions": "off",
+    "editor.largeFileOptimizations": true,
     "editor.codeActionsOnSave": {
         "source.addMissingImports": "explicit",
         "source.fixAll": "explicit",
@@ -104,6 +124,8 @@
     "workbench.editor.splitInGroupLayout": "vertical",
     "workbench.preferredDarkColorTheme": "Dark Modern",
     "workbench.preferredLightColorTheme": "Light Modern",
+    "workbench.startupEditor": "none",
+    "workbench.reduceMotion": "on",
     "workbench.settings.editor": "json",
     "workbench.iconTheme": "material-icon-theme",
     "material-icon-theme.hidesExplorerArrows": true,
