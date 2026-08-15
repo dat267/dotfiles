@@ -1,7 +1,12 @@
 # Design: Wire Scoop proxy to system proxy for PowerShell 7
 
 Date: 2026-08-15
-Status: Approved
+Status: Superseded — removed 2026-08-15 (startup cost)
+
+> This feature was removed. The scoop proxy sync ran `scoop config` as a child
+> process on every PowerShell profile load, adding real startup latency. The
+> proxy env-var export (Credential Manager) remains; scoop's own proxy can be
+> configured once manually via `scoop config proxy currentuser@default`.
 
 ## Goal
 
