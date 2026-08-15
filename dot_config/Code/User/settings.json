@@ -159,7 +159,6 @@
     "security.allowedUNCHosts": [
         "wsl.localhost"
     ],
-    "eslint.codeActionsOnSave.rules": [],
     "eslint.format.enable": true,
     "go.toolsManagement.autoUpdate": false,
     "gopls": {
