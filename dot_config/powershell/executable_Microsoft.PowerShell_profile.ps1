@@ -2,14 +2,6 @@ if ($global:__dotfiles_profile_loaded) { return }
 $global:__dotfiles_profile_loaded = $true
 
 & {
-    if ($null -eq $IsWindows) {
-        $os = [Environment]::OSVersion.Platform
-        $isWin = $os -ne 'Unix' -and $os -ne 4 -and $os -ne 128
-        New-Variable -Name IsWindows -Value $isWin -Scope Global
-        New-Variable -Name IsLinux -Value (-not $isWin -and (uname -s 2>$null) -eq 'Linux') -Scope Global
-        New-Variable -Name IsMacOS -Value (-not $isWin -and (uname -s 2>$null) -eq 'Darwin') -Scope Global
-    }
-
     $env:EDITOR = if (Get-Command nvim -ErrorAction SilentlyContinue) { 'nvim' } elseif (Get-Command vim -ErrorAction SilentlyContinue) { 'vim' } elseif (Get-Command hx -ErrorAction SilentlyContinue) { 'hx' } elseif (Get-Command helix -ErrorAction SilentlyContinue) { 'helix' } else { 'vi' }
 
     $paths = @(

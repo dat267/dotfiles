@@ -11,7 +11,7 @@ so proxy passwords are never stored in plaintext (`~/.env.local`, gitconfig,
 or env vars on disk). Registry/Credential Manager values take precedence over
 any `HTTP(S)_PROXY` already present in the environment. Helper functions are
 added to set, read, and clear the stored credential. Everything must work on
-both Windows PowerShell 5.1 and PowerShell 7+.
+PowerShell 7+.
 
 The proxy section is removed from `~/.env.local` entirely (on all platforms);
 proxy creds no longer belong in env.local anywhere.
@@ -41,8 +41,8 @@ proxy-detection hints in both bootstrap scripts are updated:
 ## Approach
 
 P/Invoke to the Windows Credential Manager API via `Add-Type` in the profile.
-This works identically on PS 5.1 and PS 7, requires no installation, and never
-passes the password on a command line (unlike `cmdkey`).
+This requires no installation, and never passes the password on a command line
+(unlike `cmdkey`).
 
 ## Data flow (Windows only)
 
@@ -78,10 +78,9 @@ The fixed target name is `dotfiles:proxy`.
 - One `Add-Type` block defining the `CREDENTIAL` struct and P/Invoke
   declarations for `CredRead`, `CredWrite`, `CredDelete`, `CredFree`,
   guarded so it compiles once.
-- P/Invoke marshaling is identical on PS 5.1 and PS 7.
-- `Read-Host -AsSecureString` is available on PS 5.1.
+- `Read-Host -AsSecureString` is available on PowerShell 7.
 - The proxy block lives inside the profile's existing `if ($IsWindows)`
-  branch (the profile already normalizes `$IsWindows` for PS 5.1).
+  branch (the profile uses the PS7 automatic `$IsWindows` variable).
 - Password is built into the `http://user:pass@host:port` URL only in the
   process environment; it is never written to disk.
 
@@ -94,14 +93,14 @@ The fixed target name is `dotfiles:proxy`.
 
 ## Verification
 
-Headless on Windows PowerShell 5.1 and PowerShell 7+:
+Headless on PowerShell 7+:
 1. `Set-ProxyCredential` stores an entry; `Get-ProxyCredential` returns it;
    `Clear-ProxyCredential` removes it.
 2. With `ProxyEnable=1` + stored creds, profile load exports
    `HTTP_PROXY=http://user:pass@host:port` (and HTTPS/lowercase variants).
 3. With `ProxyEnable=1` and no creds, proxy exported without auth.
 4. With `ProxyEnable=0`, no proxy env vars are set.
-5. Profile loads without errors on both shells.
+5. Profile loads without errors.
 6. `dot_env.local.example` contains no proxy block; bootstrap scripts no longer
    reference proxy vars in `~/.env.local`.
 
