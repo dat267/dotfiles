@@ -147,6 +147,11 @@ function Assert($cond, $msg) {
     else { Write-Output "  ok:   $msg" }
 }
 
+# Case-insensitive lookup (pwsh env vars are case-sensitive on Linux).
+function Get-EnvVar([string]$name) {
+    Get-ChildItem Env: | Where-Object { $_.Name -ieq $name } | Select-Object -ExpandProperty Value
+}
+
 # ---- Extract the pure helpers from the profile source ----
 $content = Get-Content -Raw $ProfilePath
 function Extract-Function([string]$name) {
@@ -172,7 +177,7 @@ Assert ((ConvertFrom-ProxyServer 'proxy.corp:8080')['https'] -eq 'proxy.corp:808
 $multi = ConvertFrom-ProxyServer 'http=proxy.corp:8080;https=proxy-sec:9090'
 Assert ($multi['http'] -eq 'proxy.corp:8080') "multi-scheme -> http part"
 Assert ($multi['https'] -eq 'proxy-sec:9090') "multi-scheme -> https part"
-Assert ((ConvertFrom-ProxyServer '') .Count -eq 0) "empty string -> empty map"
+Assert ((ConvertFrom-ProxyServer '').Count -eq 0) "empty string -> empty map"
 
 Write-Output "== ConvertTo-ProxyUrl =="
 Assert ((ConvertTo-ProxyUrl 'proxy.corp:8080' $null $null) -eq 'http://proxy.corp:8080') "no auth"
@@ -180,21 +185,21 @@ Assert ((ConvertTo-ProxyUrl 'proxy.corp:8080' 'user' 'pass') -eq 'http://user:pa
 Assert ((ConvertTo-ProxyUrl '' $null $null) -eq $null) "empty host -> null"
 
 Write-Output "== Export-ProxyEnvironment =="
-Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:http_proxy,Env:https_proxy,Env:NO_PROXY,Env:no_proxy -ErrorAction SilentlyContinue
+Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:http_PROXY,Env:https_PROXY,Env:http_proxy,Env:https_proxy,Env:NO_PROXY,Env:no_proxy -ErrorAction SilentlyContinue
 Export-ProxyEnvironment 'http=proxy.corp:8080' 'localhost;<local>' ([pscustomobject]@{ UserName='u'; Password='p' })
-Assert ($env:HTTP_PROXY -eq 'http://u:p@proxy.corp:8080') "HTTP_PROXY with auth"
-Assert ($env:HTTPS_PROXY -eq $null) "HTTPS_PROXY unset when no https scheme"
-Assert ($env:NO_PROXY -eq 'localhost,<local>') "NO_PROXY ; -> ,"
-Assert ($env:no_proxy -eq 'localhost,<local>') "no_proxy lowercase set"
+Assert ((Get-EnvVar 'HTTP_PROXY') -eq 'http://u:p@proxy.corp:8080') "HTTP_PROXY with auth"
+Assert ((Get-EnvVar 'HTTPS_PROXY') -eq $null) "HTTPS_PROXY unset when no https scheme"
+Assert ((Get-EnvVar 'NO_PROXY') -eq 'localhost,<local>') "NO_PROXY ; -> ,"
+Assert ((Get-EnvVar 'no_proxy') -eq 'localhost,<local>') "no_proxy lowercase set"
 
-Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:http_proxy,Env:https_proxy,Env:NO_PROXY,Env:no_proxy -ErrorAction SilentlyContinue
+Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:http_PROXY,Env:https_PROXY,Env:http_proxy,Env:https_proxy,Env:NO_PROXY,Env:no_proxy -ErrorAction SilentlyContinue
 Export-ProxyEnvironment 'proxy.corp:8080' $null $null
-Assert ($env:HTTP_PROXY -eq 'http://proxy.corp:8080') "no creds -> no auth"
-Assert ($env:https_proxy -eq 'http://proxy.corp:8080') "bare host:port applies to https"
+Assert ((Get-EnvVar 'HTTP_PROXY') -eq 'http://proxy.corp:8080') "no creds -> no auth"
+Assert ((Get-EnvVar 'https_proxy') -eq 'http://proxy.corp:8080') "bare host:port applies to https"
 
-Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:http_proxy,Env:https_proxy,Env:NO_PROXY,Env:no_proxy -ErrorAction SilentlyContinue
+Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:http_PROXY,Env:https_PROXY,Env:http_proxy,Env:https_proxy,Env:NO_PROXY,Env:no_proxy -ErrorAction SilentlyContinue
 Export-ProxyEnvironment '' $null $null
-Assert ($null -eq $env:HTTP_PROXY) "empty ProxyServer -> nothing set"
+Assert ($null -eq (Get-EnvVar 'HTTP_PROXY')) "empty ProxyServer -> nothing set"
 
 Write-Output ""
 Write-Output "SUMMARY: $($script:checks) checks, $($script:failures) failures"
@@ -522,6 +527,11 @@ function Assert($cond, $msg) {
     else { Write-Output "  ok:   $msg" }
 }
 
+# Case-insensitive lookup (pwsh env vars are case-sensitive on Linux).
+function Get-EnvVar([string]$name) {
+    Get-ChildItem Env: | Where-Object { $_.Name -ieq $name } | Select-Object -ExpandProperty Value
+}
+
 # Extract only the export-wiring block: from the export comment marker
 # ("# Export proxy env vars") through the "# --- End proxy credentials"
 # marker. NOT the whole proxy section — running the full section would
@@ -533,6 +543,26 @@ if ($wiringStart -lt 0 -or $end -lt 0) { throw "export wiring markers not found"
 $end = $content.IndexOf("`n", $end) + 1
 $section = $content.Substring($wiringStart, $end - $wiringStart)
 
+# The wiring calls Export-ProxyEnvironment (defined earlier in the profile,
+# outside this section). Load the real helpers from the profile source so the
+# wiring runs against the production code.
+function Extract-Function([string]$name) {
+    $start = $content.IndexOf("function $name")
+    if ($start -lt 0) { throw "function $name not found" }
+    $openBrace = $content.IndexOf("{", $start)
+    $depth = 0
+    $i = $openBrace
+    for (; $i -lt $content.Length; $i++) {
+        if ($content[$i] -eq '{') { $depth++ }
+        elseif ($content[$i] -eq '}') { $depth-- }
+        if ($depth -eq 0) { break }
+    }
+    return $content.Substring($start, $i - $start + 1)
+}
+Invoke-Expression (Extract-Function "ConvertFrom-ProxyServer")
+Invoke-Expression (Extract-Function "ConvertTo-ProxyUrl")
+Invoke-Expression (Extract-Function "Export-ProxyEnvironment")
+
 # Stub registry + credential manager so the export wiring is testable on Linux.
 function global:Test-ProxyConfig {
     [pscustomobject]@{ ProxyEnable = 1; ProxyServer = 'http=proxy.corp:8080;https=proxy-sec:9090'; ProxyOverride = 'localhost;<local>' }
@@ -542,7 +572,7 @@ function global:Get-ProxyCredential {
 }
 
 # Clear pre-existing proxy vars, then run the export wiring.
-Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:http_proxy,Env:https_proxy,Env:NO_PROXY,Env:no_proxy -ErrorAction SilentlyContinue
+Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:http_PROXY,Env:https_PROXY,Env:http_proxy,Env:https_proxy,Env:NO_PROXY,Env:no_proxy -ErrorAction SilentlyContinue
 $env:HTTP_PROXY = 'http://old:value@nowhere:1'   # simulate a stale env.local value
 
 # The wiring block is nested inside `if ($IsWindows) {`; force true.
@@ -551,10 +581,10 @@ $section = "function global:__ProxyWiring_Run { $section }"
 Invoke-Expression $section
 & __ProxyWiring_Run
 
-Assert ($env:HTTP_PROXY -eq 'http://alice:s3cret@proxy.corp:8080') "HTTP_PROXY overridden with creds"
-Assert ($env:https_proxy -eq 'http://alice:s3cret@proxy-sec:9090') "https_proxy set from https scheme"
-Assert ($env:NO_PROXY -eq 'localhost,<local>') "NO_PROXY exported"
-Assert ($env:no_proxy -eq 'localhost,<local>') "no_proxy lowercase exported"
+Assert ((Get-EnvVar 'HTTP_PROXY') -eq 'http://alice:s3cret@proxy.corp:8080') "HTTP_PROXY overridden with creds"
+Assert ((Get-EnvVar 'https_proxy') -eq 'http://alice:s3cret@proxy-sec:9090') "https_proxy set from https scheme"
+Assert ((Get-EnvVar 'NO_PROXY') -eq 'localhost,<local>') "NO_PROXY exported"
+Assert ((Get-EnvVar 'no_proxy') -eq 'localhost,<local>') "no_proxy lowercase exported"
 
 Write-Output ""
 Write-Output "SUMMARY: $($script:checks) checks, $($script:failures) failures"
