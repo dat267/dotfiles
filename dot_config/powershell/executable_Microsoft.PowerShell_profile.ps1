@@ -270,7 +270,108 @@ $global:__dotfiles_profile_loaded = $true
             }
         }
 
-        # --- End proxy credentials (pure helpers) ---
+        if (-not ('DotfilesCredentialManager' -as [type])) {
+            Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public class DotfilesCredentialManager {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct CREDENTIAL {
+        public uint Flags;
+        public uint Type;
+        public string TargetName;
+        public string Comment;
+        public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
+        public uint CredentialBlobSize;
+        public IntPtr CredentialBlob;
+        public uint Persist;
+        public uint AttributeCount;
+        public IntPtr Attributes;
+        public string TargetAlias;
+        public string UserName;
+    }
+
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool CredRead(string target, uint type, uint flags, out IntPtr credential);
+
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool CredWrite(ref CREDENTIAL credential, uint flags);
+
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool CredDelete(string target, uint type, uint flags);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    public static extern void CredFree(IntPtr buffer);
+}
+"@
+        }
+
+        $global:ProxyCredentialTarget = 'dotfiles:proxy'
+
+        function global:Set-ProxyCredential {
+            [CmdletBinding()]
+            param(
+                [string]$UserName,
+                [securestring]$Password
+            )
+            if (-not $UserName) { $UserName = Read-Host 'Proxy username' }
+            if (-not $Password) { $Password = Read-Host 'Proxy password' -AsSecureString }
+
+            $ptr = [IntPtr]::Zero
+            try {
+                $cred = New-Object DotfilesCredentialManager+CREDENTIAL
+                $cred.Type = 1
+                $cred.TargetName = $global:ProxyCredentialTarget
+                $cred.UserName = $UserName
+                $ptr = [Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode($Password)
+                $cred.CredentialBlobSize = $Password.Length * 2
+                $cred.CredentialBlob = $ptr
+                $cred.Persist = 2
+                if (-not [DotfilesCredentialManager]::CredWrite([ref]$cred, 0)) {
+                    throw "CredWrite failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
+                }
+                Write-Host "Proxy credential saved."
+            } finally {
+                if ($ptr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeCoTaskMemUnicode($ptr) }
+            }
+        }
+
+        function global:Get-ProxyCredential {
+            $ptr = [IntPtr]::Zero
+            if (-not [DotfilesCredentialManager]::CredRead($global:ProxyCredentialTarget, 1, 0, [ref]$ptr)) {
+                return $null
+            }
+            try {
+                $cred = [Runtime.InteropServices.Marshal]::PtrToStructure($ptr, [type][DotfilesCredentialManager+CREDENTIAL])
+                $size = [int]$cred.CredentialBlobSize
+                $bytes = New-Object byte[] $size
+                [Runtime.InteropServices.Marshal]::Copy($cred.CredentialBlob, $bytes, 0, $size)
+                $password = [System.Text.Encoding]::Unicode.GetString($bytes)
+                return [pscustomobject]@{ UserName = $cred.UserName; Password = $password }
+            } finally {
+                [DotfilesCredentialManager]::CredFree($ptr)
+            }
+        }
+
+        function global:Clear-ProxyCredential {
+            if ([DotfilesCredentialManager]::CredDelete($global:ProxyCredentialTarget, 1, 0)) {
+                Write-Host 'Proxy credential removed.'
+            } else {
+                Write-Warning "Clear-ProxyCredential: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
+            }
+        }
+
+        function global:Test-ProxyConfig {
+            $p = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction SilentlyContinue
+            [pscustomobject]@{
+                ProxyEnable   = [int]$p.ProxyEnable
+                ProxyServer   = [string]$p.ProxyServer
+                ProxyOverride = [string]$p.ProxyOverride
+            }
+        }
+
+        # --- End proxy credentials ---
     }
 
     $global:__home_regex = [regex]::Escape($HOME)
