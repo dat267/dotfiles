@@ -54,6 +54,9 @@
     "[javascriptreact]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
+    "[markdown]": {
+        "editor.defaultFormatter": "vscode.markdown-language-features"
+    },
     "[powershell]": {
         "editor.defaultFormatter": "ms-vscode.powershell"
     },
