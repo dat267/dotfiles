@@ -1,0 +1,9 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- $input := .chezmoi.stdin -}}
+{{- if regexMatch `(?m)^\[include\]` $input -}}
+{{- $input -}}
+{{- else -}}
+{{- $input }}
+[include]
+	path = ~/.gitconfig.base
+{{- end -}}
