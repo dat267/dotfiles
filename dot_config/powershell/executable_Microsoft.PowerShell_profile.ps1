@@ -271,7 +271,8 @@ $global:__dotfiles_profile_loaded = $true
         }
 
         if (-not ('DotfilesCredentialManager' -as [type])) {
-            Add-Type @"
+            try {
+                Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 
@@ -305,6 +306,9 @@ public class DotfilesCredentialManager {
     public static extern void CredFree(IntPtr buffer);
 }
 "@
+            } catch {
+                Write-Verbose "Credential Manager type unavailable: $($_.Exception.Message)"
+            }
         }
 
         $global:ProxyCredentialTarget = 'dotfiles:proxy'
@@ -338,6 +342,7 @@ public class DotfilesCredentialManager {
         }
 
         function global:Get-ProxyCredential {
+            if (-not ('DotfilesCredentialManager' -as [type])) { return $null }
             $ptr = [IntPtr]::Zero
             if (-not [DotfilesCredentialManager]::CredRead($global:ProxyCredentialTarget, 1, 0, [ref]$ptr)) {
                 return $null
