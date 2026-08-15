@@ -13,6 +13,9 @@ any `HTTP(S)_PROXY` already present in the environment. Helper functions are
 added to set, read, and clear the stored credential. Everything must work on
 both Windows PowerShell 5.1 and PowerShell 7+.
 
+The proxy section is removed from `~/.env.local` entirely (on all platforms);
+proxy creds no longer belong in env.local anywhere.
+
 ## Background
 
 - The profile (`dot_config/powershell/executable_Microsoft.PowerShell_profile.ps1`)
@@ -23,6 +26,17 @@ both Windows PowerShell 5.1 and PowerShell 7+.
   `~/.env.local`.
 - The repo philosophy is zero external dependencies (stdlib-only scripts,
   no required PS modules).
+
+## Scope of env.local removal
+
+The proxy block is removed from `dot_env.local.example` on all platforms. The
+proxy-detection hints in both bootstrap scripts are updated:
+
+- `run_once_before_bootstrap-local-configs.ps1.tmpl` → hint points to
+  `Set-ProxyCredential` instead of `~/.env.local`.
+- `run_once_before_bootstrap-local-configs.sh.tmpl` (Linux) → the env.local
+  proxy hint is dropped; Linux users set a proxy via `~/.gitconfig.local` or
+  their own mechanism. `dot_env.local.example` no longer documents proxy vars.
 
 ## Approach
 
@@ -88,7 +102,14 @@ Headless on Windows PowerShell 5.1 and PowerShell 7+:
 3. With `ProxyEnable=1` and no creds, proxy exported without auth.
 4. With `ProxyEnable=0`, no proxy env vars are set.
 5. Profile loads without errors on both shells.
+6. `dot_env.local.example` contains no proxy block; bootstrap scripts no longer
+   reference proxy vars in `~/.env.local`.
 
 ## Files touched
 
-- `dot_config/powershell/executable_Microsoft.PowerShell_profile.ps1`
+- `dot_config/powershell/executable_Microsoft.PowerShell_profile.ps1` — P/Invoke
+  block, helper functions, Windows proxy export logic
+- `dot_env.local.example` — remove the Corporate / office proxy block
+- `run_once_before_bootstrap-local-configs.ps1.tmpl` — hint points to
+  `Set-ProxyCredential` instead of `~/.env.local`
+- `run_once_before_bootstrap-local-configs.sh.tmpl` — drop the proxy hint
