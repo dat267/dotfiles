@@ -19,7 +19,8 @@
         "*.opf": "xml",
         ".lfrc": "properties",
         "*.tmpl": "gotmpl",
-        "justfile": "yaml"
+        "justfile": "plaintext",
+        "justfile.*": "plaintext"
     },
     "[dockerfile]": {
         "editor.defaultFormatter": "ms-azuretools.vscode-docker"
