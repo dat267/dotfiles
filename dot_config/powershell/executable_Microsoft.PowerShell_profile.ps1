@@ -207,41 +207,42 @@ $global:__dotfiles_profile_loaded = $true
         # They are inherited into the process env at login, so the profile does
         # zero proxy work at startup — no Add-Type, no P/Invoke, no compile.
 
-        # Parse HKCU Internet Settings ProxyServer into scheme -> host:port.
-        # Handles "http=a:8080;https=b:9090" and bare "host:port".
-        function global:ConvertFrom-ProxyServer {
-            param([string]$ProxyServer)
-            if (-not $ProxyServer) { return @{} }
-            $result = @{}
-            if ($ProxyServer -match '=') {
-                foreach ($part in ($ProxyServer -split ';')) {
-                    if ($part -match '^([^=]+)=(.+)$') {
-                        $result[$Matches[1].Trim().ToLower()] = $Matches[2].Trim()
-                    }
-                }
-            } else {
-                $result['http'] = $ProxyServer.Trim()
-                $result['https'] = $ProxyServer.Trim()
-            }
-            $result
-        }
-
-        # Build an http:// proxy URL, URL-escaped user:pass, or no auth.
-        function global:ConvertTo-ProxyUrl {
-            param([string]$HostPort, [string]$UserName, [string]$Password)
-            if (-not $HostPort) { return $null }
-            if ($UserName -and $Password) {
-                return "http://$([uri]::EscapeDataString($UserName))`:$([uri]::EscapeDataString($Password))@$HostPort"
-            }
-            return "http://$HostPort"
-        }
-
         function global:Set-ProxyCredential {
             [CmdletBinding()]
             param(
                 [string]$UserName,
                 [securestring]$Password
             )
+
+            # Local helpers (scoped to this function, nothing leaks to the
+            # global namespace). Parse HKCU ProxyServer into scheme -> host:port,
+            # handling "http=a:8080;https=b:9090" and bare "host:port".
+            function ConvertFrom-ProxyServer {
+                param([string]$ProxyServer)
+                if (-not $ProxyServer) { return @{} }
+                $result = @{}
+                if ($ProxyServer -match '=') {
+                    foreach ($part in ($ProxyServer -split ';')) {
+                        if ($part -match '^([^=]+)=(.+)$') {
+                            $result[$Matches[1].Trim().ToLower()] = $Matches[2].Trim()
+                        }
+                    }
+                } else {
+                    $result['http'] = $ProxyServer.Trim()
+                    $result['https'] = $ProxyServer.Trim()
+                }
+                $result
+            }
+            # Build an http:// proxy URL, URL-escaped user:pass, or no auth.
+            function ConvertTo-ProxyUrl {
+                param([string]$HostPort, [string]$UserName, [string]$Password)
+                if (-not $HostPort) { return $null }
+                if ($UserName -and $Password) {
+                    return "http://$([uri]::EscapeDataString($UserName))`:$([uri]::EscapeDataString($Password))@$HostPort"
+                }
+                return "http://$HostPort"
+            }
+
             if (-not $UserName) { $UserName = Read-Host 'Proxy username' }
             if (-not $Password) { $Password = Read-Host 'Proxy password' -AsSecureString }
             if ($Password.Length -eq 0) {
