@@ -108,10 +108,11 @@ if ($script:junctionFailures -gt 0) {
     exit 1
 }
 
-# PS7: ensure stub $PROFILE sources the chezmoi-managed profile.
+# Ensure stub $PROFILE sources the chezmoi-managed profile for both shells.
 # Avoids fighting OneDrive over the PowerShell directories (which have synced modules).
 $profiles = @(
-    "$docsDir\PowerShell\Microsoft.PowerShell_profile.ps1"
+    "$docsDir\PowerShell\Microsoft.PowerShell_profile.ps1",
+    "$docsDir\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"
 )
 $sourceLine = 'if (Test-Path "$HOME\.config\powershell\Microsoft.PowerShell_profile.ps1") { . "$HOME\.config\powershell\Microsoft.PowerShell_profile.ps1" }'
 

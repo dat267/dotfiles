@@ -387,6 +387,24 @@ public class DotfilesCredentialManager {
             Write-Verbose "Proxy setup skipped: $($_.Exception.Message)"
         }
 
+        # --- Scoop proxy sync ---
+        # Keep Scoop's proxy in step with the system proxy. `currentuser` uses
+        # the logged-in user's Windows credentials (integrated auth, no password
+        # on disk); `default` resolves to the Internet Options proxy. Runs on
+        # every load so registry changes are picked up automatically.
+        if (Get-Command scoop -ErrorAction SilentlyContinue) {
+            try {
+                if ($proxyCfg.ProxyEnable -eq 1) {
+                    & scoop config proxy currentuser@default | Out-Null
+                } else {
+                    & scoop config rm proxy | Out-Null
+                }
+            } catch {
+                Write-Verbose "Scoop proxy setup skipped: $($_.Exception.Message)"
+            }
+        }
+        # --- End Scoop proxy sync ---
+
         # --- End proxy credentials ---
     }
 
