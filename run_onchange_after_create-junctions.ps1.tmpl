@@ -52,7 +52,6 @@ if ($lfItem -and $lfItem.Attributes -match "ReparsePoint") {
 }
 
 $folderMap = @{
-    "$HOME\-chezmoi"                                 = "{{ .chezmoi.sourceDir }}"
     "$env:LOCALAPPDATA\nvim"                         = "{{ .chezmoi.homeDir }}/.config/nvim"
     "$env:APPDATA\helix"                             = "{{ .chezmoi.homeDir }}/.config/helix"
     "$env:LOCALAPPDATA\aria2"                        = "{{ .chezmoi.homeDir }}/.config/aria2"
