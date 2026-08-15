@@ -55,9 +55,12 @@
       "*~/.aws*": "deny",
       "*.pem*": "deny",
       "*.key*": "deny",
-      "*PROXY_PASSWORD*": "deny",
-      "*PROXY_USERNAME*": "deny",
-      "*$env:PROXY*": "deny"
+      "*HTTP_PROXY*": "deny",
+      "*HTTPS_PROXY*": "deny",
+      "*http_proxy*": "deny",
+      "*https_proxy*": "deny",
+      "*Http_Proxy*": "deny",
+      "*Https_Proxy*": "deny"
     },
     "external_directory": { "*": "ask" }
   }

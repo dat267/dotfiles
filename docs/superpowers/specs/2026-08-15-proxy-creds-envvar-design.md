@@ -1,83 +1,74 @@
 # Design: Proxy credentials via user environment variables
 
 Date: 2026-08-15
-Status: Approved
+Status: Approved (revised — store full URLs in HTTP_PROXY/HTTPS_PROXY)
 
 ## Goal
 
 Replace the Windows Credential Manager P/Invoke layer with user environment
-variables for proxy credentials. This eliminates the ~840ms `Add-Type` C#
-compile at shell startup and removes the entire P/Invoke code path, while
-keeping the same helper command surface and the same proxy URL export logic.
+variables. `Set-ProxyCredential` builds the full proxy URL
+(`http://user:pass@host:port`) from the registry host:port + prompted creds and
+stores it directly in USER-scope `HTTP_PROXY` / `HTTPS_PROXY` / `http_proxy` /
+`https_proxy`. At login the vars are inherited, so the profile does **zero**
+proxy work at startup. This eliminates the ~840ms `Add-Type` C# compile and
+the entire P/Invoke code path.
 
 ## Background
 
-- The profile currently stores proxy creds in Windows Credential Manager via
-  P/Invoke (`Set/Get/Clear-ProxyCredential`, `Initialize-CredentialManagerType`).
-- The `Add-Type` compile runs eagerly on load whenever the system proxy is
-  enabled (the load path calls `Get-ProxyCredential`), costing ~840ms of C#
-  compilation (Roslyn) on every fresh pwsh launch.
-- User-scope environment variables (`[Environment]::Get/SetEnvironmentVariable(name, "User")`)
-  are read/written in ~10ms with no P/Invoke, no compile, no external
-  dependency. They persist across shells and are inherited at login.
+- The profile previously stored proxy creds in Windows Credential Manager via
+  P/Invoke, costing ~840ms of C# (Roslyn) compile on every fresh pwsh launch.
+- User-scope env vars are read/written in ~10ms with no P/Invoke, no compile.
+  They persist across shells and are inherited into the process env at login.
 - Security tradeoff (accepted): a user env var is plaintext — readable by any
   process running as the user, stored in registry `HKCU\Environment`. This
   reverses the earlier "no plaintext" Credential Manager decision in exchange
   for startup performance.
 
-## Data flow (Windows only)
+## Data flow
 
-At shell start (unchanged callers):
+At login: `HTTP_PROXY`/`HTTPS_PROXY`/`http_proxy`/`https_proxy` are already in
+the process environment (inherited from User scope). The profile does nothing
+proxy-related at load.
 
-1. `Test-ProxyConfig` reads the system proxy host:port from the registry
-   (`HKCU:\...\Internet Settings`) — fast, no compile.
-2. `Get-ProxyCredential` reads `PROXY_USERNAME` / `PROXY_PASSWORD` user env
-   vars (if set).
-3. `Export-ProxyEnvironment` combines registry host:port with the env creds →
-   `http://user:pass@host:port`, or no-auth (`http://host:port`) when creds are
-   absent.
-
-## Helper functions (env-backed)
+## Helper functions
 
 | Function | Behavior |
 | --- | --- |
-| `Set-ProxyCredential` | Prompt (via `Read-Host -AsSecureString`) for username + password; write `PROXY_USERNAME` / `PROXY_PASSWORD` as User-scope env vars. Empty password → warn, write nothing. |
-| `Get-ProxyCredential` | Read both User-scope env vars; return `[pscustomobject]@{ UserName; Password }` if both present, else `$null`. |
-| `Clear-ProxyCredential` | Remove both User-scope env vars (idempotent; no error if absent). |
+| `Set-ProxyCredential` | Prompt (via `Read-Host -AsSecureString`) for username + password; read registry `ProxyServer` for host:port; build `http://user:pass@host:port`; write to User-scope `HTTP_PROXY`/`HTTPS_PROXY`/`http_proxy`/`https_proxy` and the current process env. Empty password → warn, write nothing. |
+| `Get-ProxyCredential` | Return the stored `HTTP_PROXY` value (or `$null`). |
+| `Clear-ProxyCredential` | Remove all four proxy env vars at User scope and from the current process. |
 
 ## Deleted
 
-- `Initialize-CredentialManagerType` (and the entire `Add-Type` C# block /
-  `DotfilesCredentialManager` type).
-- `$global:ProxyCredentialTarget`.
-- P/Invoke calls (`CredRead`/`CredWrite`/`CredDelete`/`CredFree`),
-  `Marshal` usage, `SecureStringToCoTaskMemUnicode`/`ZeroFreeCoTaskMemUnicode`.
+- `Initialize-CredentialManagerType` and the entire `Add-Type` C# block /
+  `DotfilesCredentialManager` type.
+- `$global:ProxyCredentialTarget`, all P/Invoke calls, `Marshal` usage.
+- The load-path proxy export block (`Test-ProxyConfig` + `Export-ProxyEnvironment`
+  call) and the now-unused `Export-ProxyEnvironment` / `ConvertFrom-ProxyServer`
+  functions.
 
-## Kept (unchanged)
+## Kept
 
-- `ConvertFrom-ProxyServer`, `ConvertTo-ProxyUrl`, `Export-ProxyEnvironment`,
-  `Test-ProxyConfig` — pure URL logic and a fast registry read.
-- The load-path call (`Export-ProxyEnvironment -Credential (Get-ProxyCredential)`)
-  — `Get-ProxyCredential`'s return shape is unchanged (`pscustomobject` or
-  `$null`).
+- `Test-ProxyConfig` (registry read) — used by `Set-ProxyCredential` to get
+  host:port.
+- `ConvertTo-ProxyUrl` — used by `Set-ProxyCredential` to build the URL.
 
 ## Error handling
 
-- No env creds → proxy-without-auth (no `user:@host` emitted).
-- Only one of the two env vars set → treated as no-auth, Write-Verbose note.
-- `Set-ProxyCredential` empty password → warn, no partial write.
+- No registry `ProxyServer` → `Set-ProxyCredential` warns and aborts (can't
+  build a URL without host:port).
+- `Set-ProxyCredential` empty password → warn, no write.
 - `Clear-ProxyCredential` when absent → idempotent no-op.
 
 ## Verification
 
-- New test: env-var helper round-trip (`Set` writes User-scope vars, `Get`
-  reads them back, `Clear` removes them), partial-cred and no-cred cases.
-- Regression: `proxy-helpers-test.ps1` (15 checks), `proxy-load-test.ps1`
-  (4 checks) still pass — URL logic and load path behavior unchanged.
-- Profile AST-parses.
-- Manual Windows: with system proxy on + `Set-ProxyCredential`, a fresh shell
-  exports `HTTP_PROXY=http://user:pass@host:port`.
+- New test: `Set-ProxyCredential` with a stubbed registry host:port writes all
+  four env vars with the correct URL; `Get-ProxyCredential` returns it;
+  `Clear-ProxyCredential` removes them; empty-password aborts.
+- Regression: `proxy-helpers-test.ps1` updated for the removed functions.
+- Profile AST-parses; no `DotfilesCredentialManager` type anywhere.
 
 ## Files touched
 
 - `dot_config/powershell/executable_Microsoft.PowerShell_profile.ps1`
+

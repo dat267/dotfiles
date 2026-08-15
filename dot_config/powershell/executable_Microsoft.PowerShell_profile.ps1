@@ -201,11 +201,15 @@ $global:__dotfiles_profile_loaded = $true
     }
 
     if ($IsWindows) {
-        # --- Proxy credentials (Windows Credential Manager) ---
+        # --- Proxy credentials (user environment variables) ---
+        # Proxy creds are stored as full URLs in USER-scope HTTP_PROXY /
+        # HTTPS_PROXY / http_proxy / https_proxy (plaintext, accepted tradeoff).
+        # They are inherited into the process env at login, so the profile does
+        # zero proxy work at startup — no Add-Type, no P/Invoke, no compile.
 
         # Parse HKCU Internet Settings ProxyServer into scheme -> host:port.
         # Handles "http=a:8080;https=b:9090" and bare "host:port".
-        function ConvertFrom-ProxyServer {
+        function global:ConvertFrom-ProxyServer {
             param([string]$ProxyServer)
             if (-not $ProxyServer) { return @{} }
             $result = @{}
@@ -223,7 +227,7 @@ $global:__dotfiles_profile_loaded = $true
         }
 
         # Build an http:// proxy URL, URL-escaped user:pass, or no auth.
-        function ConvertTo-ProxyUrl {
+        function global:ConvertTo-ProxyUrl {
             param([string]$HostPort, [string]$UserName, [string]$Password)
             if (-not $HostPort) { return $null }
             if ($UserName -and $Password) {
@@ -232,29 +236,6 @@ $global:__dotfiles_profile_loaded = $true
             return "http://$HostPort"
         }
 
-        # Export HTTP(S)_PROXY / http(s)_proxy / NO_PROXY / no_proxy from
-        # registry values. $Credential may be $null (proxy without auth).
-        function Export-ProxyEnvironment {
-            param([string]$ProxyServer, [string]$ProxyOverride, $Credential)
-            $schemes = ConvertFrom-ProxyServer $ProxyServer
-            foreach ($name in 'http', 'https') {
-                $hp = $schemes[$name]
-                if ($hp) {
-                    $url = ConvertTo-ProxyUrl -HostPort $hp -UserName $Credential.UserName -Password $Credential.Password
-                    Set-Item -Path "Env:${name}_PROXY" -Value $url
-                    Set-Item -Path "Env:${name}_proxy" -Value $url
-                }
-            }
-            if ($ProxyOverride) {
-                $noProxy = $ProxyOverride -replace ';', ','
-                Set-Item -Path 'Env:NO_PROXY' -Value $noProxy
-                Set-Item -Path 'Env:no_proxy' -Value $noProxy
-            }
-        }
-
-        # Proxy credentials are stored in user-scope environment variables
-        # (plaintext, accepted tradeoff) instead of Windows Credential Manager.
-        # This avoids the ~840ms Add-Type C# compile that P/Invoke required.
         function global:Set-ProxyCredential {
             [CmdletBinding()]
             param(
@@ -268,29 +249,46 @@ $global:__dotfiles_profile_loaded = $true
                 return
             }
 
+            $cfg = Test-ProxyConfig
+            if (-not $cfg.ProxyServer) {
+                Write-Warning "Set-ProxyCredential: no system proxy host:port found; cannot build proxy URL."
+                return
+            }
+            $schemes = ConvertFrom-ProxyServer $cfg.ProxyServer
+            $hostPort = $schemes['http']
+            if (-not $hostPort) { $hostPort = $schemes['https'] }
+            if (-not $hostPort) {
+                Write-Warning "Set-ProxyCredential: no http/https host:port in system proxy; cannot build proxy URL."
+                return
+            }
+
             $plain = [Runtime.InteropServices.Marshal]::PtrToStringUni(
                 [Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode($Password))
-            [Environment]::SetEnvironmentVariable('PROXY_USERNAME', $UserName, 'User')
-            [Environment]::SetEnvironmentVariable('PROXY_PASSWORD', $plain, 'User')
-            $env:PROXY_USERNAME = $UserName
-            $env:PROXY_PASSWORD = $plain
-            Write-Host "Proxy credential saved to user environment."
+            $url = ConvertTo-ProxyUrl -HostPort $hostPort -UserName $UserName -Password $plain
+
+            foreach ($name in 'HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy') {
+                [Environment]::SetEnvironmentVariable($name, $url, 'User')
+            }
+            $env:HTTP_PROXY = $url
+            $env:HTTPS_PROXY = $url
+            $env:http_proxy = $url
+            $env:https_proxy = $url
+            Write-Host "Proxy URL saved to user environment: $url"
         }
 
         function global:Get-ProxyCredential {
-            $u = $env:PROXY_USERNAME
-            $p = $env:PROXY_PASSWORD
-            if (-not $u) { $u = [Environment]::GetEnvironmentVariable('PROXY_USERNAME', 'User') }
-            if (-not $p) { $p = [Environment]::GetEnvironmentVariable('PROXY_PASSWORD', 'User') }
-            if (-not $u -or -not $p) { return $null }
-            return [pscustomobject]@{ UserName = $u; Password = $p }
+            $url = $env:HTTP_PROXY
+            if (-not $url) { $url = [Environment]::GetEnvironmentVariable('HTTP_PROXY', 'User') }
+            if (-not $url) { return $null }
+            return $url
         }
 
         function global:Clear-ProxyCredential {
-            [Environment]::SetEnvironmentVariable('PROXY_USERNAME', $null, 'User')
-            [Environment]::SetEnvironmentVariable('PROXY_PASSWORD', $null, 'User')
-            Remove-Item Env:PROXY_USERNAME, Env:PROXY_PASSWORD -ErrorAction SilentlyContinue
-            Write-Host 'Proxy credential removed.'
+            foreach ($name in 'HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy') {
+                [Environment]::SetEnvironmentVariable($name, $null, 'User')
+            }
+            Remove-Item Env:HTTP_PROXY, Env:HTTPS_PROXY, Env:http_proxy, Env:https_proxy -ErrorAction SilentlyContinue
+            Write-Host 'Proxy URL removed from user environment.'
         }
 
         function global:Test-ProxyConfig {
@@ -300,16 +298,6 @@ $global:__dotfiles_profile_loaded = $true
                 ProxyServer   = [string]$p.ProxyServer
                 ProxyOverride = [string]$p.ProxyOverride
             }
-        }
-
-        # Export proxy env vars from registry host:port + user env-var creds on load.
-        try {
-            $proxyCfg = Test-ProxyConfig
-            if ($proxyCfg.ProxyEnable -eq 1 -and $proxyCfg.ProxyServer) {
-                Export-ProxyEnvironment -ProxyServer $proxyCfg.ProxyServer -ProxyOverride $proxyCfg.ProxyOverride -Credential (Get-ProxyCredential)
-            }
-        } catch {
-            Write-Verbose "Proxy setup skipped: $($_.Exception.Message)"
         }
 
         # --- End proxy credentials ---
