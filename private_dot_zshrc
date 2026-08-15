@@ -139,9 +139,9 @@ bindkey '^H' backward-delete-char
 
 
 # SSH agent: use a clean OpenSSH ssh-agent (not gpg-agent).
-# Start it on demand, persist the socket across shells, and load keys.
+# Start it on demand, persist the socket across shells.
+# Keys are auto-added on first use via AddKeysToAgent yes (see ~/.ssh/config).
 export SSH_AUTH_SOCK="${XDG_RUNTIME_DIR:-/tmp}/ssh-agent-$UID.sock"
 if [[ ! -S "$SSH_AUTH_SOCK" ]]; then
   eval "$(ssh-agent -s -a "$SSH_AUTH_SOCK")" >/dev/null 2>&1
-  ssh-add 2>/dev/null
 fi

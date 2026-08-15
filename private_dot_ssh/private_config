@@ -5,6 +5,7 @@ Host *
   LogLevel ERROR
   ServerAliveInterval 30
   ServerAliveCountMax 3
+  AddKeysToAgent yes
 Host nexus
   User root
   Hostname 100.64.0.3
