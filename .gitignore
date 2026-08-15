@@ -18,6 +18,10 @@ dot_local/scripts/js/node_modules
 .npm/
 .local/
 .config/opencode/
+.superpowers/
+
+# git worktrees
+.worktrees/
 
 # macOS
 .DS_Store
