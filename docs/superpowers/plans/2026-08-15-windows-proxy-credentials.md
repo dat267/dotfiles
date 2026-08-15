@@ -522,13 +522,16 @@ function Assert($cond, $msg) {
     else { Write-Output "  ok:   $msg" }
 }
 
-# Extract full proxy section and run it with $IsWindows forced true.
+# Extract only the export-wiring block: from the export comment marker
+# ("# Export proxy env vars") through the "# --- End proxy credentials"
+# marker. NOT the whole proxy section — running the full section would
+# redefine the stubbed Test-ProxyConfig/Get-ProxyCredential below.
 $content = Get-Content -Raw $ProfilePath
-$start = $content.IndexOf("# --- Proxy credentials")
+$wiringStart = $content.IndexOf("# Export proxy env vars")
 $end = $content.IndexOf("# --- End proxy credentials")
-if ($start -lt 0 -or $end -lt 0) { throw "proxy section markers not found" }
+if ($wiringStart -lt 0 -or $end -lt 0) { throw "export wiring markers not found" }
 $end = $content.IndexOf("`n", $end) + 1
-$section = $content.Substring($start, $end - $start)
+$section = $content.Substring($wiringStart, $end - $wiringStart)
 
 # Stub registry + credential manager so the export wiring is testable on Linux.
 function global:Test-ProxyConfig {
@@ -538,16 +541,15 @@ function global:Get-ProxyCredential {
     [pscustomobject]@{ UserName = 'alice'; Password = 's3cret' }
 }
 
-# Clear pre-existing proxy vars, then run the section's export wiring.
+# Clear pre-existing proxy vars, then run the export wiring.
 Remove-Item Env:HTTP_PROXY,Env:HTTPS_PROXY,Env:http_proxy,Env:https_proxy,Env:NO_PROXY,Env:no_proxy -ErrorAction SilentlyContinue
 $env:HTTP_PROXY = 'http://old:value@nowhere:1'   # simulate a stale env.local value
 
-# Run the full section with the "export wiring" part. It is inside the
-# `if ($IsWindows) {` block at the end of the section; force true.
+# The wiring block is nested inside `if ($IsWindows) {`; force true.
 $section = $section.Replace('if ($IsWindows) {', 'if ($true) {')
-$section = "function global:__ProxySection_Run { $section }"
+$section = "function global:__ProxyWiring_Run { $section }"
 Invoke-Expression $section
-& __ProxySection_Run
+& __ProxyWiring_Run
 
 Assert ($env:HTTP_PROXY -eq 'http://alice:s3cret@proxy.corp:8080') "HTTP_PROXY overridden with creds"
 Assert ($env:https_proxy -eq 'http://alice:s3cret@proxy-sec:9090') "https_proxy set from https scheme"
