@@ -42,6 +42,9 @@
     "[jsonc]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
+    "[go]": {
+        "editor.defaultFormatter": "golang.go"
+    },
     "[java]": {
         "editor.defaultFormatter": "redhat.java"
     },
@@ -56,6 +59,9 @@
     },
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "[rust]": {
+        "editor.defaultFormatter": "rust-lang.rust-analyzer"
     },
     "[svelte]": {
         "editor.defaultFormatter": "svelte.svelte-vscode"
@@ -169,6 +175,8 @@
     "powershell.codeFormatting.whitespaceBetweenParameters": false,
     "powershell.codeFormatting.avoidSemicolonsAsLineTerminators": false,
     "powershell.integratedConsole.startInBackground": false,
+    "powershell.integratedConsole.showOnStartup": false,
+    "powershell.startAutomatically": false,
     "powershell.powerShellAdditionalExePaths": {
         "linux": "${env:HOME}/.local/bin/pwsh"
     },
