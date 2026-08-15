@@ -15,12 +15,3 @@ autoSetupRemote = true
 [user]
 email = "dat267@outlook.com"
 name = "Dat Do"
-
-# Proxy host/port come from the PowerShell profile's HTTP(S)_PROXY env vars
-# (system proxy + Credential Manager), so nothing is embedded here.
-# `proxyAuthMethod = negotiate` makes git authenticate to the proxy with the
-# current Windows user's integrated credentials (SSPI) — the same
-# `currentuser@default` scoop uses. This avoids GCM being invoked for the
-# proxy, which would otherwise persist `provider = generic` into this file.
-[http]
-	proxyAuthMethod = negotiate
