@@ -96,12 +96,6 @@
     "editor.parameterHints.enabled": false,
     "editor.wordBasedSuggestions": "off",
     "editor.largeFileOptimizations": true,
-    "editor.codeActionsOnSave": {
-        "source.addMissingImports": "explicit",
-        "source.fixAll": "explicit",
-        "source.organizeImports": "explicit",
-        "source.removeUnusedImports": "explicit"
-    },
     "chat.agent.enabled": false,
     "chat.commandCenter.enabled": false,
     "chat.disableAIFeatures": true,
