@@ -119,7 +119,7 @@
     "workbench.editor.splitInGroupLayout": "vertical",
     "workbench.preferredDarkColorTheme": "Dark Modern",
     "workbench.preferredLightColorTheme": "Light Modern",
-    "workbench.startupEditor": "none",
+    "workbench.startupEditor": "welcomePage",
     "workbench.reduceMotion": "on",
     "workbench.settings.editor": "json",
     "workbench.iconTheme": "material-icon-theme",
