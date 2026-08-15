@@ -40,8 +40,8 @@
         "**/.venv": true,
         "**/__pycache__": true
     },
-    "[dockerfile]": {
-        "editor.defaultFormatter": "ms-azuretools.vscode-docker"
+    "[jsonc]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
     },
     "[java]": {
         "editor.defaultFormatter": "redhat.java"
@@ -52,29 +52,17 @@
     "[javascriptreact]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    "[jsonc]": {
-        "editor.defaultFormatter": "vscode.json-language-features"
-    },
-    "[markdown]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
-    },
     "[powershell]": {
         "editor.defaultFormatter": "ms-vscode.powershell"
     },
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
     },
-    "[svg]": {
-        "editor.defaultFormatter": "jock.svg"
-    },
     "[typescript]": {
         "editor.defaultFormatter": "vscode.typescript-language-features"
     },
     "[typescriptreact]": {
         "editor.defaultFormatter": "vscode.typescript-language-features"
-    },
-    "[xml]": {
-        "editor.defaultFormatter": "redhat.vscode-xml"
     },
     "editor.fontFamily": "'FiraCode Nerd Font', Consolas, 'Courier New', monospace",
     "editor.fontLigatures": false,
@@ -158,9 +146,6 @@
     "security.allowedUNCHosts": [
         "wsl.localhost"
     ],
-    "code-runner.runInTerminal": true,
-    "code-runner.saveAllFilesBeforeRun": true,
-    "code-runner.saveFileBeforeRun": true,
     "eslint.codeActionsOnSave.rules": [],
     "eslint.format.enable": true,
     "go.toolsManagement.autoUpdate": false,
@@ -171,10 +156,7 @@
     "java.configuration.updateBuildConfiguration": "disabled",
     "java.debug.settings.hotCodeReplace": "manual",
     "js/ts.implicitProjectConfig.target": "ESNext",
-    "latex-workshop.formatting.latex": "tex-fmt",
-    "markdown.preview.fontSize": 14,
     "notebook.formatOnSave.enabled": true,
-    "plantuml.server": "https://www.plantuml.com/plantuml",
     "powershell.buttons.showRunButtons": false,
     "powershell.codeFormatting.autoCorrectAliases": false,
     "powershell.codeFormatting.trimWhitespaceAroundPipe": false,
@@ -198,9 +180,6 @@
     "rust-analyzer.runnables.extraArgs": [
         "--release"
     ],
-    "shellformat.flag": "-i 2 -ci",
-    "svelte.enable-ts-plugin": false,
     "task.allowAutomaticTasks": "off",
-    "terraform.codelens.referenceCount": false,
     "editor.snippetSuggestions": "top"
 }
