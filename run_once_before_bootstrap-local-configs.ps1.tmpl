@@ -1,11 +1,4 @@
 {{ if eq .chezmoi.os "windows" -}}
-function Copy-IfMissing($src, $dst) {
-    if ((Test-Path $src) -and -not (Test-Path $dst)) { Copy-Item $src $dst }
-}
-
-Copy-IfMissing ("{{ .chezmoi.sourceDir }}/dot_env.local.example".Replace('/', '\'))        "$HOME\.env.local"
-Copy-IfMissing ("{{ .chezmoi.sourceDir }}/dot_gitconfig.local.example".Replace('/', '\'))  "$HOME\.gitconfig.local"
-
 # Ensure directories exist
 $dirs = @(
     "$HOME\.vim\backup"

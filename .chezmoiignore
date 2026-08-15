@@ -26,7 +26,6 @@ run_onchange_after_create-junctions.ps1.tmpl
 .bashrc
 .profile
 .zshrc
-run_once_before_bootstrap-local-configs.sh.tmpl
 run_onchange_after_create-symlinks.sh.tmpl
 {{- end }}
 

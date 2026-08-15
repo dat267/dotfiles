@@ -14,17 +14,6 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply dat267
 powershell -c "& { iwr -useb get.chezmoi.io | iex }; chezmoi init --apply dat267"
 ```
 
-### First-run setup
-
-After applying, create machine-local configs from the example stubs:
-
-```sh
-cp ~/.env.local.example ~/.env.local      # API keys, proxy, etc.
-cp ~/.gitconfig.local.example ~/.gitconfig.local  # git identity, proxy
-```
-
-Both files are gitignored (not tracked in the repo).
-
 ## What's Included
 
 | Category | Tools / Configs |
@@ -65,12 +54,14 @@ AppData/Local/            Windows-only configs (lf, Windows Terminal)
 private_dot_ssh/          SSH client config
 ```
 
-## Machine-Specific Config
+## Secrets
 
-Sensitive or machine-local settings use these files (never committed):
+Sensitive or machine-local credentials live in OS credential stores, never in
+this repo:
 
-- `~/.env.local` — API keys, cloud tokens (sourced by both bash/zsh and PowerShell)
-- `~/.gitconfig.local` — Git identity override, proxy — loaded via `[include]` in `~/.gitconfig`
+- **Windows** — Windows Credential Manager; proxy credentials via
+  `Set-ProxyCredential` (PowerShell profile helper)
+- **Linux/macOS** — your system secret manager / environment
 
 ## License
 

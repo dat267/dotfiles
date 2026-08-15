@@ -73,11 +73,6 @@ if command -v podman >/dev/null 2>&1 && [ -S "$XDG_RUNTIME_DIR/podman/podman.soc
 elif command -v docker >/dev/null 2>&1 && [ -S "$XDG_RUNTIME_DIR/docker.sock" ]; then
 	export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/docker.sock"
 fi
-if [ -f "$HOME/.env.local" ]; then
-	set -a
-	. "$HOME/.env.local"
-	set +a
-fi
 if [ ! -d "$HOME/tmp" ]; then
 	mkdir -p "$HOME/.cargo/bin" "$HOME/.local/bin" "$HOME/.vim/backup" "$HOME/bin" "$HOME/logs" "$HOME/repos" "$HOME/tmp"
 fi

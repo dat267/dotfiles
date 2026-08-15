@@ -111,7 +111,7 @@ Platform-specific blocks in `.tmpl` files use `{{ if eq .chezmoi.os "..." }}` gu
 
 ### Don't
 - Edit files in `~/.local/share/chezmoi/` directly
-- Commit secrets or machine-specific credentials — use `~/.env.local` or `~/.gitconfig.local` (gitignored)
+- Commit secrets or machine-specific credentials — use OS credential stores (Windows Credential Manager, Linux secret manager), never env files or git config
 - Remove `private_` prefix from sensitive files (SSH config, gitconfig)
 - Break cross-platform template guards without testing on the target OS
 

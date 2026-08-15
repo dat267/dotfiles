@@ -208,16 +208,6 @@ $global:__dotfiles_profile_loaded = $true
         }
     }
 
-    $envLocal = [System.IO.Path]::Combine($HOME, ".env.local")
-    if ([System.IO.File]::Exists($envLocal)) {
-        foreach ($line in [System.IO.File]::ReadLines($envLocal)) {
-            if ($line -match '^\s*[^#]\S+=\S') {
-                $k, $v = $line -split '=', 2
-                [System.Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim())
-            }
-        }
-    }
-
     if ($IsWindows) {
         # --- Proxy credentials (Windows Credential Manager) ---
 
@@ -376,8 +366,7 @@ public class DotfilesCredentialManager {
             }
         }
 
-        # Export proxy env vars from registry + Credential Manager on load,
-        # overriding any HTTP(S)_PROXY from ~/.env.local.
+        # Export proxy env vars from registry + Credential Manager on load.
         try {
             $proxyCfg = Test-ProxyConfig
             if ($proxyCfg.ProxyEnable -eq 1 -and $proxyCfg.ProxyServer) {

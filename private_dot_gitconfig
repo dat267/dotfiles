@@ -24,7 +24,3 @@ name = "Dat Do"
 # proxy, which would otherwise persist `provider = generic` into this file.
 [http]
 	proxyAuthMethod = negotiate
-
-# Machine-local overrides (tokens, identity, etc.) — not tracked in git
-[include]
-	path = ~/.gitconfig.local

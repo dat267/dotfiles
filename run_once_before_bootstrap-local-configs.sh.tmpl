@@ -1,6 +1,0 @@
-{{ if ne .chezmoi.os "windows" -}}
-copy_if_missing() { [ -f "$1" ] && [ ! -f "$2" ] && cp "$1" "$2"; }
-
-copy_if_missing "{{ .chezmoi.sourceDir }}/dot_env.local.example"        "$HOME/.env.local"
-copy_if_missing "{{ .chezmoi.sourceDir }}/dot_gitconfig.local.example"  "$HOME/.gitconfig.local"
-{{ end -}}
