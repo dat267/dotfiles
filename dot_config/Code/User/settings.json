@@ -1,5 +1,7 @@
 {
+    "$schema": "vscode://schemas/settings/settings.json",
     "editor.minimap.renderCharacters": false,
+    "editor.minimap.enabled": false,
     "files.enableTrash": true,
     "files.autoSave": "afterDelay",
     "files.insertFinalNewline": true,
@@ -8,10 +10,15 @@
     "files.watcherExclude": {
         "**/.git/objects/**": true,
         "**/.git/subtree-cache/**": true,
+        "**/.git/**": true,
         "**/node_modules/*/**": true,
         "**/.hg/store/**": true,
+        "**/.hg/**": true,
         "**/dist/**": true,
-        "**/build/**": true
+        "**/build/**": true,
+        "**/.cache/**": true,
+        "**/.venv/**": true,
+        "**/__pycache__/**": true
     },
     "files.associations": {
         "*.code-snippets": "jsonc",
@@ -21,6 +28,7 @@
         "*.tmpl": "gotmpl",
         "justfile": "plaintext"
     },
+    "search.followSymlinks": false,
     "[dockerfile]": {
         "editor.defaultFormatter": "ms-azuretools.vscode-docker"
     },
@@ -57,8 +65,6 @@
     "[xml]": {
         "editor.defaultFormatter": "redhat.vscode-xml"
     },
-    "[yaml]": {},
-    "[dockercompose]": {},
     "editor.fontFamily": "'FiraCode Nerd Font', Consolas, 'Courier New', monospace",
     "editor.fontLigatures": false,
     "editor.fontSize": 14,
@@ -98,7 +104,6 @@
     "workbench.editor.splitInGroupLayout": "vertical",
     "workbench.preferredDarkColorTheme": "Dark Modern",
     "workbench.preferredLightColorTheme": "Light Modern",
-    "workbench.settings.applyToAllProfiles": [],
     "workbench.settings.editor": "json",
     "workbench.iconTheme": "material-icon-theme",
     "material-icon-theme.hidesExplorerArrows": true,
@@ -138,7 +143,6 @@
     "security.allowedUNCHosts": [
         "wsl.localhost"
     ],
-    "settingsSync.ignoredSettings": [],
     "code-runner.runInTerminal": true,
     "code-runner.saveAllFilesBeforeRun": true,
     "code-runner.saveFileBeforeRun": true,
@@ -156,7 +160,6 @@
     "markdown.preview.fontSize": 14,
     "notebook.formatOnSave.enabled": true,
     "plantuml.server": "https://www.plantuml.com/plantuml",
-    "hediet.vscode-drawio.resizeImages": null,
     "powershell.buttons.showRunButtons": false,
     "powershell.codeFormatting.autoCorrectAliases": false,
     "powershell.codeFormatting.trimWhitespaceAroundPipe": false,
@@ -182,21 +185,8 @@
     ],
     "shellcheck.run": "onSave",
     "shellformat.flag": "-i 2 -ci",
-    "sortJSON.contextMenu": {
-        "sortJSONAlphaNum": false,
-        "sortJSONAlphaNumReverse": false,
-        "sortJSONKeyLength": false,
-        "sortJSONKeyLengthReverse": false,
-        "sortJSONReverse": false,
-        "sortJSONType": false,
-        "sortJSONTypeReverse": false,
-        "sortJSONValues": false,
-        "sortJSONValuesReverse": false
-    },
     "svelte.enable-ts-plugin": false,
     "task.allowAutomaticTasks": "off",
     "terraform.codelens.referenceCount": false,
-    "json.schemaDownload.trustedDomains": {},
-    "json.schemas": [],
     "editor.snippetSuggestions": "top"
 }
