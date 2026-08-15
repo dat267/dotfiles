@@ -54,7 +54,10 @@
       "*.env.example": "allow",
       "*~/.aws*": "deny",
       "*.pem*": "deny",
-      "*.key*": "deny"
+      "*.key*": "deny",
+      "*PROXY_PASSWORD*": "deny",
+      "*PROXY_USERNAME*": "deny",
+      "*$env:PROXY*": "deny"
     },
     "external_directory": { "*": "ask" }
   }

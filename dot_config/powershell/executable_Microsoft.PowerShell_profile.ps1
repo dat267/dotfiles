@@ -252,115 +252,45 @@ $global:__dotfiles_profile_loaded = $true
             }
         }
 
-        # Compile the Credential Manager P/Invoke type lazily, on first use.
-        # Compiling at every shell start is ~800ms of C# (Roslyn) — most shells
-        # never touch proxy credentials, so defer the cost until they do.
-        function global:Initialize-CredentialManagerType {
-            if (-not ('DotfilesCredentialManager' -as [type])) {
-                try {
-                    Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-
-public class DotfilesCredentialManager {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    public struct CREDENTIAL {
-        public uint Flags;
-        public uint Type;
-        public string TargetName;
-        public string Comment;
-        public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
-        public uint CredentialBlobSize;
-        public IntPtr CredentialBlob;
-        public uint Persist;
-        public uint AttributeCount;
-        public IntPtr Attributes;
-        public string TargetAlias;
-        public string UserName;
-    }
-
-    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    public static extern bool CredRead(string target, uint type, uint flags, out IntPtr credential);
-
-    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    public static extern bool CredWrite(ref CREDENTIAL credential, uint flags);
-
-    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    public static extern bool CredDelete(string target, uint type, uint flags);
-
-    [DllImport("advapi32.dll", SetLastError = true)]
-    public static extern void CredFree(IntPtr buffer);
-}
-"@
-                } catch {
-                    Write-Verbose "Credential Manager type unavailable: $($_.Exception.Message)"
-                }
-            }
-            return ('DotfilesCredentialManager' -as [type]) -ne $null
-        }
-
-        $global:ProxyCredentialTarget = 'dotfiles:proxy'
-
+        # Proxy credentials are stored in user-scope environment variables
+        # (plaintext, accepted tradeoff) instead of Windows Credential Manager.
+        # This avoids the ~840ms Add-Type C# compile that P/Invoke required.
         function global:Set-ProxyCredential {
             [CmdletBinding()]
             param(
                 [string]$UserName,
                 [securestring]$Password
             )
-            if (-not (Initialize-CredentialManagerType)) {
-                Write-Error "Credential Manager type is unavailable; cannot store proxy credentials."
-                return
-            }
             if (-not $UserName) { $UserName = Read-Host 'Proxy username' }
             if (-not $Password) { $Password = Read-Host 'Proxy password' -AsSecureString }
-
-            $ptr = [IntPtr]::Zero
-            try {
-                $cred = New-Object DotfilesCredentialManager+CREDENTIAL
-                $cred.Type = 1
-                $cred.TargetName = $global:ProxyCredentialTarget
-                $cred.UserName = $UserName
-                $ptr = [Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode($Password)
-                $cred.CredentialBlobSize = $Password.Length * 2
-                $cred.CredentialBlob = $ptr
-                $cred.Persist = 2
-                if (-not [DotfilesCredentialManager]::CredWrite([ref]$cred, 0)) {
-                    throw "CredWrite failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
-                }
-                Write-Host "Proxy credential saved."
-            } finally {
-                if ($ptr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeCoTaskMemUnicode($ptr) }
+            if ($Password.Length -eq 0) {
+                Write-Warning "Set-ProxyCredential: empty password; not saving partial credentials."
+                return
             }
+
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringUni(
+                [Runtime.InteropServices.Marshal]::SecureStringToCoTaskMemUnicode($Password))
+            [Environment]::SetEnvironmentVariable('PROXY_USERNAME', $UserName, 'User')
+            [Environment]::SetEnvironmentVariable('PROXY_PASSWORD', $plain, 'User')
+            $env:PROXY_USERNAME = $UserName
+            $env:PROXY_PASSWORD = $plain
+            Write-Host "Proxy credential saved to user environment."
         }
 
         function global:Get-ProxyCredential {
-            if (-not (Initialize-CredentialManagerType)) { return $null }
-            $ptr = [IntPtr]::Zero
-            if (-not [DotfilesCredentialManager]::CredRead($global:ProxyCredentialTarget, 1, 0, [ref]$ptr)) {
-                return $null
-            }
-            try {
-                $cred = [Runtime.InteropServices.Marshal]::PtrToStructure($ptr, [type][DotfilesCredentialManager+CREDENTIAL])
-                $size = [int]$cred.CredentialBlobSize
-                $bytes = New-Object byte[] $size
-                [Runtime.InteropServices.Marshal]::Copy($cred.CredentialBlob, $bytes, 0, $size)
-                $password = [System.Text.Encoding]::Unicode.GetString($bytes)
-                return [pscustomobject]@{ UserName = $cred.UserName; Password = $password }
-            } finally {
-                [DotfilesCredentialManager]::CredFree($ptr)
-            }
+            $u = $env:PROXY_USERNAME
+            $p = $env:PROXY_PASSWORD
+            if (-not $u) { $u = [Environment]::GetEnvironmentVariable('PROXY_USERNAME', 'User') }
+            if (-not $p) { $p = [Environment]::GetEnvironmentVariable('PROXY_PASSWORD', 'User') }
+            if (-not $u -or -not $p) { return $null }
+            return [pscustomobject]@{ UserName = $u; Password = $p }
         }
 
         function global:Clear-ProxyCredential {
-            if (-not (Initialize-CredentialManagerType)) {
-                Write-Warning "Clear-ProxyCredential: Credential Manager type unavailable."
-                return
-            }
-            if ([DotfilesCredentialManager]::CredDelete($global:ProxyCredentialTarget, 1, 0)) {
-                Write-Host 'Proxy credential removed.'
-            } else {
-                Write-Warning "Clear-ProxyCredential: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
-            }
+            [Environment]::SetEnvironmentVariable('PROXY_USERNAME', $null, 'User')
+            [Environment]::SetEnvironmentVariable('PROXY_PASSWORD', $null, 'User')
+            Remove-Item Env:PROXY_USERNAME, Env:PROXY_PASSWORD -ErrorAction SilentlyContinue
+            Write-Host 'Proxy credential removed.'
         }
 
         function global:Test-ProxyConfig {
@@ -372,7 +302,7 @@ public class DotfilesCredentialManager {
             }
         }
 
-        # Export proxy env vars from registry + Credential Manager on load.
+        # Export proxy env vars from registry host:port + user env-var creds on load.
         try {
             $proxyCfg = Test-ProxyConfig
             if ($proxyCfg.ProxyEnable -eq 1 -and $proxyCfg.ProxyServer) {
