@@ -91,7 +91,7 @@
     "editor.codeLens": false,
     "editor.inlayHints.enabled": "off",
     "editor.bracketPairColorization.enabled": false,
-    "editor.occurrencesHighlight": false,
+    "editor.occurrencesHighlight": "off",
     "editor.smoothScrolling": false,
     "editor.cursorSmoothCaretAnimation": "off",
     "editor.parameterHints.enabled": false,
