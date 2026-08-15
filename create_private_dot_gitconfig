@@ -1,0 +1,6 @@
+# ~/.gitconfig — created once by chezmoi (create_), then left alone.
+# GCM / other tools may append machine-local sections (e.g. credential
+# blocks) here without chezmoi complaining. Shared settings live in the
+# chezmoi-managed ~/.gitconfig.base, pulled in below.
+[include]
+	path = ~/.gitconfig.base
