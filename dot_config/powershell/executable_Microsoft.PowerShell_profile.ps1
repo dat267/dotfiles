@@ -371,6 +371,17 @@ public class DotfilesCredentialManager {
             }
         }
 
+        # Export proxy env vars from registry + Credential Manager on load,
+        # overriding any HTTP(S)_PROXY from ~/.env.local.
+        try {
+            $proxyCfg = Test-ProxyConfig
+            if ($proxyCfg.ProxyEnable -eq 1 -and $proxyCfg.ProxyServer) {
+                Export-ProxyEnvironment -ProxyServer $proxyCfg.ProxyServer -ProxyOverride $proxyCfg.ProxyOverride -Credential (Get-ProxyCredential)
+            }
+        } catch {
+            Write-Verbose "Proxy setup skipped: $($_.Exception.Message)"
+        }
+
         # --- End proxy credentials ---
     }
 
