@@ -3,16 +3,6 @@
 # NOT tracked in git. Copy from ~/.env.local.example and fill in values.
 
 # ---------------------------------------------------------------------------
-# Corporate / office proxy
-# Set these if your machine sits behind an HTTP proxy (common in work networks).
-# ---------------------------------------------------------------------------
-# HTTP_PROXY=http://user:password@proxy-host:8080
-# HTTPS_PROXY=http://user:password@proxy-host:8080
-# http_proxy=http://user:password@proxy-host:8080
-# https_proxy=http://user:password@proxy-host:8080
-# NO_PROXY=localhost,127.0.0.1,10.*,*.internal,*.corp
-
-# ---------------------------------------------------------------------------
 # API keys / tokens  (never commit these)
 # ---------------------------------------------------------------------------
 # GITHUB_TOKEN=ghp_...

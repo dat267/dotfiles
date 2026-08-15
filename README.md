@@ -69,7 +69,7 @@ private_dot_ssh/          SSH client config
 
 Sensitive or machine-local settings use these files (never committed):
 
-- `~/.env.local` — API keys, proxy vars, cloud tokens (sourced by both bash/zsh and PowerShell)
+- `~/.env.local` — API keys, cloud tokens (sourced by both bash/zsh and PowerShell)
 - `~/.gitconfig.local` — Git identity override, proxy — loaded via `[include]` in `~/.gitconfig`
 
 ## License

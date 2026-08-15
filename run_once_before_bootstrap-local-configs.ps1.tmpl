@@ -16,6 +16,6 @@ foreach ($d in $dirs) {
 
 $proxyEnabled = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction SilentlyContinue).ProxyEnable
 if ($proxyEnabled -eq 1) {
-    Write-Host "Proxy detected — uncomment and fill proxy vars in ~/.env.local" -ForegroundColor Yellow
+    Write-Host "System proxy detected — run Set-ProxyCredential to store proxy credentials in Windows Credential Manager" -ForegroundColor Yellow
 }
 {{ end -}}
