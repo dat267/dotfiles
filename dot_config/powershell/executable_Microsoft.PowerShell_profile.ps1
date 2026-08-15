@@ -218,6 +218,61 @@ $global:__dotfiles_profile_loaded = $true
         }
     }
 
+    if ($IsWindows) {
+        # --- Proxy credentials (Windows Credential Manager) ---
+
+        # Parse HKCU Internet Settings ProxyServer into scheme -> host:port.
+        # Handles "http=a:8080;https=b:9090" and bare "host:port".
+        function ConvertFrom-ProxyServer {
+            param([string]$ProxyServer)
+            if (-not $ProxyServer) { return @{} }
+            $result = @{}
+            if ($ProxyServer -match '=') {
+                foreach ($part in ($ProxyServer -split ';')) {
+                    if ($part -match '^([^=]+)=(.+)$') {
+                        $result[$Matches[1].Trim().ToLower()] = $Matches[2].Trim()
+                    }
+                }
+            } else {
+                $result['http'] = $ProxyServer.Trim()
+                $result['https'] = $ProxyServer.Trim()
+            }
+            $result
+        }
+
+        # Build an http:// proxy URL, URL-escaped user:pass, or no auth.
+        function ConvertTo-ProxyUrl {
+            param([string]$HostPort, [string]$UserName, [string]$Password)
+            if (-not $HostPort) { return $null }
+            if ($UserName -and $Password) {
+                return "http://$([uri]::EscapeDataString($UserName))`:$([uri]::EscapeDataString($Password))@$HostPort"
+            }
+            return "http://$HostPort"
+        }
+
+        # Export HTTP(S)_PROXY / http(s)_proxy / NO_PROXY / no_proxy from
+        # registry values. $Credential may be $null (proxy without auth).
+        function Export-ProxyEnvironment {
+            param([string]$ProxyServer, [string]$ProxyOverride, $Credential)
+            $schemes = ConvertFrom-ProxyServer $ProxyServer
+            foreach ($name in 'http', 'https') {
+                $hp = $schemes[$name]
+                if ($hp) {
+                    $url = ConvertTo-ProxyUrl -HostPort $hp -UserName $Credential.UserName -Password $Credential.Password
+                    Set-Item -Path "Env:${name}_PROXY" -Value $url
+                    Set-Item -Path "Env:${name}_proxy" -Value $url
+                }
+            }
+            if ($ProxyOverride) {
+                $noProxy = $ProxyOverride -replace ';', ','
+                Set-Item -Path 'Env:NO_PROXY' -Value $noProxy
+                Set-Item -Path 'Env:no_proxy' -Value $noProxy
+            }
+        }
+
+        # --- End proxy credentials (pure helpers) ---
+    }
+
     $global:__home_regex = [regex]::Escape($HOME)
 }
 
