@@ -785,6 +785,21 @@ function cm {
     }
 }
 
+# Download the URL currently in the clipboard with aria2c (Windows PowerShell).
+function global:dlc {
+    $raw = Get-Clipboard -Raw
+    $url = if ($null -eq $raw) { '' } else { $raw.Trim() }
+    if (-not $url) {
+        Write-Error "dlc: clipboard is empty"
+        return
+    }
+    if ($url -notmatch '^(https?|ftp)://|magnet:') {
+        Write-Error "dlc: clipboard is not a URL: $url"
+        return
+    }
+    aria2c $url
+}
+
 if (Get-Command Set-PSReadLineOption -ErrorAction SilentlyContinue) {
     if (-not [Console]::IsOutputRedirected) {
         try {

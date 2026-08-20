@@ -284,6 +284,38 @@ alias music='mpv --no-video --shuffle --loop=inf --replaygain=track'
 # aria2c download helper; all behavior (incl. bt-stop-timeout for no-seed
 # torrents) lives in ~/.config/aria2/aria2.conf, which aria2c auto-loads.
 alias dl='aria2c'
+
+# Download the URL currently in the system clipboard with aria2c.
+# Cross-platform: Termux, WSL/git-bash (Windows), and Linux (Wayland/X11).
+dlc() {
+	local url
+	if command -v termux-clipboard-get >/dev/null 2>&1; then
+		url=$(termux-clipboard-get)
+	elif [ -n "${WSL_DISTRO_NAME:-}" ] || grep -qi microsoft /proc/version 2>/dev/null; then
+		url=$(powershell.exe -NoProfile -Command 'Get-Clipboard' 2>/dev/null | tr -d '\r')
+	elif [ -e /dev/clipboard ]; then
+		url=$(cat /dev/clipboard)
+	elif command -v wl-paste >/dev/null 2>&1; then
+		url=$(wl-paste --no-newline 2>/dev/null)
+	elif command -v xclip >/dev/null 2>&1; then
+		url=$(xclip -selection clipboard -o 2>/dev/null)
+	elif command -v xsel >/dev/null 2>&1; then
+		url=$(xsel -b -o 2>/dev/null)
+	else
+		echo "dlc: no clipboard provider found" >&2
+		return 1
+	fi
+	url=$(printf '%s' "$url" | tr -d '[:space:]')
+	if [ -z "$url" ]; then
+		echo "dlc: clipboard is empty" >&2
+		return 1
+	fi
+	case "$url" in
+		http://* | https://* | ftp://* | magnet:*) ;;
+		*) echo "dlc: clipboard is not a URL: $url" >&2; return 1 ;;
+	esac
+	aria2c "$url"
+}
 alias usevenv='source ".venv/bin/activate"'
 alias codes='code serve-web --without-connection-token --accept-server-license-terms'
 alias codet='code tunnel --no-sleep --accept-server-license-terms'
