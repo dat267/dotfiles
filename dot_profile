@@ -281,9 +281,9 @@ getrclone() {
 	scp "$1:~/.config/rclone/rclone.conf" "$HOME/.config/rclone/rclone.conf"
 }
 alias music='mpv --no-video --shuffle --loop=inf --replaygain=track'
-# aria2c download helper: loads the repo's aria2 conf and bails out on
-# torrents/magnets that can't fetch metadata or have no seed (no infinite hang).
-alias dl='aria2c --conf-path="$HOME/.config/aria2/aria2.conf" --bt-metadata-timeout=60 --bt-stop-timeout=60'
+# aria2c download helper; all behavior (incl. bt-stop-timeout for no-seed
+# torrents) lives in ~/.config/aria2/aria2.conf, which aria2c auto-loads.
+alias dl='aria2c'
 alias usevenv='source ".venv/bin/activate"'
 alias codes='code serve-web --without-connection-token --accept-server-license-terms'
 alias codet='code tunnel --no-sleep --accept-server-license-terms'
