@@ -110,7 +110,6 @@ def sandbox_config(workspace):
     return json.dumps({
         "$schema": "https://opencode.ai/config.json",
         "model": "opencode/deepseek-v4-flash-free",
-        "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
         "permission": {
             "read": {"*": "allow"},
             "edit": {"*": "allow"},
