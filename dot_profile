@@ -67,6 +67,9 @@ else
 fi
 export DISTRO_NAME
 export POWERSHELL_UPDATECHECK=Off
+# Truecolor (24-bit) support for TUIs (opencode default theme renders mangled
+# without it on terminals like Termux that don't export COLORTERM).
+export COLORTERM=truecolor
 export LIBVIRT_DEFAULT_URI="qemu:///system"
 if command -v podman >/dev/null 2>&1 && [ -S "$XDG_RUNTIME_DIR/podman/podman.sock" ]; then
 	export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
