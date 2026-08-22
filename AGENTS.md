@@ -143,7 +143,7 @@ Key gotchas learned the hard way:
 - **`nvim_input()` hangs headless** — don't use it to simulate typing. `normal! iX` inserts fine; feedkeys in insert mode often fails to dispatch callback keymaps.
 - **Insert-mode keymaps/autocmds** (like `InsertCharPre` brackets, `<C-Space>` omni) can't be fully verified headless — test the decision logic directly by invoking module functions or replicating the check.
 - **`nvim_feedkeys` needs `nvim_replace_termcodes("<Left>", true, false, true)`** — a literal `"<Left>"` string inserts as text, not a keypress (e.g. produced `()<Left>`).
-- **Test files must be inside the workspace** (`/tmp/opencode/**` or repo) — other external dirs are blocked by opencode permission rules.
+- **Test files must be inside the workspace** (`/tmp/opencode/**` or repo) — external dirs are no longer blocked by default, but keeping tests local avoids side effects.
 - **`vim.lsp.enable` requires `filetypes` per server**; without it servers attach to every buffer. Only enable servers whose binary exists (`vim.fn.executable`), else loading a file errors/spams.
 - **LSP formatting needs an attached client**: `vim.lsp.buf.format`; external formatter fallback in `lua/format.lua` uses `vim.fn.executable` to pick gofmt/rustfmt/black/prettier/shfmt/etc. and silently skips when missing.
 - When testing the source config (not deployed), prepend rtp: `nvim --headless --cmd 'set rtp^=/home/dat/.local/share/chezmoi/dot_config/nvim' -u dot_config/nvim/init.lua`.

@@ -4,7 +4,7 @@
   "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
   "permission": {
     "read": {
-      "*": "ask",
+      "*": "allow",
       "*.env": "deny",
       "*.env.*": "deny",
       "*.env.example": "allow",
@@ -20,26 +20,29 @@
       "**/*.jks": "deny",
       "**/credentials": "deny"
     },
-    "edit": { "*": "ask" },
-    "task": "ask",
-    "webfetch": "ask",
-    "websearch": "ask",
+    "edit": {
+      "*": "allow"
+    },
+    "task": "allow",
+    "webfetch": "allow",
+    "websearch": "allow",
     "bash": {
-      "*": "ask",
-      "sudo *": "deny",
-      "rm -rf *": "deny",
+      "*": "allow",
+      "sudo *": "ask",
+      "git push --force*": "ask",
+      "git push -f*": "ask",
+      "git reset --hard*": "ask",
+      "git clean -f*": "ask",
+      "rm -rf /": "deny",
+      "rm -rf /*": "deny",
       "shutdown*": "deny",
       "reboot*": "deny",
       "poweroff*": "deny",
-      "git push --force*": "deny",
-      "git push -f*": "deny",
-      "git reset --hard*": "deny",
-      "git clean -f*": "deny",
       "dd *": "deny",
       "mkfs*": "deny",
       "chmod -R 777*": "deny",
-      "chown -R *": "deny",
-      "eval *": "deny",
+      "chown -R *": "ask",
+      "eval *": "ask",
       "* | sh": "deny",
       "* | sh -c *": "deny",
       "* | bash": "deny",
@@ -62,6 +65,8 @@
       "*Http_Proxy*": "deny",
       "*Https_Proxy*": "deny"
     },
-    "external_directory": { "*": "ask" }
+    "external_directory": {
+      "*": "allow"
+    }
   }
 }
