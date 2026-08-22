@@ -66,7 +66,7 @@
       "*Https_Proxy*": "deny"
     },
     "external_directory": {
-      "*": "allow"
+      "*": "ask"
     }
   }
 }
