@@ -315,6 +315,25 @@ dlc() {
 	esac
 	aria2c "$url"
 }
+
+# SSH tunnel to a remote dsh web GUI (safer than binding dsh to 0.0.0.0):
+# forwards the remote :PORT to http://127.0.0.1:PORT on this machine.
+# Usage: dsht <user@host> [port]   (Ctrl+C to stop)
+dsht() {
+	local host="${1:-}"
+	if [ -z "$host" ]; then
+		echo "Usage: dsht <user@host> [port]" >&2
+		return 1
+	fi
+	local port="${2:-3080}"
+	echo "Tunneling http://127.0.0.1:$port -> $host:$port (Ctrl+C to stop)" >&2
+	echo "Make sure 'dsh web' is running on the remote." >&2
+	ssh -N \
+		-o ExitOnForwardFailure=yes \
+		-o ServerAliveInterval=30 \
+		-o ServerAliveCountMax=3 \
+		-L "$port:127.0.0.1:$port" "$host"
+}
 alias usevenv='source ".venv/bin/activate"'
 alias codes='code serve-web --without-connection-token --accept-server-license-terms'
 alias codet='code tunnel --no-sleep --accept-server-license-terms'
