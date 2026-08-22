@@ -79,7 +79,6 @@ fi
 prepend_paths \
 	"$PYENV_ROOT/bin" \
 	"$HOME/.local/scripts/py" \
-	"$HOME/.local/scripts/js" \
 	"$HOME/.local/scripts/sh" \
 	"$HOME/.local/scripts/ps1" \
 	"$HOME/.local/scripts/lua" \

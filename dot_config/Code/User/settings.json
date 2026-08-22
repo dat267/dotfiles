@@ -23,7 +23,6 @@
     "files.associations": {
         "*.code-snippets": "jsonc",
         "*.json": "jsonc",
-        ".lfrc": "properties",
         "*.tmpl": "gotmpl",
         "justfile": "plaintext"
     },

@@ -35,8 +35,8 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | File                         | Purpose                                      |
 | ---------------------------- | -------------------------------------------- |
 | `dot_config/helix/`          | Helix editor config (`config.toml`)          |
-| `dot_vimrc`                  | Vim config (vim-plug, ALE, monokai)          |
-| `dot_config/nvim/`           | Neovim: NvChad v2.5 as lazy plugin (customizations in `lua/`); nvim-dap for debugging; Go/Python/TS LSP via Mason |
+| `dot_vimrc`                  | Vim config (vim-plug, ALE, molokai)          |
+| `dot_config/nvim/`           | Neovim: zero-plugin config (built-in LSP, native treesitter, netrw, custom statusline/brackets/comments/format); no plugins or Mason |
 | `dot_config/Code/`           | VS Code settings                             |
 
 ### Yazi File Manager
@@ -46,7 +46,6 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `dot_config/yazi/keymap.toml`| Custom: `t f/t c` translate, `z *` tools menu  |
 | `dot_config/yazi/init.lua`   | Plugin setup (none currently)                |
 | `dot_config/yazi/theme.toml` | Visual theme (needs Nerd Font for icons)     |
-| `dot_config/yazi/plugins/`   | yazi-split (only working Lua plugin)             |
 
 ### Python Scripts (`dot_local/scripts/py/`)
 
@@ -69,7 +68,7 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `executable_url_decode_rename.py` | Decode URL-encoded filenames in a dir      |
 | `executable_start-awsvpn.py` | AWS Client VPN via SAML SSO                |
 | `executable_install_android_sdk.py` | Install Android SDK cmdline-tools       |
-| `executable_codi.py`            | Run opencode in an isolated podman container (Debian + latest toolchains), mounting only the current project dir. Image includes bun + Playwright JS + chromium (use `bun build --compile --external playwright` for binaries); golangci-lint v2; uv; gh |
+| `executable_codi.py`            | Run opencode in an isolated podman container (Debian + latest toolchains), mounting only the current project dir. Toolchain installed on first launch into a persistent home volume (fnm+node LTS, uv, Go, Rust, chezmoi, opencode); survives container recreation, wiped by `codi --reset` |
 
 **Shared module:**
 | Script                      | Purpose                                      |
@@ -84,7 +83,7 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `dot_config/wezterm/`        | WezTerm terminal config                      |
 | `dot_config/powershell/`     | PowerShell profile                           |
 | `private_dot_termux/`        | Android Termux configs                       |
-| `private_dot_gitconfig`      | Git config (aliases, autosquash, etc.)       |
+| `private_dot_gitconfig.base`  | Git config base file (aliases, autosquash, etc.), included from `~/.gitconfig` via the `modify_private_dot_gitconfig` modify template |
 | `.chezmoi.toml.tmpl`         | Chezmoi config template (Git auto-push, OS paths) |
 | `.chezmoiignore`             | Files excluded from deployment (OS-conditional) |
 | `run_once_before_bootstrap-local-configs.*` | First-run bootstrap (local config stubs) |
@@ -127,7 +126,7 @@ All executable Python scripts follow these conventions:
 
 ### Neovim Configuration & Testing
 
-The nvim config in `dot_config/nvim/` is **zero-plugin** (built-ins only: `vim.lsp`, native treesitter, netrw, custom statusline/brackets/format). Modules load from `init.lua` in order: options, keymaps, autocmds, treesitter, netrw, statusline, brackets, format, lsp.
+The nvim config in `dot_config/nvim/` is **zero-plugin** (built-ins only: `vim.lsp`, native treesitter, netrw, custom statusline/brackets/comments/format). Modules load from `init.lua` in order: options, keymaps, autocmds, treesitter, netrw, statusline, brackets, comments, format, lsp.
 
 **Headless testing** — logic and integration can be verified, but NOT visuals/UI:
 
@@ -177,7 +176,7 @@ General rules: LSP checks need `vim.wait()` after load (clients attach async); i
 ## Out of Scope
 
 - `README.md` is listed in `.chezmoiignore` — never deployed
-- `AGENTS.md` should also be added to `.chezmoiignore`
+- `AGENTS.md` is listed in `.chezmoiignore` — never deployed
 - `AppData/` is Windows-only, ignored on other platforms
 - `private_dot_termux/` is Android-only, ignored on other platforms
 - `__pycache__/` and `*.pyc` are excluded from version control

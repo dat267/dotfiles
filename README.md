@@ -19,13 +19,13 @@ powershell -c "& { iwr -useb get.chezmoi.io | iex }; chezmoi init --apply dat267
 | Category | Tools / Configs |
 |---|---|
 | **Shell** | Bash (`~/.bashrc`), Zsh (`~/.zshrc`), `~/.profile` |
-| **Editors** | Neovim (minimal, fast setup), Vim (vim-plug, ALE, Monokai) |
+| **Editors** | Neovim (minimal, zero-plugin setup), Vim (vim-plug, ALE, molokai) |
 | **Terminal** | WezTerm, Windows Terminal |
 | **File Managers** | Yazi, lf (Linux + Windows) |
 | **Media** | mpv (autoload scripts), aria2 |
 | **Git** | `~/.gitconfig` (autosquash, aliases, per-directory identity) |
 | **PowerShell** | Profile + custom `Utils.psm1` module |
-| **VS Code** | Settings + 16 snippet files across languages |
+| **VS Code** | Settings + 11 snippet files across languages |
 | **SSH** | Client config (Tailscale/CGNAT hosts) |
 
 ## Platform Support
@@ -43,14 +43,13 @@ dot_config/nvim/          Neovim minimal Lua config (fast startup, zero plugins)
 dot_config/wezterm/       WezTerm terminal config
 dot_config/yazi/          Yazi file manager
 dot_config/powershell/    PowerShell profile + module
-dot_config/lf/            lf file manager
 dot_config/mpv/           mpv media player
 dot_config/aria2/         aria2 download manager
 dot_config/Code/User/     VS Code settings + snippets
 dot_local/scripts/py/     Python utility scripts (added to PATH)
 dot_local/scripts/sh/     Shell scripts
 dot_local/scripts/ps1/    PowerShell scripts
-AppData/Local/            Windows-only configs (lf, Windows Terminal)
+AppData/Local/            Windows-only configs (Windows Terminal)
 private_dot_ssh/          SSH client config
 ```
 

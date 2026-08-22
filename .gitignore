@@ -2,10 +2,6 @@
 __pycache__/
 *.py[cod]
 
-# Node.js
-dot_local/scripts/js/node_modules/
-dot_local/scripts/js/node_modules
-
 # Secrets
 .env
 .env.*
