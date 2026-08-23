@@ -1,6 +1,6 @@
 ---
 name: verify-before-done
-description: General-purpose final quality gate before you finish any task: prove the changes actually run, follow the repo's own conventions, guard against environment and cross-platform breaks, leave no scaffolding behind, and report changed files with an exact verification step. Run through it at the end of every task.
+description: Run before finishing any task: prove the changes actually run, follow the repo's conventions, guard against environment and cross-platform breaks, leave no scaffolding behind, and report changed files with an exact verification step.
 ---
 
 # Verify Before Done
