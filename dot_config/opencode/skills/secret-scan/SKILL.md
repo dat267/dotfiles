@@ -23,7 +23,7 @@ Check every diff for sensitive data before it lands. Default stance: anything se
 
 ## 4. Right place for credentials
 
-- Environment variables + OS credential stores (Windows Credential Manager, Linux secret manager, `chezoi`-style external prompts). Never a tracked file, never a committed `.env.example` with real values.
+- Environment variables + OS credential stores (e.g. Windows Credential Manager, Linux secret managers), or chezmoi-style on-demand prompts. Never a tracked file, never a committed `.env.example` with real values.
 
 ## 5. Report
 

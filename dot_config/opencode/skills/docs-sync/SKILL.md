@@ -15,7 +15,7 @@ Documentation drift is a bug. When your change touches something that documentat
 ## 2. Update in the same change
 
 - Fix titles, table rows, module lists, conventions lists, and example commands to match the new reality — precisely, not aspirationally.
-- Update comments that describe behavior (e.g. "`%s` must never be quoted", "module loads from `init.lua` in order: …").
+- Update comments that describe behavior (e.g. a comment header documenting an option's quoting constraints, or a section enumerating a module's load order).
 - Match the repo's existing doc style; don't restructure unrelated sections.
 
 ## 3. Verify claims
