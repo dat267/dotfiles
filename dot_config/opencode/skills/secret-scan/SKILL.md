@@ -1,11 +1,18 @@
 ---
 name: secret-scan
-description: Pre-commit review for secrets and sensitive data. Use when writing or reviewing any diff that could touch credentials, env files, API keys, SSH keys, proxy credentials, cloud configs, tokens, or machine-local paths — scan, flag, and scrub before finishing, and prefer OS credential stores over tracked files.
+description: Pre-commit review for secrets and sensitive data. Use when writing or reviewing any diff that could touch credentials, env files, API keys, SSH keys, proxy credentials, cloud configs, tokens, or machine-local paths — if this session has already shown you any secret value, tell the user first thing; then scan, flag, and scrub before finishing, and prefer OS credential stores over tracked files.
 ---
 
 # Secret Scan
 
 Check every diff for sensitive data before it lands. Default stance: anything secret stays out of the repo.
+
+## 0. Notify the user of what you know — first
+
+- Before scanning anything, tell the user if this session has already exposed secret material to you: credentials, API keys, tokens, proxy passwords, SSH keys, or anything from `.env`/private configs you have read.
+- Name each item and its source (conversation, file read, environment variable, config) — do not paste full values into output unless the user asks.
+- State what you are about to do with it and the risk it faces (e.g. a commit that would include the value from the user's env).
+- Get the user's call — rotate, allow, or scrub — before proceeding with the diff scan.
 
 ## 1. Scan the diff surface
 
