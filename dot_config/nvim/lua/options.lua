@@ -21,7 +21,6 @@ opt.list = true
 opt.listchars = { tab = "» ", trail = "·", nbsp = "␣" }
 
 opt.mouse = "a"
-opt.termguicolors = true
 opt.splitright = true
 opt.splitbelow = true
 opt.ignorecase = true

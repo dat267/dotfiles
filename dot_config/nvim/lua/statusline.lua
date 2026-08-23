@@ -42,13 +42,13 @@ function M.build()
   local modified = vim.bo.modified and " +" or ""
 
   return table.concat({
-    "%#StatuslineAccent#" .. mode() .. "%*",
+    "%#ModeMsg#" .. mode() .. "%*",
     " " .. file .. modified .. " ",
-    "%#StatuslineLineNr#%{&ff} %{&fenc!=''?&fenc:&enc}%*",
+    "%#LineNr#%{&ff} %{&fenc!=''?&fenc:&enc}%*",
     " " .. lsp_status(),
-    " %#StatuslineDiagnosticError#" .. diagnostic_count(vim.diagnostic.severity.ERROR) .. "%*",
-    " %#StatuslineDiagnosticWarn#" .. diagnostic_count(vim.diagnostic.severity.WARN) .. "%*",
-    "%=%#StatuslineLineNr#%l:%c %P%*",
+    " %#ErrorMsg#" .. diagnostic_count(vim.diagnostic.severity.ERROR) .. "%*",
+    " %#WarningMsg#" .. diagnostic_count(vim.diagnostic.severity.WARN) .. "%*",
+    "%=%#LineNr#%l:%c %P%*",
   })
 end
 
