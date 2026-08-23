@@ -37,3 +37,4 @@ run_onchange_after_create-symlinks.sh.tmpl
 **/*.zwc
 **/*.zcompdump*
 **/*.log
+.config/nvim/TESTING.md
