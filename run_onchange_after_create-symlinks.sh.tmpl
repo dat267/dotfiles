@@ -30,9 +30,10 @@ if command -v helix >/dev/null 2>&1 && ! command -v hx >/dev/null 2>&1; then
 fi
 
 
-# Remove the legacy ~/-chezmoi symlink if it still exists
-if [ -L "$HOME/-chezmoi" ]; then
-    echo "Removing legacy symlink: $HOME/-chezmoi"
-    rm "$HOME/-chezmoi"
+# Remove a legacy `~/.chezmoi` symlink if one still exists (safe: only ever
+# removes a symlink, never follows/removes its target).
+if [ -L "$HOME/.chezmoi" ]; then
+    echo "Removing legacy symlink: $HOME/.chezmoi"
+    rm "$HOME/.chezmoi"
 fi
 {{ end -}}

@@ -12,4 +12,6 @@ require "comments"
 require "format"
 require "lsp"
 
-vim.cmd.colorscheme("catppuccin")
+-- Optional colorscheme: this repo ships no plugins, so only apply
+-- catppuccin if a runtime copy is actually installed (e.g. distro package).
+pcall(vim.cmd, "colorscheme catppuccin")

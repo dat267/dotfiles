@@ -3,6 +3,9 @@ suppress_preload = true
 
 [opener]
 edit = [
+  # Windows paths may contain spaces, so %s is intentional quoted here.
+  # The unix rule stays unquoted — Yazi already escapes paths. Keep unix/open
+  # rules quote-free per AGENTS.md; do not add quotes to them.
   { run = 'nvim "%s"', block = true, for = "windows" },
   { run = 'nvim %s1', block = true, for = "unix" },
 ]

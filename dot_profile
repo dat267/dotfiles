@@ -44,7 +44,9 @@ for editor in nvim vim hx helix nano; do
 		break
 	fi
 done
-export NVIM_TEST=1
+# Test-only flag for nvim development; commented out so it does not leak
+# into every shell session.
+# export NVIM_TEST=1
 export AWS_PAGER=""
 export GLOBIGNORE=.:..
 export PYENV_ROOT="$HOME/.pyenv"
@@ -84,7 +86,6 @@ prepend_paths \
 	"$HOME/.local/scripts/py" \
 	"$HOME/.local/scripts/sh" \
 	"$HOME/.local/scripts/ps1" \
-	"$HOME/.local/scripts/lua" \
 	"$HOME/.local/opt/go/bin" \
 	"$HOME/.local/opt/VSCode-linux/bin" \
 	"$HOME/.local/bin" \
@@ -261,7 +262,8 @@ alias grep='grep --color=auto'
 alias ipe='curl -s ipinfo.io/ip'
 alias la='ls -A'
 alias epoch='date +%s'
-alias exit='exit 0'
+# Note: no `alias exit=...` here — default `exit` preserves the last command's
+# exit status. Forcing `exit 0` masks failures, so it is intentionally removed.
 alias genpassword='openssl rand -base64 16'
 cm() {
 	if [ "$1" = "cd" ]; then

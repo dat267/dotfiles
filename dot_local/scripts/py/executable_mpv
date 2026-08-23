@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
+"""Launch/resume a single mpv instance by reusing the Unix IPC socket.
+
+Files passed on the command line are appended to the running instance's
+playlist (launching one if needed). Runs are non-blocking: mpv replaces
+this process via execv.
+"""
 import os
+import shutil
 import socket
 import string
 import sys
 from collections.abc import Iterable
 from typing import BinaryIO
+
 
 def is_url(filename: str) -> bool:
     parts = filename.split("://", 1)
@@ -14,15 +22,17 @@ def is_url(filename: str) -> bool:
     prefix = parts[0]
     return all(c in allowed_symbols for c in prefix)
 
+
 def get_socket_path() -> str:
     base_dir = (
-        os.getenv("UMPV_SOCKET_DIR") or
-        os.getenv("XDG_RUNTIME_DIR") or
-        os.getenv("HOME") or
-        os.getenv("TMPDIR") or
-        "/tmp"
+        os.getenv("UMPV_SOCKET_DIR")
+        or os.getenv("XDG_RUNTIME_DIR")
+        or os.getenv("HOME")
+        or os.getenv("TMPDIR")
+        or "/tmp"
     )
     return os.path.join(base_dir, ".mpv_single_socket")
+
 
 def send_files_to_mpv(conn: socket.socket | BinaryIO, files: Iterable[str]) -> None:
     try:
@@ -34,29 +44,35 @@ def send_files_to_mpv(conn: socket.socket | BinaryIO, files: Iterable[str]) -> N
         print("mpv is terminating or the connection was lost.", file=sys.stderr)
         sys.exit(1)
 
-def start_mpv(options: list[str], files: Iterable[str], socket_path: str) -> None:
-    mpv_binary = "/usr/bin/mpv"
+
+def start_mpv(mpv_binary: str, options: list[str], files: Iterable[str], socket_path: str) -> None:
     mpv_command = [
         mpv_binary,
         f"--input-ipc-server={socket_path}",
     ]
     mpv_command.extend(options)
-    
+
     if files:
         mpv_command.append("--")
         mpv_command.extend(files)
-        
+
     try:
         os.execv(mpv_binary, mpv_command)
     except Exception as e:
         print(f"Error starting mpv: {e}", file=sys.stderr)
         sys.exit(1)
 
+
 def main() -> None:
+    mpv_binary = shutil.which("mpv")
+    if not mpv_binary:
+        print("mpv: command not found", file=sys.stderr)
+        sys.exit(1)
+
     options = []
     files = []
     in_files = False
-    
+
     for arg in sys.argv[1:]:
         if in_files:
             files.append(arg)
@@ -66,11 +82,10 @@ def main() -> None:
             options.append(arg)
         else:
             files.append(arg)
-            
+
     files = [os.path.abspath(f) if not is_url(f) else f for f in files]
-    
+
     if not files:
-        mpv_binary = "/usr/bin/mpv"
         try:
             os.execv(mpv_binary, [mpv_binary] + options)
         except Exception as e:
@@ -84,7 +99,8 @@ def main() -> None:
             sock.connect(socket_path)
             send_files_to_mpv(sock, files)
     except (FileNotFoundError, ConnectionRefusedError, ConnectionResetError):
-        start_mpv(options, files, socket_path)
+        start_mpv(mpv_binary, options, files, socket_path)
+
 
 if __name__ == "__main__":
     main()
