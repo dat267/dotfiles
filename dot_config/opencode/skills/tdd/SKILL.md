@@ -9,7 +9,7 @@ TDD is the red → green loop. This skill is the reference that makes that loop 
 
 ## Understand the project context first
 
-When exploring the codebase, read any project glossary, domain docs, or architecture notes that exist (for example `CONTEXT.md`, ADRs, `docs/`, or a project README) so test names and interface vocabulary match the project's own language. If none exist, follow the naming and conventions already used by the surrounding code and tests.
+When exploring the codebase, read any project glossary, domain docs, or architecture notes that exist (for example ADRs, `docs/`, or a project README) so test names and interface vocabulary match the project's own language. If none exist, follow the naming and conventions already used by the surrounding code and tests.
 
 ## What a good test is
 

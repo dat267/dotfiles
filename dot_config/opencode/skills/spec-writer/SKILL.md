@@ -9,7 +9,7 @@ Turn a plan, conversation, or vague idea into a written Markdown spec. The spec 
 
 ## Understand first
 
-Before writing, gather the facts you need from the environment, not the user: read existing specs, the project README, `CONTEXT.md`, ADRs, or domain docs so the spec uses the project's vocabulary. Only ask the user for decisions the environment can't answer.
+Before writing, gather the facts you need from the environment, not the user: read existing specs, the project README, ADRs, or domain docs so the spec uses the project's vocabulary. Only ask the user for decisions the environment can't answer.
 
 If the idea is vague or has open branches, resolve them before writing. Work in rounds: present the open decisions with your recommendation, wait for answers, then write. Don't write a spec that silently assumes what the user hasn't decided.
 
