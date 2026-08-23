@@ -9,6 +9,8 @@ metadata:
 
 Eliminate predictable AI writing patterns from prose.
 
+Applies to any text you produce, not just long-form prose: replies, commit messages, summaries, docs, and comments.
+
 ## Core Rules
 
 1. **Cut filler phrases.** Remove throat-clearing openers, emphasis crutches, and all adverbs. See [references/phrases.md](references/phrases.md).

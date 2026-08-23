@@ -1,6 +1,6 @@
 ---
 name: secret-scan
-description: Pre-commit review for secrets and sensitive data. Use when writing or reviewing any diff that could touch credentials, env files, API keys, SSH keys, proxy credentials, cloud configs, tokens, or machine-local paths — if this session has already shown you any secret value, tell the user first thing; then scan, flag, and scrub before finishing, and prefer OS credential stores over tracked files.
+description: Pre-commit review for secrets. Use when a diff could touch credentials, env files, API keys, SSH keys, proxy credentials, cloud configs, tokens, or machine-local paths. If you already know a secret from this session, tell the user first; then scan, flag, and scrub, and prefer OS credential stores over tracked files.
 ---
 
 # Secret Scan

@@ -34,4 +34,4 @@ Find the cause, not the workaround. Work in the cheapest loop that returns infor
 
 ## 6. Know when to stop
 
-- If you're still guessing after several failed rounds, stop and report: what you tried, what you observed, and one specific question — not another random attempt.
+- If about three failed hypotheses still leave you guessing, stop and report: what you tried, what you observed, and one specific question, not another random attempt.
