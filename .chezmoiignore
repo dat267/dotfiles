@@ -32,11 +32,6 @@ run_onchange_after_create-symlinks.sh.tmpl
 
 .local/bin
 .config/yazi.tar.gz
-# opencode skill content lives in source only (dot_local/opencode/skills);
-# ~/.config/opencode/skills is a managed symlink to it (see
-# dot_config/opencode/symlink_skills.tmpl), so nothing under ~/.local/opencode
-# is ever deployed.
-.local/opencode
 **/*.pyc
 **/__pycache__
 **/*.zwc
