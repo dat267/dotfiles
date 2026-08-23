@@ -68,6 +68,7 @@ Prefixes can stack (e.g. `private_executable_`, `executable_dot_`).
 | `executable_url_decode_rename.py` | Decode URL-encoded filenames in a dir      |
 | `executable_start-awsvpn.py` | AWS Client VPN via SAML SSO                |
 | `executable_install_android_sdk.py` | Install Android SDK cmdline-tools       |
+| `executable_translate-en.py`        | Translate text files to English via chat.deepseek.com web API (nothink/nosearch Instant mode; vendored PoW wasm under `_vendor/deepseek/`; token from `DEEPSEEK_TOKEN` env or `~/.config/deepseek/chat-token.json` — never commit it) |
 | `executable_codi.py`            | Run opencode in an isolated podman container (Debian + latest toolchains), mounting only the current project dir. Toolchain installed on first launch into a persistent home volume (fnm+node LTS, uv, Go, Rust, chezmoi, opencode); survives container recreation, wiped by `codi --reset` |
 
 **Shared module:**
