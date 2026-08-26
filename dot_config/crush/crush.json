@@ -13,7 +13,7 @@
       "agent", "sourcegraph"
     ],
     "skills_paths": [
-      ".config/crush/skills"
+      "/home/dat/.cache/opencode/packages/superpowers@git+https:/github.com/obra/superpowers.git/node_modules/superpowers/skills"
     ],
     "auto_lsp": true,
     "attribution": {

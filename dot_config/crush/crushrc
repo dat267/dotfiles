@@ -6,5 +6,4 @@
 option global-context-path "$HOME/.config/crush/context.md"
 
 # ── Skills ─────────────────────────────────────────────────────────────
-# Local skills directory (relative to project root)
-option skill-path .config/crush/skills
+# Superpowers skills are registered via crush.json's options.skills_paths.
