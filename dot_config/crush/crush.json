@@ -3,13 +3,14 @@
   "permissions": {
     "allowed_tools": [
       "view", "ls", "glob", "grep", "edit", "multiedit", "write", "bash",
+      "fetch", "agentic_fetch",
       "lsp_symbols", "lsp_definition", "lsp_references", "lsp_rename",
       "lsp_replace_symbol", "lsp_diagnostics", "lsp_call_hierarchy"
     ]
   },
   "options": {
     "disabled_tools": [
-      "download", "agent", "agentic_fetch", "fetch", "sourcegraph"
+      "agent", "sourcegraph"
     ],
     "skills_paths": [
       ".config/crush/skills"
