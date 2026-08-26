@@ -10,7 +10,7 @@
   },
   "options": {
     "disabled_tools": [
-      "bash", "agent", "sourcegraph"
+      "agent", "sourcegraph"
     ],
     "skills_paths": [
       ".config/crush/skills"
