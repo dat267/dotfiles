@@ -151,8 +151,3 @@ fi
 if [[ ! -S "$SSH_AUTH_SOCK" ]]; then
   eval "$(ssh-agent -s -a "$SSH_AUTH_SOCK")" >/dev/null 2>&1
 fi
-
-# >>> oh-my-opencode-slim background subagents >>>
-export OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true
-export OPENCODE_ENABLE_EXA=1
-# <<< oh-my-opencode-slim background subagents <<<
