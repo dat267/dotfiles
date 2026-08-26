@@ -4,47 +4,47 @@
   "presets": {
     "zen-free": {
       "orchestrator": {
-        "model": "opencode/big-pickle",
+        "model": "opencode-go/hy3",
         "variant": "high",
         "temperature": 0.4,
         "skills": ["*"],
         "mcps": ["*", "!context7"]
       },
       "oracle": {
-        "model": "opencode/big-pickle",
+        "model": "opencode-go/gpt-5.6-luna",
         "temperature": 0.4,
         "variant": "max",
         "skills": ["simplify"],
         "mcps": []
       },
       "explorer": {
-        "model": "opencode/nemotron-3.5-lightning-free",
+        "model": "opencode-go/deepseek-v4-flash",
         "temperature": 0.2,
         "skills": [],
         "mcps": []
       },
       "librarian": {
-        "model": "opencode/nemotron-3.5-lightning-free",
+        "model": "opencode-go/glm-5.3-flash",
         "temperature": 0.2,
         "skills": [],
         "mcps": ["context7", "gh_grep"]
       },
       "designer": {
-        "model": "opencode/mimo-v2.5-free",
+        "model": "opencode-go/mimo-v2.5-pro",
         "temperature": 0.3,
         "variant": "medium",
         "skills": [],
         "mcps": []
       },
       "fixer": {
-        "model": "opencode/hy3-free",
+        "model": "opencode-go/deepseek-v4-flash",
         "variant": "high",
         "temperature": 0.2,
         "skills": [],
         "mcps": []
       },
       "observer": {
-        "model": "opencode/mimo-v2.5-free",
+        "model": "opencode-go/mimo-v2.5",
         "temperature": 0.2,
         "variant": "low",
         "skills": [],
