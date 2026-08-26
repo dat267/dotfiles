@@ -59,6 +59,8 @@ $folderMap = @{
     "$env:APPDATA\Code - OSS\User"                   = "{{ .chezmoi.homeDir }}/.config/Code/User"
     "$env:APPDATA\yazi\config"                       = "{{ .chezmoi.homeDir }}/.config/yazi"
     "$HOME\scoop\persist\vscode\data\user-data\User" = "{{ .chezmoi.homeDir }}/.config/Code/User"
+    "$env:USERPROFILE\.config\crush\skills"          = "{{ .chezmoi.sourceDir }}/dot_config/crush/skills"
+    "$env:USERPROFILE\.config\opencode\skills"       = "{{ .chezmoi.sourceDir }}/dot_config/opencode/skills"
 }
 
 function Create-Junction($link, $target) {

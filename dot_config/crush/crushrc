@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Global Crush configuration — managed by chezmoi.
+# Main config is in crush.json alongside this file.
+# This file is kept for bash-native config not expressible in JSON.

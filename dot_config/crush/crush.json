@@ -1,0 +1,32 @@
+{
+  "$schema": "https://charm.land/crush.json",
+  "permissions": {
+    "allowed_tools": [
+      "view", "ls", "glob", "grep", "edit", "multiedit", "write", "bash",
+      "lsp_symbols", "lsp_definition", "lsp_references", "lsp_rename",
+      "lsp_replace_symbol", "lsp_diagnostics", "lsp_call_hierarchy"
+    ]
+  },
+  "options": {
+    "disabled_tools": [
+      "download", "agent", "agentic_fetch", "fetch", "sourcegraph"
+    ],
+    "skills_paths": [
+      ".config/crush/skills"
+    ],
+    "auto_lsp": true,
+    "attribution": {
+      "trailer_style": "assisted-by",
+      "generated_with": true
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "name": "block-secrets",
+        "matcher": "^(view|grep|bash|edit|write|multiedit|glob|ls)$",
+        "command": "$HOME/.config/crush/hooks/block-secrets.sh"
+      }
+    ]
+  }
+}
