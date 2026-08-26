@@ -2,8 +2,7 @@
   "$schema": "https://charm.land/crush.json",
   "permissions": {
     "allowed_tools": [
-      "view", "ls", "glob", "grep", "edit", "multiedit", "write", "bash",
-      "fetch", "agentic_fetch",
+      "view", "ls", "glob", "grep", "edit", "write", "multiedit", "fetch", "agentic_fetch", "download",
       "lsp_symbols", "lsp_definition", "lsp_references", "lsp_rename",
       "lsp_replace_symbol", "lsp_diagnostics", "lsp_call_hierarchy"
     ]
@@ -25,7 +24,7 @@
     "PreToolUse": [
       {
         "name": "block-secrets",
-        "matcher": "^(view|grep|bash|edit|write|multiedit|glob|ls)$",
+        "matcher": "^(view|grep|bash|edit|write|multiedit|glob|ls|download)$",
         "command": "$HOME/.config/crush/hooks/block-secrets.sh"
       }
     ]
