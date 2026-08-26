@@ -1,6 +1,6 @@
 ---
 name: docs-sync
-description: Keep documentation in sync with code in the same change. Use when a change alters behavior, configuration, file layout, commands, or conventions that any README, AGENTS.md, table, module list, or comment describes — update those docs in the same commit and list them in your report.
+description: Documentation sync — update README, AGENTS.md, comments, help text when code changes
 ---
 
 # Docs Sync

@@ -1,6 +1,6 @@
 ---
 name: stop-slop
-description: Remove AI writing patterns from prose. Use when drafting, editing, or reviewing text to eliminate predictable AI tells.
+description: AI writing cleanup — remove buzzwords, padding, weasel words, make prose tight and direct
 metadata:
   author: Hardik Pandya (https://hvpandya.com)
 ---

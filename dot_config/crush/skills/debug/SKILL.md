@@ -1,6 +1,6 @@
 ---
 name: debug
-description: Systematic fault isolation. Use when something fails, errors, hangs, or misbehaves and the cause is not obvious — do minimal reproduction, read the real output, check assumptions, bisect changes, and fix the cause rather than the symptom.
+description: Debugging — failures, errors, hangs, crashes, bisect, root cause, fix
 ---
 
 # Debug

@@ -1,7 +1,6 @@
 ---
 name: dotfiles
-description: Manage chezmoi dotfiles — diff, apply, add, edit, template
-user-invocable: true
+description: Chezmoi dotfiles — diff, apply, add, edit, template, manage dotfiles
 ---
 
 # Dotfiles

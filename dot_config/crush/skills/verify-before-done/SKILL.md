@@ -1,6 +1,6 @@
 ---
 name: verify-before-done
-description: Run before finishing any task. Prove the changes actually run, follow the repo's conventions, guard against environment and cross-platform breaks, leave no scaffolding behind, and report changed files with an exact verification step.
+description: Pre-completion verification — test, lint, cross-platform check, no scaffolding, report
 ---
 
 # Verify Before Done

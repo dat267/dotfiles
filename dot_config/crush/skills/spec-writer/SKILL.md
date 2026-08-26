@@ -1,6 +1,6 @@
 ---
 name: spec-writer
-description: Turn a plan, conversation, or vague idea into a written spec. Use when the user says "write a spec", "spec this", wants a plan documented before implementation, or is about to build something and wants requirements captured first.
+description: Spec writing — plan, requirements, design doc, RFC, specification, define scope
 ---
 
 # Spec Writer
