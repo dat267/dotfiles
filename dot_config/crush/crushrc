@@ -5,4 +5,4 @@
 
 # ── Global context ─────────────────────────────────────────────────────
 # Injected into every prompt to remind the model of available skills.
-option global-context-path .config/crush/context.md
+option global-context-path "$HOME/.config/crush/context.md"
