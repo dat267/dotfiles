@@ -2,3 +2,7 @@
 # Global Crush configuration — managed by chezmoi.
 # Main config is in crush.json alongside this file.
 # This file is kept for bash-native config not expressible in JSON.
+
+# ── Global context ─────────────────────────────────────────────────────
+# Injected into every prompt to remind the model of available skills.
+option global-context-path .config/crush/context.md
