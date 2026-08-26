@@ -14,6 +14,9 @@
     "skills_paths": [
       ".config/crush/skills"
     ],
+    "global_context_paths": [
+      ".crush/context.md"
+    ],
     "auto_lsp": true,
     "attribution": {
       "trailer_style": "assisted-by",
