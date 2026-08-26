@@ -3,8 +3,7 @@
 
 # Define source and target pairs: "target_link|source_directory"
 for pair in \
-    "$HOME/.config/Code - OSS/User|{{ .chezmoi.homeDir }}/.config/Code/User" \
-    "$HOME/.config/crush/skills|{{ .chezmoi.sourceDir }}/dot_config/crush/skills"
+    "$HOME/.config/Code - OSS/User|{{ .chezmoi.homeDir }}/.config/Code/User"
 do
     target="${pair%%|*}"
     source="${pair#*|}"

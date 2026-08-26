@@ -32,7 +32,6 @@ run_onchange_after_create-symlinks.sh.tmpl
 
 .local/bin
 .config/yazi.tar.gz
-.config/crush/skills/**
 **/*.pyc
 **/__pycache__
 **/*.zwc
