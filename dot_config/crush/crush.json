@@ -15,7 +15,7 @@
       ".config/crush/skills"
     ],
     "global_context_paths": [
-      ".crush/context.md"
+      ".config/crush/context.md"
     ],
     "auto_lsp": true,
     "attribution": {
