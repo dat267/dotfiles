@@ -38,6 +38,12 @@ def get_uptime():
     except Exception:
         pass
     try:
+        out = subprocess.run(["uptime", "-p"], capture_output=True, text=True, timeout=5)
+        if out.returncode == 0:
+            return out.stdout.strip().replace("up ", "")
+    except Exception:
+        pass
+    try:
         if sys.platform == "win32":
             import ctypes
             tick = ctypes.windll.kernel32.GetTickCount64()
@@ -64,8 +70,14 @@ def get_cpu_info():
                 for line in f:
                     if line.startswith("model name"):
                         model = line.split(":", 1)[1].strip()
+                        cores += 1
                     elif line.startswith("processor"):
                         cores += 1
+                    elif line.startswith("Hardware"):
+                        model = line.split(":", 1)[1].strip()
+                    elif line.startswith("CPU implementer"):
+                        imp = line.split(":", 1)[1].strip()
+                        model = f"ARMv8 (0x{imp})"
             if model and cores:
                 model = model.replace("(TM)", "™").replace("(R)", "®")
                 return f"{model} ({cores} cores)"
