@@ -28,6 +28,11 @@ run_onchange_after_create-junctions.ps1.tmpl
 .profile
 .zshrc
 run_onchange_after_create-symlinks.sh.tmpl
+run_onchange_after_systemd-user-reload.sh.tmpl
+{{- end }}
+
+{{- if ne .chezmoi.os "linux" }}
+.config/systemd
 {{- end }}
 
 .local/bin

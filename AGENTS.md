@@ -31,6 +31,7 @@ Prefixes can stack (`private_executable_`, `executable_dot_`).
 | Git | `private_dot_gitconfig.base`, included via `modify_private_dot_gitconfig` |
 | Chezmoi | `.chezmoi.toml.tmpl`, `.chezmoiignore` |
 | Crush | `dot_config/crush/` (JSON config, `hooks/executable_block-secrets.sh`) |
+| Dsh | `dot_config/systemd/user/dsh-web.service` (Linux-only): persistent `dsh web --no-open`; manage with `systemctl --user enable --now dsh-web`, logs via `journalctl --user -u dsh-web`; remote access via `dsht <host>` (`dot_profile`). Reload hook: `run_onchange_after_systemd-user-reload.sh.tmpl` |
 | Bootstrap | `run_once_before_bootstrap-local-configs.*`, `run_onchange_after_create-{symlinks,junctions}.*` |
 
 Python scripts live in `dot_local/scripts/py/`: `executable_yazi-*.py` (Yazi helpers), `executable_install_*.py` (tool installers), plus utils (`install_nerd_font`, `start-awsvpn`, `codi`, etc.), sharing `_shared.py`.
