@@ -7,7 +7,6 @@ $global:__dotfiles_profile_loaded = $true
     $paths = @(
         "$HOME/.config/powershell/scripts",
         "$HOME/.local/scripts/py",
-        "$HOME/.local/scripts/lua",
         "$HOME/.local/scripts/ps1",
         "$HOME/.local/bin",
         "$HOME/bin"
