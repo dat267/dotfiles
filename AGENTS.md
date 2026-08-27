@@ -30,7 +30,7 @@ Prefixes can stack (`private_executable_`, `executable_dot_`).
 | Termux | `private_dot_termux/` (Android-only) |
 | Git | `private_dot_gitconfig.base`, included via `modify_private_dot_gitconfig` |
 | Chezmoi | `.chezmoi.toml.tmpl`, `.chezmoiignore` |
-| Crush | `dot_config/crush/` (JSON config, `hooks/executable_block-secrets.sh`) |
+| Crush | `dot_config/crush/` (JSON config, `crushrc`, `context.md`; `private_skills/` for skills) |
 | Dsh | `dot_config/systemd/user/dsh-web.service` (Linux-only): persistent `dsh web --no-open`; manage with `systemctl --user enable --now dsh-web`, logs via `journalctl --user -u dsh-web`; remote access via `dsht <host>` (`dot_profile`). Reload hook: `run_onchange_after_systemd-user-reload.sh.tmpl` |
 | Bootstrap | `run_once_before_bootstrap-local-configs.*`, `run_onchange_after_create-{symlinks,junctions}.*` |
 
@@ -69,7 +69,7 @@ Preserve `{{ if eq .chezmoi.os "..." }}` guards in `.tmpl` files.
 
 ### Neovim
 
-Zero-plugin (built-ins only). Module load order: options, keymaps, autocmds, treesitter, netrw, statusline, brackets, comments, format, lsp. For headless testing, key gotchas, and the per-module verification checklist, see `dot_config/nvim/TESTING.md`.
+Zero-plugin (built-ins only). Module load order: options, keymaps, autocmds, treesitter, netrw, statusline, brackets, comments, format, lsp. For headless testing, key gotchas, and the per-module verification checklist, see `docs/nvim-testing.md`.
 
 ### Yazi Configuration
 

@@ -44,7 +44,7 @@ dot_config/nvim/          Neovim minimal Lua config (fast startup, zero plugins)
 dot_config/wezterm/       WezTerm terminal config
 dot_config/yazi/          Yazi file manager
 dot_config/powershell/    PowerShell profile + module
-dot_config/crush/         Crush config + secret-blocking hook + skills
+dot_config/crush/         Crush config (JSON + crushrc + skills)
 dot_config/mpv/           mpv media player
 dot_config/aria2/         aria2 download manager
 dot_config/Code/User/     VS Code settings + snippets
