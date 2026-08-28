@@ -13,28 +13,38 @@ Guidelines for AI agents working in this dotfiles repository.
 | `dot_` | Deployed as a dotfile (`dot_vimrc` → `~/.vimrc`) |
 | `private_` | Deployed with mode `0600` |
 | `executable_` | Deployed with executable bit; prefix stripped |
+| `modify_` | Script that modifies existing file on deploy |
 | `run_once_` | Runs once on first `chezmoi apply` |
 | `run_onchange_` | Runs whenever its content changes |
 | `*.tmpl` | Processed as a Go template before deployment |
 
-Prefixes can stack (`private_executable_`, `executable_dot_`).
+Prefixes can stack (`private_executable_`, `executable_dot_`, `private_dot_`).
 
 ## Key Files
 
 | Area | Paths |
 | ---- | ----- |
-| Shell | `dot_profile`, `private_dot_bashrc`, `private_dot_zshrc`, `dot_local/scripts/sh/`, `dot_local/scripts/ps1/` |
-| Editors | `dot_config/helix/`, `dot_vimrc`, `dot_config/nvim/` (zero-plugin, no Mason), `dot_config/Code/` |
+| Shell | `dot_profile`, `private_dot_bashrc`, `private_dot_zshrc`, `dot_customize_environment` (Cloud Shell), `dot_local/scripts/sh/`, `dot_local/scripts/ps1/` |
+| Editors | `dot_config/helix/`, `dot_vimrc`, `dot_vim/` (plug.vim, molokai), `dot_config/nvim/` (zero-plugin, no Mason, 10 Lua modules), `dot_config/Code/`, `dot_config/zed/` |
 | Yazi | `dot_config/yazi/{yazi,keymap,init,theme}` with `t f/t c` translate and `z *` tools-menu bindings |
 | Media/term | `dot_config/{mpv,aria2,wezterm}/`, `dot_config/powershell/` |
 | Termux | `private_dot_termux/` (Android-only) |
 | Git | `private_dot_gitconfig.base`, included via `modify_private_dot_gitconfig` |
-| Chezmoi | `.chezmoi.toml.tmpl`, `.chezmoiignore` |
-| Crush | `dot_config/crush/` (JSON config, `crushrc`, `context.md`; `skills/` for skills) |
+| AI | `dot_config/opencode/` (model, LSP, permissions), `dot_config/crush/` (JSON, crushrc, context.md, skills/) |
+| Chezmoi | `.chezmoi.toml.tmpl`, `.chezmoiignore`, `.chezmoiexternal.toml.tmpl` (zsh plugin archives) |
 | Dsh | `dot_config/systemd/user/dsh-web.service` (Linux-only): persistent `dsh web --no-open`; manage with `systemctl --user enable --now dsh-web`, logs via `journalctl --user -u dsh-web`; remote access via `dsht <host>` (`dot_profile`). Reload hook: `run_onchange_after_systemd-user-reload.sh.tmpl` |
 | Bootstrap | `run_once_before_bootstrap-local-configs.*`, `run_onchange_after_create-{symlinks,junctions}.*` |
 
-Python scripts live in `dot_local/scripts/py/`: `executable_yazi-*.py` (Yazi helpers), `executable_install_*.py` (tool installers), plus utils (`install_nerd_font`, `start-awsvpn`, `codi`, etc.), sharing `_shared.py`.
+## Python Scripts
+
+All under `dot_local/scripts/py/` with `executable_` prefix:
+
+- **Yazi helpers** (10): `yazi-{translate,rename,extract,compress,ffmpeg-*}` — media ops, translations
+- **Tool installers** (18): `install_{aws,bun,code,firefox,fnm,gcloud,go,lf,nerd_font,opencode,pwsh,rclone,terraform,tools,yazi,android_sdk}` — each downloads latest release to `~/.local/bin`
+- **Utilities**: `codi` (Docker isolate container), `dotfiles` (rclone + git sync), `lsp` (LSP server installer), `start-awsvpn` (OpenVPN + SAML), `cloudsh` (GCP tunnel), `sysinfo`, `url_decode_rename`, `mpv`
+- **Shared**: `_shared.py` — platform detection, colored logging, common helpers
+
+See `dot_local/scripts/py/AGENTS.md` for detailed patterns.
 
 ## Platform Scope
 
@@ -59,17 +69,15 @@ Preserve `{{ if eq .chezmoi.os "..." }}` guards in `.tmpl` files.
 - Remove `private_` prefix from sensitive files (SSH config, gitconfig)
 - Break cross-platform template guards without testing on the target OS
 
-### Python Script Patterns
+### No Linter/Formatter Configs
+No `.editorconfig`, `.prettierrc`, `.eslintrc`, or similar. Code style is ad-hoc. Match existing file patterns.
 
-- Shebang: `#!/usr/bin/env python3`
-- `eprint()` for user-facing messages (stderr); `print()` for pipeline output (stdout)
-- Yazi-block scripts end with `input("Press Enter to continue...")`
-- Standard library only; no external dependencies
-- Strip Yazi's single-quote-wrapped paths: `if len(p) >= 2 and p[0] == p[-1] and p[0] in "'\"": p = p[1:-1]`
+### No CI/Makefile
+All automation is chezmoi lifecycle hooks (`run_*` scripts). No GitHub Actions, Makefile, or task runner.
 
 ### Neovim
 
-Zero-plugin (built-ins only). Module load order: options, keymaps, autocmds, treesitter, netrw, statusline, brackets, comments, format, lsp. For headless testing, key gotchas, and the per-module verification checklist, see `docs/nvim-testing.md`.
+Zero-plugin (built-ins only). Module load order: options, keymaps, autocmds, treesitter, netrw, statusline, brackets, comments, format, lsp. For headless testing reference: `dot_config/nvim/TESTING.md`.
 
 ### Yazi Configuration
 
@@ -82,4 +90,5 @@ Zero-plugin (built-ins only). Module load order: options, keymaps, autocmds, tre
 
 - `README.md` and `AGENTS.md` are in `.chezmoiignore` — never deployed
 - `AppData/` Windows-only; `private_dot_termux/` Android-only; both ignored elsewhere
+- `.crush/` (Crush runtime), `.omo/` (OpenAgent runtime) — not chezmoi-managed
 - `__pycache__/`, `*.pyc`, `*.zwc`, `*.zcompdump*` excluded from version control

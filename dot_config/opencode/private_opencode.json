@@ -1,9 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "hyper/deepseek-v4-flash",
-  "plugin": [
-    "oh-my-openagent@latest"
-  ],
   "lsp": true,
   "agent": {
     "explore": { "disable": false },
