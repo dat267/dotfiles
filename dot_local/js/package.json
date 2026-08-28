@@ -1,0 +1,10 @@
+{
+  "name": "dotfiles-js-tools",
+  "private": true,
+  "scripts": {
+    "setup": "node install.js"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0"
+  }
+}
