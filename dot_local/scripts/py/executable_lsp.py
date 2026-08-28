@@ -13,6 +13,7 @@ import tarfile
 import urllib.request
 import zipfile
 
+# Force IPv4 — Termux IPv6 lookups fail on some networks
 _orig_getaddrinfo = socket.getaddrinfo
 
 
@@ -27,11 +28,16 @@ SHARE_DIR = os.path.expanduser("~/.local/share")
 
 
 def init_dirs():
+    """Create ~/.local/bin and ~/.local/share if missing."""
     os.makedirs(BIN_DIR, exist_ok=True)
     os.makedirs(SHARE_DIR, exist_ok=True)
 
 
 def get_platform():
+    """Detect os/arch. Returns (os_string, arch_string).
+
+    Android detection uses Termux markers. Arch normalized to arm64/x64.
+    """
     sys_os = platform.system().lower()
     arch = platform.machine().lower()
     arch_str = "arm64" if "arm" in arch or "aarch64" in arch else "x64"
@@ -43,6 +49,7 @@ def get_platform():
 
 
 def download_file(url, dest, description="File"):
+    """Download url to dest with progress bar. Returns True on success."""
     print(f"\n[Connecting] {description}...")
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -78,6 +85,7 @@ def download_file(url, dest, description="File"):
 
 
 def fetch_json(url):
+    """GET url, return parsed JSON or None on failure."""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=5) as response:
@@ -87,6 +95,7 @@ def fetch_json(url):
 
 
 def get_latest_github_version(repo):
+    """Resolve latest release tag from a GitHub repo. Strips leading 'v'."""
     data = fetch_json(f"https://api.github.com/repos/{repo}/releases/latest")
     if data and "tag_name" in data:
         return data["tag_name"].lstrip("v")
@@ -94,12 +103,14 @@ def get_latest_github_version(repo):
 
 
 def get_latest_node_version():
+    """Resolve latest Node.js version string from nodejs.org."""
     data = fetch_json("https://nodejs.org/dist/index.json")
     if isinstance(data, list) and len(data) > 0:
         return data[0]["version"]
 
 
 def extract_archive(src, dest_dir):
+    """Extract .zip or .tar.gz archive into dest_dir."""
     os.makedirs(dest_dir, exist_ok=True)
     if src.endswith(".zip"):
         with zipfile.ZipFile(src, "r") as z:
@@ -110,6 +121,11 @@ def extract_archive(src, dest_dir):
 
 
 def create_proxy(target_bin, bin_name):
+    """Create a shell wrapper script for target_bin in BIN_DIR.
+
+    Windows gets a .cmd batch file. Unix gets a sh script with exec.
+    This keeps LSP binaries in ~/.local/share while exposing them on PATH.
+    """
     sys_os = platform.system().lower()
     ext = ".cmd" if sys_os == "windows" else ""
     dest = os.path.join(BIN_DIR, bin_name + ext)
@@ -125,6 +141,7 @@ def create_proxy(target_bin, bin_name):
 
 
 def install_marksman(sys_os, arch):
+    """Install Marksman LSP. On Android uses pkg. On other platforms downloads binary."""
     print("\n=== Installing Marksman ===")
     if sys_os == "android":
         if shutil.which("pkg"):
@@ -149,6 +166,7 @@ def install_marksman(sys_os, arch):
 
 
 def install_lua_lsp(sys_os, arch):
+    """Install Lua Language Server. Downloads archive, extracts, creates proxy."""
     print("\n=== Installing Lua Language Server ===")
     if sys_os == "android":
         if shutil.which("pkg"):
@@ -188,8 +206,10 @@ def install_lua_lsp(sys_os, arch):
 
 
 def install_node_tools(sys_os, arch):
+    """Install Node.js runtime and npm-based LSPs (bash-language-server, typescript, pyright, prettier)."""
     print("\n=== Installing Node.js & npm Tools ===")
     node_target = os.path.join(SHARE_DIR, "node")
+    npm_ext = ".cmd" if sys_os == "windows" else ""
 
     if sys_os == "android":
         if shutil.which("pkg"):
@@ -229,7 +249,6 @@ def install_node_tools(sys_os, arch):
                 shutil.move(os.path.join(SHARE_DIR, dir_name), node_target)
                 os.remove(archive_path)
 
-        npm_ext = ".cmd" if sys_os == "windows" else ""
         npm_bin = (
             os.path.join(node_target, "npm" + npm_ext)
             if sys_os == "windows"
@@ -271,6 +290,7 @@ def install_node_tools(sys_os, arch):
 
 
 def install_black(sys_os):
+    """Install Black formatter in a dedicated venv under ~/.local/share."""
     print("\n=== Installing Black Formatter ===")
     env_dir = os.path.join(SHARE_DIR, "black_env")
     bin_sub = "Scripts" if sys_os == "windows" else "bin"
@@ -290,6 +310,7 @@ def install_black(sys_os):
 
 
 def install_gopls():
+    """Install gopls via go install. Requires Go toolchain on PATH."""
     print("\n=== Installing Gopls ===")
     if shutil.which("go"):
         env = os.environ.copy()
@@ -298,6 +319,7 @@ def install_gopls():
 
 
 def install_powershell_es():
+    """Install PowerShell Editor Services. Downloads zip, extracts to ~/.local/share."""
     print("\n=== Installing PowerShell Editor Services ===")
     target_dir = os.path.join(SHARE_DIR, "powershell_es")
     ps_script = os.path.join(
@@ -315,6 +337,7 @@ def install_powershell_es():
 
 
 def install_rust_analyzer(sys_os, arch):
+    """Install Rust Analyzer. On Android uses pkg. On other platforms downloads binary/gz."""
     print("\n=== Installing Rust Analyzer ===")
     if sys_os == "android":
         if shutil.which("pkg"):
@@ -364,6 +387,7 @@ def install_rust_analyzer(sys_os, arch):
 
 
 def uninstall_all(sys_os):
+    """Remove all installed LSPs, runtimes, and their proxies."""
     print("\n=== Uninstalling All LSPs & Runtimes ===")
 
     dirs_to_remove = ["lua-language-server", "node", "black_env", "powershell_es"]
