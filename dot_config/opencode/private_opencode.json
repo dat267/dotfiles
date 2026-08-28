@@ -1,6 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "hyper/deepseek-v4-flash",
+  "plugin": [
+    "@tarquinen/opencode-dcp@latest",
+    "superpowers@git+https://github.com/obra/superpowers.git"
+  ],
   "lsp": true,
   "agent": {
     "explore": { "disable": false },
