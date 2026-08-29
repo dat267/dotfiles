@@ -4,8 +4,13 @@
   "tuiMode": "fullscreen",
   "fullscreenExitOutput": "resume-hint",
   "hideThinkingBlock": true,
-  "skills": ["~/.config/opencode/skills"],
+  "skills": [
+    "~/.config/opencode/skills"
+  ],
   "defaultProvider": "opencode-go",
   "defaultModel": "hy3",
-  "defaultThinkingLevel": "minimal"
+  "defaultThinkingLevel": "minimal",
+  "packages": [
+    "git:github.com/obra/superpowers@v6.3.0"
+  ]
 }
