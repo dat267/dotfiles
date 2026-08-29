@@ -8,7 +8,6 @@
   "defaultProvider": "hypercharm",
   "defaultModel": "deepseek-v4-flash",
   "defaultThinkingLevel": "minimal",
-  "enableInstallTelemetry": false,
   "showCacheMissNotices": true,
   "packages": [
     "git:github.com/obra/superpowers"
