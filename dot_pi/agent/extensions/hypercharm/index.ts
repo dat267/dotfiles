@@ -72,7 +72,9 @@ function buildThinkingLevelMap(
 	const present = new Set(effortLevels.map((e) => e.value));
 	const map: Record<string, string | null> = {};
 	for (const [piLevel, providerValue] of Object.entries(PI_LEVEL_TO_PROVIDER)) {
-		map[piLevel] = present.has(providerValue) ? providerValue : null;
+		// Always map "off" to "none" — Hyper Charm accepts it even for
+		// reasoning-only models whose ladder doesn't list it.
+		map[piLevel] = piLevel === "off" || present.has(providerValue) ? providerValue : null;
 	}
 	return map as ThinkingLevelMap;
 }
