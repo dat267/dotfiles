@@ -152,6 +152,9 @@ if [[ ! -S "$SSH_AUTH_SOCK" ]]; then
   eval "$(ssh-agent -s -a "$SSH_AUTH_SOCK")" >/dev/null 2>&1
 fi
 
+# pi startup speed: skip the version-update check (saves ~1s boot)
+export PI_SKIP_VERSION_CHECK=1
+
 # pi Hyper Charm provider key: sourced from an untracked local file so the
 # provider works on fresh machines. Create it yourself (chmod 600):
 #   echo "export HYPERCHARM_API_KEY=sk-..." > ~/.secrets/hypercharm.env
