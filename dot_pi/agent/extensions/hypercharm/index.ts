@@ -12,9 +12,9 @@
  *
  * Switching API:
  *   The provider also exposes /v1/chat/completions (openai-completions) and
- *   /v1/messages (anthropic-messages). If the Responses endpoint misbehaves,
- *   change API below to "openai-completions" (and consider adding
- *   compat: { supportsReasoningEffort: true }) or "anthropic-messages".
+ *   /v1/messages (anthropic-messages). It is currently configured for
+ *   openai-completions; switch API below to "openai-responses" or
+ *   "anthropic-messages" if needed.
  */
 
 import type { Api, ThinkingLevelMap } from "@earendil-works/pi-ai/compat";
@@ -26,6 +26,12 @@ const API: Api = "openai-completions";
 const BASE_URL = "https://hyper.charm.land/v1";
 const MODELS_URL = "https://hyper.charm.land/v1/models";
 const PROVIDER_ID = "hypercharm";
+
+// Cap the context window reported to pi. Hyper Charm advertises 1M tokens, but
+// pi only auto-compacts at `contextWindow - reserveTokens`, so without a cap it
+// would re-bill up to ~984k tokens per turn. Lower this to bound per-turn cost
+// on cheap-input models. Set to 0 to use the catalog value unchanged.
+const MAX_CONTEXT_WINDOW = 256000;
 
 interface HyperCharmModel {
 	id: string;
@@ -117,7 +123,7 @@ export default async function (pi: ExtensionAPI) {
 					cacheRead: pricing.cache_hit,
 					cacheWrite: pricing.cache_create,
 				},
-				contextWindow: m.context_window,
+				contextWindow: MAX_CONTEXT_WINDOW ? Math.min(m.context_window, MAX_CONTEXT_WINDOW) : m.context_window,
 				maxTokens: m.max_output_tokens,
 			};
 		}),
