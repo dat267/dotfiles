@@ -7,25 +7,16 @@
   "skills": ["~/.config/opencode/skills"],
   "defaultProvider": "hypercharm",
   "defaultModel": "qwen3.8-flash",
-  "defaultThinkingLevel": "off",
-  "modelThinkingLevels": {
-    "hypercharm/gpt-oss-120b": "minimal",
-    "hypercharm/kimi-k3": "low",
-    "hypercharm/minimax-m3": "low",
-    "hypercharm/kimi-k2.5": "low",
-    "hypercharm/kimi-k2.6": "low",
-    "hypercharm/deepseek-v4-flash-0731": "off",
-    "hypercharm/deepseek-v4-pro-0813": "off"
-  },
+  "defaultThinkingLevel": "minimal",
   "enabledModels": [
-    "hypercharm/qwen3.8-flash:off",
-    "hypercharm/qwen3.8-max:off",
-    "hypercharm/deepseek-v4-flash:off",
-    "hypercharm/deepseek-v4-pro:off",
-    "hypercharm/gpt-oss-120b:minimal",
-    "hypercharm/kimi-k3:low",
-    "hypercharm/glm-5.2:off",
-    "opencode-go/hy3:off"
+    "hypercharm/qwen3.8-flash",
+    "hypercharm/qwen3.8-max",
+    "hypercharm/deepseek-v4-flash",
+    "hypercharm/deepseek-v4-pro",
+    "hypercharm/gpt-oss-120b",
+    "hypercharm/kimi-k3",
+    "hypercharm/glm-5.2",
+    "opencode-go/hy3"
   ],
   "showCacheMissNotices": true,
   "packages": ["git:github.com/obra/superpowers@v6.3.0"]
