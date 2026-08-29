@@ -27,12 +27,6 @@ const BASE_URL = "https://hyper.charm.land/v1";
 const MODELS_URL = "https://hyper.charm.land/v1/models";
 const PROVIDER_ID = "hypercharm";
 
-// Cap the context window reported to pi. Hyper Charm advertises 1M tokens, but
-// pi only auto-compacts at `contextWindow - reserveTokens`, so without a cap it
-// would re-bill up to ~984k tokens per turn. Lower this to bound per-turn cost
-// on cheap-input models. Set to 0 to use the catalog value unchanged.
-const MAX_CONTEXT_WINDOW = 256000;
-
 interface HyperCharmModel {
 	id: string;
 	object: string;
@@ -123,7 +117,7 @@ export default async function (pi: ExtensionAPI) {
 					cacheRead: pricing.cache_hit,
 					cacheWrite: pricing.cache_create,
 				},
-				contextWindow: MAX_CONTEXT_WINDOW ? Math.min(m.context_window, MAX_CONTEXT_WINDOW) : m.context_window,
+				contextWindow: m.context_window,
 				maxTokens: m.max_output_tokens,
 			};
 		}),
