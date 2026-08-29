@@ -1,0 +1,11 @@
+{
+  "lastChangelogVersion": "0.84.4",
+  "theme": "dark",
+  "tuiMode": "fullscreen",
+  "fullscreenExitOutput": "resume-hint",
+  "hideThinkingBlock": true,
+  "skills": ["~/.config/opencode/skills"],
+  "defaultProvider": "opencode-go",
+  "defaultModel": "hy3",
+  "defaultThinkingLevel": "minimal"
+}
