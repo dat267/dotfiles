@@ -24,7 +24,7 @@ Prefixes can stack (`private_executable_`, `executable_dot_`, `private_dot_`).
 | Editors | `dot_config/helix/`, `dot_vimrc`, `dot_config/nvim/` (zero-plugin, 10 Lua modules), `dot_config/Code/`, `dot_config/zed/` |
 | Yazi | `dot_config/yazi/{yazi,keymap,init,theme}` |
 | Chezmoi | `.chezmoi.toml.tmpl` (autoAdd/autoCommit, no autoPush), `.chezmoiignore`, `.chezmoiexternal.toml.tmpl` (zsh plugin archives) |
-| AI | `dot_config/opencode/` (bare, no plugins), `dot_config/crush/` |
+| AI | `dot_config/opencode/` (bare, no plugins, managed skills), `dot_config/crush/`, `dot_pi/` |
 | Dsh | `dot_config/systemd/user/dsh-web.service` (Linux-only) |
 | Bootstrap | `run_once_before_bootstrap-local-configs.*`, `run_onchange_after_create-{symlinks,junctions}.*` |
 
@@ -38,7 +38,7 @@ python3 script.py --help   # verify new CLI scripts parse
 
 ## Python Scripts
 
-All 33 scripts under `dot_local/scripts/py/` with `executable_` prefix. Standard library only. See `dot_local/scripts/py/AGENTS.md` for patterns.
+All 35 scripts under `dot_local/scripts/py/` (34 `executable_*.py` + `executable_mpv`). Standard library only. See `dot_local/scripts/py/AGENTS.md` for patterns.
 
 ## Conventions
 

@@ -1,10 +1,10 @@
 # dot_local/scripts/py/ — Python Utility Scripts
 
-33 Python scripts chezmoi-deployed to `~/.local/bin/` (on PATH). All use `executable_` prefix.
+35 Python scripts chezmoi-deployed to `~/.local/bin/` (on PATH). All use `executable_` prefix (34 `.py` + 1 `executable_mpv`).
 
 ## Structure
 
-- `executable_yazi-*.py` — 10 Yazi media/translate helpers, invoked via `keymap.toml` bindings
+- `executable_yazi-*.py` — 9 Yazi media/translate helpers, invoked via `keymap.toml` bindings
 - `executable_install_*.py` — 17 tool installers, each downloads latest GitHub release to `~/.local/bin/`
 - `executable_dotfiles.py` — rclone + git sync (`dotfiles up`/`dotfiles down`)
 - `executable_codi.py` — Docker isolate container (builds `opencode-isolate:latest`)
