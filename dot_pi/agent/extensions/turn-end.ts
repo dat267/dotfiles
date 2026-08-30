@@ -137,11 +137,7 @@ export default async function (pi: ExtensionAPI) {
 		const elapsed = Date.now() - runStart;
 		const secs = (elapsed / 1000).toFixed(1);
 		const fmt = (n: number) => n < 1000 ? `${n}` : `${(n / 1000).toFixed(1)}k`;
-		const tps = runTokens > 0 && elapsed > 0
-			? Math.round((runTokens / elapsed) * 1000)
-			: 0;
-		const speed = tps > 0 ? ` · ${tps} t/s` : "";
-		lastRunStats = `⏱ ${secs}s · ${fmt(runTokens)} out${speed}`;
+		lastRunStats = `⏱ ${secs}s · ${fmt(runTokens)} out`;
 		ctx.ui.notify(`${lastRunStats}`, "info");
 		runStart = 0;
 		runTokens = 0;
