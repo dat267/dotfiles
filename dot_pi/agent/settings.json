@@ -3,7 +3,7 @@
   "fullscreenExitOutput": "resume-hint",
   "hideThinkingBlock": true,
   "skills": [
-    "~/.config/opencode/skills"
+    "~/.pi/agent/skills"
   ],
   "defaultProvider": "hypercharm",
   "defaultModel": "deepseek-v4-flash",
