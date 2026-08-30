@@ -155,4 +155,39 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerProvider(provider);
+
+	// Command to manually refresh charm-hyper's model catalog. This triggers
+	// the provider's fetchModels (network allowed + forced), which fetches the
+	// live /v1/models catalog and persists it to ~/.pi/agent/models-store.json
+	// via context.publish. Useful after seeding or picking up new models.
+	pi.registerCommand("hyper-setup", {
+		description: "Refresh the charm-hyper model catalog from the network.",
+		handler: async (_args, ctx) => {
+			if (ctx.hasUI) {
+				ctx.ui.notify("Refreshing charm-hyper models...", "info");
+			}
+			try {
+				const result = await ctx.modelRegistry.refresh({
+					providers: [PROVIDER_ID],
+					allowNetwork: true,
+					force: true,
+				});
+				if (result.aborted) {
+					ctx.ui.notify("Refresh cancelled", "warning");
+					return;
+				}
+				const error = result.errors.get(PROVIDER_ID);
+				if (error) {
+					ctx.ui.notify(`Refresh failed: ${error.message}`, "warning");
+					return;
+				}
+				ctx.ui.notify("charm-hyper models refreshed", "info");
+			} catch (err) {
+				ctx.ui.notify(
+					`Refresh error: ${err instanceof Error ? err.message : String(err)}`,
+					"warning",
+				);
+			}
+		},
+	});
 }
