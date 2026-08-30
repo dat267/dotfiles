@@ -189,6 +189,12 @@ export default async function (pi: ExtensionAPI) {
 	let discordTimer: ReturnType<typeof setTimeout> | null = null;
 	let discordSettledAt = 0;
 
+	// Capture session data eagerly at agent_settled; the timer must NOT
+	// reference ctx afterward, because ctx becomes stale if the session is
+	// replaced or reloaded during the 2-minute Discord wait.
+	let discordSummary = "";
+	let discordStats = "";
+
 	pi.on("input", () => {
 		// Cancel pending Discord notification if user submits a new prompt
 		discordSettledAt = 0;
@@ -200,12 +206,26 @@ export default async function (pi: ExtensionAPI) {
 
 	pi.on("agent_settled", async (_event, ctx) => {
 		if (!webhookUrl || !discordEnabled) return;
+		// Resolve everything we need now, while ctx is valid.
 		discordSettledAt = Date.now();
+		discordSummary = buildConversationSummary(ctx.sessionManager.getBranch());
+		discordStats = lastRunStats;
+
+		const sendNow = () => {
+			sendDiscordNotification(webhookUrl!, discordSummary, discordStats, (msg, kind) => {
+				// Guard against stale ctx: only notify if we can reach a live ctx.
+				try {
+					ctx.ui.notify(msg, kind);
+				} catch {
+					// ctx stale/absent — drop the in-chat confirmation quietly.
+				}
+			});
+		};
+
 		const checkInactivity = () => {
 			if (discordSettledAt === 0) return; // cancelled by new input
 			if (Date.now() - discordSettledAt >= DISCORD_DELAY_MS) {
-				const summary = buildConversationSummary(ctx.sessionManager.getBranch());
-				sendDiscordNotification(webhookUrl, summary, lastRunStats, ctx.ui.notify);
+				sendNow();
 				return;
 			}
 			discordTimer = setTimeout(checkInactivity, 5_000);
