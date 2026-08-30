@@ -83,6 +83,7 @@ function buildConversationSummary(entries: readonly SessionEntry[]): string {
 async function sendDiscordNotification(
 	webhookUrl: string,
 	summary: string,
+	stats: string,
 	notify: NotifyFn,
 ): Promise<void> {
 	try {
@@ -94,6 +95,7 @@ async function sendDiscordNotification(
 					title: "Pi",
 					description: summary || "Ready for input",
 					color: 0x5865f2,
+					fields: stats ? [{ name: "Stats", value: stats, inline: false }] : undefined,
 					timestamp: new Date().toISOString(),
 				}],
 			}),
@@ -114,27 +116,36 @@ async function sendDiscordNotification(
 // ── Extension ────────────────────────────────────────────────────────────
 
 export default async function (pi: ExtensionAPI) {
-	// ── Token speed (per-turn) ──
-	let turnStart = 0;
-	let turnOutput = 0;
+	// ── Token speed (per-agent-run) ──
+	let runStart = 0;
+	let runTokens = 0;
+	let lastRunStats = "";
 
-	pi.on("turn_start", async (event) => {
-		turnStart = Date.now();
-		turnOutput = 0;
+	pi.on("agent_start", async () => {
+		runStart = Date.now();
+		runTokens = 0;
 	});
 
-	pi.on("turn_end", async (event, ctx) => {
+	pi.on("turn_end", async (event) => {
 		const m = event.message;
 		if (m.role === "assistant" && m.usage) {
-			turnOutput += m.usage.output;
+			runTokens += m.usage.totalTokens;
 		}
-		const elapsed = Date.now() - turnStart;
+	});
+
+	pi.on("agent_settled", async (_event, ctx) => {
+		if (runStart === 0) return;
+		const elapsed = Date.now() - runStart;
 		const secs = (elapsed / 1000).toFixed(1);
-		const tps = turnOutput > 0 && elapsed > 0
-			? Math.round((turnOutput / elapsed) * 1000)
+		const fmt = (n: number) => n < 1000 ? `${n}` : `${(n / 1000).toFixed(1)}k`;
+		const tps = runTokens > 0 && elapsed > 0
+			? Math.round((runTokens / elapsed) * 1000)
 			: 0;
 		const speed = tps > 0 ? ` · ${tps} t/s` : "";
-		ctx.ui.notify(`⏱ ${secs}s${speed} · ✓`, "info");
+		lastRunStats = `⏱ ${secs}s · ${fmt(runTokens)} tokens${speed}`;
+		ctx.ui.notify(`${lastRunStats} · ✓`, "info");
+		runStart = 0;
+		runTokens = 0;
 	});
 
 	// ── Discord notify (inactivity-based) ──
@@ -191,7 +202,7 @@ export default async function (pi: ExtensionAPI) {
 				if (Date.now() - lastUserActivity >= INACTIVITY_MS) {
 					stopPolling();
 					const summary = buildConversationSummary(ctx.sessionManager.getBranch());
-					sendDiscordNotification(webhookUrl!, summary, ctx.ui.notify);
+					sendDiscordNotification(webhookUrl!, summary, lastRunStats, ctx.ui.notify);
 				}
 			}, POLL_MS);
 		};
