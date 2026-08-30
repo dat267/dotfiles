@@ -160,7 +160,7 @@ export default function (pi: ExtensionAPI) {
 	// the provider's fetchModels (network allowed + forced), which fetches the
 	// live /v1/models catalog and persists it to ~/.pi/agent/models-store.json
 	// via context.publish. Useful after seeding or picking up new models.
-	pi.registerCommand("hyper-setup", {
+	pi.registerCommand("hyper-update", {
 		description: "Refresh the charm-hyper model catalog from the network.",
 		handler: async (_args, ctx) => {
 			if (ctx.hasUI) {
