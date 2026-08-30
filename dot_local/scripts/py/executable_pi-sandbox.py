@@ -38,10 +38,12 @@ DOCKERFILE = textwrap.dedent(f"""\
         ca-certificates \
         curl \
         file \
+        fd-find \
         git \
-        openssh-client \
         jq \
         less \
+        openssh-client \
+        ripgrep \
         && rm -rf /var/lib/apt/lists/*
 
     RUN npm install -g @earendil-works/pi-coding-agent
@@ -90,10 +92,19 @@ def find_docker() -> str:
 
 def docker(*args, **kwargs):
     cmd = [find_docker()] + list(args)
-    if kwargs.get("capture"):
-        del kwargs["capture"]
+    capture = kwargs.pop("capture", False)
+    if capture:
         return subprocess.run(cmd, capture_output=True, text=True, **kwargs)
-    return subprocess.run(cmd, **kwargs)
+    # Always capture output and write to stdout/stderr so it works in
+    # both TTY and piped contexts.
+    r = subprocess.run(cmd, capture_output=True, **kwargs)
+    if r.stdout:
+        sys.stdout.buffer.write(r.stdout)
+        sys.stdout.buffer.flush()
+    if r.stderr:
+        sys.stderr.buffer.write(r.stderr)
+        sys.stderr.buffer.flush()
+    return r
 
 
 def ensure_image():
@@ -161,8 +172,13 @@ def ensure_container(pid: str, cwd: str):
 
 
 def exec_pi(pid: str, cwd: str, args: list[str]):
-    """Run pi via docker exec into the container, in the project workdir."""
-    cmd = ["exec", "-it", "-w", cwd, pid, "pi"] + args
+    """Run pi via docker exec into the container, in the project workdir.
+
+    Uses -it (interactive TTY) when no args are given (interactive pi session).
+    Uses -i (no TTY) when args are given (print mode), so output is clean.
+    """
+    tty = [] if args else ["-t"]
+    cmd = ["exec", "-i", *tty, "-w", cwd, pid, "pi"] + args
     try:
         run = docker(*cmd, check=False)
     except KeyboardInterrupt:
@@ -189,12 +205,22 @@ def list_sandboxes():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Isolate pi per project directory")
-    parser.add_argument("prompt", nargs="*", help="One-shot prompt (omit for interactive)")
+    parser = argparse.ArgumentParser(description="Isolate pi per project directory", add_help=False)
     parser.add_argument("--reset", action="store_true", help="Remove this project's container + volume")
     parser.add_argument("--list", action="store_true", help="List all pi sandbox containers")
     parser.add_argument("--cleanup-all", action="store_true", help="Remove ALL pi sandbox containers")
-    args = parser.parse_args()
+    parser.add_argument("--help", action="store_true", help="Show this help")
+
+    # Parse known flags only; everything else passes through to pi
+    args, unknown = parser.parse_known_args()
+
+    if args.help:
+        parser.print_help()
+        print("\nAll other arguments are forwarded to pi. Examples:")
+        print("  pi-sandbox.py -c")
+        print("  pi-sandbox.py -p 'refactor this'")
+        print("  pi-sandbox.py --model cline-pass/deepseek-v4-flash")
+        return
 
     if args.list:
         list_sandboxes()
@@ -217,11 +243,7 @@ def main():
     ensure_image()
     ensure_container(pid, cwd)
 
-    if args.prompt:
-        exec_pi(pid, cwd, args.prompt)
-    else:
-        exec_pi(pid, cwd, [])
-
+    exec_pi(pid, cwd, unknown)
 
 if __name__ == "__main__":
     main()
