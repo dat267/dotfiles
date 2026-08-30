@@ -70,16 +70,34 @@ function buildThinkingLevelMap(
 	return map as ThinkingLevelMap;
 }
 
+// Hard cap on startup model-catalog fetch so a slow/hung endpoint
+// cannot stall pi startup. On timeout we warn and continue without models.
+const FETCH_TIMEOUT_MS = 3_000;
+
 async function fetchModels(): Promise<CharmHyperModel[]> {
-	const res = await fetch(MODELS_URL, { headers: { accept: "application/json" } });
-	if (!res.ok) {
-		throw new Error(`Charm Hyper /v1/models returned ${res.status} ${res.statusText}`);
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+	try {
+		const res = await fetch(MODELS_URL, {
+			headers: { accept: "application/json" },
+			signal: controller.signal,
+		});
+		if (!res.ok) {
+			throw new Error(`Charm Hyper /v1/models returned ${res.status} ${res.statusText}`);
+		}
+		const json = (await res.json()) as CharmHyperModelsResponse;
+		if (!json.data || !Array.isArray(json.data)) {
+			throw new Error("Charm Hyper /v1/models returned an unexpected payload");
+		}
+		return json.data;
+	} catch (err) {
+		if (controller.signal.aborted) {
+			throw new Error(`timed out after ${FETCH_TIMEOUT_MS}ms`);
+		}
+		throw err;
+	} finally {
+		clearTimeout(timer);
 	}
-	const json = (await res.json()) as CharmHyperModelsResponse;
-	if (!json.data || !Array.isArray(json.data)) {
-		throw new Error("Charm Hyper /v1/models returned an unexpected payload");
-	}
-	return json.data;
 }
 
 export default async function (pi: ExtensionAPI) {
