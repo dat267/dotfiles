@@ -461,41 +461,11 @@ export default function (pi: ExtensionAPI) {
 		fetchModels: async (_context: RefreshModelsContext) => {
 			// createProvider persists this result to models-store.json via
 			// context.publish. On subsequent startups pi restores from store.
+			// The embedded MODELS array is the baseline fallback when the store
+			// is empty (fresh machine).
 			return MODELS;
 		},
 	});
 
 	pi.registerProvider(provider);
-
-	// Command to persist the embedded catalog to models-store.json.
-	// On a fresh machine, models are available from the embedded baseline;
-	// running this once writes them to the store so pi restores from there.
-	pi.registerCommand("hyper-update", {
-		description: "Persist charm-hyper model catalog to models-store.json",
-		handler: async (_args, ctx) => {
-			if (ctx.hasUI) ctx.ui.notify("Persisting charm-hyper models...", "info");
-			try {
-				const result = await ctx.modelRegistry.refresh({
-					providers: [PROVIDER_ID],
-					allowNetwork: true,
-					force: true,
-				});
-				if (result.aborted) {
-					ctx.ui.notify("Refresh cancelled", "warning");
-					return;
-				}
-				const error = result.errors.get(PROVIDER_ID);
-				if (error) {
-					ctx.ui.notify(`Refresh failed: ${error.message}`, "warning");
-					return;
-				}
-				ctx.ui.notify("charm-hyper models persisted to store", "info");
-			} catch (err) {
-				ctx.ui.notify(
-					`Refresh error: ${err instanceof Error ? err.message : String(err)}`,
-					"warning",
-				);
-			}
-		},
-	});
 }
