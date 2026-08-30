@@ -142,7 +142,7 @@ export default async function (pi: ExtensionAPI) {
 			: 0;
 		const speed = tps > 0 ? ` · ${tps} t/s` : "";
 		lastRunStats = `⏱ ${secs}s · ${fmt(runTokens)} out${speed}`;
-		ctx.ui.notify(`${lastRunStats} · ✓`, "info");
+		ctx.ui.notify(`${lastRunStats}`, "info");
 		runStart = 0;
 		runTokens = 0;
 	});
