@@ -18,7 +18,7 @@
 
 import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
 import { createProvider, envApiKeyAuth } from "@earendil-works/pi-ai";
-import type { Api, Model, RefreshModelsContext } from "@earendil-works/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const API: Api = "openai-completions";
@@ -458,13 +458,6 @@ export default function (pi: ExtensionAPI) {
 		auth: { apiKey: envApiKeyAuth("Charm Hyper API key", ["HYPERCHARM_API_KEY"]) },
 		models: MODELS,
 		api: openAICompletionsApi(),
-		fetchModels: async (_context: RefreshModelsContext) => {
-			// createProvider persists this result to models-store.json via
-			// context.publish. On subsequent startups pi restores from store.
-			// The embedded MODELS array is the baseline fallback when the store
-			// is empty (fresh machine).
-			return MODELS;
-		},
 	});
 
 	pi.registerProvider(provider);
