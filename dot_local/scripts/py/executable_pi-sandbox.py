@@ -30,7 +30,7 @@ import tempfile
 import textwrap
 
 IMAGE_NAME = "pi-sandbox:latest"
-BASE_IMAGE = "node:26-bookworm-slim"
+BASE_IMAGE = "node:26-bookworm"
 PI_USER_HOME = "/root"
 
 # ── Dockerfile ────────────────────────────────────────────────────────────
@@ -39,6 +39,7 @@ DOCKERFILE = textwrap.dedent(f"""\
     FROM {BASE_IMAGE}
 
     RUN apt-get update && apt-get install -y --no-install-recommends \
+        bash \
         ca-certificates \
         curl \
         file \
