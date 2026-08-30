@@ -70,9 +70,11 @@ function buildThinkingLevelMap(
 	return map as ThinkingLevelMap;
 }
 
-// Hard cap on startup model-catalog fetch so a slow/hung endpoint
-// cannot stall pi startup. On timeout we warn and continue without models.
-const FETCH_TIMEOUT_MS = 3_000;
+// Hard cap on startup model-catalog fetch so a truly dead/hung endpoint
+// cannot stall pi startup indefinitely. Generous headroom (10s) because the
+// endpoint is intermittently slow; a tighter cap caused intermittent
+// catalog failures and "could not restore model" fallbacks.
+const FETCH_TIMEOUT_MS = 10_000;
 
 async function fetchModels(): Promise<CharmHyperModel[]> {
 	const controller = new AbortController();
