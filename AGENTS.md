@@ -38,7 +38,7 @@ python3 script.py --help   # verify new CLI scripts parse
 
 ## Python Scripts
 
-All 35 scripts under `dot_local/scripts/py/` (34 `executable_*.py` + `executable_mpv`). Standard library only. See `dot_local/scripts/py/AGENTS.md` for patterns.
+All 34 scripts under `dot_local/scripts/py/` (33 `executable_*.py` + `executable_mpv`). Standard library only. See `dot_local/scripts/py/AGENTS.md` for patterns.
 
 ## Conventions
 
