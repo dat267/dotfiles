@@ -9,8 +9,5 @@
   "defaultModel": "deepseek-v4-flash",
   "defaultThinkingLevel": "minimal",
   "showCacheMissNotices": true,
-  "packages": [
-    "git:github.com/obra/superpowers"
-  ],
   "theme": "dark"
 }

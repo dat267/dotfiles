@@ -438,4 +438,39 @@ up() {
 		}
 	fi
 
+# --- SSH agent: one agent per Termux session, reused across shells ---
+# Keys stay encrypted at rest on disk; the agent only caches the decrypted
+# key in memory. First SSH use loads the key (via 'AddKeysToAgent yes' in
+# ~/.ssh/config) and prompts for the passphrase once per session.
+if command -v ssh-agent >/dev/null 2>&1; then
+	# Respect an existing working agent (agent forwarding, DE agent, etc.)
+	if [ -n "$SSH_AUTH_SOCK" ]; then
+		ssh-add -l >/dev/null 2>&1; rc=$?
+		if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then
+			:  # agent alive (has keys or empty), keep existing socket
+		else
+			export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
+			ssh-add -l >/dev/null 2>&1; rc=$?
+			if [ "$rc" -eq 0 ] || [ "$rc" -eq 1 ]; then
+				:  # agent alive on fixed socket
+			else
+				# No reachable agent. Start one on a fixed socket.
+				rm -f "$SSH_AUTH_SOCK"
+				eval "$(ssh-agent -a "$SSH_AUTH_SOCK" -s)" >/dev/null
+			fi
+		fi
+	else
+		export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
+		if ssh-add -l >/dev/null 2>&1; then
+			:  # agent alive on fixed socket
+		else
+			rc=$?
+			if [ "$rc" -eq 2 ]; then
+				rm -f "$SSH_AUTH_SOCK"
+				eval "$(ssh-agent -a "$SSH_AUTH_SOCK" -s)" >/dev/null
+			fi
+		fi
+	fi
+fi
+
 

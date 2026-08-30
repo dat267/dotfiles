@@ -58,7 +58,3 @@ if [[ ";$PROMPT_COMMAND;" != *";_auto_run_venv;"* ]]; then
 	PROMPT_COMMAND="_auto_run_venv${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 fi
 
-# pi Hyper Charm provider key: sourced from an untracked local file so the
-# provider works on fresh machines. Create it yourself (chmod 600):
-#   echo "export HYPERCHARM_API_KEY=sk-..." > ~/.secrets/hypercharm.env
-[ -f "$HOME/.secrets/hypercharm.env" ] && . "$HOME/.secrets/hypercharm.env"
