@@ -128,7 +128,7 @@ export default async function (pi: ExtensionAPI) {
 	pi.on("turn_end", async (event) => {
 		const m = event.message;
 		if (m.role === "assistant" && m.usage) {
-			runTokens += m.usage.totalTokens;
+			runTokens += m.usage.output;
 		}
 	});
 
@@ -141,7 +141,7 @@ export default async function (pi: ExtensionAPI) {
 			? Math.round((runTokens / elapsed) * 1000)
 			: 0;
 		const speed = tps > 0 ? ` · ${tps} t/s` : "";
-		lastRunStats = `⏱ ${secs}s · ${fmt(runTokens)} tokens${speed}`;
+		lastRunStats = `⏱ ${secs}s · ${fmt(runTokens)} out${speed}`;
 		ctx.ui.notify(`${lastRunStats} · ✓`, "info");
 		runStart = 0;
 		runTokens = 0;
