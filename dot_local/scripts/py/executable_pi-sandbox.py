@@ -46,6 +46,7 @@ DOCKERFILE = textwrap.dedent(f"""\
         git \
         jq \
         less \
+        ncurses-term \
         openssh-client \
         ripgrep \
         && rm -rf /var/lib/apt/lists/*
