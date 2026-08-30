@@ -6,10 +6,14 @@ The host CWD is mounted at the SAME absolute path inside the container, so
 pi's session-per-directory history works correctly. Pi config (auth, settings,
 extensions, sessions) is mounted from the host read-only.
 
+All flags/prompts not handled here are forwarded to pi inside the container.
+
 Usage:
     cd /path/to/project
     pi-sandbox.py                    # interactive pi session in container
-    pi-sandbox.py "prompt"           # one-shot command
+    pi-sandbox.py -c                 # continue last session
+    pi-sandbox.py -p "prompt"        # one-shot print mode
+    pi-sandbox.py --model x/y -p q   # forward any pi flags
     pi-sandbox.py --reset            # delete this project's container+volume
 
 Requirements:
@@ -174,13 +178,26 @@ def ensure_container(pid: str, cwd: str):
 def exec_pi(pid: str, cwd: str, args: list[str]):
     """Run pi via docker exec into the container, in the project workdir.
 
-    Uses -it (interactive TTY) when no args are given (interactive pi session).
-    Uses -i (no TTY) when args are given (print mode), so output is clean.
+    Print mode (-p/--print) runs without a TTY and output is replayed so it
+    works when piped. Interactive runs with a real TTY and pass-through stdio
+    so the TUI stays responsive.
     """
-    tty = [] if args else ["-t"]
-    cmd = ["exec", "-i", *tty, "-w", cwd, pid, "pi"] + args
+    non_interactive = any(a in ("-p", "--print") for a in args)
+    tty = [] if non_interactive else ["-t"]
+    cmd = [find_docker(), "exec", "-i", *tty, "-w", cwd, pid, "pi"] + args
     try:
-        run = docker(*cmd, check=False)
+        if non_interactive:
+            # capture + replay so output works in piped/non-TTY contexts
+            run = subprocess.run(cmd, capture_output=True, check=False)
+            if run.stdout:
+                sys.stdout.buffer.write(run.stdout)
+                sys.stdout.buffer.flush()
+            if run.stderr:
+                sys.stderr.buffer.write(run.stderr)
+                sys.stderr.buffer.flush()
+        else:
+            # full pass-through stdio for the TUI
+            run = subprocess.run(cmd, check=False)
     except KeyboardInterrupt:
         sys.exit(130)
     sys.exit(run.returncode)
