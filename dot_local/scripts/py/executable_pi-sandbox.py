@@ -30,7 +30,7 @@ import tempfile
 import textwrap
 
 IMAGE_NAME = "pi-sandbox:latest"
-BASE_IMAGE = "node:26-bookworm"
+BASE_IMAGE = "debian:bookworm-slim"
 PI_USER_HOME = "/root"
 
 # ── Dockerfile ────────────────────────────────────────────────────────────
@@ -39,17 +39,20 @@ DOCKERFILE = textwrap.dedent(f"""\
     FROM {BASE_IMAGE}
 
     RUN apt-get update && apt-get install -y --no-install-recommends \
-        bash \
         ca-certificates \
         curl \
-        file \
         fd-find \
+        file \
         git \
         jq \
         less \
         ncurses-term \
         openssh-client \
         ripgrep \
+        && rm -rf /var/lib/apt/lists/*
+
+    RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+        && apt-get install -y nodejs \
         && rm -rf /var/lib/apt/lists/*
 
     RUN npm install -g @earendil-works/pi-coding-agent
