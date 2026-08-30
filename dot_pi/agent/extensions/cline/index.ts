@@ -35,16 +35,19 @@ const FETCH_TIMEOUT_MS = 10_000;
 
 // Substring hints for "cheap/fast" models to surface. Match the user's known
 // cheap picks; the catalog's deepseek/qwen/minimax/gemma fast variants.
-const CHEAP_MODEL_HINTS = [
-	"deepseek-v4-flash",
-	"deepseek-chat",
-	"qwen3.8-flash",
-	"qwen3-flash",
-	"minimax-m2",
-	"minimax-m3",
-	"gemma-4",
-	"glm-5-flash",
-];
+// Verified-working cheap/fast models, tested against the Cline API directly.
+// Many IDs in /v1/models are NOT actually servable via the API (some are
+// Cline-app-only, some 404, some return empty). These all returned real
+// completions when tested.
+const USABLE_MODELS = new Set([
+	"deepseek/deepseek-chat-v3.1",
+	"deepseek/deepseek-chat",
+	"minimax/minimax-m3",
+	"minimax/minimax-m2.5",
+	"google/gemma-4-31b-it",
+	"google/gemma-4-26b-a4b-it",
+	"google/gemma-4-26b-a4b-it:free",
+]);
 
 interface ClineModel {
 	id: string;
@@ -56,10 +59,6 @@ interface ClineModel {
 interface ClineModelsResponse {
 	object: string;
 	data: ClineModel[];
-}
-
-function isCheap(id: string): boolean {
-	return CHEAP_MODEL_HINTS.some((h) => id.includes(h));
 }
 
 async function fetchModels(signal: AbortSignal): Promise<ClineModel[]> {
@@ -102,7 +101,7 @@ export default function (pi: ExtensionAPI) {
 		fetchModels: async (context: RefreshModelsContext) => {
 			const data = await fetchModels(context.signal);
 			return data
-				.filter((m) => isCheap(m.id))
+				.filter((m) => USABLE_MODELS.has(m.id))
 				.map((m): Model<Api> => ({
 					id: m.id,
 					name: m.id,
