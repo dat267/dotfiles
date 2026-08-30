@@ -3,7 +3,7 @@
  *
  * Registers the Hyper Charm provider (https://hyper.charm.land) by fetching its
  * public /v1/models catalog at startup and mapping each entry into pi's model
- * configuration. Speaks the OpenAI Chat Completions API by default.
+ * configuration. Speaks the OpenAI Chat Completions API.
  *
  * Setup:
  *   export HYPERCHARM_API_KEY=sk-...
@@ -11,10 +11,9 @@
  *   /model                              # pick a hypercharm model
  *
  * Switching API:
- *   The provider also exposes /v1/chat/completions (openai-completions) and
- *   /v1/messages (anthropic-messages). It is currently configured for
- *   openai-completions; switch API below to "openai-responses" or
- *   "anthropic-messages" if needed.
+ *   The provider also exposes /v1/responses (openai-responses). It is currently
+ *   configured for openai-completions; /v1/messages (anthropic-messages) 404s
+ *   and openai-responses is untested.
  */
 
 import type { Api, ThinkingLevelMap } from "@earendil-works/pi-ai/compat";
