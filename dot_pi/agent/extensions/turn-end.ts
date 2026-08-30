@@ -117,30 +117,33 @@ async function sendDiscordNotification(
 export default async function (pi: ExtensionAPI) {
 	// ── Token speed (per-agent-run) ──
 	let runStart = 0;
-	let runTokens = 0;
+	let runInput = 0;
+	let runOutput = 0;
 	let lastRunStats = "";
 
 	pi.on("agent_start", async () => {
 		runStart = Date.now();
-		runTokens = 0;
+		runInput = 0;
+		runOutput = 0;
 	});
 
 	pi.on("turn_end", async (event) => {
 		const m = event.message;
 		if (m.role === "assistant" && m.usage) {
-			runTokens += m.usage.output;
+			runInput += m.usage.input;
+			runOutput += m.usage.output;
 		}
 	});
 
 	pi.on("agent_settled", async (_event, ctx) => {
 		if (runStart === 0) return;
-		const elapsed = Date.now() - runStart;
-		const secs = (elapsed / 1000).toFixed(1);
+		const secs = ((Date.now() - runStart) / 1000).toFixed(1);
 		const fmt = (n: number) => n < 1000 ? `${n}` : `${(n / 1000).toFixed(1)}k`;
-		lastRunStats = `⏱ ${secs}s · ${fmt(runTokens)} out`;
-		ctx.ui.notify(`${lastRunStats}`, "info");
+		lastRunStats = `${secs}s · ${fmt(runInput)} in · ${fmt(runOutput)} out`;
+		ctx.ui.notify(lastRunStats, "info");
 		runStart = 0;
-		runTokens = 0;
+		runInput = 0;
+		runOutput = 0;
 	});
 
 	// ── Discord notify (inactivity-based) ──
