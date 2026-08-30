@@ -6,7 +6,7 @@
     "~/.pi/agent/skills"
   ],
   "defaultProvider": "charm-hyper",
-  "defaultModel": "deepseek-v4-flash-0731",
+  "defaultModel": "deepseek-v4-flash",
   "defaultThinkingLevel": "minimal",
   "showCacheMissNotices": true,
   "theme": "dark"
