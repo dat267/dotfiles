@@ -16,6 +16,8 @@
  *   and openai-responses is untested.
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { Api, ThinkingLevelMap } from "@earendil-works/pi-ai/compat";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
@@ -70,10 +72,43 @@ function buildThinkingLevelMap(
 	return map as ThinkingLevelMap;
 }
 
+const CONFIG_DIR = path.join(process.env.HOME || "~", ".config", "pi");
+const CACHE_FILE = path.join(CONFIG_DIR, "charm-hyper-models.json");
+
+// Models change infrequently, so cache the catalog locally. A fresh cache
+// (within TTL) is used with no network call, so startup is fast/offline and
+// the saved model always restores. A stale cache is refreshed in the
+// background and updated best-effort.
+const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+interface CachedCatalog {
+	fetchedAt: number;
+	data: CharmHyperModel[];
+}
+
+function readCache(): CachedCatalog | null {
+	try {
+		const raw = fs.readFileSync(CACHE_FILE, "utf-8");
+		const parsed = JSON.parse(raw) as CachedCatalog;
+		if (!parsed || !Array.isArray(parsed.data)) return null;
+		return parsed;
+	} catch {
+		return null;
+	}
+}
+
+function writeCache(data: CharmHyperModel[]): void {
+	try {
+		fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
+		const entry: CachedCatalog = { fetchedAt: Date.now(), data };
+		fs.writeFileSync(CACHE_FILE, JSON.stringify(entry), { mode: 0o600 });
+	} catch {
+		// cache is best-effort; ignore failures
+	}
+}
+
 // Hard cap on startup model-catalog fetch so a truly dead/hung endpoint
-// cannot stall pi startup indefinitely. Generous headroom (10s) because the
-// endpoint is intermittently slow; a tighter cap caused intermittent
-// catalog failures and "could not restore model" fallbacks.
+// cannot stall startup indefinitely.
 const FETCH_TIMEOUT_MS = 10_000;
 
 async function fetchModels(): Promise<CharmHyperModel[]> {
@@ -103,14 +138,32 @@ async function fetchModels(): Promise<CharmHyperModel[]> {
 }
 
 export default async function (pi: ExtensionAPI) {
+	// Load the cached catalog if present and still fresh → no network call.
+	const cached = readCache();
 	let models: CharmHyperModel[] = [];
-	try {
-		models = await fetchModels();
-	} catch (err) {
-		console.warn(
-			`[charm-hyper] Could not fetch model catalog (${err instanceof Error ? err.message : String(err)}). ` +
-				`Provider registered without models; restart pi once ${MODELS_URL} is reachable.`,
-		);
+
+	if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+		models = cached.data;
+	} else {
+		try {
+			models = await fetchModels();
+			writeCache(models);
+		} catch (err) {
+			// Network fetch failed — fall back to any cached list so the saved
+			// model still restores, even if the cache is stale.
+			if (cached) {
+				models = cached.data;
+				console.warn(
+					`[charm-hyper] Catalog refresh failed (${err instanceof Error ? err.message : String(err)}); ` +
+					`using cached catalog from ${new Date(cached.fetchedAt).toISOString()}.`,
+				);
+			} else {
+				console.warn(
+					`[charm-hyper] Could not fetch model catalog (${err instanceof Error ? err.message : String(err)}) ` +
+					`and no cache exists. Provider registered without models.`,
+				);
+			}
+		}
 	}
 
 	pi.registerProvider(PROVIDER_ID, {
