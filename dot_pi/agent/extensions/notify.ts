@@ -133,11 +133,8 @@ export default async function (pi: ExtensionAPI) {
 		const tps = turnOutput > 0 && elapsed > 0
 			? Math.round((turnOutput / elapsed) * 1000)
 			: 0;
-		if (tps > 0) {
-			ctx.ui.notify(`⏱ ${secs}s · ${tps} t/s`, "info");
-		} else {
-			ctx.ui.notify(`⏱ ${secs}s`, "info");
-		}
+		const speed = tps > 0 ? ` · ${tps} t/s` : "";
+		ctx.ui.notify(`⏱ ${secs}s${speed} · ✓`, "info");
 	});
 
 	// ── Discord notify (inactivity-based) ──
