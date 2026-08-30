@@ -41,25 +41,47 @@ function writeWebhookUrl(url: string): void {
 
 type NotifyFn = (message: string, kind: "info" | "warning" | "error") => void;
 
-/** Extract the last assistant text content from session entries, truncated. */
-function lastAssistantText(entries: readonly SessionEntry[]): string {
+const TRUNCATE = 200;
+
+function truncate(text: string, max: number = TRUNCATE): string {
+	const trimmed = text.trim();
+	if (trimmed.length <= max) return trimmed;
+	return trimmed.slice(0, max - 3).trimEnd() + "...";
+}
+
+function extractText(entry: SessionEntry): string {
+	if (entry.type !== "message") return "";
+	const content = entry.message.content;
+	if (!Array.isArray(content)) return "";
+	const texts = content
+		.filter((c): c is { type: "text"; text: string } => c.type === "text")
+		.map((c) => c.text);
+	return texts.join("\n").trim();
+}
+
+/** Build a description from the last user message and assistant response. */
+function buildConversationSummary(entries: readonly SessionEntry[]): string {
+	let lastUser = "";
+	let lastAssistant = "";
+
 	for (let i = entries.length - 1; i >= 0; i--) {
 		const e = entries[i];
-		if (e.type !== "message" || e.message?.role !== "assistant") continue;
-		const content = e.message.content;
-		if (!Array.isArray(content)) continue;
-		const texts = content
-			.filter((c): c is { type: "text"; text: string } => c.type === "text")
-			.map((c) => c.text);
-		if (texts.length > 0) {
-			const joined = texts.join("\n").trim();
-			// Truncate to first 300 chars for a concise summary
-			if (joined.length <= 300) return joined;
-			return joined.slice(0, 297) + "...";
+		if (e.type !== "message") continue;
+		const role = e.message.role;
+		if (role === "assistant" && !lastAssistant) {
+			lastAssistant = extractText(e);
+		} else if (role === "user" && !lastUser) {
+			lastUser = extractText(e);
 		}
-		break;
+		if (lastUser && lastAssistant) break;
 	}
-	return "";
+
+	if (!lastUser && !lastAssistant) return "";
+
+	const parts: string[] = [];
+	if (lastUser) parts.push(`**You:** ${truncate(lastUser)}`);
+	if (lastAssistant) parts.push(`**Pi:** ${truncate(lastAssistant)}`);
+	return parts.join("\n\n");
 }
 
 async function sendDiscordNotification(
@@ -184,7 +206,7 @@ export default async function (pi: ExtensionAPI) {
 		pendingTimer = setTimeout(() => {
 			pendingTimer = null;
 			if (!cancelled) {
-				const summary = lastAssistantText(ctx.sessionManager.getBranch());
+				const summary = buildConversationSummary(ctx.sessionManager.getBranch());
 				sendDiscordNotification(webhookUrl, summary, ctx.ui.notify);
 			}
 		}, INACTIVITY_MS);
