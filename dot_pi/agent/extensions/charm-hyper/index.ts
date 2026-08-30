@@ -1,14 +1,14 @@
 /**
- * Hyper Charm provider extension for pi
+ * Charm Hyper provider extension for pi
  *
- * Registers the Hyper Charm provider (https://hyper.charm.land) by fetching its
+ * Registers the Charm Hyper provider (https://hyper.charm.land) by fetching its
  * public /v1/models catalog at startup and mapping each entry into pi's model
  * configuration. Speaks the OpenAI Chat Completions API.
  *
  * Setup:
  *   export HYPERCHARM_API_KEY=sk-...
  *   pi                                  # provider is auto-discovered from ~/.pi/agent/extensions
- *   /model                              # pick a hypercharm model
+ *   /model                              # pick a charm-hyper model
  *
  * Switching API:
  *   The provider also exposes /v1/responses (openai-responses). It is currently
@@ -24,9 +24,9 @@ const API: Api = "openai-completions";
 
 const BASE_URL = "https://hyper.charm.land/v1";
 const MODELS_URL = "https://hyper.charm.land/v1/models";
-const PROVIDER_ID = "hypercharm";
+const PROVIDER_ID = "charm-hyper";
 
-interface HyperCharmModel {
+interface CharmHyperModel {
 	id: string;
 	object: string;
 	created: number;
@@ -42,12 +42,12 @@ interface HyperCharmModel {
 	pricing?: { input: number; output: number; cache_create: number; cache_hit: number };
 }
 
-interface HyperCharmModelsResponse {
+interface CharmHyperModelsResponse {
 	object: string;
-	data: HyperCharmModel[];
+	data: CharmHyperModel[];
 }
 
-// Map pi thinking levels to Hyper Charm effort level values.
+// Map pi thinking levels to Charm Hyper effort level values.
 const PI_LEVEL_TO_PROVIDER: Record<string, string> = {
 	off: "none",
 	minimal: "minimal",
@@ -70,31 +70,31 @@ function buildThinkingLevelMap(
 	return map as ThinkingLevelMap;
 }
 
-async function fetchModels(): Promise<HyperCharmModel[]> {
+async function fetchModels(): Promise<CharmHyperModel[]> {
 	const res = await fetch(MODELS_URL, { headers: { accept: "application/json" } });
 	if (!res.ok) {
-		throw new Error(`Hyper Charm /v1/models returned ${res.status} ${res.statusText}`);
+		throw new Error(`Charm Hyper /v1/models returned ${res.status} ${res.statusText}`);
 	}
-	const json = (await res.json()) as HyperCharmModelsResponse;
+	const json = (await res.json()) as CharmHyperModelsResponse;
 	if (!json.data || !Array.isArray(json.data)) {
-		throw new Error("Hyper Charm /v1/models returned an unexpected payload");
+		throw new Error("Charm Hyper /v1/models returned an unexpected payload");
 	}
 	return json.data;
 }
 
 export default async function (pi: ExtensionAPI) {
-	let models: HyperCharmModel[] = [];
+	let models: CharmHyperModel[] = [];
 	try {
 		models = await fetchModels();
 	} catch (err) {
 		console.warn(
-			`[hypercharm] Could not fetch model catalog (${err instanceof Error ? err.message : String(err)}). ` +
+			`[charm-hyper] Could not fetch model catalog (${err instanceof Error ? err.message : String(err)}). ` +
 				`Provider registered without models; restart pi once ${MODELS_URL} is reachable.`,
 		);
 	}
 
 	pi.registerProvider(PROVIDER_ID, {
-		name: "Hyper Charm",
+		name: "Charm Hyper",
 		baseUrl: BASE_URL,
 		api: API,
 		apiKey: "$HYPERCHARM_API_KEY",

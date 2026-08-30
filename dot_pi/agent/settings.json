@@ -5,7 +5,7 @@
   "skills": [
     "~/.pi/agent/skills"
   ],
-  "defaultProvider": "hypercharm",
+  "defaultProvider": "charm-hyper",
   "defaultModel": "deepseek-v4-flash",
   "defaultThinkingLevel": "minimal",
   "showCacheMissNotices": true,
