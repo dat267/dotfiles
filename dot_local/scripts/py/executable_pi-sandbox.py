@@ -36,7 +36,10 @@ PI_USER_HOME = "/root"
 DOCKERFILE = textwrap.dedent(f"""\
     FROM {BASE_IMAGE}
 
+    # ── System packages ─────────────────────────────────────────────────────
     RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        pkg-config \
         ca-certificates \
         curl \
         fd-find \
@@ -49,12 +52,48 @@ DOCKERFILE = textwrap.dedent(f"""\
         ripgrep \
         && rm -rf /var/lib/apt/lists/*
 
+    # ── JS — Node 22 + pnpm ─────────────────────────────────────────────────
     RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
         && apt-get install -y nodejs \
         && rm -rf /var/lib/apt/lists/*
+    RUN npm install -g @earendil-works/pi-coding-agent pnpm
 
-    RUN npm install -g @earendil-works/pi-coding-agent
+    # ── Python — uv, pip, common tools ──────────────────────────────────────
+    RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-venv \
+        && rm -rf /var/lib/apt/lists/*
+    RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
+    # ── Go (latest) ─────────────────────────────────────────────────────────
+    RUN curl -fsSL https://go.dev/dl/go1.24.0.linux-amd64.tar.gz \
+        -o /tmp/go.tar.gz \
+        && rm -rf /usr/local/go \
+        && tar -C /usr/local -xzf /tmp/go.tar.gz \
+        && rm /tmp/go.tar.gz
+    ENV PATH="/usr/local/go/bin:$PATH"
+
+    # ── Rust — rustup + cargo ───────────────────────────────────────────────
+    RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    ENV PATH="/root/.cargo/bin:$PATH"
+
+    # ── epub — pandoc + calibre (ebook-convert, ebook-meta, etc.) ───────────
+    RUN apt-get update && apt-get install -y --no-install-recommends \
+        pandoc \
+        calibre \
+        && rm -rf /var/lib/apt/lists/*
+
+    # ── Media — ffmpeg, imagemagick, exiftool, mediainfo, sox, yt-dlp ──────
+    RUN apt-get update && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        imagemagick \
+        libimage-exiftool-perl \
+        mediainfo \
+        sox \
+        && rm -rf /var/lib/apt/lists/*
+    RUN curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+        -o /usr/local/bin/yt-dlp && chmod +x /usr/local/bin/yt-dlp
+
+    # ── chezmoi ─────────────────────────────────────────────────────────────
     RUN curl -fsSL https://github.com/twpayne/chezmoi/releases/latest/download/chezmoi-linux-amd64 \
         -o /usr/local/bin/chezmoi && chmod +x /usr/local/bin/chezmoi
 
