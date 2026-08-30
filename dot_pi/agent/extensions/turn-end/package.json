@@ -1,0 +1,9 @@
+{
+  "name": "pi-extension-turn-end",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "pi": {
+    "extensions": ["./index.ts"]
+  }
+}
