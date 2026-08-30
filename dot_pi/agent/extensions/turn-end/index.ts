@@ -29,7 +29,8 @@ import { SpeedTracker } from "./speed.ts";
 
 const DISCORD_DELAY_MS = 120_000;
 
-export default async function (pi: ExtensionAPI) {
+// No interactive prompt — reads config file or env var silently.
+export default function (pi: ExtensionAPI) {
 	const speed = new SpeedTracker();
 
 	pi.on("agent_start", async () => {
@@ -53,8 +54,6 @@ export default async function (pi: ExtensionAPI) {
 	// ── Discord notify (inactivity-based) ──
 	let webhookUrl = readWebhookUrl() ?? process.env["DISCORD_WEBHOOK_URL"] ?? null;
 	let discordEnabled = true;
-
-	webhookUrl = await ensureWebhookUrl(webhookUrl);
 
 	pi.registerCommand("notify", {
 		description: "Toggle Discord notifications on/off",
@@ -119,30 +118,3 @@ export default async function (pi: ExtensionAPI) {
 	});
 }
 
-/**
- * If no webhook URL is configured, prompt interactively to save one.
- * Returns the resolved URL (existing, env-fallback, or newly entered).
- */
-async function ensureWebhookUrl(url: string | null): Promise<string | null> {
-	if (url) return url;
-
-	console.warn(
-		`[discord-notify] No webhook URL found. ` +
-		`Create ~/.config/pi/discord-webhook with your Discord webhook URL, or set DISCORD_WEBHOOK_URL.`,
-	);
-	if (process.stdout.isTTY && process.stdin.isTTY) {
-		const rl = require("node:readline").createInterface({
-			input: process.stdin,
-			output: process.stdout,
-		});
-		const answer = await new Promise<string>((resolve) => {
-			rl.question("Paste your Discord webhook URL (or press Enter to skip): ", resolve);
-		});
-		rl.close();
-		const trimmed = answer.trim();
-		if (trimmed && (trimmed.startsWith("http://") || trimmed.startsWith("https://"))) {
-			writeWebhookUrl(trimmed);
-			console.log(`[discord-notify] Saved to ~/.config/pi/discord-webhook`);
-		}
-	}
-}
