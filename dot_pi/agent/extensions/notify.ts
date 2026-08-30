@@ -1,14 +1,16 @@
 /**
- * Discord Notify Extension
+ * Token Speed + Discord Notify
  *
- * Sends a Discord webhook notification when pi finishes processing.
- * Reads the webhook URL from ~/.config/pi/discord-webhook (first line).
- * Prompts interactively on first run if the file doesn't exist.
+ * Shows ⏱ elapsed · t/s in the chat after each turn, and sends a Discord
+ * webhook notification when pi sits idle for 2 minutes.
  *
- * Setup:
+ * Discord setup:
  *   echo 'https://discord.com/api/webhooks/...' > ~/.config/pi/discord-webhook
  *   chmod 600 ~/.config/pi/discord-webhook
  *   pi
+ *
+ * Toggle Discord notifications with /notify.
+ * Discord notification speed is not tracked.
  */
 
 import * as fs from "node:fs";
@@ -17,19 +19,16 @@ import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent
 
 const CONFIG_DIR = path.join(process.env.HOME || "~", ".config", "pi");
 const CONFIG_FILE = path.join(CONFIG_DIR, "discord-webhook");
-
-// How long to wait after pi finishes before sending the Discord notification.
-// If the user submits a new prompt in this window, the notification is cancelled.
 const INACTIVITY_MS = 120_000;
-
-// How often to check if the user has been inactive.
 const POLL_MS = 10_000;
+const TRUNCATE = 200;
+
+// ── Discord helpers ──────────────────────────────────────────────────────
 
 function readWebhookUrl(): string | null {
 	try {
 		const content = fs.readFileSync(CONFIG_FILE, "utf-8").trim();
 		if (!content) return null;
-		// Basic sanity check — must look like a URL
 		if (!content.startsWith("http://") && !content.startsWith("https://")) return null;
 		return content;
 	} catch {
@@ -43,8 +42,6 @@ function writeWebhookUrl(url: string): void {
 }
 
 type NotifyFn = (message: string, kind: "info" | "warning" | "error") => void;
-
-const TRUNCATE = 200;
 
 function truncate(text: string, max: number = TRUNCATE): string {
 	const trimmed = text.trim();
@@ -62,11 +59,9 @@ function extractText(entry: SessionEntry): string {
 	return texts.join("\n").trim();
 }
 
-/** Build a description from the last user message and assistant response. */
 function buildConversationSummary(entries: readonly SessionEntry[]): string {
 	let lastUser = "";
 	let lastAssistant = "";
-
 	for (let i = entries.length - 1; i >= 0; i--) {
 		const e = entries[i];
 		if (e.type !== "message") continue;
@@ -78,9 +73,7 @@ function buildConversationSummary(entries: readonly SessionEntry[]): string {
 		}
 		if (lastUser && lastAssistant) break;
 	}
-
 	if (!lastUser && !lastAssistant) return "";
-
 	const parts: string[] = [];
 	if (lastUser) parts.push(`**You:** ${truncate(lastUser)}`);
 	if (lastAssistant) parts.push(`**Pi:** ${truncate(lastAssistant)}`);
@@ -97,17 +90,14 @@ async function sendDiscordNotification(
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				embeds: [
-					{
-						title: "Pi",
-						description: summary || "Ready for input",
-						color: 0x5865f2, // Discord blurple
-						timestamp: new Date().toISOString(),
-					},
-				],
+				embeds: [{
+					title: "Pi",
+					description: summary || "Ready for input",
+					color: 0x5865f2,
+					timestamp: new Date().toISOString(),
+				}],
 			}),
 		});
-
 		if (res.ok) {
 			notify("Discord notified", "info");
 		} else {
@@ -121,35 +111,57 @@ async function sendDiscordNotification(
 	}
 }
 
-export default async function (pi: ExtensionAPI) {
-	let webhookUrl = readWebhookUrl();
-	let enabled = true;
+// ── Extension ────────────────────────────────────────────────────────────
 
-	// Try env var as fallback
+export default async function (pi: ExtensionAPI) {
+	// ── Token speed (per-turn) ──
+	let turnStart = 0;
+	let turnOutput = 0;
+
+	pi.on("turn_start", async (event) => {
+		turnStart = Date.now();
+		turnOutput = 0;
+	});
+
+	pi.on("turn_end", async (event, ctx) => {
+		const m = event.message;
+		if (m.role === "assistant" && m.usage) {
+			turnOutput += m.usage.output;
+		}
+		const elapsed = Date.now() - turnStart;
+		const secs = (elapsed / 1000).toFixed(1);
+		const tps = turnOutput > 0 && elapsed > 0
+			? Math.round((turnOutput / elapsed) * 1000)
+			: 0;
+		if (tps > 0) {
+			ctx.ui.notify(`⏱ ${secs}s · ${tps} t/s`, "info");
+		} else {
+			ctx.ui.notify(`⏱ ${secs}s`, "info");
+		}
+	});
+
+	// ── Discord notify (inactivity-based) ──
+	let webhookUrl = readWebhookUrl();
+	let discordEnabled = true;
+
 	if (!webhookUrl) {
 		webhookUrl = process.env["DISCORD_WEBHOOK_URL"] ?? null;
 	}
 
-	// Interactive prompt on first run (only in TUI mode)
 	if (!webhookUrl) {
 		console.warn(
 			`[discord-notify] No webhook URL found. ` +
-				`Create ${CONFIG_FILE} with your Discord webhook URL, or set DISCORD_WEBHOOK_URL.`,
+			`Create ${CONFIG_FILE} with your Discord webhook URL, or set DISCORD_WEBHOOK_URL.`,
 		);
-
-		// Try prompting if we're in interactive mode
 		if (process.stdout.isTTY && process.stdin.isTTY) {
 			const rl = require("node:readline").createInterface({
 				input: process.stdin,
 				output: process.stdout,
 			});
-
 			const answer = await new Promise<string>((resolve) => {
 				rl.question("Paste your Discord webhook URL (or press Enter to skip): ", resolve);
 			});
-
 			rl.close();
-
 			const trimmed = answer.trim();
 			if (trimmed && (trimmed.startsWith("http://") || trimmed.startsWith("https://"))) {
 				writeWebhookUrl(trimmed);
@@ -159,7 +171,6 @@ export default async function (pi: ExtensionAPI) {
 		}
 	}
 
-	// Register /notify command to toggle
 	pi.registerCommand("notify", {
 		description: "Toggle Discord notifications on/off",
 		handler: async (_args, ctx) => {
@@ -167,55 +178,39 @@ export default async function (pi: ExtensionAPI) {
 				ctx.ui.notify("No webhook URL configured", "warning");
 				return;
 			}
-			enabled = !enabled;
-			const status = enabled ? "notifications on" : "notifications off";
-			ctx.ui.notify(`Discord ${status}`, "info");
+			discordEnabled = !discordEnabled;
+			ctx.ui.notify(`Discord ${discordEnabled ? "notifications on" : "notifications off"}`, "info");
 		},
 	});
 
-	if (!webhookUrl) {
-		return;
-	}
+	if (webhookUrl) {
+		let lastUserActivity = Date.now();
+		let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-	// Debounce state: track last user activity and poll for inactivity.
-	// The notification fires only when the agent has been idle AND the user
-	// hasn't submitted anything for INACTIVITY_MS.
-	let lastUserActivity = Date.now();
-	let pollTimer: ReturnType<typeof setInterval> | null = null;
+		const startPolling = (ctx: { ui: { notify: NotifyFn } }) => {
+			stopPolling();
+			lastUserActivity = Date.now();
+			pollTimer = setInterval(() => {
+				if (Date.now() - lastUserActivity >= INACTIVITY_MS) {
+					stopPolling();
+					const summary = buildConversationSummary(ctx.sessionManager.getBranch());
+					sendDiscordNotification(webhookUrl!, summary, ctx.ui.notify);
+				}
+			}, POLL_MS);
+		};
 
-	const startPolling = (ctx: { ui: { notify: NotifyFn } }) => {
-		stopPolling();
-		lastUserActivity = Date.now();
-		pollTimer = setInterval(() => {
-			if (Date.now() - lastUserActivity >= INACTIVITY_MS) {
-				stopPolling();
-				const summary = buildConversationSummary(ctx.sessionManager.getBranch());
-				sendDiscordNotification(webhookUrl, summary, ctx.ui.notify);
+		const stopPolling = () => {
+			if (pollTimer !== null) {
+				clearInterval(pollTimer);
+				pollTimer = null;
 			}
-		}, POLL_MS);
-	};
+		};
 
-	const stopPolling = () => {
-		if (pollTimer !== null) {
-			clearInterval(pollTimer);
-			pollTimer = null;
-		}
-	};
-
-	// User submits a prompt — reset inactivity timer.
-	pi.on("input", () => {
-		lastUserActivity = Date.now();
-	});
-
-	// Session ending — clean up
-	pi.on("session_shutdown", () => {
-		stopPolling();
-	});
-
-	pi.on("agent_settled", async (_event, ctx) => {
-		if (!enabled) return;
-		// Start polling for inactivity. The user's last activity time is
-		// tracked, so if they keep submitting, the timer keeps resetting.
-		startPolling(ctx);
-	});
+		pi.on("input", () => { lastUserActivity = Date.now(); });
+		pi.on("session_shutdown", () => { stopPolling(); });
+		pi.on("agent_settled", async (_event, ctx) => {
+			if (!discordEnabled) return;
+			startPolling(ctx);
+		});
+	}
 }
