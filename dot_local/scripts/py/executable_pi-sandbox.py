@@ -27,8 +27,7 @@ import textwrap
 
 IMAGE_NAME = "pi-sandbox:latest"
 BASE_IMAGE = "node:26-bookworm-slim"
-PI_USER = "node"
-PI_USER_HOME = f"/home/{PI_USER}"
+PI_USER_HOME = "/root"
 
 # ── Dockerfile ────────────────────────────────────────────────────────────
 
@@ -41,16 +40,12 @@ DOCKERFILE = textwrap.dedent(f"""\
         file \
         git \
         openssh-client \
+        jq \
+        less \
         && rm -rf /var/lib/apt/lists/*
-
-    RUN usermod -aG sudo {PI_USER} && \
-        echo "{PI_USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
-        mkdir -p {PI_USER_HOME}/.pi/agent && \
-        chown {PI_USER}:{PI_USER} {PI_USER_HOME}/.pi/agent
 
     RUN npm install -g @earendil-works/pi-coding-agent
 
-    USER {PI_USER}
     CMD ["sleep", "infinity"]
 """)
 
@@ -72,11 +67,17 @@ def project_id(path: str) -> str:
 
 PI_AGENT_DIR = os.path.expanduser("~/.pi/agent")
 PI_SESSIONS_DIR = os.path.join(PI_AGENT_DIR, "sessions")
+PI_MODELS_STORE = os.path.join(PI_AGENT_DIR, "models-store.json")
+
+# {name: (host_path, read_only)} — mounted at ~/.pi/agent/<name> in container
 PI_CONFIG_FILES = {
-    "auth.json": os.path.join(PI_AGENT_DIR, "auth.json"),
-    "settings.json": os.path.join(PI_AGENT_DIR, "settings.json"),
-    "extensions": os.path.join(PI_AGENT_DIR, "extensions"),
-    "sessions": PI_SESSIONS_DIR,
+    "auth.json": (os.path.join(PI_AGENT_DIR, "auth.json"), True),
+    "settings.json": (os.path.join(PI_AGENT_DIR, "settings.json"), True),
+    "extensions": (os.path.join(PI_AGENT_DIR, "extensions"), True),
+    # Sessions are shared read-write so session history survives on the host
+    # and new sessions written inside the container appear on the host too.
+    "sessions": (PI_SESSIONS_DIR, False),
+    "models-store.json": (PI_MODELS_STORE, False),
 }
 
 
@@ -126,15 +127,13 @@ def ensure_container(pid: str, cwd: str):
     if home_vol not in r.stdout.splitlines():
         docker("volume", "create", home_vol, check=True)
 
-    # Build mounts: project dir at same absolute path, pi configs read-only
-    mounts = [
-        (cwd, cwd, False),  # project at exact host path
-    ]
+    # Build mounts: project dir at same absolute path (rw), pi configs per-pair
+    mounts = [(cwd, cwd, False)]
 
-    for name, src in PI_CONFIG_FILES.items():
+    for name, (src, ro) in PI_CONFIG_FILES.items():
         if os.path.exists(src):
             dst = f"{PI_USER_HOME}/.pi/agent/{name}"
-            mounts.append((src, dst, True))
+            mounts.append((src, dst, ro))
 
     volume_args = []
     for src, dst, ro in mounts:
@@ -161,9 +160,9 @@ def ensure_container(pid: str, cwd: str):
     print(f"[pi-sandbox] Container {pid} started", flush=True)
 
 
-def exec_pi(pid: str, args: list[str]):
-    """Run pi via docker exec into the container."""
-    cmd = ["exec", "-it", pid, "pi"] + args
+def exec_pi(pid: str, cwd: str, args: list[str]):
+    """Run pi via docker exec into the container, in the project workdir."""
+    cmd = ["exec", "-it", "-w", cwd, pid, "pi"] + args
     try:
         run = docker(*cmd, check=False)
     except KeyboardInterrupt:
@@ -179,11 +178,34 @@ def cleanup(pid: str):
     print(f"[pi-sandbox] Removed container {pid} and volume {home_vol}")
 
 
+def list_sandboxes():
+    """List all pi sandbox containers."""
+    r = docker("ps", "-a", "--filter", "name=pi-", "--format", "{{.Names}}  {{.Status}}", capture=True)
+    out = r.stdout.strip()
+    if not out:
+        print("No pi sandboxes")
+        return
+    print(out)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Isolate pi per project directory")
     parser.add_argument("prompt", nargs="*", help="One-shot prompt (omit for interactive)")
     parser.add_argument("--reset", action="store_true", help="Remove this project's container + volume")
+    parser.add_argument("--list", action="store_true", help="List all pi sandbox containers")
+    parser.add_argument("--cleanup-all", action="store_true", help="Remove ALL pi sandbox containers")
     args = parser.parse_args()
+
+    if args.list:
+        list_sandboxes()
+        return
+
+    if args.cleanup_all:
+        r = docker("ps", "-a", "--filter", "name=pi-", "--format", "{{.Names}}", capture=True)
+        for name in r.stdout.strip().splitlines():
+            if name:
+                cleanup(name)
+        return
 
     cwd = os.getcwd()
     pid = project_id(cwd)
@@ -196,9 +218,9 @@ def main():
     ensure_container(pid, cwd)
 
     if args.prompt:
-        exec_pi(pid, args.prompt)
+        exec_pi(pid, cwd, args.prompt)
     else:
-        exec_pi(pid, [])
+        exec_pi(pid, cwd, [])
 
 
 if __name__ == "__main__":
