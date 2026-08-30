@@ -19,8 +19,11 @@ const CONFIG_DIR = path.join(process.env.HOME || "~", ".config", "pi");
 const CONFIG_FILE = path.join(CONFIG_DIR, "discord-webhook");
 
 // How long to wait after pi finishes before sending the Discord notification.
-// If the user starts a new prompt in this window, the notification is cancelled.
-const INACTIVITY_MS = 30_000;
+// If the user submits a new prompt in this window, the notification is cancelled.
+const INACTIVITY_MS = 120_000;
+
+// How often to check if the user has been inactive.
+const POLL_MS = 10_000;
 
 function readWebhookUrl(): string | null {
 	try {
@@ -174,41 +177,45 @@ export default async function (pi: ExtensionAPI) {
 		return;
 	}
 
-	// Debounce state: a pending notification can be cancelled if the user
-	// starts a new prompt before the inactivity timer fires.
-	let pendingTimer: ReturnType<typeof setTimeout> | null = null;
-	let cancelled = false;
+	// Debounce state: track last user activity and poll for inactivity.
+	// The notification fires only when the agent has been idle AND the user
+	// hasn't submitted anything for INACTIVITY_MS.
+	let lastUserActivity = Date.now();
+	let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-	const cancelPending = () => {
-		cancelled = true;
-		if (pendingTimer !== null) {
-			clearTimeout(pendingTimer);
-			pendingTimer = null;
+	const startPolling = (ctx: { ui: { notify: NotifyFn } }) => {
+		stopPolling();
+		lastUserActivity = Date.now();
+		pollTimer = setInterval(() => {
+			if (Date.now() - lastUserActivity >= INACTIVITY_MS) {
+				stopPolling();
+				const summary = buildConversationSummary(ctx.sessionManager.getBranch());
+				sendDiscordNotification(webhookUrl, summary, ctx.ui.notify);
+			}
+		}, POLL_MS);
+	};
+
+	const stopPolling = () => {
+		if (pollTimer !== null) {
+			clearInterval(pollTimer);
+			pollTimer = null;
 		}
 	};
 
-	// User starts a new prompt — they're back, cancel any pending notification.
+	// User submits a prompt — reset inactivity timer.
 	pi.on("input", () => {
-		cancelPending();
+		lastUserActivity = Date.now();
 	});
 
 	// Session ending — clean up
 	pi.on("session_shutdown", () => {
-		cancelPending();
+		stopPolling();
 	});
 
 	pi.on("agent_settled", async (_event, ctx) => {
 		if (!enabled) return;
-		// Cancel any previous pending notification (e.g. from a rapid sequence)
-		cancelPending();
-
-		cancelled = false;
-		pendingTimer = setTimeout(() => {
-			pendingTimer = null;
-			if (!cancelled) {
-				const summary = buildConversationSummary(ctx.sessionManager.getBranch());
-				sendDiscordNotification(webhookUrl, summary, ctx.ui.notify);
-			}
-		}, INACTIVITY_MS);
+		// Start polling for inactivity. The user's last activity time is
+		// tracked, so if they keep submitting, the timer keeps resetting.
+		startPolling(ctx);
 	});
 }
