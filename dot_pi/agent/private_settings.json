@@ -9,5 +9,14 @@
   "defaultModel": "qwen3.8-flash",
   "defaultThinkingLevel": "minimal",
   "showCacheMissNotices": true,
-  "theme": "dark"
+  "theme": "dark",
+  "steeringMode": "one-at-a-time",
+  "transport": "auto",
+  "markdown": {
+    "mermaid": "streaming"
+  },
+  "defaultProjectTrust": "ask",
+  "doubleEscapeAction": "none",
+  "fullscreenScrollbar": "auto",
+  "outputPad": 0
 }
