@@ -19,8 +19,7 @@ import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent
 
 const CONFIG_DIR = path.join(process.env.HOME || "~", ".config", "pi");
 const CONFIG_FILE = path.join(CONFIG_DIR, "discord-webhook");
-const INACTIVITY_MS = 120_000;
-const POLL_MS = 10_000;
+const DISCORD_DELAY_MS = 120_000;
 const TRUNCATE = 200;
 
 // ── Discord helpers ──────────────────────────────────────────────────────
@@ -191,34 +190,30 @@ export default async function (pi: ExtensionAPI) {
 		},
 	});
 
-	if (webhookUrl) {
-		let lastUserActivity = Date.now();
-		let pollTimer: ReturnType<typeof setInterval> | null = null;
+	let discordTimer: ReturnType<typeof setTimeout> | null = null;
+	let discordSettledAt = 0;
 
-		const startPolling = (ctx: { ui: { notify: NotifyFn } }) => {
-			stopPolling();
-			lastUserActivity = Date.now();
-			pollTimer = setInterval(() => {
-				if (Date.now() - lastUserActivity >= INACTIVITY_MS) {
-					stopPolling();
-					const summary = buildConversationSummary(ctx.sessionManager.getBranch());
-					sendDiscordNotification(webhookUrl!, summary, lastRunStats, ctx.ui.notify);
-				}
-			}, POLL_MS);
-		};
+	pi.on("input", () => {
+		// Cancel pending Discord notification if user submits a new prompt
+		discordSettledAt = 0;
+		if (discordTimer !== null) {
+			clearTimeout(discordTimer);
+			discordTimer = null;
+		}
+	});
 
-		const stopPolling = () => {
-			if (pollTimer !== null) {
-				clearInterval(pollTimer);
-				pollTimer = null;
+	pi.on("agent_settled", async (_event, ctx) => {
+		if (!webhookUrl || !discordEnabled) return;
+		discordSettledAt = Date.now();
+		const checkInactivity = () => {
+			if (discordSettledAt === 0) return; // cancelled by new input
+			if (Date.now() - discordSettledAt >= DISCORD_DELAY_MS) {
+				const summary = buildConversationSummary(ctx.sessionManager.getBranch());
+				sendDiscordNotification(webhookUrl, summary, lastRunStats, ctx.ui.notify);
+				return;
 			}
+			discordTimer = setTimeout(checkInactivity, 5_000);
 		};
-
-		pi.on("input", () => { lastUserActivity = Date.now(); });
-		pi.on("session_shutdown", () => { stopPolling(); });
-		pi.on("agent_settled", async (_event, ctx) => {
-			if (!discordEnabled) return;
-			startPolling(ctx);
-		});
-	}
+		discordTimer = setTimeout(checkInactivity, 5_000);
+	});
 }
