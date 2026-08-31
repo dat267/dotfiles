@@ -43,7 +43,7 @@ export default function (pi: ExtensionAPI) {
 		}
 	});
 
-		let latestStats: string | null = null;
+	let latestStats: string | null = null;
 
 	pi.on("agent_settled", async (_event, ctx) => {
 		latestStats = speed.computeStats();
