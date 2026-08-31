@@ -473,4 +473,17 @@ if command -v ssh-agent >/dev/null 2>&1; then
 	fi
 fi
 
-
+# Vix on Termux (Go binary needs DNS proxy + CA cert for static binary)
+if [ "$DISTRO_NAME" = "android" ] && [ -f "$HOME/.local/bin/vix-proxy" ]; then
+	export VIX_SOCKET_PATH="$PREFIX/tmp/vixd.sock"
+	export SSL_CERT_FILE="$PREFIX/etc/tls/cert.pem"
+	export HTTPS_PROXY="http://127.0.0.1:8888"
+	# source charm-hyper API key for vix (OPENAI_API_KEY is whitelisted by vix CLI)
+	if [ -f "$HOME/.config/pi/charm-hyper-key" ]; then
+		export OPENAI_API_KEY="$(cat "$HOME/.config/pi/charm-hyper-key")"
+	fi
+	# start DNS/proxy if not running
+	if ! pgrep -f "vix-proxy" >/dev/null 2>&1; then
+		nohup "$HOME/.local/bin/vix-proxy" >/dev/null 2>&1 &
+	fi
+fi
