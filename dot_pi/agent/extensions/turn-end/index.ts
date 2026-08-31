@@ -22,7 +22,6 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	readWebhookUrl,
 	sendDiscordNotification,
-	writeWebhookUrl,
 } from "./discord.ts";
 import { buildConversationSummary } from "./summary.ts";
 import { SpeedTracker } from "./speed.ts";
