@@ -1,34 +1,46 @@
 /**
  * Custom Footer — cache hit + context window only.
  * All dimmed, single line.
- * Format: "CH97.4%  3.4%/1.0M"
+ * Format: "CH97.4% 3%/1M"
+ *
+ * Cache hit rate is tracked at turn_end (not walked per-frame).
  */
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { visibleWidth } from "@earendil-works/pi-tui";
 
 export default function (pi: ExtensionAPI) {
+	let latestCacheHitRate: number | undefined;
+
+	pi.on("turn_end", async (event) => {
+		const m = event.message as AssistantMessage;
+		if (m.role !== "assistant") return;
+		const promptTokens = (m.usage.input ?? 0) + (m.usage.cacheRead ?? 0) + (m.usage.cacheWrite ?? 0);
+		if (promptTokens > 0) {
+			latestCacheHitRate = ((m.usage.cacheRead ?? 0) / promptTokens) * 100;
+		}
+	});
+
 	pi.on("session_start", async (_event, ctx) => {
+		// Seed from the last assistant message on session resume/fork
+		latestCacheHitRate = undefined;
+		for (const e of ctx.sessionManager.getBranch()) {
+			if (e.type === "message" && e.message.role === "assistant") {
+				const m = e.message as AssistantMessage;
+				const promptTokens = (m.usage.input ?? 0) + (m.usage.cacheRead ?? 0) + (m.usage.cacheWrite ?? 0);
+				if (promptTokens > 0) {
+					latestCacheHitRate = ((m.usage.cacheRead ?? 0) / promptTokens) * 100;
+				}
+			}
+		}
+
 		ctx.ui.setFooter((tui, theme, footerData) => {
 			const unsub = footerData.onBranchChange(() => tui.requestRender());
 			return {
 				dispose: unsub,
 				invalidate() {},
-				render(width: number): string[] {
-					// -- Cache hit rate (CH) --
-					let latestCacheHitRate: number | undefined;
-					for (const e of ctx.sessionManager.getBranch()) {
-						if (e.type === "message" && e.message.role === "assistant") {
-							const m = e.message as AssistantMessage;
-							const promptTokens = m.usage.input + m.usage.cacheRead + m.usage.cacheWrite;
-							if (promptTokens > 0) {
-								latestCacheHitRate = (m.usage.cacheRead / promptTokens) * 100;
-							}
-						}
-					}
-
-					// -- Context usage --
+				render(_width: number): string[] {
+					// -- Read cached values (O(1), no branch walk) --
 					const contextUsage = ctx.getContextUsage();
 					const contextWindow = contextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
 					const contextPercent =
@@ -40,14 +52,12 @@ export default function (pi: ExtensionAPI) {
 							? `?/${formatTokens(contextWindow)}`
 							: `${contextPercent}%/${formatTokens(contextWindow)}`;
 
-					// -- Build line: CH + context, dimmed, single line --
 					const parts: string[] = [];
 					if (latestCacheHitRate !== undefined) {
 						parts.push(`CH${latestCacheHitRate.toFixed(1)}%`);
 					}
 					parts.push(contextDisplay);
 					const line = theme.fg("dim", parts.join(" "));
-
 					return [line];
 				},
 			};

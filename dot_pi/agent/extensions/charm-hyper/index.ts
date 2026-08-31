@@ -2,18 +2,11 @@
  * Charm Hyper provider extension for pi
  *
  * Registers the Charm Hyper provider (https://hyper.charm.land) with an
- * embedded static model catalog — identical to how pi's built-in providers
- * (opencode-go, etc.) ship their model catalogs.
+ * embedded static model catalog.
  *
- * Auth comes from ~/.pi/agent/auth.json (provider id "charm-hyper") via pi's
- * credential store, falling back to the HYPERCHARM_API_KEY env var.
+ * Auth: ~/.pi/agent/auth.json (provider id "charm-hyper") or HYPERCHARM_API_KEY.
  *
- * Setup:
- *   # add to auth.json: { "charm-hyper": { "type": "api_key", "key": "..." } }
- *   /model          # pick a charm-hyper model
- *
- * Transport: openai-completions (the /v1/responses openai-responses path is
- * untested; anthropic-messages 404s at hyper.charm.land).
+ * Trimmed to actively useful models (~50% of original).
  */
 
 import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
@@ -25,8 +18,6 @@ const API: Api = "openai-completions";
 const PROVIDER_ID = "charm-hyper";
 const BASE_URL = "https://hyper.charm.land/v1";
 
-// Static model catalog — regenerate by fetching /v1/models from charm-hyper
-// and mapping each entry. Named after the pinned model ID.
 const MODELS: Model<typeof API>[] = [
 	{
 		id: "deepseek-v4-flash",
@@ -93,58 +84,6 @@ const MODELS: Model<typeof API>[] = [
 		maxTokens: 262_144,
 	},
 	{
-		id: "gemma-4-26b-a4b-it",
-		name: "Gemma 4 26B A4B",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.1, output: 0.1, cacheRead: 0.02, cacheWrite: 0 },
-		contextWindow: 256_000,
-		maxTokens: 25_600,
-	},
-	{
-		id: "glm-5",
-		name: "GLM-5",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.3, output: 0.3, cacheRead: 0.06, cacheWrite: 0 },
-		contextWindow: 202_800,
-		maxTokens: 20_300,
-	},
-	{
-		id: "glm-5.1",
-		name: "GLM-5.1",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.3, output: 0.3, cacheRead: 0.06, cacheWrite: 0 },
-		contextWindow: 202_800,
-		maxTokens: 3_300,
-	},
-	{
-		id: "glm-5.2",
-		name: "GLM-5.2",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: true,
-		thinkingLevelMap: {
-			off: null, minimal: null, low: null, medium: null,
-			high: "high", xhigh: null, max: null,
-		},
-		input: ["text"],
-		cost: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 131_072,
-	},
-	{
 		id: "glm-5.3",
 		name: "GLM-5.3",
 		api: API,
@@ -159,66 +98,6 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 131_072,
-	},
-	{
-		id: "gpt-oss-120b",
-		name: "GPT-OSS 120B",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: true,
-		thinkingLevelMap: {
-			off: null, minimal: null, low: null, medium: null,
-			high: "high", xhigh: null, max: null,
-		},
-		input: ["text"],
-		cost: { input: 0.18, output: 0.18, cacheRead: 0.036, cacheWrite: 0 },
-		contextWindow: 128_000,
-		maxTokens: 13_100,
-	},
-	{
-		id: "kimi-k2.5",
-		name: "Kimi K2.5",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.95, output: 4, cacheRead: 0.16, cacheWrite: 0 },
-		contextWindow: 262_144,
-		maxTokens: 26_200,
-	},
-	{
-		id: "kimi-k2.6",
-		name: "Kimi K2.6",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: true,
-		thinkingLevelMap: {
-			off: null, minimal: null, low: null, medium: null,
-			high: "high", xhigh: null, max: null,
-		},
-		input: ["text"],
-		cost: { input: 0.95, output: 4, cacheRead: 0.16, cacheWrite: 0 },
-		contextWindow: 262_144,
-		maxTokens: 65_500,
-	},
-	{
-		id: "kimi-k2.7-code",
-		name: "Kimi K2.7 Code",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: true,
-		thinkingLevelMap: {
-			off: null, minimal: null, low: null, medium: null,
-			high: "high", xhigh: null, max: null,
-		},
-		input: ["text"],
-		cost: { input: 0.95, output: 4, cacheRead: 0.19, cacheWrite: 0 },
-		contextWindow: 262_144,
-		maxTokens: 262_144,
 	},
 	{
 		id: "kimi-k3",
@@ -237,42 +116,6 @@ const MODELS: Model<typeof API>[] = [
 		maxTokens: 131_072,
 	},
 	{
-		id: "llama-3.3-70b-instruct",
-		name: "Llama 3.3 70B Instruct",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.1, output: 0.1, cacheRead: 0.02, cacheWrite: 0 },
-		contextWindow: 128_000,
-		maxTokens: 12_800,
-	},
-	{
-		id: "llama-4-maverick-17b-128e-instruct-fp8",
-		name: "Llama 4 Maverick 17B 128E",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.1, output: 0.1, cacheRead: 0.02, cacheWrite: 0 },
-		contextWindow: 128_000,
-		maxTokens: 12_800,
-	},
-	{
-		id: "minimax-m2.7",
-		name: "MiniMax M2.7",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.15, output: 0.6, cacheRead: 0.03, cacheWrite: 0 },
-		contextWindow: 204_800,
-		maxTokens: 131_072,
-	},
-	{
 		id: "minimax-m3",
 		name: "MiniMax M3",
 		api: API,
@@ -287,54 +130,6 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 0.3, output: 1.2, cacheRead: 0.06, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 512_000,
-	},
-	{
-		id: "qwen3.6-flash",
-		name: "Qwen3.6 Flash",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.1, output: 0.1, cacheRead: 0.02, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 128_000,
-	},
-	{
-		id: "qwen3.6-max",
-		name: "Qwen3.6 Max",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 2, output: 6, cacheRead: 0.25, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 65_536,
-	},
-	{
-		id: "qwen3.6-plus",
-		name: "Qwen3.6 Plus",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.5, output: 2, cacheRead: 0.1, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 65_536,
-	},
-	{
-		id: "qwen3.7-flash",
-		name: "Qwen3.7 Flash",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.1, output: 0.1, cacheRead: 0.02, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 128_000,
 	},
 	{
 		id: "qwen3.7-max",
@@ -369,30 +164,6 @@ const MODELS: Model<typeof API>[] = [
 		maxTokens: 64_000,
 	},
 	{
-		id: "qwen3.8-2.4t-a95b",
-		name: "Qwen3.8 2.4T A95B",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 2, output: 6, cacheRead: 0.25, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 128_000,
-	},
-	{
-		id: "qwen3.8-27b",
-		name: "Qwen3.8 27B",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.5, output: 3, cacheRead: 0.1, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 128_000,
-	},
-	{
 		id: "qwen3.8-flash",
 		name: "Qwen3.8 Flash",
 		api: API,
@@ -419,18 +190,6 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 2, output: 6, cacheRead: 0.25, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 65_536,
-	},
-	{
-		id: "qwen3-coder-480b-a35b-instruct-int4-mixed-ar",
-		name: "Qwen3 Coder 480B A35B",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0.5, output: 1.5, cacheRead: 0.1, cacheWrite: 0 },
-		contextWindow: 128_000,
-		maxTokens: 12_800,
 	},
 	{
 		id: "qwen3-next-80b-a3b-instruct",

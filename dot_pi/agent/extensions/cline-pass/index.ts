@@ -1,15 +1,8 @@
 /**
  * ClinePass provider extension for pi
  *
- * Exact model IDs and metadata from opencode's built-in cline-pass provider.
- * Auth: reads from ~/.pi/agent/auth.json (provider id "cline-pass"), falling
- * back to the CLINE_API_KEY env var.
- *
- * Setup:
- *   # add to auth.json: { "cline-pass": { "type": "api_key", "key": "..." } }
- *   # or export CLINE_API_KEY=...
- *   pi
- *   /model                          # pick a cline model
+ * Auth: ~/.pi/agent/auth.json (provider id "cline-pass") or CLINE_API_KEY.
+ * Trimmed to actively useful models.
  */
 
 import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
@@ -47,18 +40,6 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "cline-pass/glm-5.2",
-		name: "GLM-5.2",
-		api: API,
-		provider: PROVIDER_ID,
-		reasoning: true,
-		input: ["text"],
-		cost: { input: 1.4, output: 4.4, cacheRead: 0.26 },
-		contextWindow: 1_000_000,
-		maxTokens: 131_072,
-		baseUrl: BASE_URL,
-	},
-	{
 		id: "cline-pass/glm-5.3",
 		name: "GLM-5.3",
 		api: API,
@@ -71,30 +52,6 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "cline-pass/kimi-k2.6",
-		name: "Kimi K2.6",
-		api: API,
-		provider: PROVIDER_ID,
-		reasoning: true,
-		input: ["text"],
-		cost: { input: 0.95, output: 4, cacheRead: 0.16 },
-		contextWindow: 262_144,
-		maxTokens: 262_144,
-		baseUrl: BASE_URL,
-	},
-	{
-		id: "cline-pass/kimi-k2.7-code",
-		name: "Kimi K2.7 Code",
-		api: API,
-		provider: PROVIDER_ID,
-		reasoning: true,
-		input: ["text"],
-		cost: { input: 0.95, output: 4, cacheRead: 0.19 },
-		contextWindow: 262_144,
-		maxTokens: 262_144,
-		baseUrl: BASE_URL,
-	},
-	{
 		id: "cline-pass/kimi-k3",
 		name: "Kimi K3",
 		api: API,
@@ -102,18 +59,6 @@ const MODELS: Model<Api>[] = [
 		reasoning: true,
 		input: ["text"],
 		cost: { input: 3, output: 15, cacheRead: 0.3 },
-		contextWindow: 1_048_576,
-		maxTokens: 131_072,
-		baseUrl: BASE_URL,
-	},
-	{
-		id: "cline-pass/mimo-v2.5",
-		name: "MiMo-V2.5",
-		api: API,
-		provider: PROVIDER_ID,
-		reasoning: true,
-		input: ["text"],
-		cost: { input: 0.14, output: 0.28, cacheRead: 0.0028 },
 		contextWindow: 1_048_576,
 		maxTokens: 131_072,
 		baseUrl: BASE_URL,
@@ -140,18 +85,6 @@ const MODELS: Model<Api>[] = [
 		cost: { input: 0.3, output: 1.2, cacheRead: 0.06 },
 		contextWindow: 1_048_576,
 		maxTokens: 512_000,
-		baseUrl: BASE_URL,
-	},
-	{
-		id: "cline-pass/qwen3.7-max",
-		name: "Qwen3.7 Max",
-		api: API,
-		provider: PROVIDER_ID,
-		reasoning: true,
-		input: ["text"],
-		cost: { input: 2.5, output: 7.5, cacheRead: 0.5, cacheWrite: 3.125 },
-		contextWindow: 1_000_000,
-		maxTokens: 65_536,
 		baseUrl: BASE_URL,
 	},
 	{

@@ -8,7 +8,7 @@
   "defaultProvider": "charm-hyper",
   "defaultModel": "deepseek-v4-flash",
   "defaultThinkingLevel": "minimal",
-  "showCacheMissNotices": true,
+  "showCacheMissNotices": false,
   "theme": "dark",
   "steeringMode": "one-at-a-time",
   "transport": "auto",
@@ -19,5 +19,10 @@
   "doubleEscapeAction": "none",
   "fullscreenScrollbar": "auto",
   "version": "0.84.4",
-  "outputPad": 1
+  "outputPad": 1,
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 8192,
+    "keepRecentTokens": 10000
+  }
 }
