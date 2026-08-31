@@ -43,4 +43,6 @@ run_onchange_after_systemd-user-reload.sh.tmpl
 **/*.zcompdump*
 **/*.log
 **/node_modules
+# dsh-web.service — user-managed, not deployed by chezmoi
+.config/systemd/user/dsh-web.service
 .omo
