@@ -1,7 +1,8 @@
 /**
  * Custom Footer — cache hit, context usage, model only.
- * Strips pwd, git branch, session name, token totals, cost, and extension statuses.
- * Format: "CH97.4% 3.4%/1.0M (auto)  (charm-hyper) deepseek-v4-flash • high"
+ * Strips pwd, git branch, session name, token totals, cost, reasoning effort,
+ * provider, and extension statuses. All dimmed, single line.
+ * Format: "CH97.4% 3.4%/1.0M (auto)  deepseek-v4-flash"
  */
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
@@ -40,36 +41,17 @@ export default function (pi: ExtensionAPI) {
 							? `?/${formatTokens(contextWindow)} (auto)`
 							: `${contextPercent}%/${formatTokens(contextWindow)} (auto)`;
 
-					// -- Colorize context percent --
-					const contextPercentValue = contextUsage?.percent ?? 0;
-					const contextStr =
-						contextPercentValue > 90
-							? theme.fg("error", contextDisplay)
-							: contextPercentValue > 70
-								? theme.fg("warning", contextDisplay)
-								: contextDisplay;
-
-					// -- Build left side: CH + context --
+					// -- Left side: CH + context (all dimmed) --
 					const parts: string[] = [];
 					if (latestCacheHitRate !== undefined) {
 						parts.push(`CH${latestCacheHitRate.toFixed(1)}%`);
 					}
-					parts.push(contextStr);
-					const left = parts.join(" ");
+					parts.push(contextDisplay);
+					const left = theme.fg("dim", parts.join(" "));
 
-					// -- Right side: model --
+					// -- Right side: model name only (no provider, no reasoning effort) --
 					const modelId = ctx.model?.id ?? "no-model";
-					let rightSide = modelId;
-					if (ctx.model?.reasoning) {
-						const thinkingLevel = ctx.thinkingLevel || "off";
-						rightSide = thinkingLevel === "off"
-							? `${modelId} • thinking off`
-							: `${modelId} • ${thinkingLevel}`;
-					}
-					if (footerData.getAvailableProviderCount() > 1 && ctx.model) {
-						rightSide = `(${ctx.model.provider}) ${rightSide}`;
-					}
-					const right = theme.fg("dim", rightSide);
+					const right = theme.fg("dim", modelId);
 
 					// -- Layout --
 					const leftWidth = visibleWidth(left);
@@ -84,7 +66,7 @@ export default function (pi: ExtensionAPI) {
 					} else {
 						const avail = width - leftWidth - minPad;
 						if (avail > 0) {
-							const truncated = truncateToWidth(rightSide, avail, "");
+							const truncated = truncateToWidth(modelId, avail, "");
 							const tw = visibleWidth(truncated);
 							line = left + " ".repeat(Math.max(0, width - leftWidth - tw)) + theme.fg("dim", truncated);
 						} else {
