@@ -1,13 +1,12 @@
 /**
- * Custom Footer — cache hit, context usage, model + thinking effort.
- * Strips pwd, git branch, session name, token totals, cost, and provider.
+ * Custom Footer — cache hit + context window only.
  * All dimmed, single line.
- * Format: "CH97.4% 3.4%/1.0M (auto)  deepseek-v4-flash • high"
+ * Format: "CH97.4%  3.4%/1.0M"
  */
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { visibleWidth } from "@earendil-works/pi-tui";
 
 export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
@@ -38,46 +37,17 @@ export default function (pi: ExtensionAPI) {
 							: "?";
 					const contextDisplay =
 						contextPercent === "?"
-							? `?/${formatTokens(contextWindow)} (auto)`
-							: `${contextPercent}%/${formatTokens(contextWindow)} (auto)`;
+							? `?/${formatTokens(contextWindow)}`
+							: `${contextPercent}%/${formatTokens(contextWindow)}`;
 
-					// -- Left side: CH + context (all dimmed) --
+					// -- Build line: CH + context, dimmed, single line --
 					const parts: string[] = [];
 					if (latestCacheHitRate !== undefined) {
 						parts.push(`CH${latestCacheHitRate.toFixed(1)}%`);
 					}
 					parts.push(contextDisplay);
-					const left = theme.fg("dim", parts.join(" "));
+					const line = theme.fg("dim", parts.join("  "));
 
-					// -- Right side: model name + thinking effort (no provider) --
-					const modelId = ctx.model?.id ?? "no-model";
-					let rightSide = modelId;
-					if (ctx.model?.reasoning) {
-						const tl = ctx.thinkingLevel || "off";
-						rightSide = `${modelId} • ${tl}`;
-					}
-					const right = theme.fg("dim", rightSide);
-
-					// -- Layout --
-					const leftWidth = visibleWidth(left);
-					const rightWidth = visibleWidth(right);
-					const minPad = 2;
-					const totalNeeded = leftWidth + minPad + rightWidth;
-
-					let line: string;
-					if (totalNeeded <= width) {
-						const pad = " ".repeat(width - leftWidth - rightWidth);
-						line = left + pad + right;
-					} else {
-						const avail = width - leftWidth - minPad;
-						if (avail > 0) {
-							const truncated = truncateToWidth(rightSide, avail, "");
-							const tw = visibleWidth(truncated);
-							line = left + " ".repeat(Math.max(0, width - leftWidth - tw)) + theme.fg("dim", truncated);
-						} else {
-							line = left;
-						}
-					}
 					return [line];
 				},
 			};
