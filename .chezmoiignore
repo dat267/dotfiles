@@ -44,3 +44,4 @@ run_onchange_after_systemd-user-reload.sh.tmpl
 **/*.log
 **/node_modules
 .omo
+.vix/
