@@ -21,8 +21,7 @@ export default function (pi: ExtensionAPI) {
 		}
 	});
 
-	pi.on("session_start", async (_event, ctx) => {
-		// Seed from the last assistant message on session resume/fork
+	function seedCacheHitRate(ctx: any) {
 		latestCacheHitRate = undefined;
 		for (const e of ctx.sessionManager.getBranch()) {
 			if (e.type === "message" && e.message.role === "assistant") {
@@ -33,6 +32,14 @@ export default function (pi: ExtensionAPI) {
 				}
 			}
 		}
+	}
+
+	pi.on("session_tree", async (_event, ctx) => {
+		seedCacheHitRate(ctx);
+	});
+
+	pi.on("session_start", async (_event, ctx) => {
+		seedCacheHitRate(ctx);
 
 		ctx.ui.setFooter((tui, theme, footerData) => {
 			const unsub = footerData.onBranchChange(() => tui.requestRender());
