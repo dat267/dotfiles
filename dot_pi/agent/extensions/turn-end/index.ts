@@ -90,6 +90,9 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("agent_settled", async (_event, ctx) => {
 		if (!webhookUrl || !discordEnabled) return;
+		// Interactive only: in print/one-shot mode the inactivity timer would
+		// keep the event loop alive ~2 min after the answer is printed.
+		if (ctx.mode !== "tui") return;
 		// Resolve everything we need now, while ctx is valid.
 		discordSettledAt = Date.now();
 		discordSummary = buildConversationSummary(ctx.sessionManager.getBranch());
@@ -112,9 +115,12 @@ export default function (pi: ExtensionAPI) {
 				sendNow();
 				return;
 			}
+			// unref: never let the timer chain keep the process alive on exit
 			discordTimer = setTimeout(checkInactivity, 5_000);
+			discordTimer.unref?.();
 		};
 		discordTimer = setTimeout(checkInactivity, 5_000);
+		discordTimer.unref?.();
 	});
 }
 
