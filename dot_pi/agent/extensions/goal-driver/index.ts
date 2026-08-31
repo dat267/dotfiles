@@ -39,20 +39,14 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import {
+	reconstructFromEntries,
+	renderRoundPrompt,
+	type Goal,
+	type GoalDetails,
+} from "./state.ts";
 
 // ── State ────────────────────────────────────────────────────────────────
-
-interface Goal {
-	objective: string;
-	maxRounds: number;
-	roundsStarted: number;
-	status: "active" | "completed" | "blocked";
-	blockedReason?: string;
-}
-
-interface GoalDetails {
-	goal: Goal | null;
-}
 
 const DEFAULT_MAX_ROUNDS = 20;
 const HARD_ROUND_CAP = 100;
@@ -67,58 +61,7 @@ function goalDetails(): GoalDetails {
 	return { goal: goal ? { ...goal } : null };
 }
 
-function isGoalToolResult(msg: unknown): GoalDetails | null {
-	const m = msg as { role: string; toolName?: string; details?: unknown };
-	if (m.role !== "toolResult" || m.toolName !== "goal") return null;
-	const d = m.details as GoalDetails | undefined;
-	if (d && "goal" in d) return d;
-	return null;
-}
-
-/** Replay goal tool results from the session log in order, and count
- * injected rounds from history for an exact roundsStarted. */
-function reconstructState(ctx: ExtensionContext) {
-	goal = null;
-	let injectedRounds = 0;
-	for (const entry of ctx.sessionManager.getBranch()) {
-		if (entry.type !== "message") continue;
-		const msg = entry.message as { role: string; content?: unknown };
-		// Every injected round enters history as a user message wrapped in
-		// <goal_round> — count them so a mid-loop restart can't reset the cap.
-		if (msg.role === "user") {
-			const content = msg.content;
-			if (Array.isArray(content)) {
-				for (const part of content as Array<{ type: string; text?: string }>) {
-					if (part.type === "text" && part.text?.startsWith("<goal_round>")) {
-						injectedRounds++;
-					}
-				}
-			}
-		}
-		const d = isGoalToolResult(msg);
-		if (d) goal = d.goal ? { ...d.goal } : null;
-	}
-	if (goal && goal.status === "active") goal.roundsStarted = Math.max(goal.roundsStarted, injectedRounds);
-}
-
 // ── Round prompt (adapted from dsh goal-round-driver) ─────────────────────
-
-function renderRoundPrompt(g: Goal, round: number): string {
-	return (
-		"<goal_round>\n" +
-		`Objective: ${JSON.stringify(g.objective)}\n` +
-		`Round: ${round}/${g.maxRounds}\n\n` +
-		"Continue working toward the objective in this same session. Treat the current workspace, " +
-		"tool results, and durable session state as authoritative; inspect them instead of assuming " +
-		"earlier narration is still current. Make concrete progress and verify the result. Before " +
-		"claiming completion, gather evidence that the whole objective is achieved, then use the " +
-		"goal tool to mark it complete. If work remains, leave the goal active for the next round. " +
-		"If you are blocked, use the goal tool to record a blocker.\n" +
-		"</goal_round>"
-	);
-}
-
-// ── Driver ───────────────────────────────────────────────────────────────
 
 function statusLine(): string {
 	if (!goal) return "No goal. Ask the agent to create one, or start with --goal \"objective\".";
@@ -173,9 +116,6 @@ function maybeContinue(pi: ExtensionAPI, ctx: ExtensionContext, opts: { requireI
 // ── Extension entry ──────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
-	let flagObjective: string | null = null;
-	let flagRounds = DEFAULT_MAX_ROUNDS;
-
 	pi.registerFlag("goal", {
 		description: "Start with an armed goal; rounds continue automatically until complete/blocked",
 		type: "string",
@@ -188,8 +128,16 @@ export default function (pi: ExtensionAPI) {
 		default: String(DEFAULT_MAX_ROUNDS),
 	});
 
-	pi.on("session_start", async (event, ctx) => {
+	pi.on("session_start", async (_event, ctx) => {
+		// Defensive: never carry arm state or stop-reason across session
+		// switches, even if the extension instance is reused from cache.
+		// After resume/fork an active goal stays disarmed until /goal resume.
+		armed = false;
+		lastStopReason = null;
+
 		// --goal flag: create + arm before the first turn
+		let flagObjective: string | null = null;
+		let flagRounds = DEFAULT_MAX_ROUNDS;
 		const obj = pi.getFlag("goal");
 		const roundsRaw = pi.getFlag("goal-rounds");
 		if (typeof obj === "string" && obj.trim()) flagObjective = obj.trim();
@@ -197,7 +145,7 @@ export default function (pi: ExtensionAPI) {
 		const roundsNum = typeof roundsRaw === "number" ? roundsRaw : Number(roundsRaw);
 		if (Number.isFinite(roundsNum) && roundsNum > 0) flagRounds = Math.min(Math.floor(roundsNum), HARD_ROUND_CAP);
 
-		reconstructState(ctx);
+		goal = reconstructFromEntries(ctx.sessionManager.getBranch());
 
 		if (flagObjective) {
 			if (!goal) {
@@ -222,7 +170,10 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("agent_end", async (event, ctx) => {
 		// Track the run's final stopReason for the bad-turn guard.
-		const msgs = event.messages as Array<{ role: string; stopReason?: string }>;
+		const msgs = (Array.isArray(event.messages) ? event.messages : []) as Array<{
+			role: string;
+			stopReason?: string;
+		}>;
 		for (let i = msgs.length - 1; i >= 0; i--) {
 			if (msgs[i].role === "assistant") {
 				lastStopReason = msgs[i].stopReason ?? null;

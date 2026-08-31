@@ -88,6 +88,16 @@ export default function (pi: ExtensionAPI) {
 		}
 	});
 
+	pi.on("session_shutdown", () => {
+		// Never fire a stale ping from an outgoing session after /new,
+		// /resume, or /fork.
+		discordSettledAt = 0;
+		if (discordTimer !== null) {
+			clearTimeout(discordTimer);
+			discordTimer = null;
+		}
+	});
+
 	pi.on("agent_settled", async (_event, ctx) => {
 		if (!webhookUrl || !discordEnabled) return;
 		// Interactive only: in print/one-shot mode the inactivity timer would
