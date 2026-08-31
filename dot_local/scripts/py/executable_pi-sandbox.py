@@ -175,7 +175,7 @@ def ensure_container(pid: str, cwd: str):
         r = docker("ps", "--filter", f"name={pid}", "--format", "{{.Names}}", capture=True)
         if pid not in r.stdout.splitlines():
             print(f"[pi-sandbox] Starting container {pid}...", flush=True)
-            docker("start", pid, check=True)
+            docker("start", pid, check=True, capture=True)
         return
 
     r = docker("volume", "ls", "-q", capture=True)
@@ -203,9 +203,10 @@ def ensure_container(pid: str, cwd: str):
         "--hostname", "pi-sandbox",
         IMAGE_NAME,
         check=True,
+        capture=True,
     )
 
-    docker("start", pid, check=True)
+    docker("start", pid, check=True, capture=True)
     print(f"[pi-sandbox] Container {pid} started", flush=True)
 
 
