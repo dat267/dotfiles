@@ -128,6 +128,12 @@ export default function (pi: ExtensionAPI) {
 		default: String(DEFAULT_MAX_ROUNDS),
 	});
 
+	pi.on("session_tree", async (_event, ctx) => {
+		// Reconstruct goal state from the new branch's entries
+		goal = reconstructFromEntries(ctx.sessionManager.getBranch());
+		armed = false; // Navigation disarms — safety first
+	});
+
 	pi.on("session_start", async (_event, ctx) => {
 		// Defensive: never carry arm state or stop-reason across session
 		// switches, even if the extension instance is reused from cache.
