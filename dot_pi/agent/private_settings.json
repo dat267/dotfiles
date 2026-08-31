@@ -6,7 +6,7 @@
     "~/.pi/agent/skills"
   ],
   "defaultProvider": "charm-hyper",
-  "defaultModel": "qwen3.8-flash",
+  "defaultModel": "deepseek-v4-flash",
   "defaultThinkingLevel": "minimal",
   "showCacheMissNotices": true,
   "theme": "dark",
