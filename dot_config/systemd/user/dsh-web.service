@@ -5,7 +5,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/dsh web --no-open
+ExecStart=%h/.local/bin/dsh web --no-open --trusted-host 100.0.0.0/8
 Restart=on-failure
 RestartSec=5
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
