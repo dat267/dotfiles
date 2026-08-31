@@ -209,7 +209,7 @@ const MODELS: Model<typeof API>[] = [
 	},
 ];
 
-export default function (pi: ExtensionAPI) {
+export function registerCharmHyper(pi: ExtensionAPI) {
 	const provider = createProvider({
 		id: PROVIDER_ID,
 		name: "Charm Hyper",

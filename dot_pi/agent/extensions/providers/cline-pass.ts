@@ -145,7 +145,7 @@ const MODELS: Model<Api>[] = [
 	},
 ];
 
-export default function (pi: ExtensionAPI) {
+export function registerClinePass(pi: ExtensionAPI) {
 	const provider = createProvider({
 		id: PROVIDER_ID,
 		name: "ClinePass",
