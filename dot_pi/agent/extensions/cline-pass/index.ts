@@ -23,7 +23,7 @@ const BASE_URL = "https://api.cline.bot/api/v1";
 
 const MODELS: Model<Api>[] = [
 	{
-		id: "deepseek/deepseek-v4-flash",
+		id: "cline-pass/deepseek-v4-flash",
 		name: "DeepSeek V4 Flash",
 		api: API,
 		provider: PROVIDER_ID,
@@ -35,7 +35,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "deepseek/deepseek-v4-pro",
+		id: "cline-pass/deepseek-v4-pro",
 		name: "DeepSeek V4 Pro",
 		api: API,
 		provider: PROVIDER_ID,
@@ -47,7 +47,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "z-ai/glm-5.2",
+		id: "cline-pass/glm-5.2",
 		name: "GLM-5.2",
 		api: API,
 		provider: PROVIDER_ID,
@@ -59,7 +59,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "z-ai/glm-5.3",
+		id: "cline-pass/glm-5.3",
 		name: "GLM-5.3",
 		api: API,
 		provider: PROVIDER_ID,
@@ -71,7 +71,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "moonshotai/kimi-k2.6",
+		id: "cline-pass/kimi-k2.6",
 		name: "Kimi K2.6",
 		api: API,
 		provider: PROVIDER_ID,
@@ -83,7 +83,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "moonshotai/kimi-k2.7-code",
+		id: "cline-pass/kimi-k2.7-code",
 		name: "Kimi K2.7 Code",
 		api: API,
 		provider: PROVIDER_ID,
@@ -95,7 +95,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "moonshotai/kimi-k3",
+		id: "cline-pass/kimi-k3",
 		name: "Kimi K3",
 		api: API,
 		provider: PROVIDER_ID,
@@ -107,7 +107,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "xiaomi/mimo-v2.5",
+		id: "cline-pass/mimo-v2.5",
 		name: "MiMo-V2.5",
 		api: API,
 		provider: PROVIDER_ID,
@@ -119,7 +119,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "xiaomi/mimo-v2.5-pro",
+		id: "cline-pass/mimo-v2.5-pro",
 		name: "MiMo-V2.5-Pro",
 		api: API,
 		provider: PROVIDER_ID,
@@ -131,7 +131,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "minimax/minimax-m3",
+		id: "cline-pass/minimax-m3",
 		name: "MiniMax-M3",
 		api: API,
 		provider: PROVIDER_ID,
@@ -143,7 +143,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "qwen/qwen3.7-max",
+		id: "cline-pass/qwen3.7-max",
 		name: "Qwen3.7 Max",
 		api: API,
 		provider: PROVIDER_ID,
@@ -155,7 +155,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "qwen/qwen3.7-plus",
+		id: "cline-pass/qwen3.7-plus",
 		name: "Qwen3.7 Plus",
 		api: API,
 		provider: PROVIDER_ID,
@@ -167,7 +167,7 @@ const MODELS: Model<Api>[] = [
 		baseUrl: BASE_URL,
 	},
 	{
-		id: "qwen/qwen3.8-max",
+		id: "cline-pass/qwen3.8-max",
 		name: "Qwen3.8 Max",
 		api: API,
 		provider: PROVIDER_ID,
