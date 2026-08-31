@@ -1,8 +1,8 @@
 /**
- * Custom Footer — cache hit, context usage, model only.
- * Strips pwd, git branch, session name, token totals, cost, reasoning effort,
- * provider, and extension statuses. All dimmed, single line.
- * Format: "CH97.4% 3.4%/1.0M (auto)  deepseek-v4-flash"
+ * Custom Footer — cache hit, context usage, model + thinking effort.
+ * Strips pwd, git branch, session name, token totals, cost, and provider.
+ * All dimmed, single line.
+ * Format: "CH97.4% 3.4%/1.0M (auto)  deepseek-v4-flash • high"
  */
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
@@ -49,9 +49,14 @@ export default function (pi: ExtensionAPI) {
 					parts.push(contextDisplay);
 					const left = theme.fg("dim", parts.join(" "));
 
-					// -- Right side: model name only (no provider, no reasoning effort) --
+					// -- Right side: model name + thinking effort (no provider) --
 					const modelId = ctx.model?.id ?? "no-model";
-					const right = theme.fg("dim", modelId);
+					let rightSide = modelId;
+					if (ctx.model?.reasoning) {
+						const tl = ctx.thinkingLevel || "off";
+						rightSide = `${modelId} • ${tl}`;
+					}
+					const right = theme.fg("dim", rightSide);
 
 					// -- Layout --
 					const leftWidth = visibleWidth(left);
@@ -66,7 +71,7 @@ export default function (pi: ExtensionAPI) {
 					} else {
 						const avail = width - leftWidth - minPad;
 						if (avail > 0) {
-							const truncated = truncateToWidth(modelId, avail, "");
+							const truncated = truncateToWidth(rightSide, avail, "");
 							const tw = visibleWidth(truncated);
 							line = left + " ".repeat(Math.max(0, width - leftWidth - tw)) + theme.fg("dim", truncated);
 						} else {
