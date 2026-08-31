@@ -44,10 +44,12 @@ export default function (pi: ExtensionAPI) {
 		}
 	});
 
+		let latestStats: string | null = null;
+
 	pi.on("agent_settled", async (_event, ctx) => {
-		const stats = speed.computeStats();
-		if (stats !== null) {
-			ctx.ui.notify(stats, "info");
+		latestStats = speed.computeStats();
+		if (latestStats !== null) {
+			ctx.ui.notify(latestStats, "info");
 		}
 	});
 
@@ -106,7 +108,7 @@ export default function (pi: ExtensionAPI) {
 		// Resolve everything we need now, while ctx is valid.
 		discordSettledAt = Date.now();
 		discordSummary = buildConversationSummary(ctx.sessionManager.getBranch());
-		discordStats = speed.computeStats() ?? "";
+		discordStats = latestStats ?? "";
 
 		const sendNow = () => {
 			sendDiscordNotification(webhookUrl!, discordSummary, discordStats, (msg, kind) => {
