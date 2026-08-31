@@ -207,6 +207,12 @@ export default function (pi: ExtensionAPI) {
 			"Manage the session goal. One goal per session. 'create' starts an armed goal that " +
 			"continues automatically at idle; 'complete' when evidence shows the whole objective " +
 			"is achieved; 'block' with a reason when stuck; 'update' to revise the objective or cap.",
+		promptSnippet: "Manage the session goal — create, update, complete, block, or clear",
+		promptGuidelines: [
+			"Use the goal tool for multi-round tasks: create a goal with an objective, and the agent will continue working in rounds until it completes, blocks, or hits the cap.",
+			"Use goal complete when evidence shows the whole objective is achieved, not just partial progress.",
+			"Use goal block with a reason when the objective cannot be reached.",
+		],
 		parameters: GoalParams,
 
 		async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {

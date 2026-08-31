@@ -137,6 +137,11 @@ export default function (pi: ExtensionAPI) {
 		name: "todo",
 		label: "Todo",
 		description: "Manage a todo list. Actions: list, add (text), toggle (id), clear",
+		promptSnippet: "Manage a structured todo list — add, list, toggle, or clear",
+		promptGuidelines: [
+			"Use the todo tool to track multi-step tasks: add items, then toggle them as you complete each step.",
+			"When the user asks for a plan with numbered steps, create todos for each step and check them off during implementation.",
+		],
 		parameters: TodoParams,
 
 		async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
