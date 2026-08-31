@@ -1,9 +1,0 @@
-{
-	"name": "pi-extension-secret-redact",
-	"private": true,
-	"version": "1.0.0",
-	"type": "module",
-	"pi": {
-		"extensions": ["./index.ts"]
-	}
-}
