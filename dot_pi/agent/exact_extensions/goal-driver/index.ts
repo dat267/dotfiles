@@ -65,15 +65,15 @@ function goalDetails(): GoalDetails {
 
 function statusLine(): string {
 	if (!goal) return "No goal. Ask the agent to create one, or start with --goal \"objective\".";
-	const rounds = `rounds ${goal.roundsStarted}/${goal.maxRounds}`;
-	const arm = armed ? "armed" : "paused";
 	switch (goal.status) {
-		case "active":
-			return `Active: ${goal.objective} — ${rounds}, ${arm}`;
+		case "active": {
+			const arm = armed ? "armed" : "paused";
+			return `Active: ${goal.objective} — rounds ${goal.roundsStarted}/${goal.maxRounds}, ${arm}`;
+		}
 		case "completed":
-			return `Completed: ${goal.objective} — ${rounds}`;
+			return `Completed: ${goal.objective}`;
 		case "blocked":
-			return `Blocked (${goal.blockedReason ?? "unknown"}): ${goal.objective} — ${rounds}`;
+			return `Blocked (${goal.blockedReason ?? "unknown"}): ${goal.objective}`;
 	}
 }
 
@@ -347,7 +347,7 @@ export default function (pi: ExtensionAPI) {
 	// ── /goal command (human control) ──
 
 	pi.registerCommand("goal", {
-		description: "Show, resume, or pause the session goal",
+		description: "Show, resume, pause, complete, or block the session goal",
 		handler: async (args, ctx) => {
 			const sub = args.trim().toLowerCase();
 			if (sub === "resume") {
@@ -362,8 +362,26 @@ export default function (pi: ExtensionAPI) {
 			} else if (sub === "pause") {
 				armed = false;
 				ctx.ui.notify("[goal] Paused", "info");
+			} else if (sub === "complete") {
+				if (!goal || goal.status !== "active") {
+					ctx.ui.notify("No active goal to complete", "warning");
+					return;
+				}
+				goal.status = "completed";
+				armed = false;
+				ctx.ui.notify(`[goal] Completed: ${goal.objective}`, "success");
+			} else if (sub === "block" || sub.startsWith("block ")) {
+				if (!goal || goal.status !== "active") {
+					ctx.ui.notify("No active goal to block", "warning");
+					return;
+				}
+				const reason = sub.replace(/^block\s*/, "").trim() || "unspecified";
+				goal.status = "blocked";
+				goal.blockedReason = reason;
+				armed = false;
+				ctx.ui.notify(`[goal] Blocked (${reason})`, "warning");
 			} else if (sub) {
-				ctx.ui.notify("Usage: /goal [resume|pause]", "warning");
+				ctx.ui.notify("Usage: /goal [resume|pause|complete|block <reason>]", "warning");
 			} else {
 				ctx.ui.notify(statusLine(), "info");
 			}
