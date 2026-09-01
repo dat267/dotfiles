@@ -37,11 +37,10 @@ export function isGoalToolResult(msg: unknown): GoalDetails | null {
 }
 
 /** Render the model-visible continuation prompt for one goal round. */
-export function renderRoundPrompt(g: Goal, round: number): string {
+export function renderRoundPrompt(g: Goal): string {
 	return (
 		"<goal_round>\n" +
-		`Objective: ${JSON.stringify(g.objective)}\n` +
-		`Round: ${round}/${g.maxRounds}\n\n` +
+		`Objective: ${JSON.stringify(g.objective)}\n\n` +
 		"Continue working toward the objective in this same session. Treat the current workspace, " +
 		"tool results, and durable session state as authoritative; inspect them instead of assuming " +
 		"earlier narration is still current. Make concrete progress and verify the result. Before " +

@@ -103,13 +103,13 @@ function maybeContinue(pi: ExtensionAPI, ctx: ExtensionContext, opts: { requireI
 
 	if (opts.requireIdle) {
 		// Called from /goal resume while idle: start a fresh run.
-		pi.sendUserMessage(renderRoundPrompt(goal, round));
+		pi.sendUserMessage(renderRoundPrompt(goal));
 	} else {
 		// Called from agent_end: the run is still streaming, so queue the
 		// round as a follow-up. The run loop consumes it via agent.continue()
 		// inside the same awaited prompt chain — this keeps the loop alive
 		// in print mode too (no race with session teardown).
-		pi.sendUserMessage(renderRoundPrompt(goal, round), { deliverAs: "followUp" });
+		pi.sendUserMessage(renderRoundPrompt(goal), { deliverAs: "followUp" });
 	}
 }
 

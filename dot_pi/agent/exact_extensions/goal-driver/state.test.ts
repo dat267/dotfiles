@@ -132,11 +132,11 @@ test("non-message and message-less entries are skipped", () => {
 
 // ── renderRoundPrompt ─────────────────────────────────────────────────────
 
-test("round prompt embeds objective verbatim and round counter", () => {
-	const prompt = renderRoundPrompt(activeGoal("make \"tests\" pass"), 3);
+test("round prompt embeds objective verbatim without round counter", () => {
+	const prompt = renderRoundPrompt(activeGoal("make \"tests\" pass"));
 	assert.ok(prompt.startsWith("<goal_round>"));
 	assert.ok(prompt.endsWith("</goal_round>"));
 	assert.ok(prompt.includes('Objective: "make \\"tests\\" pass"'));
-	assert.ok(prompt.includes("Round: 3/10"));
+	assert.ok(!prompt.includes("Round:"));
 	assert.ok(prompt.includes("verify the result"));
 });
