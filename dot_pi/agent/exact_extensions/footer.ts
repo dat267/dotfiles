@@ -64,21 +64,12 @@ export default function (pi: ExtensionAPI) {
 						parts.push(`CH${latestCacheHitRate.toFixed(1)}%`);
 					}
 					parts.push(contextDisplay);
-					if (ttftSamples.length > 0) {
-						const avg = ttftSamples.reduce((a, b) => a + b, 0) / ttftSamples.length;
-						parts.push(`TTFT ${formatDuration(avg)}`);
-					}
 					const line = theme.fg("dim", parts.join(" "));
 					return [line];
 				},
 			};
 		});
 	});
-}
-
-function formatDuration(ms: number): string {
-	if (ms < 1000) return `${Math.round(ms)}ms`;
-	return `${(ms / 1000).toFixed(1)}s`;
 }
 
 function formatTokens(count: number): string {
