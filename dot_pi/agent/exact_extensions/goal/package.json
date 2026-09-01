@@ -1,5 +1,5 @@
 {
-	"name": "pi-extension-goal-driver",
+	"name": "pi-extension-goal",
 	"private": true,
 	"version": "1.0.0",
 	"type": "module",

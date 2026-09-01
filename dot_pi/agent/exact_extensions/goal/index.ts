@@ -1,5 +1,5 @@
 /**
- * Goal Driver — durable objective + automatic continuation rounds
+ * Goal — durable objective + automatic continuation rounds
  *
  * Ported from DeepSeek Harness's goal domain (packages/goal/*):
  * - Durable state is a strict fold over session-log custom entries

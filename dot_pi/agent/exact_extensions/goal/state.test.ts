@@ -1,5 +1,5 @@
 /**
- * Tests for goal-driver pure state logic (dsh-style fold).
+ * Tests for goal pure state logic (dsh-style fold).
  * Run: node --test state.test.ts
  */
 
