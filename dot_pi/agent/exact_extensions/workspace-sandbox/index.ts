@@ -5,13 +5,13 @@
  *   - Landlock mode (Linux >= 5.13 with the LSM): the bash tool is wrapped
  *     in a compiled `gate` that installs a kernel ruleset (reads everywhere,
  *     writes only in workspace + allowlist) and execs the shell; the whole
- *     child tree inherits it. The system prompt gets an accurate note.
- *   - Approval mode (Android / kernels without Landlock): mutating bash
- *     commands are heuristically detected and gated behind user
- *     confirmation (ui.confirm). Non-interactive modes refuse mutating
- *     commands rather than guessing. The system prompt says so.
+ *     child tree inherits it. write/edit tools are path-checked in-process.
+ *   - Approval mode (Android / kernels without Landlock): EVERY bash,
+ *     write, and edit call prompts the user for confirmation (ui.confirm).
+ *     Non-interactive sessions refuse rather than guess.
  *
- * write/edit tools are always path-checked in-process (no kernel needed).
+ * The system prompt (injected per turn via before_agent_start) states the
+ * active mode. /sandbox yolo disables everything for the session.
  * read/grep/find/ls are untouched: reads allowed everywhere.
  */
 
@@ -29,7 +29,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { defaultAllowlist, inspectPath, needsApproval } from "./guard.ts";
+import { defaultAllowlist, inspectPath } from "./guard.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -102,13 +102,31 @@ function promptNote(mode: SandboxMode, workspace: string, yolo: boolean): string
 	const shared =
 		`Workspace filesystem sandbox (workspace-sandbox extension):\n` +
 		`- The workspace (${workspace}) is writable; also /tmp, /dev, /proc, /sys, and the pi module path.\n` +
-		`- Every other directory is read-only and unreadable-for-writes. Do not attempt writes, edits, or deletions outside the workspace. Reads are allowed everywhere.\n` +
+		`- Every other directory is read-only for writes. Do not attempt writes, edits, or deletions outside the workspace. Reads are allowed everywhere.\n` +
 		`- Use /tmp for scratch files and test artifacts.\n` +
 		`- Deployments (chezmoi apply, extension installs/removals) are executed by the user in their own terminal, never by the agent. Stage changes inside the workspace and give the user the exact commands.`;
 	if (mode.mode === "landlock") {
 		return shared + `\n- Enforcement is kernel-level (Landlock): blocked writes return Permission denied from the OS.`;
 	}
-	return shared + `\n- Enforcement is approval-gated: bash commands that mutate prompt for confirmation before running.`;
+	return shared + `\n- Enforcement is approval-gated: every bash and file-write call prompts for confirmation before running.`;
+}
+
+/** Ask the user to allow a bash/write/edit call (approval mode). */
+async function ask(
+	ctx: ExtensionContext,
+	label: string,
+	detail: string,
+): Promise<{ block: true; reason: string; terminate: false } | null> {
+	if (ctx.mode !== "tui") {
+		return {
+			block: true,
+			reason: "workspace-sandbox: approval required, but this session is non-interactive",
+			terminate: false,
+		};
+	}
+	const allow = await ctx.ui.confirm(`workspace-sandbox (approval mode): ${label}\n\n${detail}`);
+	if (allow === true) return null;
+	return { block: true, reason: "workspace-sandbox: declined by user", terminate: false };
 }
 
 export default function (pi: ExtensionAPI) {
@@ -123,7 +141,7 @@ export default function (pi: ExtensionAPI) {
 	if (mode.mode === "approval") {
 		pi.on("session_start", async (_event, ctx) => {
 			ctx.ui.notify(
-				`[workspace-sandbox] ${mode.detail} — approval mode active: mutating bash commands will ask before running`,
+				`[workspace-sandbox] ${mode.detail} — approval mode active: every bash/write/edit call will ask first`,
 				"warning",
 			);
 		});
@@ -144,32 +162,30 @@ export default function (pi: ExtensionAPI) {
 				event.input.command = parts.map(shq).join(" ");
 				return;
 			}
-
-			// Approval mode: gate mutating commands behind user confirmation.
-			if (!needsApproval(event.input.command)) return;
-			if (ctx.mode !== "tui") {
-				return {
-					block: true,
-					reason: "workspace-sandbox: mutating command requires approval, but this session is non-interactive",
-					terminate: false,
-				};
-			}
-			const allow = await ctx.ui.confirm(
-				`workspace-sandbox (approval mode): run this mutating command?\n\n${event.input.command}`,
-			);
-			if (allow === true) return;
-			return { block: true, reason: "workspace-sandbox: command declined by user", terminate: false };
+			const denied = await ask(ctx, "run this command?", event.input.command);
+			if (denied) return denied;
+			return;
 		}
 
 		if (isToolCallEventType("write", event)) {
-			const reason = inspectPath(event.input.path, workspace, allowlist);
-			if (reason) return { block: true, reason, terminate: false };
+			if (mode.mode === "landlock") {
+				const reason = inspectPath(event.input.path, workspace, allowlist);
+				if (reason) return { block: true, reason, terminate: false };
+				return;
+			}
+			const denied = await ask(ctx, "write to this path?", event.input.path);
+			if (denied) return denied;
 			return;
 		}
 
 		if (isToolCallEventType("edit", event)) {
-			const reason = inspectPath(event.input.path, workspace, allowlist);
-			if (reason) return { block: true, reason, terminate: false };
+			if (mode.mode === "landlock") {
+				const reason = inspectPath(event.input.path, workspace, allowlist);
+				if (reason) return { block: true, reason, terminate: false };
+				return;
+			}
+			const denied = await ask(ctx, "edit this path?", event.input.path);
+			if (denied) return denied;
 			return;
 		}
 	});
@@ -192,7 +208,7 @@ export default function (pi: ExtensionAPI) {
 				ctx.ui.notify(
 					yolo
 						? "[workspace-sandbox] YOLO mode (guard OFF)"
-						: `[workspace-sandbox] Active: ${mode.mode === "landlock" ? "Landlock (kernel-enforced)" : "approval (ask before mutating)"}`,
+						: `[workspace-sandbox] Active: ${mode.mode === "landlock" ? "Landlock (kernel-enforced)" : "approval (ask before every call)"}`,
 					"info",
 				);
 			}
