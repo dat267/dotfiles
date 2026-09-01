@@ -251,7 +251,7 @@ export default function (pi: ExtensionAPI) {
 		parameters: GoalParams,
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const result = await executeInner(params);
+			const result = await this.executeInner(params);
 			refreshGoalWidget(ctx);
 			return result;
 		},
