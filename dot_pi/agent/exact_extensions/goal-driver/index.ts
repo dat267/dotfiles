@@ -21,7 +21,7 @@
 import { StringEnum } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { Type } from "typebox";
+import { Static, Type } from "typebox";
 import {
 	applyChange,
 	applyRound,
@@ -58,6 +58,30 @@ let lastStopReason: string | null = null;
 
 function view(): GoalView | null {
 	return goalView(fold, armed);
+}
+
+// Widget for the /goal toggle (mirrors the todo widget pattern).
+let goalWidgetOn = false;
+const GOAL_WIDGET = "goal-status";
+
+function goalWidgetLines(): string[] {
+	const g = view();
+	if (!g) return ["goal: none"];
+	const obj = g.objective.length > 60 ? g.objective.slice(0, 57) + "..." : g.objective;
+	const badge =
+		g.phase === "active"
+			? `active · ${g.roundsStarted}/${g.maxRounds} rounds${g.armed ? "" : " (paused)"}`
+			: g.phase === "paused"
+				? `paused · ${g.roundsStarted}/${g.maxRounds} rounds`
+				: g.phase === "complete"
+					? `completed · ${g.roundsStarted}/${g.maxRounds} rounds`
+					: `blocked (${g.blockedReason?.code ?? "?"}) · ${g.roundsStarted}/${g.maxRounds} rounds`;
+	return [`goal: ${badge}`, obj];
+}
+
+function refreshGoalWidget(ctx: ExtensionContext): void {
+	if (!goalWidgetOn) return;
+	ctx.ui.setWidget(GOAL_WIDGET, goalWidgetLines());
 }
 
 // ── Durable writes ───────────────────────────────────────────────────────
@@ -97,6 +121,7 @@ function maybeContinue(pi: ExtensionAPI, ctx: ExtensionContext, opts: { requireI
 			blockedReason: { code: "round-limit", message: `Goal reached its configured limit of ${g.maxRounds} rounds.` },
 		}));
 		armed = false;
+		refreshGoalWidget(ctx);
 		ctx.ui.notify(`[goal] Round limit reached (${g.maxRounds}) — goal marked blocked`, "warning");
 		return;
 	}
@@ -111,6 +136,7 @@ function maybeContinue(pi: ExtensionAPI, ctx: ExtensionContext, opts: { requireI
 
 	const round = fold.roundsStarted + 1;
 	appendRound(pi, g, round);
+	refreshGoalWidget(ctx);
 	ctx.ui.notify(`[goal] Round ${round}/${g.maxRounds}`, "info");
 
 	if (opts.requireIdle) {
@@ -224,7 +250,13 @@ export default function (pi: ExtensionAPI) {
 		],
 		parameters: GoalParams,
 
-		async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const result = await executeInner(params);
+			refreshGoalWidget(ctx);
+			return result;
+		},
+
+		executeInner: async (params: Static<typeof GoalParams>) => {
 			const g = view();
 			const cas =
 				typeof params.id === "string" && typeof params.revision === "number"
@@ -402,6 +434,7 @@ export default function (pi: ExtensionAPI) {
 				}
 				lastStopReason = null;
 				if (fold.goal) ctx.ui.notify(`[goal] Resumed: ${fold.goal.objective}`, "info");
+				refreshGoalWidget(ctx);
 				maybeContinue(pi, ctx, { requireIdle: true });
 			} else if (sub === "pause") {
 				if (!current || current.phase !== "active") {
@@ -410,6 +443,7 @@ export default function (pi: ExtensionAPI) {
 				}
 				appendChange(pi, "pause", nextRevision(current, { phase: "paused" }));
 				armed = false;
+				refreshGoalWidget(ctx);
 				ctx.ui.notify("[goal] Paused", "info");
 			} else if (sub === "complete") {
 				if (!current || current.phase !== "active") {
@@ -418,6 +452,7 @@ export default function (pi: ExtensionAPI) {
 				}
 				appendChange(pi, "complete", nextRevision(current, { phase: "complete" }));
 				armed = false;
+				refreshGoalWidget(ctx);
 				ctx.ui.notify(`[goal] Completed: ${current.objective}`, "success");
 			} else if (sub === "block" || sub.startsWith("block ")) {
 				if (!current || current.phase !== "active") {
@@ -430,11 +465,14 @@ export default function (pi: ExtensionAPI) {
 					blockedReason: { code: "human-reported", message: reason },
 				}));
 				armed = false;
+				refreshGoalWidget(ctx);
 				ctx.ui.notify(`[goal] Blocked (${reason})`, "warning");
-			} else if (sub) {
-				ctx.ui.notify("Usage: /goal [resume|pause|complete|block <reason>]", "warning");
+			} else if (sub && sub !== "status") {
+				ctx.ui.notify("Usage: /goal [resume|pause|complete|block <reason>|status]", "warning");
 			} else {
-				ctx.ui.notify(statusLineText(view()), "info");
+				goalWidgetOn = !goalWidgetOn;
+				if (goalWidgetOn) ctx.ui.setWidget(GOAL_WIDGET, goalWidgetLines());
+				else ctx.ui.setWidget(GOAL_WIDGET, undefined);
 			}
 		},
 	});
