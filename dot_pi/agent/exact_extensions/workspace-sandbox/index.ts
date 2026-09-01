@@ -130,7 +130,7 @@ async function ask(
 			terminate: false,
 		};
 	}
-	const allow = await ctx.ui.confirm(`workspace-sandbox (supervised): ${label}\n\n${detail}`);
+	const allow = await ctx.ui.confirm("workspace-sandbox (supervised)", `${label}\n\n${detail}`);
 	if (allow === true) return null;
 	return { block: true, reason: "workspace-sandbox: declined by user", terminate: false };
 }
