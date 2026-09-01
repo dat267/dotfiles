@@ -77,43 +77,43 @@ test("blocked goal keeps reason", () => {
 });
 
 test("injected rounds are counted from history for an active goal", () => {
-	const g = activeGoal("make tests pass");
+	const g = activeGoal("make tests pass", 1); // create records round 1
 	const entries: EntryLike[] = [
 		goalToolEntry(g),
 		assistantEntry(),
-		userEntry(renderRoundPrompt(g, 1)),
+		userEntry(renderRoundPrompt(g)),
 		assistantEntry(),
-		userEntry(renderRoundPrompt(g, 2)),
+		userEntry(renderRoundPrompt(g)),
 	];
 	// Mid-loop crash: no goal tool call after round 2 — history alone must
-	// recover the count so the cap cannot reset.
+	// recover the count so the cap cannot reset. 1 initial + 2 continuations.
 	const goal = reconstructFromEntries(entries);
 	assert.equal(goal?.status, "active");
-	assert.equal(goal?.roundsStarted, 2);
+	assert.equal(goal?.roundsStarted, 3);
 });
 
 test("rounds from a previous goal do not contaminate a new goal", () => {
-	const g1 = activeGoal("first goal");
-	const g2 = activeGoal("second goal");
+	const g1 = activeGoal("first goal", 1);
+	const g2 = activeGoal("second goal", 1);
 	const entries: EntryLike[] = [
 		goalToolEntry(g1),
-		userEntry(renderRoundPrompt(g1, 1)),
-		userEntry(renderRoundPrompt(g1, 2)),
-		goalToolEntry({ ...g1, roundsStarted: 2, status: "completed" }),
+		userEntry(renderRoundPrompt(g1)),
+		userEntry(renderRoundPrompt(g1)),
+		goalToolEntry({ ...g1, roundsStarted: 3, status: "completed" }),
 		goalToolEntry(g2),
 	];
 	const goal = reconstructFromEntries(entries);
 	assert.equal(goal?.status, "active");
 	assert.equal(goal?.objective, "second goal");
-	// The bug this guards against: inheriting goal 1's 2 rounds.
-	assert.equal(goal?.roundsStarted, 0);
+	// The bug this guards against: inheriting goal 1's 3 rounds.
+	assert.equal(goal?.roundsStarted, 1);
 });
 
 test("tool-recorded count is kept when higher than history count", () => {
-	const g = activeGoal("x");
+	const g = activeGoal("x", 1);
 	const entries: EntryLike[] = [
 		goalToolEntry(g),
-		userEntry(renderRoundPrompt(g, 1)), // history shows 1
+		userEntry(renderRoundPrompt(g)), // history shows 1 continuation -> 2 total
 		goalToolEntry({ ...g, roundsStarted: 3 }), // tool recorded 3
 	];
 	const goal = reconstructFromEntries(entries);

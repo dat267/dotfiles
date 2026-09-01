@@ -84,7 +84,9 @@ export function reconstructFromEntries(entries: readonly EntryLike[]): Goal | nu
 	if (goal && goal.status === "active") {
 		const objectiveTag = JSON.stringify(goal.objective);
 		const injectedRounds = roundTexts.filter((t) => t.includes(objectiveTag)).length;
-		goal.roundsStarted = Math.max(goal.roundsStarted, injectedRounds);
+		// Every continuation injects one <goal_round>; the initial armed turn
+		// counts as round 1, so total rounds = 1 + continuations.
+		goal.roundsStarted = Math.max(goal.roundsStarted, 1 + injectedRounds);
 	}
 	return goal;
 }

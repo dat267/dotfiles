@@ -65,15 +65,16 @@ function goalDetails(): GoalDetails {
 
 function statusLine(): string {
 	if (!goal) return "No goal. Ask the agent to create one, or start with --goal \"objective\".";
+	const rounds = `— ${goal.roundsStarted} ${goal.roundsStarted === 1 ? "round" : "rounds"}`;
 	switch (goal.status) {
 		case "active": {
 			const arm = armed ? "armed" : "paused";
 			return `Active: ${goal.objective} — rounds ${goal.roundsStarted}/${goal.maxRounds}, ${arm}`;
 		}
 		case "completed":
-			return `Completed: ${goal.objective}`;
+			return `Completed: ${goal.objective} ${rounds}`;
 		case "blocked":
-			return `Blocked (${goal.blockedReason ?? "unknown"}): ${goal.objective}`;
+			return `Blocked (${goal.blockedReason ?? "unknown"}): ${goal.objective} ${rounds}`;
 	}
 }
 
@@ -158,7 +159,7 @@ export default function (pi: ExtensionAPI) {
 				goal = {
 					objective: flagObjective,
 					maxRounds: flagRounds,
-					roundsStarted: 0,
+					roundsStarted: 1,
 					status: "active",
 				};
 			}
@@ -243,7 +244,7 @@ export default function (pi: ExtensionAPI) {
 					goal = {
 						objective: params.objective.trim(),
 						maxRounds,
-						roundsStarted: 0,
+						roundsStarted: 1,
 						status: "active",
 					};
 					armed = true;
@@ -338,7 +339,10 @@ export default function (pi: ExtensionAPI) {
 					: g.status === "completed"
 						? theme.fg("success", "completed")
 						: theme.fg("error", `blocked: ${g.blockedReason ?? "?"}`);
-			const rounds = g.status === "active" ? theme.fg("dim", ` · ${g.roundsStarted}/${g.maxRounds} rounds`) : "";
+			const rounds =
+				g.status === "active"
+					? theme.fg("dim", ` · ${g.roundsStarted}/${g.maxRounds} rounds`)
+					: theme.fg("dim", ` · ${g.roundsStarted} ${g.roundsStarted === 1 ? "round" : "rounds"}`);
 			const obj = g.status !== "active" ? theme.fg("dim", " " + g.objective) : "";
 			return new Text(theme.fg("muted", "goal: ") + badge + rounds + obj, 0, 0);
 		},
