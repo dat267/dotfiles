@@ -1,0 +1,8 @@
+{
+  "name": "pi-extension-subagent",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": ["./index.ts"]
+  }
+}
