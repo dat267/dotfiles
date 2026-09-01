@@ -138,18 +138,13 @@ bindkey '^?' backward-delete-char
 bindkey '^H' backward-delete-char
 
 
-# SSH agent: use a clean OpenSSH ssh-agent (not gpg-agent).
-# Start it on demand, persist the socket across shells.
+# SSH agent: use gpg-agent (handles both SSH keys and GPG passphrase caching).
+# gpg-agent starts on demand; SSH_AUTH_SOCK points to its SSH emulation socket.
 # Keys are auto-added on first use via AddKeysToAgent yes (see ~/.ssh/config).
-# Prefer a writable runtime dir: $XDG_RUNTIME_DIR on desktop Linux, $TMPDIR on
-# Termux/Android (where /tmp is not writable).
-if [[ -n "$XDG_RUNTIME_DIR" && -w "$XDG_RUNTIME_DIR" ]]; then
-  export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/ssh-agent-$UID.sock"
-else
-  export SSH_AUTH_SOCK="${TMPDIR:-/tmp}/ssh-agent-$UID.sock"
-fi
-if [[ ! -S "$SSH_AUTH_SOCK" ]]; then
-  eval "$(ssh-agent -s -a "$SSH_AUTH_SOCK")" >/dev/null 2>&1
+# Works on both Linux and Termux/Android.
+if command -v gpg-connect-agent >/dev/null 2>&1; then
+  gpg-connect-agent /bye >/dev/null 2>&1
+  export SSH_AUTH_SOCK="$(gpgconf --list-dirs agent-ssh-socket 2>/dev/null)"
 fi
 
 # pi Hyper Charm provider key: sourced from an untracked local file so the
