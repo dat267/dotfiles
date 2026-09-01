@@ -1,38 +1,32 @@
 /**
- * Subagent extension — delegate tasks to explore and general subagents
+ * Subagent extension — delegate tasks to a subagent
  *
- * Mirrors opencode's @explore and @general built-in agents.
- * Spawns `pi -p --print` as a subprocess with restricted tool sets.
- *
- * explore: read-only scout (read, grep, find, ls)
- * general: full builder (read, bash, edit, write, grep, find, ls)
+ * Spawns `pi -p --print` as a subprocess with full tool access.
+ * Mirrors opencode's @general built-in agent.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
-const READ_ONLY_TOOLS = "read,grep,find,ls";
-const FULL_TOOLS = "read,bash,edit,write,grep,find,ls";
+const SUBAGENT_PROMPT = `You are a general-purpose subagent.
 
-const EXPLORE_PROMPT = `You are an explore agent — a read-only codebase scout.
-Your strengths:
-- Rapidly finding files using glob patterns
-- Searching code and text with powerful regex patterns
-- Reading and analyzing file contents
+Available tools:
+- read: Read file contents
+- bash: Execute bash commands
+- edit: Make precise file edits with exact text replacement
+- write: Create or overwrite files
+- grep: Search file contents with regex
+- find: Find files by glob pattern
+- ls: List directory contents
 
 Guidelines:
-- Use read, grep, find, ls for file operations
-- Adapt your search approach based on the thoroughness level specified by the caller
-- Return file paths as absolute paths in your final response
-- Do not create any files, or run bash commands that modify the user's system state in any way
-Complete the user's search request efficiently and report your findings clearly.`;
-
-const GENERAL_PROMPT = `You are a general-purpose coding agent.
-You have full access to all tools to implement features, fix bugs, refactor code, and run tests.
-Be concise and direct. Complete the task efficiently.`;
+- Use bash for file operations like ls, rg, find
+- Use read to examine files instead of cat or sed
+- Use edit for precise changes
+- Use write only for new files or complete rewrites
+- Be concise and direct. Complete the task efficiently.`;
 
 interface SubagentResult {
 	success: boolean;
@@ -42,8 +36,6 @@ interface SubagentResult {
 
 function runPi(
 	prompt: string,
-	tools: string,
-	appendPrompt: string,
 	cwd: string,
 	model?: string,
 	signal?: AbortSignal,
@@ -54,8 +46,7 @@ function runPi(
 			"--print",
 			"--no-skills",
 			"--no-context-files",
-			"--tools", tools,
-			"--append-system-prompt", appendPrompt,
+			"--append-system-prompt", SUBAGENT_PROMPT,
 			prompt,
 		];
 		if (model) {
@@ -96,7 +87,6 @@ function runPi(
 }
 
 const SubagentParams = Type.Object({
-	mode: StringEnum(["explore", "general"] as const),
 	prompt: Type.String({ description: "The task to delegate to the subagent" }),
 	cwd: Type.Optional(Type.String({ description: "Working directory (defaults to current)" })),
 });
@@ -105,22 +95,19 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "subagent",
 		label: "Subagent",
-		description: "Delegate a task to a subagent. explore = read-only scout, general = full builder",
-		promptSnippet: "Use subagent to delegate tasks to explore (read-only) or general (full tools) agents",
+		description: "Delegate a task to a subagent. The subagent runs as a separate pi instance with full tools.",
+		promptSnippet: "Use subagent to delegate tasks to a subagent",
 		promptGuidelines: [
-			"Use subagent(mode:\"explore\", prompt:\"...\") for read-only exploration — code search, file analysis, architecture review",
-			"Use subagent(mode:\"general\", prompt:\"...\") for implementation tasks — writing code, running tests, making changes",
+			"Use subagent(prompt:\"...\") to delegate a task when you need to work in parallel or offload context-heavy work",
 			"Provide complete context in the prompt — the subagent does not share your session history",
 		],
 		parameters: SubagentParams,
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const cwd = params.cwd ? resolve(params.cwd) : ctx.cwd;
-			const tools = params.mode === "explore" ? READ_ONLY_TOOLS : FULL_TOOLS;
-			const persona = params.mode === "explore" ? EXPLORE_PROMPT : GENERAL_PROMPT;
 			const model = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined;
 
-			const result = await runPi(params.prompt, tools, persona, cwd, model, signal);
+			const result = await runPi(params.prompt, cwd, model, signal);
 
 			if (!result.success) {
 				return {
