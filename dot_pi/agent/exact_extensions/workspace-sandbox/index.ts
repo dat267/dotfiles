@@ -1,20 +1,18 @@
 /**
  * Workspace Sandbox — treat everything outside the workspace as read-only.
  *
- * Kernel-enforced via Landlock (no container, no root, no pattern matching):
- *   - bash tool calls are wrapped in `gate`, a small compiled helper that
- *     installs a Landlock ruleset (reads + execute everywhere; writes only
- *     inside the workspace and the allowlist) and then execs the shell.
- *     The shell and every child process inherit the ruleset; any write
- *     outside the workspace fails with EACCES/EROFS at the kernel level.
- *   - the write and edit tools use structured path checks (reliable, no
- *     parsing).
- *   - read/grep/find/ls are untouched: reads are allowed everywhere.
+ * Two enforcement modes, chosen at load:
+ *   - Landlock mode (Linux >= 5.13 with the LSM): the bash tool is wrapped
+ *     in a compiled `gate` that installs a kernel ruleset (reads everywhere,
+ *     writes only in workspace + allowlist) and execs the shell; the whole
+ *     child tree inherits it. The system prompt gets an accurate note.
+ *   - Approval mode (Android / kernels without Landlock): mutating bash
+ *     commands are heuristically detected and gated behind user
+ *     confirmation (ui.confirm). Non-interactive modes refuse mutating
+ *     commands rather than guessing. The system prompt says so.
  *
- * Failure mode: if the gate cannot be built or Landlock is unavailable,
- * bash degrades to pass-through with a one-time warning (never bricked);
- * the write and edit tools stay workspace-sandboxed regardless. Build errors are
- * written to /tmp/workspace-sandbox-gate.log.
+ * write/edit tools are always path-checked in-process (no kernel needed).
+ * read/grep/find/ls are untouched: reads allowed everywhere.
  */
 
 import { spawnSync } from "node:child_process";
@@ -30,12 +28,11 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { defaultAllowlist, inspectPath } from "./guard.ts";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { defaultAllowlist, inspectPath, needsApproval } from "./guard.ts";
 
 const require = createRequire(import.meta.url);
 
-/** Resolve the module dir robustly (pi loaders may not provide file URLs). */
 const MODULE_DIR = (import.meta as unknown as { dirname?: string }).dirname
 	?? fileURLToPath(new URL(".", import.meta.url));
 const SOURCE = join(MODULE_DIR, "gate.c");
@@ -43,13 +40,12 @@ const CACHE_DIR = join(homedir(), ".cache", "pi", "workspace-sandbox");
 const GATE_BIN = join(CACHE_DIR, "gate");
 const BUILD_LOG = join(CACHE_DIR, "build.log");
 
-type GateState =
-	| { status: "ready"; bin: string }
-	| { status: "missing"; detail: string }
-	| { status: "no-landlock"; detail: string };
+type SandboxMode =
+	| { mode: "landlock"; bin: string }
+	| { mode: "approval"; detail: string };
 
 /** Compile the Landlock gate once, then probe the kernel. */
-function ensureGate(): GateState {
+function resolveMode(): SandboxMode {
 	try {
 		mkdirSync(CACHE_DIR, { recursive: true });
 		if (!existsSync(GATE_BIN) || statSync(SOURCE).mtimeMs > statSync(GATE_BIN).mtimeMs) {
@@ -58,19 +54,19 @@ function ensureGate(): GateState {
 				try {
 					writeFileSync(BUILD_LOG, `${r.stderr ?? ""}${r.error?.message ?? ""}`);
 				} catch { /* best effort */ }
-				return { status: "missing", detail: `gate compile failed (see ${BUILD_LOG})` };
+				return { mode: "approval", detail: `gate compile failed (see ${BUILD_LOG})` };
 			}
 		}
 		const probe = spawnSync(GATE_BIN, ["--probe"], { encoding: "utf-8" });
 		if (probe.status !== 0) {
-			return { status: "no-landlock", detail: probe.stderr?.trim() || `probe exit ${probe.status}` };
+			return { mode: "approval", detail: probe.stderr?.trim() || `probe exit ${probe.status}` };
 		}
-		return { status: "ready", bin: GATE_BIN };
+		return { mode: "landlock", bin: GATE_BIN };
 	} catch (err) {
 		try {
 			writeFileSync(BUILD_LOG, String((err as Error).message));
 		} catch { /* best effort */ }
-		return { status: "missing", detail: (err as Error).message };
+		return { mode: "approval", detail: (err as Error).message };
 	}
 }
 
@@ -98,32 +94,71 @@ function piModuleRoot(): string | undefined {
 	return undefined;
 }
 
-export default function (pi: ExtensionAPI) {
-	const gate = ensureGate();
-	const piPath = piModuleRoot();
+/** Conditional system-prompt note, accurate for the active mode. */
+function promptNote(mode: SandboxMode, workspace: string, yolo: boolean): string {
+	if (yolo) {
+		return `Workspace filesystem sandbox is DISABLED (yolo mode, /sandbox strict to re-enable). All filesystem writes are unrestricted.`;
+	}
+	const shared =
+		`Workspace filesystem sandbox (workspace-sandbox extension):\n` +
+		`- The workspace (${workspace}) is writable; also /tmp, /dev, /proc, /sys, and the pi module path.\n` +
+		`- Every other directory is read-only and unreadable-for-writes. Do not attempt writes, edits, or deletions outside the workspace. Reads are allowed everywhere.\n` +
+		`- Use /tmp for scratch files and test artifacts.\n` +
+		`- Deployments (chezmoi apply, extension installs/removals) are executed by the user in their own terminal, never by the agent. Stage changes inside the workspace and give the user the exact commands.`;
+	if (mode.mode === "landlock") {
+		return shared + `\n- Enforcement is kernel-level (Landlock): blocked writes return Permission denied from the OS.`;
+	}
+	return shared + `\n- Enforcement is approval-gated: bash commands that mutate prompt for confirmation before running.`;
+}
 
-	if (gate.status !== "ready") {
+export default function (pi: ExtensionAPI) {
+	const mode = resolveMode();
+	const piPath = piModuleRoot();
+	let yolo = false;
+
+	pi.on("before_agent_start", async (event, ctx) => {
+		return { systemPrompt: event.systemPrompt + "\n\n" + promptNote(mode, ctx.cwd, yolo) };
+	});
+
+	if (mode.mode === "approval") {
 		pi.on("session_start", async (_event, ctx) => {
 			ctx.ui.notify(
-				`[workspace-sandbox] ${gate.detail} — bash NOT sandboxed; write/edit tools still workspace-sandboxed`,
+				`[workspace-sandbox] ${mode.detail} — approval mode active: mutating bash commands will ask before running`,
 				"warning",
 			);
 		});
 	}
 
 	pi.on("tool_call", async (event, ctx) => {
+		if (yolo) return; // disabled: no wrapping, no approval, no path checks
 		const workspace = ctx.cwd;
 		const allowlist = defaultAllowlist(workspace, piPath);
 
 		if (isToolCallEventType("bash", event)) {
-			if (gate.status !== "ready") return; // degraded: pass through, warned once
-			const parts = [gate.bin, "--ws", workspace];
-			for (const allow of allowlist) {
-				if (allow !== workspace) parts.push("--allow", allow);
+			if (mode.mode === "landlock") {
+				const parts = [mode.bin, "--ws", workspace];
+				for (const allow of allowlist) {
+					if (allow !== workspace) parts.push("--allow", allow);
+				}
+				parts.push("--", "bash", "-c", event.input.command);
+				event.input.command = parts.map(shq).join(" ");
+				return;
 			}
-			parts.push("--", "bash", "-c", event.input.command);
-			event.input.command = parts.map(shq).join(" ");
-			return;
+
+			// Approval mode: gate mutating commands behind user confirmation.
+			if (!needsApproval(event.input.command)) return;
+			if (ctx.mode !== "tui") {
+				return {
+					block: true,
+					reason: "workspace-sandbox: mutating command requires approval, but this session is non-interactive",
+					terminate: false,
+				};
+			}
+			const allow = await ctx.ui.confirm(
+				`workspace-sandbox (approval mode): run this mutating command?\n\n${event.input.command}`,
+			);
+			if (allow === true) return;
+			return { block: true, reason: "workspace-sandbox: command declined by user", terminate: false };
 		}
 
 		if (isToolCallEventType("write", event)) {
@@ -137,5 +172,30 @@ export default function (pi: ExtensionAPI) {
 			if (reason) return { block: true, reason, terminate: false };
 			return;
 		}
+	});
+
+	// ── /sandbox command (human control) ──
+
+	pi.registerCommand("sandbox", {
+		description: "Show, enable, or disable the workspace sandbox (/sandbox status|strict|yolo)",
+		handler: async (args, ctx) => {
+			const sub = args.trim().toLowerCase();
+			if (sub === "yolo") {
+				yolo = true;
+				ctx.ui.notify("[workspace-sandbox] YOLO — filesystem guard OFF (writes unrestricted). /sandbox strict to re-enable", "warning");
+			} else if (sub === "strict" || sub === "on" || sub === "off") {
+				yolo = false;
+				ctx.ui.notify(`[workspace-sandbox] Strict mode — ${mode.mode === "landlock" ? "kernel-enforced (Landlock)" : "approval-gated"} guard ON`, "info");
+			} else if (sub) {
+				ctx.ui.notify("Usage: /sandbox [status|strict|yolo]", "warning");
+			} else {
+				ctx.ui.notify(
+					yolo
+						? "[workspace-sandbox] YOLO mode (guard OFF)"
+						: `[workspace-sandbox] Active: ${mode.mode === "landlock" ? "Landlock (kernel-enforced)" : "approval (ask before mutating)"}`,
+					"info",
+				);
+			}
+		},
 	});
 }
