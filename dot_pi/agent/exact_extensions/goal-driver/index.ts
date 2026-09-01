@@ -65,16 +65,17 @@ function goalDetails(): GoalDetails {
 
 function statusLine(): string {
 	if (!goal) return "No goal. Ask the agent to create one, or start with --goal \"objective\".";
+	const obj = goal.objective.length > 60 ? goal.objective.slice(0, 57) + "..." : goal.objective;
 	const rounds = `— ${goal.roundsStarted} ${goal.roundsStarted === 1 ? "round" : "rounds"}`;
 	switch (goal.status) {
 		case "active": {
 			const arm = armed ? "armed" : "paused";
-			return `Active: ${goal.objective} — rounds ${goal.roundsStarted}/${goal.maxRounds}, ${arm}`;
+			return `Active: ${obj} — rounds ${goal.roundsStarted}/${goal.maxRounds}, ${arm}`;
 		}
 		case "completed":
-			return `Completed: ${goal.objective} ${rounds}`;
+			return `Completed: ${obj} ${rounds}`;
 		case "blocked":
-			return `Blocked (${goal.blockedReason ?? "unknown"}): ${goal.objective} ${rounds}`;
+			return `Blocked (${goal.blockedReason ?? "unknown"}): ${obj} ${rounds}`;
 	}
 }
 

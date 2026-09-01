@@ -81,11 +81,13 @@ export function reconstructFromEntries(entries: readonly EntryLike[]): Goal | nu
 		const d = isGoalToolResult(msg);
 		if (d) goal = d.goal ? { ...d.goal } : null;
 	}
-	if (goal && goal.status === "active") {
+	if (goal) {
 		const objectiveTag = JSON.stringify(goal.objective);
 		const injectedRounds = roundTexts.filter((t) => t.includes(objectiveTag)).length;
 		// Every continuation injects one <goal_round>; the initial armed turn
 		// counts as round 1, so total rounds = 1 + continuations.
+		// Applied to completed/blocked goals too: heals goals recorded by
+		// older code that started counts at 0.
 		goal.roundsStarted = Math.max(goal.roundsStarted, 1 + injectedRounds);
 	}
 	return goal;
