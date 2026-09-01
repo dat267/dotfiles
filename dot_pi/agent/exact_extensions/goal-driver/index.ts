@@ -339,7 +339,8 @@ export default function (pi: ExtensionAPI) {
 						? theme.fg("success", "completed")
 						: theme.fg("error", `blocked: ${g.blockedReason ?? "?"}`);
 			const rounds = g.status === "active" ? theme.fg("dim", ` · ${g.roundsStarted}/${g.maxRounds} rounds`) : "";
-			return new Text(theme.fg("muted", "goal: ") + badge + rounds, 0, 0);
+			const obj = g.status !== "active" ? theme.fg("dim", " " + g.objective) : "";
+			return new Text(theme.fg("muted", "goal: ") + badge + rounds + obj, 0, 0);
 		},
 	});
 
