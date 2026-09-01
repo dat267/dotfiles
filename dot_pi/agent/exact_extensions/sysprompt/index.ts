@@ -1,20 +1,23 @@
 /**
  * /sysprompt — inspect the current system prompt
  *
- * Prints the assembled system prompt string (after extensions, skills,
- * context files, and append prompts have been merged).
+ * Writes the assembled system prompt to /tmp/pi-system-prompt.txt
+ * and notifies the user. Does not inject into the conversation.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { writeFile } from "node:fs/promises";
+
+const FILE = "/tmp/pi-system-prompt.txt";
 
 export default function (pi: ExtensionAPI) {
 	pi.registerCommand("sysprompt", {
-		description: "Show the current system prompt",
+		description: "Write the current system prompt to /tmp/pi-system-prompt.txt",
 		handler: async (_args, ctx) => {
 			const prompt = ctx.getSystemPrompt();
-			pi.sendUserMessage(
-				`**System prompt** (${prompt.length} chars)\n\n\`\`\`\n${prompt}\n\`\`\``,
-			);
+			const lines = prompt.split("\n").length;
+			await writeFile(FILE, prompt);
+			ctx.ui.notify(`System prompt: ${FILE} (${prompt.length} chars, ${lines} lines)`, "info");
 		},
 	});
 }
