@@ -96,19 +96,16 @@ export default function (pi: ExtensionAPI) {
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			switch (params.action) {
-				case "list":
-					return {
-						content: [
-							{
-								type: "text",
-								text: todos.length
-									? todos.map((t) => `[${t.done ? "x" : " "}] #${t.id}: ${t.text}`).join("\n")
-									: "No todos",
-							},
-						],
-						details: { action: "list", todos: [...todos], nextId } as TodoDetails,
+				case "list": {
+					const text = todos.length
+						? todos.map((t) => `[${t.done ? "x" : " "}] #${t.id}: ${t.text}`).join("\n")
+						: "No todos";
 					refreshWidget(ctx);
+					return {
+						content: [{ type: "text", text }],
+						details: { action: "list", todos: [...todos], nextId } as TodoDetails,
 					};
+				}
 
 				case "add": {
 					if (!params.text) {
@@ -119,10 +116,10 @@ export default function (pi: ExtensionAPI) {
 					}
 					const newTodo: Todo = { id: nextId++, text: params.text, done: false };
 					todos.push(newTodo);
+					refreshWidget(ctx);
 					return {
 						content: [{ type: "text", text: `Added todo #${newTodo.id}: ${newTodo.text}` }],
 						details: { action: "add", todos: [...todos], nextId } as TodoDetails,
-					refreshWidget(ctx);
 					};
 				}
 
@@ -147,10 +144,10 @@ export default function (pi: ExtensionAPI) {
 					}
 					todo.done = !todo.done;
 					const status = todo.done ? "completed" : "uncompleted";
+					refreshWidget(ctx);
 					return {
 						content: [{ type: "text", text: `Todo #${todo.id} ${status}: ${todo.text}` }],
 						details: { action: "toggle", todos: [...todos], nextId } as TodoDetails,
-					refreshWidget(ctx);
 					};
 				}
 
@@ -158,10 +155,10 @@ export default function (pi: ExtensionAPI) {
 					const count = todos.length;
 					todos = [];
 					nextId = 1;
+					refreshWidget(ctx);
 					return {
 						content: [{ type: "text", text: `Cleared ${count} todos` }],
 						details: { action: "clear", todos: [], nextId: 1 } as TodoDetails,
-					refreshWidget(ctx);
 					};
 				}
 
