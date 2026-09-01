@@ -45,10 +45,13 @@ type SandboxMode =
 
 type ActiveMode = "read" | "supervised" | "workspace" | "yolo";
 
-const MUTATOR_TOOLS = ["bash", "write", "edit"] as const;
+const MUTATOR_TOOLS = ["bash", "write", "edit", "powershell"] as const;
 
 /** Compile the Landlock gate once, then probe the kernel. */
 function resolveMode(): SandboxMode {
+	if (process.platform !== "linux") {
+		return { mode: "approval", detail: "Landlock is Linux-only; using supervised" };
+	}
 	try {
 		mkdirSync(CACHE_DIR, { recursive: true });
 		if (!existsSync(GATE_BIN) || statSync(SOURCE).mtimeMs > statSync(GATE_BIN).mtimeMs) {
@@ -168,9 +171,10 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("tool_call", async (event, ctx) => {
 		const isBash = isToolCallEventType("bash", event);
+		const isPowerShell = isToolCallEventType("powershell", event);
 		const isWrite = isToolCallEventType("write", event);
 		const isEdit = isToolCallEventType("edit", event);
-		const isMutator = isBash || isWrite || isEdit;
+		const isMutator = isBash || isPowerShell || isWrite || isEdit;
 		const workspace = ctx.cwd;
 		const allowlist = defaultAllowlist(workspace, piPath);
 
@@ -185,7 +189,7 @@ export default function (pi: ExtensionAPI) {
 				return;
 
 			case "supervised":
-				if (isBash) {
+				if (isBash || isPowerShell) {
 					const denied = await ask(ctx, "run this command?", event.input.command);
 					if (denied) return denied;
 					return;
@@ -201,6 +205,11 @@ export default function (pi: ExtensionAPI) {
 				if (sandbox.mode !== "landlock") {
 					// Fallback if the user selected workspace without Landlock.
 					const denied = await ask(ctx, "run this command? (workspace needs Landlock; supervised fallback)", isBash ? event.input.command : event.input.path);
+					if (denied) return denied;
+					return;
+				}
+				if (isPowerShell) {
+					const denied = await ask(ctx, "run this command? (powershell not gated by Landlock on Linux)", event.input.command);
 					if (denied) return denied;
 					return;
 				}
