@@ -330,7 +330,7 @@ export default function (pi: ExtensionAPI) {
 
 		renderResult(result, _opts, theme) {
 			const d = result.details as GoalDetails | undefined;
-			const g = d?.goal ?? goal;
+			const g = goal ?? d?.goal;
 			if (!g) return new Text(theme.fg("muted", "goal: (none)"), 0, 0);
 			const badge =
 				g.status === "active"
