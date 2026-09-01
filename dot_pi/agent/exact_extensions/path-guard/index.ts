@@ -12,34 +12,65 @@
  *   - read/grep/find/ls are untouched: reads are allowed everywhere.
  *
  * Failure mode: if the gate cannot be built or Landlock is unavailable,
- * bash is blocked (fail closed) and a warning is shown.
+ * bash degrades to pass-through with a one-time warning (never bricked);
+ * the write and edit tools stay path-guarded regardless. Build errors are
+ * written to /tmp/path-guard-gate.log.
  */
 
-import { execFileSync, readFileSync, mkdirSync, statSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+	readFileSync,
+	mkdirSync,
+	statSync,
+	writeFileSync,
+	existsSync,
+} from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { defaultAllowlist, inspectPath } from "./guard.ts";
 
 const require = createRequire(import.meta.url);
 
-const SOURCE = new URL("./gate.c", import.meta.url).pathname;
+/** Resolve the module dir robustly (pi loaders may not provide file URLs). */
+const MODULE_DIR = (import.meta as unknown as { dirname?: string }).dirname
+	?? fileURLToPath(new URL(".", import.meta.url));
+const SOURCE = join(MODULE_DIR, "gate.c");
 const CACHE_DIR = join(homedir(), ".cache", "pi", "path-guard");
 const GATE_BIN = join(CACHE_DIR, "gate");
+const BUILD_LOG = join(CACHE_DIR, "build.log");
 
-/** Compile the Landlock gate once; returns its path or null on failure. */
-function ensureGate(): string | null {
+type GateState =
+	| { status: "ready"; bin: string }
+	| { status: "missing"; detail: string }
+	| { status: "no-landlock"; detail: string };
+
+/** Compile the Landlock gate once, then probe the kernel. */
+function ensureGate(): GateState {
 	try {
 		mkdirSync(CACHE_DIR, { recursive: true });
 		if (!existsSync(GATE_BIN) || statSync(SOURCE).mtimeMs > statSync(GATE_BIN).mtimeMs) {
-			execFileSync("cc", ["-O2", "-Wall", "-o", GATE_BIN, SOURCE], { stdio: "ignore" });
+			const r = spawnSync("cc", ["-O2", "-Wall", "-o", GATE_BIN, SOURCE], { encoding: "utf-8" });
+			if (r.status !== 0) {
+				try {
+					writeFileSync(BUILD_LOG, `${r.stderr ?? ""}${r.error?.message ?? ""}`);
+				} catch { /* best effort */ }
+				return { status: "missing", detail: `gate compile failed (see ${BUILD_LOG})` };
+			}
 		}
-		return GATE_BIN;
+		const probe = spawnSync(GATE_BIN, ["--probe"], { encoding: "utf-8" });
+		if (probe.status !== 0) {
+			return { status: "no-landlock", detail: probe.stderr?.trim() || `probe exit ${probe.status}` };
+		}
+		return { status: "ready", bin: GATE_BIN };
 	} catch (err) {
-		console.error(`[path-guard] gate build failed: ${(err as Error).message}`);
-		return null;
+		try {
+			writeFileSync(BUILD_LOG, String((err as Error).message));
+		} catch { /* best effort */ }
+		return { status: "missing", detail: (err as Error).message };
 	}
 }
 
@@ -71,19 +102,22 @@ export default function (pi: ExtensionAPI) {
 	const gate = ensureGate();
 	const piPath = piModuleRoot();
 
+	if (gate.status !== "ready") {
+		pi.on("session_start", async (_event, ctx) => {
+			ctx.ui.notify(
+				`[path-guard] ${gate.detail} — bash NOT sandboxed; write/edit tools still path-guarded`,
+				"warning",
+			);
+		});
+	}
+
 	pi.on("tool_call", async (event, ctx) => {
 		const workspace = ctx.cwd;
 		const allowlist = defaultAllowlist(workspace, piPath);
 
 		if (isToolCallEventType("bash", event)) {
-			if (!gate) {
-				return {
-					block: true,
-					reason: "path-guard: Landlock gate unavailable — bash disabled (fail closed)",
-					terminate: false,
-				};
-			}
-			const parts = [gate, "--ws", workspace];
+			if (gate.status !== "ready") return; // degraded: pass through, warned once
+			const parts = [gate.bin, "--ws", workspace];
 			for (const allow of allowlist) {
 				if (allow !== workspace) parts.push("--allow", allow);
 			}

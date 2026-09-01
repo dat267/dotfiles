@@ -62,6 +62,25 @@ static int add_rule(int fd, uint64_t access, const char *path) {
 }
 
 int main(int argc, char **argv) {
+	/* Probe mode: verify Landlock works, then exit. */
+	if (argc == 2 && strcmp(argv[1], "--probe") == 0) {
+		int abi = (int)syscall(SYS_landlock_create_ruleset, NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
+		if (abi < 1) {
+			fprintf(stderr, "Landlock unavailable (ABI %d)\n", abi);
+			return 125;
+		}
+		uint64_t handled = READ_BITS;
+		struct landlock_ruleset_attr attr = { .handled_access_fs = handled };
+		int rfd = (int)syscall(SYS_landlock_create_ruleset, &attr, sizeof attr, 0);
+		if (rfd < 0 || add_rule(rfd, READ_BITS, "/") != 0 ||
+		    prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0 ||
+		    syscall(SYS_landlock_restrict_self, rfd, 0) != 0) {
+			fprintf(stderr, "Landlock unavailable: %s\n", strerror(errno));
+			return 125;
+		}
+		return 0;
+	}
+
 	const char *ws = NULL;
 	const char *allows[64];
 	int nallows = 0;
