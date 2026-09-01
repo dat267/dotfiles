@@ -1,5 +1,5 @@
 /*
- * workspace-sandbox gate: kernel-enforced read-only layer via Landlock (Linux >= 5.13).
+ * sandbox gate: kernel-enforced read-only layer via Landlock (Linux >= 5.13).
  *
  * Runs a command under a Landlock ruleset that allows reads everywhere and
  * writes only inside the workspace plus an explicit allowlist. The ruleset
@@ -48,12 +48,12 @@
 static int add_rule(int fd, uint64_t access, const char *path) {
 	int dirfd = open(path, O_PATH | O_CLOEXEC);
 	if (dirfd < 0) {
-		fprintf(stderr, "workspace-sandbox: cannot open \"%s\": %s\n", path, strerror(errno));
+		fprintf(stderr, "sandbox: cannot open \"%s\": %s\n", path, strerror(errno));
 		return -1;
 	}
 	struct landlock_path_beneath_attr attr = { .allowed_access = access, .parent_fd = dirfd };
 	if (syscall(SYS_landlock_add_rule, fd, LANDLOCK_RULE_PATH_BENEATH, &attr, 0) != 0) {
-		fprintf(stderr, "workspace-sandbox: add_rule failed for \"%s\": %s\n", path, strerror(errno));
+		fprintf(stderr, "sandbox: add_rule failed for \"%s\": %s\n", path, strerror(errno));
 		close(dirfd);
 		return -1;
 	}
@@ -96,16 +96,16 @@ int main(int argc, char **argv) {
 			i++;
 			break;
 		} else {
-			fprintf(stderr, "workspace-sandbox: unexpected argument \"%s\"\n", argv[i]);
+			fprintf(stderr, "sandbox: unexpected argument \"%s\"\n", argv[i]);
 			return 126;
 		}
 	}
 	if (!ws) {
-		fprintf(stderr, "workspace-sandbox: missing --ws\n");
+		fprintf(stderr, "sandbox: missing --ws\n");
 		return 126;
 	}
 	if (i >= argc) {
-		fprintf(stderr, "workspace-sandbox: no command to run\n");
+		fprintf(stderr, "sandbox: no command to run\n");
 		return 126;
 	}
 
@@ -114,13 +114,13 @@ int main(int argc, char **argv) {
 	const char *wsabs = ws;
 	if (ws[0] != '/') {
 		if (getcwd(wsbuf, sizeof wsbuf) == NULL) {
-			perror("workspace-sandbox: getcwd");
+			perror("sandbox: getcwd");
 			return 126;
 		}
 		if (strcmp(ws, ".") != 0) {
 			size_t l = strlen(wsbuf);
 			if (l + 1 + strlen(ws) >= sizeof wsbuf) {
-				fprintf(stderr, "workspace-sandbox: workspace path too long\n");
+				fprintf(stderr, "sandbox: workspace path too long\n");
 				return 126;
 			}
 			if (wsbuf[l - 1] != '/') {
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
 	/* Landlock ABI version (>= 1 required). */
 	int abi = (int)syscall(SYS_landlock_create_ruleset, NULL, 0, LANDLOCK_CREATE_RULESET_VERSION);
 	if (abi < 1) {
-		fprintf(stderr, "workspace-sandbox: Landlock unavailable (ABI %d): %s — command refused\n",
+		fprintf(stderr, "sandbox: Landlock unavailable (ABI %d): %s — command refused\n",
 			abi, abi < 0 ? strerror(-abi) : "unsupported");
 		return 125;
 	}
@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
 	struct landlock_ruleset_attr attr = { .handled_access_fs = handled };
 	int rfd = (int)syscall(SYS_landlock_create_ruleset, &attr, sizeof attr, 0);
 	if (rfd < 0) {
-		perror("workspace-sandbox: create_ruleset");
+		perror("sandbox: create_ruleset");
 		return 125;
 	}
 
@@ -162,17 +162,17 @@ int main(int argc, char **argv) {
 	/* Unprivileged callers must set no_new_privs (also blocks setuid
 	 * escalation inside the sandbox). */
 	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) {
-		perror("workspace-sandbox: prctl(NO_NEW_PRIVS)");
+		perror("sandbox: prctl(NO_NEW_PRIVS)");
 		return 125;
 	}
 
 	if (syscall(SYS_landlock_restrict_self, rfd, 0) != 0) {
-		perror("workspace-sandbox: restrict_self");
+		perror("sandbox: restrict_self");
 		return 125;
 	}
 	close(rfd);
 
 	execvp(argv[i], &argv[i]);
-	perror("workspace-sandbox: exec");
+	perror("sandbox: exec");
 	return 127;
 }

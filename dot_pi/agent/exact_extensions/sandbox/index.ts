@@ -1,5 +1,5 @@
 /**
- * Workspace Sandbox — four human-chosen modes, default chosen at load.
+ * Sandbox — four human-chosen modes, default chosen at load.
  *
  *   read        — read-only: bash/write/edit are removed from the prompt
  *                 AND blocked in-process. Like a read-only Termux.
@@ -35,7 +35,7 @@ const require = createRequire(import.meta.url);
 const MODULE_DIR = (import.meta as unknown as { dirname?: string }).dirname
 	?? fileURLToPath(new URL(".", import.meta.url));
 const SOURCE = join(MODULE_DIR, "gate.c");
-const CACHE_DIR = join(homedir(), ".cache", "pi", "workspace-sandbox");
+const CACHE_DIR = join(homedir(), ".cache", "pi", "sandbox");
 const GATE_BIN = join(CACHE_DIR, "gate");
 const BUILD_LOG = join(CACHE_DIR, "build.log");
 
@@ -100,7 +100,7 @@ function piModuleRoot(): string | undefined {
 /** System-prompt note, accurate for the active mode. */
 function promptNote(active: ActiveMode, sandbox: SandboxMode, workspace: string): string {
 	const shared =
-		`Workspace filesystem policy (workspace-sandbox extension, mode: ${active}):\n` +
+		`Workspace filesystem policy (sandbox extension, mode: ${active}):\n` +
 		`- The workspace (${workspace}) is writable; also /tmp, /var/tmp, /dev, /proc, /sys, per-user caches (~/.cache, ~/.npm, ~/.cargo), and the pi module path.\n` +
 		`- Every other directory is read-only for writes. Reads are allowed everywhere.\n` +
 		`- Use /tmp for scratch files and test artifacts.\n` +
@@ -126,13 +126,13 @@ async function ask(
 	if (ctx.mode !== "tui") {
 		return {
 			block: true,
-			reason: "workspace-sandbox: approval required, but this session is non-interactive",
+			reason: "sandbox: approval required, but this session is non-interactive",
 			terminate: false,
 		};
 	}
-	const allow = await ctx.ui.confirm("workspace-sandbox (supervised)", `${label}\n\n${detail}`);
+	const allow = await ctx.ui.confirm("sandbox (supervised)", `${label}\n\n${detail}`);
 	if (allow === true) return null;
-	return { block: true, reason: "workspace-sandbox: declined by user", terminate: false };
+	return { block: true, reason: "sandbox: declined by user", terminate: false };
 }
 
 function blocked(reason: string): { block: true; reason: string; terminate: false } {
@@ -148,7 +148,7 @@ export default function (pi: ExtensionAPI) {
 	if (sandbox.mode === "approval") {
 		pi.on("session_start", async (_event, ctx) => {
 			ctx.ui.notify(
-				`[workspace-sandbox] ${sandbox.detail} — defaulting to supervised mode (every bash/write/edit call will ask first)`,
+				`[sandbox] ${sandbox.detail} — defaulting to supervised mode (every bash/write/edit call will ask first)`,
 				"warning",
 			);
 		});
@@ -180,7 +180,7 @@ export default function (pi: ExtensionAPI) {
 
 			case "read":
 				if (isMutator) {
-					return blocked("workspace-sandbox: read-only mode — bash/write/edit are disabled");
+					return blocked("sandbox: read-only mode — bash/write/edit are disabled");
 				}
 				return;
 
@@ -230,21 +230,21 @@ export default function (pi: ExtensionAPI) {
 			const sub = args.trim().toLowerCase();
 			if (sub === "read" || sub === "supervised" || sub === "yolo") {
 				active = sub;
-				ctx.ui.notify(`[workspace-sandbox] Mode: ${active}`, "info");
+				ctx.ui.notify(`[sandbox] Mode: ${active}`, "info");
 			} else if (sub === "workspace") {
 				if (sandbox.mode === "landlock") {
 					active = "workspace";
-					ctx.ui.notify("[workspace-sandbox] Mode: workspace (Landlock kernel enforcement)", "info");
+					ctx.ui.notify("[sandbox] Mode: workspace (Landlock kernel enforcement)", "info");
 				} else {
 					active = "supervised";
-					ctx.ui.notify("[workspace-sandbox] Landlock unavailable — using supervised instead", "warning");
+					ctx.ui.notify("[sandbox] Landlock unavailable — using supervised instead", "warning");
 				}
 			} else if (sub === "status" || sub === "") {
 				const detail =
 					active === "workspace" && sandbox.mode === "landlock"
 						? "Landlock (kernel-enforced)"
 						: active;
-				ctx.ui.notify(`[workspace-sandbox] Mode: ${detail}${active === "supervised" ? " (ask before every bash/write/edit)" : ""}`, "info");
+				ctx.ui.notify(`[sandbox] Mode: ${detail}${active === "supervised" ? " (ask before every bash/write/edit)" : ""}`, "info");
 			} else {
 				ctx.ui.notify("Usage: /sandbox [read|supervised|workspace|yolo|status]", "warning");
 			}

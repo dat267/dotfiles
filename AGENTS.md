@@ -53,7 +53,7 @@ All 34 scripts under `dot_local/scripts/py/` (33 `executable_*.py` + `executable
 
 ## Pi Extensions (Sandbox Policy)
 
-`~/.pi/agent/extensions/workspace-sandbox` makes everything outside the workspace (plus `/tmp`, `/dev`, `/proc`, `/sys`, the pi module path) read-only via a kernel-enforced Landlock gate that wraps every `bash` tool call. The ruleset is inherited by the whole child process tree, so nested subprocesses are covered.
+`~/.pi/agent/extensions/sandbox` makes everything outside the workspace (plus `/tmp`, `/dev`, `/proc`, `/sys`, the pi module path) read-only via a kernel-enforced Landlock gate that wraps every `bash` tool call. The ruleset is inherited by the whole child process tree, so nested subprocesses are covered.
 
 - Any extension that spawns a process which could touch the filesystem MUST route it through the bash tool (`bash -c …`) or the gate wrapper (`gate --ws … -- <cmd>`) — never raw `child_process.spawn`
 - `write`/`edit` tools are always path-checked in-process; bash sandboxing is enforced at the kernel

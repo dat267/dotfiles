@@ -27,7 +27,7 @@ powershell -c "& { iwr -useb get.chezmoi.io | iex }; chezmoi init --apply dat267
 | **PowerShell** | Profile + custom `Utils.psm1` module |
 | **VS Code** | Settings + 11 snippet files across languages |
 | **SSH** | Client config (Tailscale/CGNAT hosts) |
-| **AI** | opencode (bare config, managed skills), Crush (sandboxed, secret-blocking, skills), Pi (agent config, extensions, skills — including `workspace-sandbox`: kernel-enforced read-only outside the workspace via Landlock) |
+| **AI** | opencode (bare config, managed skills), Crush (sandboxed, secret-blocking, skills), Pi (agent config, extensions, skills — including `sandbox`: kernel-enforced read-only outside the workspace via Landlock) |
 
 ## Platform Support
 

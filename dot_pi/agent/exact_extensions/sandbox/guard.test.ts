@@ -1,5 +1,5 @@
 /**
- * Tests for workspace-sandbox pure logic.
+ * Tests for sandbox pure logic.
  * Run: node --test guard.test.ts
  */
 
