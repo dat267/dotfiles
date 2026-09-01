@@ -1,38 +1,21 @@
 /**
  * Goal Driver — durable objective + automatic continuation rounds
  *
- * Ported from DeepSeek Harness's goal + goal-round-driver design.
+ * Ported from DeepSeek Harness's goal domain (packages/goal/*):
+ * - Durable state is a strict fold over session-log custom entries
+ *   (pi.appendEntry), each mutation advancing a CAS revision.
+ * - Round counting is event-derived: every injected round appends one
+ *   log entry before its follow-up prompt, so the counter is exact
+ *   across restarts — no snapshot drift, no injection re-counting.
+ * - Activation (armed) is process-local and never persisted; resume or
+ *   fork disarms until explicit /goal resume or a tool resume.
+ * - Model-blocked reporting requires >= BLOCKED_AFTER_ROUNDS rounds;
+ *   the driver blocks with code "round-limit" at the cap.
  *
- * One goal per session: the agent creates a goal (or you pass --goal),
- * works toward it in automatic rounds, and marks it complete or blocked.
- * Goal state lives in the session log (tool result details), so it
- * survives restarts and branches correctly.
- *
- * Safety rules (from dsh):
- * - Round cap: when rounds are exhausted, the goal is marked blocked
- *   ("round-limit") and continuation stops.
- * - A turn that ends on max tokens / error / abort disarms continuation.
- * - After session resume or fork, continuation stays disarmed until an
- *   explicit human /goal resume.
- * - The driver queues the next round at agent_end as a follow-up; the run
- *   loop consumes it inside the same awaited prompt chain — safe in TUI
- *   and print mode alike (no race with session teardown).
- *
- * Tools:
- *   goal — actions: get | create | update | complete | block | clear
- *   (the model owns the goal lifecycle; every result carries state for
- *   reconstruction from the session log)
- *
- * Commands:
- *   /goal              — show goal status
- *   /goal resume       — re-arm continuation (human authorization)
- *   /goal pause        — disarm continuation (goal stays active)
- *
- * Flag:
- *   --goal "objective" [--goal-rounds N] — start with an armed goal.
- *   With `pi --print`, this turns a one-shot run into an autonomous
- *   loop: rounds continue until the goal completes, blocks, or hits
- *   the cap. Experimental in print mode.
+ * Tool: goal — actions get | create | edit | pause | resume | complete |
+ *                block | clear (mutations carry id + revision CAS)
+ * Commands: /goal [status|resume|pause|complete|block <reason>]
+ * Flag: --goal "objective" [--goal-rounds N]
  */
 
 import { StringEnum } from "@earendil-works/pi-ai";
@@ -40,10 +23,22 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import {
-	reconstructFromEntries,
+	applyChange,
+	applyRound,
+	BLOCKED_AFTER_ROUNDS,
+	CHANGE_CUSTOM_TYPE,
+	foldGoal,
+	goalView,
+	newGoalId,
 	renderRoundPrompt,
-	type Goal,
-	type GoalDetails,
+	ROUND_CUSTOM_TYPE,
+	statusLineText,
+	type EntryLike,
+	type GoalChangeData,
+	type GoalOperation,
+	type GoalRoundData,
+	type GoalSnapshot,
+	type GoalView,
 } from "./state.ts";
 
 // ── State ────────────────────────────────────────────────────────────────
@@ -51,67 +46,77 @@ import {
 const DEFAULT_MAX_ROUNDS = 20;
 const HARD_ROUND_CAP = 100;
 
-// In-memory state; goal is reconstructed from the session log,
-// armed never persists (deliberate: resume/fork disarm).
-let goal: Goal | null = null;
+// Folded durable state; `armed` is process-local (never persisted).
+let fold = {
+	goal: undefined as GoalSnapshot | undefined,
+	roundsStarted: 0,
+	lastRef: undefined as { id: string; revision: number } | undefined,
+	seenGoalIds: new Set<string>(),
+};
 let armed = false;
 let lastStopReason: string | null = null;
 
-function goalDetails(): GoalDetails {
-	return { goal: goal ? { ...goal } : null };
+function view(): GoalView | null {
+	return goalView(fold, armed);
 }
 
-// ── Round prompt (adapted from dsh goal-round-driver) ─────────────────────
+// ── Durable writes ───────────────────────────────────────────────────────
 
-function statusLine(): string {
-	if (!goal) return "No goal. Ask the agent to create one, or start with --goal \"objective\".";
-	const obj = goal.objective.length > 60 ? goal.objective.slice(0, 57) + "..." : goal.objective;
-	const rounds = `— ${goal.roundsStarted} ${goal.roundsStarted === 1 ? "round" : "rounds"}`;
-	switch (goal.status) {
-		case "active": {
-			const arm = armed ? "armed" : "paused";
-			return `Active: ${obj} — rounds ${goal.roundsStarted}/${goal.maxRounds}, ${arm}`;
-		}
-		case "completed":
-			return `Completed: ${obj} ${rounds}`;
-		case "blocked":
-			return `Blocked (${goal.blockedReason ?? "unknown"}): ${obj} ${rounds}`;
-	}
+function appendChange(pi: ExtensionAPI, operation: GoalOperation, goal: GoalSnapshot | null): void {
+	const data: GoalChangeData = { operation, goal };
+	// Validate/mutate the live fold first; only persist if the sequence is legal.
+	applyChange(fold, data);
+	pi.appendEntry(CHANGE_CUSTOM_TYPE, data);
 }
+
+/** Next snapshot after a mutation: same definition, next revision. */
+function nextRevision(current: GoalSnapshot, patch: Partial<GoalSnapshot>): GoalSnapshot {
+	return {
+		...current,
+		...patch,
+		revision: current.revision + 1,
+	};
+}
+
+function appendRound(pi: ExtensionAPI, goal: GoalSnapshot, round: number): void {
+	const data: GoalRoundData = { goalId: goal.id, revision: goal.revision, round };
+	applyRound(fold, data);
+	pi.appendEntry(ROUND_CUSTOM_TYPE, data);
+}
+
+// ── Driver ───────────────────────────────────────────────────────────────
 
 function maybeContinue(pi: ExtensionAPI, ctx: ExtensionContext, opts: { requireIdle: boolean }) {
-	if (!goal || goal.status !== "active" || !armed) return;
+	const g = fold.goal;
+	if (!g || g.phase !== "active" || !armed) return;
 	if (opts.requireIdle && !ctx.isIdle()) return;
 
-	if (goal.roundsStarted >= goal.maxRounds) {
-		goal.status = "blocked";
-		goal.blockedReason = "round-limit";
+	if (fold.roundsStarted >= g.maxRounds) {
+		appendChange(pi, "block", nextRevision(g, {
+			phase: "blocked",
+			blockedReason: { code: "round-limit", message: `Goal reached its configured limit of ${g.maxRounds} rounds.` },
+		}));
 		armed = false;
-		ctx.ui.notify(`[goal] Round limit reached (${goal.maxRounds}) — goal marked blocked`, "warning");
+		ctx.ui.notify(`[goal] Round limit reached (${g.maxRounds}) — goal marked blocked`, "warning");
 		return;
 	}
 
-	// A turn that ended badly disarms continuation (dsh: stop on
-	// max tokens / error / cancellation).
+	// A turn that ended badly disarms continuation (dsh: stop on max
+	// tokens / error / cancellation — durable phase stays active).
 	if (lastStopReason && lastStopReason !== "stop" && lastStopReason !== "toolUse") {
 		armed = false;
 		ctx.ui.notify(`[goal] Last turn ended with stopReason "${lastStopReason}" — continuation paused, /goal resume to re-arm`, "warning");
 		return;
 	}
 
-	goal.roundsStarted += 1;
-	const round = goal.roundsStarted;
-	ctx.ui.notify(`[goal] Round ${round}/${goal.maxRounds}`, "info");
+	const round = fold.roundsStarted + 1;
+	appendRound(pi, g, round);
+	ctx.ui.notify(`[goal] Round ${round}/${g.maxRounds}`, "info");
 
 	if (opts.requireIdle) {
-		// Called from /goal resume while idle: start a fresh run.
-		pi.sendUserMessage(renderRoundPrompt(goal));
+		pi.sendUserMessage(renderRoundPrompt(g, round));
 	} else {
-		// Called from agent_end: the run is still streaming, so queue the
-		// round as a follow-up. The run loop consumes it via agent.continue()
-		// inside the same awaited prompt chain — this keeps the loop alive
-		// in print mode too (no race with session teardown).
-		pi.sendUserMessage(renderRoundPrompt(goal), { deliverAs: "followUp" });
+		pi.sendUserMessage(renderRoundPrompt(g, round), { deliverAs: "followUp" });
 	}
 }
 
@@ -130,18 +135,20 @@ export default function (pi: ExtensionAPI) {
 		default: String(DEFAULT_MAX_ROUNDS),
 	});
 
+	const refold = (ctx: ExtensionContext) => {
+		const entries = ctx.sessionManager.getBranch() as readonly EntryLike[];
+		fold = foldGoal(entries);
+	};
+
 	pi.on("session_tree", async (_event, ctx) => {
-		// Reconstruct goal state from the new branch's entries
-		goal = reconstructFromEntries(ctx.sessionManager.getBranch());
+		refold(ctx);
 		armed = false; // Navigation disarms — safety first
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
-		// Defensive: never carry arm state or stop-reason across session
-		// switches, even if the extension instance is reused from cache.
-		// After resume/fork an active goal stays disarmed until /goal resume.
 		armed = false;
 		lastStopReason = null;
+		refold(ctx);
 
 		// --goal flag: create + arm before the first turn
 		let flagObjective: string | null = null;
@@ -149,35 +156,31 @@ export default function (pi: ExtensionAPI) {
 		const obj = pi.getFlag("goal");
 		const roundsRaw = pi.getFlag("goal-rounds");
 		if (typeof obj === "string" && obj.trim()) flagObjective = obj.trim();
-		// CLI flag values arrive as strings — coerce.
 		const roundsNum = typeof roundsRaw === "number" ? roundsRaw : Number(roundsRaw);
 		if (Number.isFinite(roundsNum) && roundsNum > 0) flagRounds = Math.min(Math.floor(roundsNum), HARD_ROUND_CAP);
 
-		goal = reconstructFromEntries(ctx.sessionManager.getBranch());
-
 		if (flagObjective) {
-			if (!goal) {
-				goal = {
+			if (!fold.goal) {
+				appendChange(pi, "create", {
+					id: newGoalId(),
+					revision: 1,
 					objective: flagObjective,
+					phase: "active",
 					maxRounds: flagRounds,
-					roundsStarted: 1,
-					status: "active",
-				};
+				});
 			}
 			armed = true;
 			ctx.ui.notify(`[goal] Armed: ${flagObjective}`, "info");
 			return;
 		}
 
-		// dsh: after resume/fork an active goal stays disarmed until an
-		// explicit human-authorized resume — the driver never revives work.
-		if (goal && goal.status === "active") {
-			ctx.ui.notify(`[goal] ${statusLine()} — /goal resume to continue`, "info");
+		const g = view();
+		if (g && g.phase === "active") {
+			ctx.ui.notify(`[goal] ${statusLineText(g)} — /goal resume to continue`, "info");
 		}
 	});
 
 	pi.on("agent_end", async (event, ctx) => {
-		// Track the run's final stopReason for the bad-turn guard.
 		const msgs = (Array.isArray(event.messages) ? event.messages : []) as Array<{
 			role: string;
 			stopReason?: string;
@@ -188,138 +191,165 @@ export default function (pi: ExtensionAPI) {
 				break;
 			}
 		}
-		// At agent_end the run is still "streaming" to extensions, so the
-		// followUp queue is live — the driver continuation path.
 		maybeContinue(pi, ctx, { requireIdle: false });
 	});
 
 	// ── goal tool (model-facing) ──
 
 	const GoalParams = Type.Object({
-		action: StringEnum(["get", "create", "update", "complete", "block", "clear"] as const),
-		objective: Type.Optional(Type.String({ description: "Objective text (for create)" })),
-		maxRounds: Type.Optional(Type.Number({ description: `Round cap (for create, default ${DEFAULT_MAX_ROUNDS})` })),
-		reason: Type.Optional(Type.String({ description: "Why the goal is blocked (for block)" })),
+		action: StringEnum(["get", "create", "edit", "pause", "resume", "complete", "block", "clear"] as const),
+		objective: Type.Optional(Type.String({ description: "Objective text (create/edit)" })),
+		maxRounds: Type.Optional(Type.Number({ description: `Round cap (create/edit, default ${DEFAULT_MAX_ROUNDS})` })),
+		id: Type.Optional(Type.String({ description: "Goal id (mutations, from get)" })),
+		revision: Type.Optional(Type.Number({ description: "Goal revision (mutations, from get)" })),
+		reason: Type.Optional(Type.String({ description: "Blocking condition (block)" })),
 	});
 
 	pi.registerTool({
 		name: "goal",
 		label: "Goal",
 		description:
-			"Manage the session goal. One goal per session. 'create' starts an armed goal that " +
-			"continues automatically at idle; 'complete' when evidence shows the whole objective " +
-			"is achieved; 'block' with a reason when stuck; 'update' to revise the objective or cap.",
+			"Manage the session goal. One persisted goal per session. 'create' starts an armed goal that " +
+			"continues automatically at idle; edit/pause/resume/complete/block/clear mutate it; mutations " +
+			"require the exact id and revision from 'get'. 'complete' only when evidence shows the whole " +
+			"objective is achieved; 'block' (with a concrete reason) only after it persists across rounds.",
 		promptSnippet: "Manage the session goal — create, update, complete, block, or clear",
 		promptGuidelines: [
-			"Use the goal tool for multi-round tasks: create a goal with an objective, and the agent will continue working in rounds until it completes, blocks, or hits the cap.",
-			"Use goal complete when evidence shows the whole objective is achieved, not just partial progress.",
-			"Use goal block with a reason when the objective cannot be reached.",
+			"Use the goal tool for multi-round tasks: create a goal with an objective, and the session continues automatically in rounds until it completes, blocks, or hits the cap.",
+			"Call goal(get) before any mutation and copy the exact id and revision; mutations fail on stale revisions.",
+			"Use goal(complete) when evidence shows the whole objective is achieved, not just partial progress.",
+			"Use goal(block) with a concrete reason only after the same blocking condition persists across rounds.",
 		],
 		parameters: GoalParams,
 
 		async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+			const g = view();
+			const cas =
+				typeof params.id === "string" && typeof params.revision === "number"
+					? { id: params.id, revision: params.revision }
+					: undefined;
+
 			switch (params.action) {
 				case "get":
 					return {
-						content: [{ type: "text", text: goal ? JSON.stringify(goal, null, 2) : "No goal" }],
-						details: goalDetails(),
+						content: [{ type: "text", text: g ? JSON.stringify(g, null, 2) : "No goal" }],
 					};
 
 				case "create": {
 					if (!params.objective?.trim()) {
-						return {
-							content: [{ type: "text", text: "Error: objective required for create" }],
-							details: goalDetails(),
-						};
+						return { content: [{ type: "text", text: "Error: objective required for create" }] };
 					}
-					if (goal && goal.status === "active") {
+					if (fold.goal && fold.goal.phase !== "complete") {
 						return {
-							content: [{ type: "text", text: `Error: a goal is already active: ${goal.objective}` }],
-							details: goalDetails(),
+							content: [{ type: "text", text: `Error: a goal is already active: ${fold.goal.objective}` }],
 						};
 					}
 					const maxRounds = Math.min(
 						Math.max(1, Math.floor(params.maxRounds ?? DEFAULT_MAX_ROUNDS)),
 						HARD_ROUND_CAP,
 					);
-					goal = {
+					appendChange(pi, "create", {
+						id: newGoalId(),
+						revision: 1,
 						objective: params.objective.trim(),
+						phase: "active",
 						maxRounds,
-						roundsStarted: 1,
-						status: "active",
-					};
+					});
 					armed = true;
 					return {
 						content: [
 							{
 								type: "text",
-								text: `Goal created and armed: ${goal.objective} (max ${maxRounds} rounds). Work toward it; the session continues automatically while it is active.`,
+								text: `Goal created and armed: ${params.objective.trim()} (max ${maxRounds} rounds). Work toward it; the session continues automatically while it is active.`,
 							},
 						],
-						details: goalDetails(),
 					};
 				}
 
-				case "update": {
-					if (!goal || goal.status !== "active") {
-						return {
-							content: [{ type: "text", text: "Error: no active goal to update" }],
-							details: goalDetails(),
-						};
-					}
-					if (params.objective?.trim()) goal.objective = params.objective.trim();
-					if (params.maxRounds !== undefined) {
-						goal.maxRounds = Math.min(Math.max(1, Math.floor(params.maxRounds)), HARD_ROUND_CAP);
-					}
-					return {
-						content: [{ type: "text", text: `Goal updated: ${goal.objective}` }],
-						details: goalDetails(),
-					};
-				}
-
-				case "complete": {
-					if (!goal) {
-						return {
-							content: [{ type: "text", text: "Error: no goal to complete" }],
-							details: goalDetails(),
-						};
-					}
-					goal.status = "completed";
-					armed = false;
-					return {
-						content: [{ type: "text", text: `Goal completed: ${goal.objective}` }],
-						details: goalDetails(),
-					};
-				}
-
+				case "edit":
+				case "pause":
+				case "resume":
+				case "complete":
 				case "block": {
-					if (!goal) {
+					if (!cas) {
+						return { content: [{ type: "text", text: "Error: id and revision required for mutations (call get first)" }] };
+					}
+					const current = fold.goal;
+					if (!current) return { content: [{ type: "text", text: "Error: no goal to mutate" }] };
+					if (current.id !== cas.id || current.revision !== cas.revision) {
 						return {
-							content: [{ type: "text", text: "Error: no goal to block" }],
-							details: goalDetails(),
+							content: [{ type: "text", text: `Error: stale revision — goal is now rev ${current.revision} (${current.id})` }],
 						};
 					}
-					goal.status = "blocked";
-					goal.blockedReason = params.reason?.trim() || "unspecified";
+
+					if (params.action === "edit") {
+						const objective = params.objective?.trim();
+						const maxRounds = params.maxRounds !== undefined
+							? Math.min(Math.max(1, Math.floor(params.maxRounds)), HARD_ROUND_CAP)
+							: undefined;
+						if (!objective && maxRounds === undefined) {
+							return { content: [{ type: "text", text: "Error: edit needs objective and/or maxRounds" }] };
+						}
+						appendChange(pi, "edit", nextRevision(current, {
+							...(objective ? { objective } : {}),
+							...(maxRounds !== undefined ? { maxRounds } : {}),
+						}));
+						return { content: [{ type: "text", text: `Goal updated: ${view()?.objective}` }] };
+					}
+
+					if (params.action === "pause") {
+						appendChange(pi, "pause", nextRevision(current, { phase: "paused" }));
+						return { content: [{ type: "text", text: `Goal paused: ${current.objective}` }] };
+					}
+
+					if (params.action === "resume") {
+						if (current.phase !== "paused" && current.phase !== "blocked") {
+							return { content: [{ type: "text", text: "Error: only paused or blocked goals can resume" }] };
+						}
+						appendChange(pi, "resume", nextRevision(current, { phase: "active" }));
+						armed = true;
+						return { content: [{ type: "text", text: `Goal resumed and armed: ${current.objective}` }] };
+					}
+
+					if (params.action === "complete") {
+						appendChange(pi, "complete", nextRevision(current, { phase: "complete" }));
+						armed = false;
+						return { content: [{ type: "text", text: `Goal completed: ${current.objective}` }] };
+					}
+
+					// block
+					const reason = params.reason?.trim();
+					if (!reason) {
+						return { content: [{ type: "text", text: "Error: concrete blocking condition required for block" }] };
+					}
+					if (fold.roundsStarted < BLOCKED_AFTER_ROUNDS) {
+						return {
+							content: [
+								{
+									type: "text",
+									text: `Error: blocked requires at least ${BLOCKED_AFTER_ROUNDS} rounds; current round is ${fold.roundsStarted}. Keep working or re-check the blocker.`,
+								},
+							],
+						};
+					}
+					appendChange(pi, "block", nextRevision(current, {
+						phase: "blocked",
+						blockedReason: { code: "model-reported", message: reason },
+					}));
 					armed = false;
 					return {
 						content: [
-							{
-								type: "text",
-								text: `Goal blocked (${goal.blockedReason}): ${goal.objective}. Human review needed.`,
-							},
+							{ type: "text", text: `Goal blocked (${reason}): ${current.objective}. Human review needed.` },
 						],
-						details: goalDetails(),
 					};
 				}
 
-				case "clear":
-					goal = null;
+				case "clear": {
+					if (!fold.goal) return { content: [{ type: "text", text: "Error: no goal to clear" }] };
+					appendChange(pi, "clear", null);
 					armed = false;
-					return {
-						content: [{ type: "text", text: "Goal cleared" }],
-						details: goalDetails(),
-					};
+					return { content: [{ type: "text", text: "Goal cleared" }] };
+				}
 			}
 		},
 
@@ -330,65 +360,78 @@ export default function (pi: ExtensionAPI) {
 			return new Text(text, 0, 0);
 		},
 
-		renderResult(result, _opts, theme) {
-			const d = result.details as GoalDetails | undefined;
-			const g = goal ?? d?.goal;
+		renderResult(_result, _opts, theme) {
+			const g = view();
 			if (!g) return new Text(theme.fg("muted", "goal: (none)"), 0, 0);
 			const badge =
-				g.status === "active"
+				g.phase === "active"
 					? theme.fg("accent", "active")
-					: g.status === "completed"
-						? theme.fg("success", "completed")
-						: theme.fg("error", `blocked: ${g.blockedReason ?? "?"}`);
+					: g.phase === "paused"
+						? theme.fg("muted", "paused")
+						: g.phase === "complete"
+							? theme.fg("success", "completed")
+							: theme.fg("error", `blocked: ${g.blockedReason?.code ?? "?"}`);
 			const rounds =
-				g.status === "active"
+				g.phase === "active" || g.phase === "paused"
 					? theme.fg("dim", ` · ${g.roundsStarted}/${g.maxRounds} rounds`)
 					: theme.fg("dim", ` · ${g.roundsStarted} ${g.roundsStarted === 1 ? "round" : "rounds"}`);
-			const obj = g.status !== "active" ? theme.fg("dim", " " + g.objective) : "";
+			const obj = g.phase === "active" || g.phase === "paused" ? "" : theme.fg("dim", " " + g.objective);
 			return new Text(theme.fg("muted", "goal: ") + badge + rounds + obj, 0, 0);
 		},
 	});
 
-	// ── /goal command (human control) ──
+	// ── /goal command (human control, durable) ──
 
 	pi.registerCommand("goal", {
 		description: "Show, resume, pause, complete, or block the session goal",
 		handler: async (args, ctx) => {
 			const sub = args.trim().toLowerCase();
+			const current = fold.goal;
 			if (sub === "resume") {
-				if (!goal || goal.status !== "active") {
-					ctx.ui.notify("No active goal to resume", "warning");
+				if (!current || (current.phase !== "paused" && current.phase !== "blocked" && current.phase !== "active")) {
+					ctx.ui.notify("No goal to resume", "warning");
 					return;
 				}
-				armed = true;
+				if (current.phase === "active") armed = true;
+				else {
+					appendChange(pi, "resume", nextRevision(current, { phase: "active" }));
+					armed = true;
+				}
 				lastStopReason = null;
-				ctx.ui.notify(`[goal] Resumed: ${goal.objective}`, "info");
+				if (fold.goal) ctx.ui.notify(`[goal] Resumed: ${fold.goal.objective}`, "info");
 				maybeContinue(pi, ctx, { requireIdle: true });
 			} else if (sub === "pause") {
+				if (!current || current.phase !== "active") {
+					ctx.ui.notify("No active goal to pause", "warning");
+					return;
+				}
+				appendChange(pi, "pause", nextRevision(current, { phase: "paused" }));
 				armed = false;
 				ctx.ui.notify("[goal] Paused", "info");
 			} else if (sub === "complete") {
-				if (!goal || goal.status !== "active") {
+				if (!current || current.phase !== "active") {
 					ctx.ui.notify("No active goal to complete", "warning");
 					return;
 				}
-				goal.status = "completed";
+				appendChange(pi, "complete", nextRevision(current, { phase: "complete" }));
 				armed = false;
-				ctx.ui.notify(`[goal] Completed: ${goal.objective}`, "success");
+				ctx.ui.notify(`[goal] Completed: ${current.objective}`, "success");
 			} else if (sub === "block" || sub.startsWith("block ")) {
-				if (!goal || goal.status !== "active") {
+				if (!current || current.phase !== "active") {
 					ctx.ui.notify("No active goal to block", "warning");
 					return;
 				}
 				const reason = sub.replace(/^block\s*/, "").trim() || "unspecified";
-				goal.status = "blocked";
-				goal.blockedReason = reason;
+				appendChange(pi, "block", nextRevision(current, {
+					phase: "blocked",
+					blockedReason: { code: "human-reported", message: reason },
+				}));
 				armed = false;
 				ctx.ui.notify(`[goal] Blocked (${reason})`, "warning");
 			} else if (sub) {
 				ctx.ui.notify("Usage: /goal [resume|pause|complete|block <reason>]", "warning");
 			} else {
-				ctx.ui.notify(statusLine(), "info");
+				ctx.ui.notify(statusLineText(view()), "info");
 			}
 		},
 	});
