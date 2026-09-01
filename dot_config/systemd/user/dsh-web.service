@@ -1,0 +1,14 @@
+[Unit]
+Description=DeepSeek Harness Web GUI
+Documentation=https://github.com/deepseek-ai/deepseek-harness
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/dsh web --no-open --trusted-host citadel.tail28cc6d.ts.net
+Restart=on-failure
+RestartSec=5
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target

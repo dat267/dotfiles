@@ -21,7 +21,7 @@ Prefixes can stack (`private_executable_`, `executable_dot_`, `private_dot_`).
 | Area | Paths |
 | ---- | ----- |
 | Shell | `dot_profile`, `private_dot_bashrc`, `private_dot_zshrc`, `dot_customize_environment` (Cloud Shell) |
-| Editors | `dot_config/helix/`, `dot_vimrc`, `dot_config/nvim/` (zero-plugin, 10 Lua modules), `dot_config/Code/`, `dot_config/zed/` |
+| Editors | `dot_config/helix/`, `dot_vimrc`, `dot_config/nvim/` (zero-plugin Lua modules), `dot_config/Code/`, `dot_config/zed/` |
 | Yazi | `dot_config/yazi/{yazi,keymap,init,theme}` |
 | Chezmoi | `.chezmoi.toml.tmpl` (autoAdd/autoCommit, no autoPush), `.chezmoiignore`, `.chezmoiexternal.toml.tmpl` (zsh plugin archives) |
 | AI | `dot_config/opencode/` (bare, no plugins, managed skills), `dot_config/crush/`, `dot_pi/` |
@@ -38,7 +38,7 @@ python3 script.py --help   # verify new CLI scripts parse
 
 ## Python Scripts
 
-All 34 scripts under `dot_local/scripts/py/` (33 `executable_*.py` + `executable_mpv`). Standard library only. See `dot_local/scripts/py/AGENTS.md` for patterns.
+Scripts under `dot_local/scripts/py/` (standard library only; see its `AGENTS.md` for details).
 
 ## Conventions
 

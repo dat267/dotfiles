@@ -25,7 +25,7 @@ powershell -c "& { iwr -useb get.chezmoi.io | iex }; chezmoi init --apply dat267
 | **Media** | mpv, aria2 |
 | **Git** | `~/.gitconfig` (autosquash, aliases, per-directory identity) |
 | **PowerShell** | Profile + custom `Utils.psm1` module |
-| **VS Code** | Settings + 11 snippet files across languages |
+| **VS Code** | Settings + snippet files across languages |
 | **SSH** | Client config (Tailscale/CGNAT hosts) |
 | **AI** | opencode (bare config, managed skills), Crush (sandboxed, secret-blocking, skills), Pi (agent config, extensions, skills — including `sandbox`: kernel-enforced read-only outside the workspace via Landlock) |
 
@@ -50,7 +50,7 @@ dot_config/crush/         Crush config (JSON + crushrc + skills)
 dot_config/opencode/      opencode config (JSON + TUI + managed skills)
 dot_config/mpv/           mpv media player
 dot_config/aria2/         aria2 download manager
-dot_config/Code/User/     VS Code settings + 11 snippet files
+dot_config/Code/User/     VS Code settings + snippet files
 dot_config/systemd/user/  Linux systemd user services (dsh-web)
 dot_pi/                   Pi agent config + skills
 dot_local/scripts/py/     Python utility scripts (added to PATH)

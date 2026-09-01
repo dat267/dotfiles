@@ -1,11 +1,11 @@
 # dot_local/scripts/py/ — Python Utility Scripts
 
-34 Python scripts chezmoi-deployed to `~/.local/bin/` (on PATH). All use `executable_` prefix (33 `.py` + 1 `executable_mpv`).
+Python utility scripts chezmoi-deployed to `~/.local/bin/` (on PATH). All use `executable_` prefix.
 
 ## Structure
 
-- `executable_yazi-*.py` — 9 Yazi media/translate helpers, invoked via `keymap.toml` bindings
-- `executable_install_*.py` — 17 tool installers, each downloads latest GitHub release to `~/.local/bin/`
+- `executable_yazi-*.py` — Yazi media/translate helpers, invoked via `keymap.toml` bindings
+- `executable_install_*.py` — Tool installers, each downloads latest GitHub release to `~/.local/bin/`
 - `executable_dotfiles.py` — rclone + git sync (`dotfiles up`/`dotfiles down`)
 - `executable_lsp.py` — LSP server installer (gopls, pyright, etc.)
 - `executable_start-awsvpn.py` — OpenVPN + SAML auth
