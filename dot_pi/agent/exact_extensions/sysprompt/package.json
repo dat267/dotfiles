@@ -1,8 +1,0 @@
-{
-  "name": "pi-extension-sysprompt",
-  "private": true,
-  "type": "module",
-  "pi": {
-    "extensions": ["./index.ts"]
-  }
-}
