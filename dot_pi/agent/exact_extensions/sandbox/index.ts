@@ -101,7 +101,7 @@ function piModuleRoot(): string | undefined {
 function promptNote(active: ActiveMode, sandbox: SandboxMode, workspace: string): string {
 	const shared =
 		`Workspace filesystem policy (sandbox extension, mode: ${active}):\n` +
-		`- The workspace (${workspace}) is writable; also /tmp, /var/tmp, /dev, /proc, /sys, per-user caches (~/.cache, ~/.npm, ~/.cargo), and the pi module path.\n` +
+		`- The workspace (${workspace}) is writable; also /tmp, /var/tmp, /dev, /proc, /sys, per-user caches + Go (~/.cache, ~/.npm, ~/.cargo, ~/go), and the pi module path.\n` +
 		`- Every other directory is read-only for writes. Reads are allowed everywhere.\n` +
 		`- Use /tmp for scratch files and test artifacts.\n` +
 		`- Deployments (chezmoi apply, extension installs/removals) are executed by the user in their own terminal, never by the agent. Stage changes inside the workspace and give the user the exact commands.`;

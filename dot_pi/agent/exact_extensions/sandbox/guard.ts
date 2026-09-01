@@ -54,6 +54,7 @@ export function defaultAllowlist(workspace: string, piModulePath?: string): stri
 		homedir() + "/.cache",
 		homedir() + "/.npm",
 		homedir() + "/.cargo",
+		homedir() + "/go", // GOPATH: module cache + go install binaries
 	];
 	if (piModulePath) list.push(piModulePath);
 	return list;
