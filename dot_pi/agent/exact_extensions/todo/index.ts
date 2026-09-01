@@ -38,6 +38,23 @@ export default function (pi: ExtensionAPI) {
 	// In-memory state (reconstructed from session on load)
 	let todos: Todo[] = [];
 	let nextId = 1;
+	let widgetOn = false;
+	const TODO_WIDGET = "todo-list";
+
+	const widgetLines = (): string[] => {
+		if (todos.length === 0) return ["todos: none"];
+		const done = todos.filter((t) => t.done).length;
+		const lines = [`todos ${done}/${todos.length}`];
+		for (const t of todos) {
+			lines.push(`${t.done ? "✓" : "○"} #${t.id} ${t.text}`);
+		}
+		return lines;
+	};
+
+	const refreshWidget = (ctx: ExtensionContext): void => {
+		if (!widgetOn) return;
+		ctx.ui.setWidget(TODO_WIDGET, widgetLines());
+	};
 
 	/**
 	 * Reconstruct state from session entries.
@@ -77,7 +94,7 @@ export default function (pi: ExtensionAPI) {
 		],
 		parameters: TodoParams,
 
-		async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			switch (params.action) {
 				case "list":
 					return {
@@ -90,6 +107,7 @@ export default function (pi: ExtensionAPI) {
 							},
 						],
 						details: { action: "list", todos: [...todos], nextId } as TodoDetails,
+					refreshWidget(ctx);
 					};
 
 				case "add": {
@@ -104,6 +122,7 @@ export default function (pi: ExtensionAPI) {
 					return {
 						content: [{ type: "text", text: `Added todo #${newTodo.id}: ${newTodo.text}` }],
 						details: { action: "add", todos: [...todos], nextId } as TodoDetails,
+					refreshWidget(ctx);
 					};
 				}
 
@@ -131,6 +150,7 @@ export default function (pi: ExtensionAPI) {
 					return {
 						content: [{ type: "text", text: `Todo #${todo.id} ${status}: ${todo.text}` }],
 						details: { action: "toggle", todos: [...todos], nextId } as TodoDetails,
+					refreshWidget(ctx);
 					};
 				}
 
@@ -141,6 +161,7 @@ export default function (pi: ExtensionAPI) {
 					return {
 						content: [{ type: "text", text: `Cleared ${count} todos` }],
 						details: { action: "clear", todos: [], nextId: 1 } as TodoDetails,
+					refreshWidget(ctx);
 					};
 				}
 
@@ -221,17 +242,11 @@ export default function (pi: ExtensionAPI) {
 
 	// Register the /todos command for users
 	pi.registerCommand("todos", {
-		description: "Show all todos on the current branch",
+		description: "Toggle the todo widget (second call hides it)",
 		handler: async (_args, ctx) => {
-			if (todos.length === 0) {
-				ctx.ui.notify("todos: none", "info");
-				return;
-			}
-			const done = todos.filter((t) => t.done).length;
-			const parts = todos.map((t) => `${t.done ? "✓" : "○"} #${t.id} ${t.text}`);
-			let line = `todos ${done}/${todos.length}: ` + parts.join(" · ");
-			if (line.length > 180) line = line.slice(0, 177) + "...";
-			ctx.ui.notify(line, "info");
+			widgetOn = !widgetOn;
+			if (widgetOn) ctx.ui.setWidget(TODO_WIDGET, widgetLines());
+			else ctx.ui.setWidget(TODO_WIDGET, undefined);
 		},
 	});
 }
