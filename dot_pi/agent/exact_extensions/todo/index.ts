@@ -141,6 +141,7 @@ export default function (pi: ExtensionAPI) {
 		promptGuidelines: [
 			"Use the todo tool to track multi-step tasks: add items, then toggle them as you complete each step.",
 			"When the user asks for a plan with numbered steps, create todos for each step and check them off during implementation.",
+			"When all todos are done, clear the list with todo(action: \"clear\") to keep session state tidy.",
 		],
 		parameters: TodoParams,
 
