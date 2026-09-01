@@ -11,8 +11,8 @@
  */
 
 import { StringEnum } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
-import { matchesKey, Text, truncateToWidth } from "@earendil-works/pi-tui";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 interface Todo {
@@ -33,74 +33,6 @@ const TodoParams = Type.Object({
 	text: Type.Optional(Type.String({ description: "Todo text (for add)" })),
 	id: Type.Optional(Type.Number({ description: "Todo ID (for toggle)" })),
 });
-
-/**
- * UI component for the /todos command
- */
-class TodoListComponent {
-	private todos: Todo[];
-	private theme: Theme;
-	private onClose: () => void;
-	private cachedWidth?: number;
-	private cachedLines?: string[];
-
-	constructor(todos: Todo[], theme: Theme, onClose: () => void) {
-		this.todos = todos;
-		this.theme = theme;
-		this.onClose = onClose;
-	}
-
-	handleInput(data: string): void {
-		if (matchesKey(data, "escape") || matchesKey(data, "ctrl+c")) {
-			this.onClose();
-		}
-	}
-
-	render(width: number): string[] {
-		if (this.cachedLines && this.cachedWidth === width) {
-			return this.cachedLines;
-		}
-
-		const lines: string[] = [];
-		const th = this.theme;
-
-		lines.push("");
-		const title = th.fg("accent", " Todos ");
-		const headerLine =
-			th.fg("borderMuted", "─".repeat(3)) + title + th.fg("borderMuted", "─".repeat(Math.max(0, width - 10)));
-		lines.push(truncateToWidth(headerLine, width));
-		lines.push("");
-
-		if (this.todos.length === 0) {
-			lines.push(truncateToWidth(`  ${th.fg("dim", "No todos yet. Ask the agent to add some!")}`, width));
-		} else {
-			const done = this.todos.filter((t) => t.done).length;
-			const total = this.todos.length;
-			lines.push(truncateToWidth(`  ${th.fg("muted", `${done}/${total} completed`)}`, width));
-			lines.push("");
-
-			for (const todo of this.todos) {
-				const check = todo.done ? th.fg("success", "✓") : th.fg("dim", "○");
-				const id = th.fg("accent", `#${todo.id}`);
-				const text = todo.done ? th.fg("dim", todo.text) : th.fg("text", todo.text);
-				lines.push(truncateToWidth(`  ${check} ${id} ${text}`, width));
-			}
-		}
-
-		lines.push("");
-		lines.push(truncateToWidth(`  ${th.fg("dim", "Press Escape to close")}`, width));
-		lines.push("");
-
-		this.cachedWidth = width;
-		this.cachedLines = lines;
-		return lines;
-	}
-
-	invalidate(): void {
-		this.cachedWidth = undefined;
-		this.cachedLines = undefined;
-	}
-}
 
 export default function (pi: ExtensionAPI) {
 	// In-memory state (reconstructed from session on load)
@@ -291,14 +223,15 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("todos", {
 		description: "Show all todos on the current branch",
 		handler: async (_args, ctx) => {
-			if (ctx.mode !== "tui") {
-				ctx.ui.notify("/todos requires interactive mode", "error");
+			if (todos.length === 0) {
+				ctx.ui.notify("todos: none", "info");
 				return;
 			}
-
-			await ctx.ui.custom<void>((_tui, theme, _kb, done) => {
-				return new TodoListComponent(todos, theme, () => done());
-			});
+			const done = todos.filter((t) => t.done).length;
+			const parts = todos.map((t) => `${t.done ? "✓" : "○"} #${t.id} ${t.text}`);
+			let line = `todos ${done}/${todos.length}: ` + parts.join(" · ");
+			if (line.length > 180) line = line.slice(0, 177) + "...";
+			ctx.ui.notify(line, "info");
 		},
 	});
 }
