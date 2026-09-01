@@ -438,14 +438,14 @@ up() {
 		}
 	fi
 
-# --- SSH agent: use gpg-agent (handles both SSH keys and GPG passphrase) ---
-# gpg-agent starts on demand; SSH_AUTH_SOCK points to its SSH emulation socket.
+# --- SSH agent: use systemd ssh-agent (Linux) or gpg-agent (Termux fallback) ---
+# On Linux, systemd socket-activates ssh-agent at /run/user/$UID/ssh-agent-$UID.sock.
+# On Termux/Android, fall back to gpg-agent SSH emulation.
 # Keys are auto-added on first use via AddKeysToAgent yes (see ~/.ssh/config).
-# Works on both Linux and Termux/Android.
-if command -v gpg-connect-agent >/dev/null 2>&1; then
+if [ -S "/run/user/$(id -u)/ssh-agent-$(id -u).sock" ]; then
+	export SSH_AUTH_SOCK="/run/user/$(id -u)/ssh-agent-$(id -u).sock"
+elif command -v gpgconf >/dev/null 2>&1; then
 	gpg-connect-agent /bye >/dev/null 2>&1
 	ssh_sock="$(gpgconf --list-dirs agent-ssh-socket 2>/dev/null)"
-	if [ -n "$ssh_sock" ]; then
-		export SSH_AUTH_SOCK="$ssh_sock"
-	fi
+	[ -n "$ssh_sock" ] && export SSH_AUTH_SOCK="$ssh_sock"
 fi

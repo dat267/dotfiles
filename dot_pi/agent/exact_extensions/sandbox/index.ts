@@ -107,7 +107,8 @@ function promptNote(active: ActiveMode, sandbox: SandboxMode, workspace: string)
 		`- The workspace (${workspace}) is writable; also /tmp, /var/tmp, /dev, /proc, /sys, per-user caches + Go (~/.cache, ~/.npm, ~/.cargo, ~/go), and the pi module path.\n` +
 		`- Every other directory is read-only for writes. Reads are allowed everywhere.\n` +
 		`- Use /tmp for scratch files and test artifacts.\n` +
-		`- Deployments (chezmoi apply, extension installs/removals) are executed by the user in their own terminal, never by the agent. Stage changes inside the workspace and give the user the exact commands.`;
+		`- Deployments (chezmoi apply, extension installs/removals) are executed by the user in their own terminal, never by the agent. Stage changes inside the workspace and give the user the exact commands.\n` +
+		`- Common blocked paths: ~/.config/, ~/.ssh/, ~/.local/bin/, ~/.gnupg/, /etc/, /usr/, /opt/. These return Permission denied.`;
 	switch (active) {
 		case "read":
 			return shared + `\n- Read-only mode: the bash, write, and edit tools are DISABLED. You cannot modify anything.`;
