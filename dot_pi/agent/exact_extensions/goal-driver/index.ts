@@ -377,10 +377,7 @@ export default function (pi: ExtensionAPI) {
 						: g.phase === "complete"
 							? theme.fg("success", "completed")
 							: theme.fg("error", `blocked: ${g.blockedReason?.code ?? "?"}`);
-			const rounds =
-				g.phase === "active" || g.phase === "paused"
-					? theme.fg("dim", ` · ${g.roundsStarted}/${g.maxRounds} rounds`)
-					: theme.fg("dim", ` · ${g.roundsStarted} ${g.roundsStarted === 1 ? "round" : "rounds"}`);
+			const rounds = theme.fg("dim", ` · ${g.roundsStarted}/${g.maxRounds} rounds`);
 			const obj = g.phase === "active" || g.phase === "paused" ? "" : theme.fg("dim", " " + g.objective);
 			return new Text(theme.fg("muted", "goal: ") + badge + rounds + obj, 0, 0);
 		},

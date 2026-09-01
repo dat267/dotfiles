@@ -238,8 +238,8 @@ test("status line hides rounds-fraction only where meaningful", () => {
 	const text = statusLineText(goalView(fold, false));
 	assert.ok(text.startsWith("Completed: Fix all 20"));
 	assert.ok(text.includes("..."));
-	assert.ok(text.includes("— 1 round"));
-	assert.ok(!text.includes("rounds 1/"));
+	assert.ok(text.includes("— 1/10 rounds"));
+	assert.ok(!text.includes("1 round"));
 });
 
 test("status line shows fraction while active", () => {

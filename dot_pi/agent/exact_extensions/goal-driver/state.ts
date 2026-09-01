@@ -284,7 +284,6 @@ export function renderRoundPrompt(g: GoalSnapshot, _round: number): string {
 export function statusLineText(g: GoalView | null): string {
 	if (!g) return "No goal. Ask the agent to create one, or start with --goal \"objective\".";
 	const obj = g.objective.length > 60 ? g.objective.slice(0, 57) + "..." : g.objective;
-	const rounds = `— ${g.roundsStarted} ${g.roundsStarted === 1 ? "round" : "rounds"}`;
 	switch (g.phase) {
 		case "active": {
 			const arm = g.armed ? "armed" : "paused";
@@ -293,8 +292,8 @@ export function statusLineText(g: GoalView | null): string {
 		case "paused":
 			return `Paused: ${obj} — rounds ${g.roundsStarted}/${g.maxRounds}`;
 		case "complete":
-			return `Completed: ${obj} ${rounds}`;
+			return `Completed: ${obj} — ${g.roundsStarted}/${g.maxRounds} rounds`;
 		case "blocked":
-			return `Blocked (${g.blockedReason?.code ?? "unknown"}): ${obj} ${rounds}`;
+			return `Blocked (${g.blockedReason?.code ?? "unknown"}): ${obj} — ${g.roundsStarted}/${g.maxRounds} rounds`;
 	}
 }
