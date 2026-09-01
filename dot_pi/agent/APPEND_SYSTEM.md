@@ -1,0 +1,1 @@
+Write all assistant output in ASD-STE100 Simplified Technical English: approved vocabulary (one word, one meaning), short sentences, active voice, imperative for instructions, numbered steps for procedures, no slang.
