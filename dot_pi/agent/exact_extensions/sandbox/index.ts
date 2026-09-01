@@ -231,32 +231,57 @@ export default function (pi: ExtensionAPI) {
 		}
 	});
 
-	// ── /sandbox command (human control) ──
+	// ── Top-level mode commands ──
+
+	function setMode(mode: ActiveMode, ctx: ExtensionContext) {
+		if (mode === "workspace" && sandbox.mode !== "landlock") {
+			active = "supervised";
+			ctx.ui.notify("[sandbox] Landlock unavailable — using supervised instead", "warning");
+			return;
+		}
+		active = mode;
+		const detail =
+			mode === "workspace" && sandbox.mode === "landlock"
+				? "Landlock (kernel-enforced)"
+				: mode === "supervised"
+					? "ask before every bash/write/edit"
+					: mode;
+		ctx.ui.notify(`[sandbox] Mode: ${detail}`, "info");
+	}
+
+	function showStatus(ctx: ExtensionContext) {
+		const detail =
+			active === "workspace" && sandbox.mode === "landlock"
+				? "Landlock (kernel-enforced)"
+				: active === "supervised"
+					? "ask before every bash/write/edit"
+					: active;
+		ctx.ui.notify(`[sandbox] Mode: ${detail}`, "info");
+	}
+
+	pi.registerCommand("readonly", {
+		description: "Switch to read-only mode (bash/write/edit disabled)",
+		handler: async (_args, ctx) => setMode("read", ctx),
+	});
+
+	pi.registerCommand("ask", {
+		description: "Switch to supervised mode (every bash/write/edit asks approval)",
+		handler: async (_args, ctx) => setMode("supervised", ctx),
+	});
 
 	pi.registerCommand("sandbox", {
-		description: "Set or show the sandbox mode (/sandbox read|supervised|workspace|yolo|status)",
+		description: "Switch to workspace mode (Landlock kernel enforcement) or show status",
 		handler: async (args, ctx) => {
-			const sub = args.trim().toLowerCase();
-			if (sub === "read" || sub === "supervised" || sub === "yolo") {
-				active = sub;
-				ctx.ui.notify(`[sandbox] Mode: ${active}`, "info");
-			} else if (sub === "workspace") {
-				if (sandbox.mode === "landlock") {
-					active = "workspace";
-					ctx.ui.notify("[sandbox] Mode: workspace (Landlock kernel enforcement)", "info");
-				} else {
-					active = "supervised";
-					ctx.ui.notify("[sandbox] Landlock unavailable — using supervised instead", "warning");
-				}
-			} else if (sub === "status" || sub === "") {
-				const detail =
-					active === "workspace" && sandbox.mode === "landlock"
-						? "Landlock (kernel-enforced)"
-						: active;
-				ctx.ui.notify(`[sandbox] Mode: ${detail}${active === "supervised" ? " (ask before every bash/write/edit)" : ""}`, "info");
+			if (args.trim() === "") {
+				showStatus(ctx);
 			} else {
-				ctx.ui.notify("Usage: /sandbox [read|supervised|workspace|yolo|status]", "warning");
+				setMode("workspace", ctx);
 			}
 		},
+	});
+
+	pi.registerCommand("yolo", {
+		description: "Switch to unrestricted mode (all writes allowed)",
+		handler: async (_args, ctx) => setMode("yolo", ctx),
 	});
 }
