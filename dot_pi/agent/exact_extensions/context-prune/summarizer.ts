@@ -1,5 +1,5 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { CapturedBatch, ContextPruneConfig, SummarizeResult } from "./types.ts";
+import type { CapturedBatch } from "./types.ts";
 import { serializeBatchForSummarizer } from "./batch-capture.ts";
 
 const SYSTEM_PROMPT = `You are summarizing a batch of tool calls made by an AI coding assistant.
@@ -10,22 +10,14 @@ For each tool call provide:
 
 Keep each tool call to 1-3 bullet points. Be concise.`;
 
-function receivedTextChars(message: any): number {
-  return message.content.reduce((sum: number, content: any) => {
-    return content.type === "text" ? sum + content.text.length : sum;
-  }, 0);
-}
-
 /**
  * Summarizes a captured batch with the session's active model via its provider API.
- * Returns { summaryText, usage } or null on failure (with a user-visible error).
+ * Returns the summary text, or null on failure (with a user-visible error).
  */
 export async function summarizeBatch(
   batch: CapturedBatch,
-  _config: ContextPruneConfig,
   ctx: ExtensionContext,
-  options: { onTextProgress?: (receivedChars: number) => void } = {},
-): Promise<SummarizeResult | null> {
+): Promise<string | null> {
   try {
     const model = ctx.model;
 
@@ -63,24 +55,12 @@ export async function summarizeBatch(
       },
     );
 
-    let lastReportedChars = -1;
-    options.onTextProgress?.(0);
-    const reportTextProgress = (message: any) => {
-      const chars = receivedTextChars(message);
-      if (chars !== lastReportedChars) {
-        lastReportedChars = chars;
-        options.onTextProgress?.(chars);
-      }
-    };
-
-    for await (const event of responseStream) {
-      if (event.type === "text_start" || event.type === "text_delta" || event.type === "text_end") {
-        reportTextProgress(event.partial);
-      }
+    // Drain the stream, then take the final result.
+    for await (const _event of responseStream) {
+      // no-op: stream must be consumed before result() resolves
     }
 
     const response = await responseStream.result();
-    reportTextProgress(response);
     if (response.stopReason === "error") {
       throw new Error(response.errorMessage ?? "Summarizer stopped with reason: error");
     }
@@ -90,10 +70,11 @@ export async function summarizeBatch(
       .map((c: any) => c.text)
       .join("\n");
 
-    return {
-      summaryText: llmText,
-      usage: response.usage,
-    };
+    if (!llmText.trim()) {
+      throw new Error("Summarizer returned no text content");
+    }
+
+    return llmText;
   } catch (err: any) {
     ctx.ui.notify(`[prune] summarization failed: ${err.message}`, "error");
     return null;
@@ -106,12 +87,11 @@ export async function summarizeBatch(
  */
 export async function summarizeBatches(
   batches: CapturedBatch[],
-  config: ContextPruneConfig,
   ctx: ExtensionContext,
-): Promise<Array<SummarizeResult | null>> {
+): Promise<Array<string | null>> {
   if (batches.length === 0) return [];
   if (batches.length === 1) {
-    return [await summarizeBatch(batches[0], config, ctx)];
+    return [await summarizeBatch(batches[0], ctx)];
   }
-  return Promise.all(batches.map((batch) => summarizeBatch(batch, config, ctx)));
+  return Promise.all(batches.map((batch) => summarizeBatch(batch, ctx)));
 }

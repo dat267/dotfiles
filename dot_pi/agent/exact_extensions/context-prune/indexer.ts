@@ -86,18 +86,6 @@ export class ToolCallIndexer {
     return this.index.get(resolved);
   }
 
-  /** Looks up multiple tool call records by ID. Skips any IDs not found. */
-  lookupToolCalls(toolCallIds: string[]): ToolCallRecord[] {
-    const results: ToolCallRecord[] = [];
-    for (const id of toolCallIds) {
-      const record = this.getRecord(id);
-      if (record !== undefined) {
-        results.push(record);
-      }
-    }
-    return results;
-  }
-
   /** Adds all tool calls from a captured batch to the runtime index and persists. */
   addBatch(batch: CapturedBatch, pi: ExtensionAPI): void {
     const records: ToolCallRecord[] = [];

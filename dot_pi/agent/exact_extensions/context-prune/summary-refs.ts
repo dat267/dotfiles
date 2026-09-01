@@ -61,37 +61,6 @@ export function wrapSummaryForContext(summaryText: string): string {
   return `${SUMMARY_CONTEXT_OPEN}\n${summaryText}\n${SUMMARY_CONTEXT_CLOSE}`;
 }
 
-/** Strips the wrapper tag from summary content for display. */
-export function unwrapSummaryForDisplay(content: string | unknown): string {
-  const raw =
-    typeof content === "string"
-      ? content
-      : Array.isArray(content)
-        ? content
-            .map((part) => {
-              if (!part || typeof part !== "object") return "";
-              if (!("type" in part) || (part as { type?: unknown }).type !== "text") return "";
-              return "text" in part && typeof (part as { text?: unknown }).text === "string"
-                ? (part as { text: string }).text
-                : "";
-            })
-            .filter(Boolean)
-            .join("\n")
-        : "";
-
-  const trimmed = raw.trim();
-  if (!trimmed.startsWith(SUMMARY_CONTEXT_OPEN) || !trimmed.endsWith(SUMMARY_CONTEXT_CLOSE)) {
-    return raw;
-  }
-
-  const closeStart = trimmed.lastIndexOf(SUMMARY_CONTEXT_CLOSE);
-  if (closeStart <= SUMMARY_CONTEXT_OPEN.length) {
-    return raw;
-  }
-
-  return trimmed.slice(SUMMARY_CONTEXT_OPEN.length, closeStart).trim();
-}
-
 /** Builds the machine-readable details for a summary custom message. */
 export function makeSummaryDetails(batch: CapturedBatch, refs: SummaryToolCallRef[]) {
   return {

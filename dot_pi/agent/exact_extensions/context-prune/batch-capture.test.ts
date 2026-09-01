@@ -4,7 +4,6 @@ import {
   captureBatch,
   captureUnindexedBatchesFromSession,
   serializeBatchForSummarizer,
-  serializeBatchesForSummarizer,
   truncateResultText,
 } from "./batch-capture.ts";
 
@@ -163,11 +162,4 @@ test("serializeBatchForSummarizer includes assistant text, tools, status", () =>
   assert.match(out, /Tool: bash\(/);
   assert.match(out, /Result \(OK\): ok/);
   assert.match(out, /Result \(ERROR\): boom/);
-});
-
-test("serializeBatchesForSummarizer adds turn headers", () => {
-  const batch = { turnIndex: 3, timestamp: 0, assistantText: "", toolCalls: [] } as any;
-  const out = serializeBatchesForSummarizer([batch, batch]);
-  assert.match(out, /=== Turn 3 ===/);
-  assert.match(out, /=== Turn 3 \(batch 2\) ===/);
 });

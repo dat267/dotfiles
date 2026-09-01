@@ -145,23 +145,7 @@ export type FlushResult =
 
 // ── Summarizer ─────────────────────────────────────────────────────────────
 
-/** Result of a summarization call — the summary text plus LLM usage data. */
-export interface SummarizeResult {
-  summaryText: string;
-  usage: SummarizerUsage;
-}
-
-export interface SummarizerUsage {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-  totalTokens: number;
-  cost: {
-    input: number;
-    output: number;
-    cacheRead: number;
-    cacheWrite: number;
-    total: number;
-  };
-}
+/**
+ * No shared summarizer types — summarizeBatch returns the raw summary string
+ * (or null on failure). Usage/stats tracking was dropped in the lean port.
+ */

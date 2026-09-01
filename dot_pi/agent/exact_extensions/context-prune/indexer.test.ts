@@ -52,16 +52,6 @@ test("getRecord resolves short aliases to full records", () => {
   assert.equal(indexer.getRecord("missing"), undefined);
 });
 
-test("lookupToolCalls skips unknown ids and preserves order", () => {
-  const indexer = new ToolCallIndexer();
-  const pi: any = { appendEntry: () => {} };
-  indexer.addBatch(batch(["a", "b"]), pi);
-  assert.deepEqual(
-    indexer.lookupToolCalls(["b", "zz", "a"]).map((r) => r.toolCallId),
-    ["b", "a"],
-  );
-});
-
 test("reconstructFromSession rebuilds index, aliases, and ref counter from branch", () => {
   const indexer = new ToolCallIndexer();
   const fakeCtx: any = {

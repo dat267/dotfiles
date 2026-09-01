@@ -144,7 +144,7 @@ export default function (pi: ExtensionAPI) {
 
     try {
       // One LLM call per batch, all in flight simultaneously.
-      const results = await summarizeBatches(batches, currentConfig.value, ctx);
+      const results = await summarizeBatches(batches, ctx);
 
       // Process results in order; stop at the first failure. Batches before the
       // first failure are persisted; remaining are restored for the next flush.
@@ -165,7 +165,7 @@ export default function (pi: ExtensionAPI) {
         const batch = batches[i];
         const batchRawCharCount = batch.toolCalls.reduce((s, tc) => s + tc.resultText.length, 0);
         const summaryRefs = indexer.allocateSummaryRefs(batch);
-        const summaryText = wrapSummaryForContext(result.summaryText + formatSummaryToolCallRefs(summaryRefs));
+        const summaryText = wrapSummaryForContext(result + formatSummaryToolCallRefs(summaryRefs));
         const shouldSkipOversized = summaryText.length > batchRawCharCount;
 
         totalRawCharCount += batchRawCharCount;
@@ -243,7 +243,7 @@ export default function (pi: ExtensionAPI) {
       // Notify about oversized batches that were skipped
       for (const batch of oversizedBatches) {
         const batchRaw = batch.toolCalls.reduce((s, tc) => s + tc.resultText.length, 0);
-        const batchSummaryLen = results[batches.indexOf(batch)]?.summaryText.length ?? 0;
+        const batchSummaryLen = results[batches.indexOf(batch)]?.length ?? 0;
         safeNotify(
           ctx,
           `[prune] skipped pruning turn ${batch.turnIndex} (${batch.toolCalls.length} tool call${batch.toolCalls.length === 1 ? "" : "s"}) — summary was ${batchSummaryLen} chars vs ${batchRaw} raw chars; frontier advanced past this range`,

@@ -5,7 +5,6 @@ import {
   normalizeSummaryToolCallRefs,
   formatSummaryToolCallRefs,
   wrapSummaryForContext,
-  unwrapSummaryForDisplay,
   makeSummaryDetails,
 } from "./summary-refs.ts";
 
@@ -83,21 +82,6 @@ test("wrapSummaryForContext wraps plain text", () => {
 test("wrapSummaryForContext is idempotent for already-wrapped text", () => {
   const wrapped = "<context-prune-summary>\nhello\n</context-prune-summary>";
   assert.equal(wrapSummaryForContext(wrapped), wrapped);
-});
-
-test("unwrapSummaryForDisplay strips the wrapper tag", () => {
-  assert.equal(unwrapSummaryForDisplay("<context-prune-summary>\nhello\n</context-prune-summary>"), "hello");
-});
-
-test("unwrapSummaryForDisplay passes through untagged text", () => {
-  assert.equal(unwrapSummaryForDisplay("plain"), "plain");
-});
-
-test("unwrapSummaryForDisplay handles content block arrays", () => {
-  const out = unwrapSummaryForDisplay([
-    { type: "text", text: "<context-prune-summary>\nblock\n</context-prune-summary>" },
-  ]);
-  assert.equal(out, "block");
 });
 
 test("makeSummaryDetails carries refs, names, turn, timestamp", () => {

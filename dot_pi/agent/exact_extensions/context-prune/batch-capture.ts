@@ -140,14 +140,3 @@ export function serializeBatchForSummarizer(batch: CapturedBatch): string {
 
   return parts.join("\n");
 }
-
-/** Serializes multiple CapturedBatches into a single readable text block. */
-export function serializeBatchesForSummarizer(batches: CapturedBatch[]): string {
-  return batches
-    .map((batch, i) => {
-      const header = `=== Turn ${batch.turnIndex}${i > 0 ? ` (batch ${i + 1})` : ""} ===`;
-      const body = serializeBatchForSummarizer(batch);
-      return `${header}\n${body}`;
-    })
-    .join("\n\n");
-}
