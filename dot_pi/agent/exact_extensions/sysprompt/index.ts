@@ -12,7 +12,7 @@ export default function (pi: ExtensionAPI) {
 		description: "Show the current system prompt",
 		handler: async (_args, ctx) => {
 			const prompt = ctx.getSystemPrompt();
-			ctx.sendUserMessage(
+			pi.sendUserMessage(
 				`**System prompt** (${prompt.length} chars)\n\n\`\`\`\n${prompt}\n\`\`\``,
 			);
 		},
