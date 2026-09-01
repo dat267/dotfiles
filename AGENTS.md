@@ -57,8 +57,10 @@ All 34 scripts under `dot_local/scripts/py/` (33 `executable_*.py` + `executable
 
 - Any extension that spawns a process which could touch the filesystem MUST route it through the bash tool (`bash -c …`) or the gate wrapper (`gate --ws … -- <cmd>`) — never raw `child_process.spawn`
 - `write`/`edit` tools are always path-checked in-process; bash sandboxing is enforced at the kernel
-- If Landlock is unavailable (e.g., Termux kernels), the gate degrades to pass-through with a one-time warning — never brick the session
-- Tests: pure logic in `node --test` files beside sources; gate behavior is verified by the smoke test in this session's development notes
+- Modes: `workspace` (Landlock; default when available), `supervised` (every bash/write/edit call asks), `read` (bash/write/edit removed), `yolo` (off). Switch via `/sandbox`
+- Allowlist for writes: workspace, `/tmp`, `/var/tmp`, `/dev`, `/proc`, `/sys`, per-user caches (`~/.cache`, `~/.npm`, `~/.cargo`), the pi module path
+- If Landlock is unavailable (e.g., Termux kernels), defaults to supervised — never brick the session
+- Tests: pure logic in `node --test` files beside sources; gate behavior is verified by the smoke test in this extension's development notes
 
 ## Constraints
 

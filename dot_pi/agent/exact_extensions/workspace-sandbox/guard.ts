@@ -41,9 +41,20 @@ export function inspectPath(
 	return null;
 }
 
-/** Build the allowlist: workspace, pi module path, /tmp, devices. */
+/** Build the allowlist: workspace, pi module path, /tmp, devices, caches. */
 export function defaultAllowlist(workspace: string, piModulePath?: string): string[] {
-	const list = [workspace, "/tmp", "/dev", "/proc", "/sys"];
+	const list = [
+		workspace,
+		"/tmp",
+		"/dev",
+		"/proc",
+		"/sys",
+		"/var/tmp",
+		...(typeof process.getuid === "function" && process.getuid() > 0 ? [`/run/user/${process.getuid()}`] : []),
+		homedir() + "/.cache",
+		homedir() + "/.npm",
+		homedir() + "/.cargo",
+	];
 	if (piModulePath) list.push(piModulePath);
 	return list;
 }
