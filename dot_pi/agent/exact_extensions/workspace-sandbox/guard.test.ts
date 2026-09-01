@@ -1,5 +1,5 @@
 /**
- * Tests for path-guard structured path checks.
+ * Tests for workspace-sandbox structured path checks.
  * Run: node --test guard.test.ts
  * bash protection is kernel-enforced (Landlock gate) — verified by the
  * gate smoke test in this extension's development notes, not here.

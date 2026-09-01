@@ -1,5 +1,5 @@
 /**
- * Path Guard — treat everything outside the workspace as read-only.
+ * Workspace Sandbox — treat everything outside the workspace as read-only.
  *
  * Kernel-enforced via Landlock (no container, no root, no pattern matching):
  *   - bash tool calls are wrapped in `gate`, a small compiled helper that
@@ -13,8 +13,8 @@
  *
  * Failure mode: if the gate cannot be built or Landlock is unavailable,
  * bash degrades to pass-through with a one-time warning (never bricked);
- * the write and edit tools stay path-guarded regardless. Build errors are
- * written to /tmp/path-guard-gate.log.
+ * the write and edit tools stay workspace-sandboxed regardless. Build errors are
+ * written to /tmp/workspace-sandbox-gate.log.
  */
 
 import { spawnSync } from "node:child_process";
@@ -39,7 +39,7 @@ const require = createRequire(import.meta.url);
 const MODULE_DIR = (import.meta as unknown as { dirname?: string }).dirname
 	?? fileURLToPath(new URL(".", import.meta.url));
 const SOURCE = join(MODULE_DIR, "gate.c");
-const CACHE_DIR = join(homedir(), ".cache", "pi", "path-guard");
+const CACHE_DIR = join(homedir(), ".cache", "pi", "workspace-sandbox");
 const GATE_BIN = join(CACHE_DIR, "gate");
 const BUILD_LOG = join(CACHE_DIR, "build.log");
 
@@ -105,7 +105,7 @@ export default function (pi: ExtensionAPI) {
 	if (gate.status !== "ready") {
 		pi.on("session_start", async (_event, ctx) => {
 			ctx.ui.notify(
-				`[path-guard] ${gate.detail} — bash NOT sandboxed; write/edit tools still path-guarded`,
+				`[workspace-sandbox] ${gate.detail} — bash NOT sandboxed; write/edit tools still workspace-sandboxed`,
 				"warning",
 			);
 		});

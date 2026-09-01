@@ -32,7 +32,7 @@ export function inspectPath(
 ): string | null {
 	const resolved = resolveArg(target, workspace);
 	if (!isAllowed(resolved, allowlist) && !(resolved === workspace || resolved.startsWith(workspace + sep))) {
-		return `path-guard blocks ${resolved}: outside the workspace`;
+		return `workspace-sandbox blocks ${resolved}: outside the workspace`;
 	}
 	return null;
 }
