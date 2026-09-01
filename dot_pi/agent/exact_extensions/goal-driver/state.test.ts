@@ -66,6 +66,15 @@ test("create then fold yields the goal", () => {
 	assert.equal(view?.armed, true);
 });
 
+test("the initial armed turn is recorded as round 1", () => {
+	const g = activeGoal();
+	const fold = foldGoal([
+		changeEntry({ operation: "create", goal: g }),
+		roundEntry({ goalId: g.id, revision: g.revision, round: 1 }),
+	]);
+	assert.equal(fold.roundsStarted, 1);
+});
+
 test("create is rejected when a non-complete goal exists", () => {
 	const g = activeGoal();
 	assert.throws(

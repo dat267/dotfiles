@@ -161,13 +161,15 @@ export default function (pi: ExtensionAPI) {
 
 		if (flagObjective) {
 			if (!fold.goal) {
-				appendChange(pi, "create", {
+				const created: GoalSnapshot = {
 					id: newGoalId(),
 					revision: 1,
 					objective: flagObjective,
 					phase: "active",
 					maxRounds: flagRounds,
-				});
+				};
+				appendChange(pi, "create", created);
+				appendRound(pi, created, 1);
 			}
 			armed = true;
 			ctx.ui.notify(`[goal] Armed: ${flagObjective}`, "info");
@@ -248,13 +250,17 @@ export default function (pi: ExtensionAPI) {
 						Math.max(1, Math.floor(params.maxRounds ?? DEFAULT_MAX_ROUNDS)),
 						HARD_ROUND_CAP,
 					);
-					appendChange(pi, "create", {
+					const created: GoalSnapshot = {
 						id: newGoalId(),
 						revision: 1,
 						objective: params.objective.trim(),
 						phase: "active",
 						maxRounds,
-					});
+					};
+					appendChange(pi, "create", created);
+					// The initial armed turn counts as round 1 (event-derived like
+					// every continuation, so the fold stays strict).
+					appendRound(pi, created, 1);
 					armed = true;
 					return {
 						content: [
