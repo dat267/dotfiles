@@ -37,8 +37,9 @@ interface SubagentResult {
 function runPi(
 	prompt: string,
 	cwd: string,
-	model?: string,
-	signal?: AbortSignal,
+	model: string | undefined,
+	signal: AbortSignal | undefined,
+	onProgress: (text: string) => void,
 ): Promise<SubagentResult> {
 	return new Promise((resolvePromise) => {
 		const args = [
@@ -65,7 +66,11 @@ function runPi(
 		let stdout = "";
 		let stderr = "";
 
-		proc.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
+		proc.stdout.on("data", (chunk: Buffer) => {
+			const text = chunk.toString();
+			stdout += text;
+			onProgress(text);
+		});
 		proc.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
 
 		proc.on("close", (code) => {
@@ -103,11 +108,13 @@ export default function (pi: ExtensionAPI) {
 		],
 		parameters: SubagentParams,
 
-		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const cwd = params.cwd ? resolve(params.cwd) : ctx.cwd;
 			const model = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined;
 
-			const result = await runPi(params.prompt, cwd, model, signal);
+			const result = await runPi(params.prompt, cwd, model, signal, (text) => {
+				onUpdate?.({ content: [{ type: "text", text }] });
+			});
 
 			if (!result.success) {
 				return {
