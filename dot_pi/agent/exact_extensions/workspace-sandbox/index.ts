@@ -1,18 +1,17 @@
 /**
- * Workspace Sandbox — treat everything outside the workspace as read-only.
+ * Workspace Sandbox — four human-chosen modes, default chosen at load.
  *
- * Two enforcement modes, chosen at load:
- *   - Landlock mode (Linux >= 5.13 with the LSM): the bash tool is wrapped
- *     in a compiled `gate` that installs a kernel ruleset (reads everywhere,
- *     writes only in workspace + allowlist) and execs the shell; the whole
- *     child tree inherits it. write/edit tools are path-checked in-process.
- *   - Approval mode (Android / kernels without Landlock): EVERY bash,
- *     write, and edit call prompts the user for confirmation (ui.confirm).
- *     Non-interactive sessions refuse rather than guess.
+ *   read        — read-only: bash/write/edit are removed from the prompt
+ *                 AND blocked in-process. Like a read-only Termux.
+ *   supervised  — all tools present; every bash/write/edit call prompts
+ *                 the user (ui.confirm) first. Non-interactive refuses.
+ *   workspace   — Landlock kernel enforcement scoped to the current
+ *                 workspace + allowlist (needs Linux >= 5.13 with LSM;
+ *                 without it, falls back to supervised with a warning).
+ *   yolo        — everything unrestricted.
  *
- * The system prompt (injected per turn via before_agent_start) states the
- * active mode. /sandbox yolo disables everything for the session.
- * read/grep/find/ls are untouched: reads allowed everywhere.
+ * Modes switch live via /sandbox; the system prompt note (injected each
+ * turn) always states the active mode.
  */
 
 import { spawnSync } from "node:child_process";
@@ -43,6 +42,10 @@ const BUILD_LOG = join(CACHE_DIR, "build.log");
 type SandboxMode =
 	| { mode: "landlock"; bin: string }
 	| { mode: "approval"; detail: string };
+
+type ActiveMode = "read" | "supervised" | "workspace" | "yolo";
+
+const MUTATOR_TOOLS = ["bash", "write", "edit"] as const;
 
 /** Compile the Landlock gate once, then probe the kernel. */
 function resolveMode(): SandboxMode {
@@ -94,24 +97,27 @@ function piModuleRoot(): string | undefined {
 	return undefined;
 }
 
-/** Conditional system-prompt note, accurate for the active mode. */
-function promptNote(mode: SandboxMode, workspace: string, yolo: boolean): string {
-	if (yolo) {
-		return `Workspace filesystem sandbox is DISABLED (yolo mode, /sandbox strict to re-enable). All filesystem writes are unrestricted.`;
-	}
+/** System-prompt note, accurate for the active mode. */
+function promptNote(active: ActiveMode, sandbox: SandboxMode, workspace: string): string {
 	const shared =
-		`Workspace filesystem sandbox (workspace-sandbox extension):\n` +
+		`Workspace filesystem policy (workspace-sandbox extension, mode: ${active}):\n` +
 		`- The workspace (${workspace}) is writable; also /tmp, /dev, /proc, /sys, and the pi module path.\n` +
-		`- Every other directory is read-only for writes. Do not attempt writes, edits, or deletions outside the workspace. Reads are allowed everywhere.\n` +
+		`- Every other directory is read-only for writes. Reads are allowed everywhere.\n` +
 		`- Use /tmp for scratch files and test artifacts.\n` +
 		`- Deployments (chezmoi apply, extension installs/removals) are executed by the user in their own terminal, never by the agent. Stage changes inside the workspace and give the user the exact commands.`;
-	if (mode.mode === "landlock") {
-		return shared + `\n- Enforcement is kernel-level (Landlock): blocked writes return Permission denied from the OS.`;
+	switch (active) {
+		case "read":
+			return shared + `\n- Read-only mode: the bash, write, and edit tools are DISABLED. You cannot modify anything.`;
+		case "supervised":
+			return shared + `\n- Supervised mode: every bash, write, and edit call prompts the user for approval before running.`;
+		case "workspace":
+			return shared + `\n- Enforcement is kernel-level (Landlock): blocked writes return Permission denied from the OS.`;
+		case "yolo":
+			return `Workspace filesystem sandbox is DISABLED (yolo mode, /sandbox to re-enable). All filesystem writes are unrestricted.`;
 	}
-	return shared + `\n- Enforcement is approval-gated: every bash and file-write call prompts for confirmation before running.`;
 }
 
-/** Ask the user to allow a bash/write/edit call (approval mode). */
+/** Ask the user to allow a mutating call (supervised mode). */
 async function ask(
 	ctx: ExtensionContext,
 	label: string,
@@ -124,93 +130,123 @@ async function ask(
 			terminate: false,
 		};
 	}
-	const allow = await ctx.ui.confirm(`workspace-sandbox (approval mode): ${label}\n\n${detail}`);
+	const allow = await ctx.ui.confirm(`workspace-sandbox (supervised): ${label}\n\n${detail}`);
 	if (allow === true) return null;
 	return { block: true, reason: "workspace-sandbox: declined by user", terminate: false };
 }
 
+function blocked(reason: string): { block: true; reason: string; terminate: false } {
+	return { block: true, reason, terminate: false };
+}
+
 export default function (pi: ExtensionAPI) {
-	const mode = resolveMode();
+	const sandbox = resolveMode();
 	const piPath = piModuleRoot();
-	let yolo = false;
+	// Default: kernel mode if Landlock is available, otherwise supervised.
+	let active: ActiveMode = sandbox.mode === "landlock" ? "workspace" : "supervised";
 
-	pi.on("before_agent_start", async (event, ctx) => {
-		return { systemPrompt: event.systemPrompt + "\n\n" + promptNote(mode, ctx.cwd, yolo) };
-	});
-
-	if (mode.mode === "approval") {
+	if (sandbox.mode === "approval") {
 		pi.on("session_start", async (_event, ctx) => {
 			ctx.ui.notify(
-				`[workspace-sandbox] ${mode.detail} — approval mode active: every bash/write/edit call will ask first`,
+				`[workspace-sandbox] ${sandbox.detail} — defaulting to supervised mode (every bash/write/edit call will ask first)`,
 				"warning",
 			);
 		});
 	}
 
+	pi.on("before_agent_start", async (event, ctx) => {
+		if (active === "read") {
+			const opt = event.systemPromptOptions;
+			if (opt && Array.isArray(opt.selectedTools)) {
+				opt.selectedTools = (opt.selectedTools as string[]).filter(
+					(t) => !(MUTATOR_TOOLS as readonly string[]).includes(t),
+				);
+			}
+		}
+		return { systemPrompt: event.systemPrompt + "\n\n" + promptNote(active, sandbox, ctx.cwd) };
+	});
+
 	pi.on("tool_call", async (event, ctx) => {
-		if (yolo) return; // disabled: no wrapping, no approval, no path checks
+		const isBash = isToolCallEventType("bash", event);
+		const isWrite = isToolCallEventType("write", event);
+		const isEdit = isToolCallEventType("edit", event);
+		const isMutator = isBash || isWrite || isEdit;
 		const workspace = ctx.cwd;
 		const allowlist = defaultAllowlist(workspace, piPath);
 
-		if (isToolCallEventType("bash", event)) {
-			if (mode.mode === "landlock") {
-				const parts = [mode.bin, "--ws", workspace];
-				for (const allow of allowlist) {
-					if (allow !== workspace) parts.push("--allow", allow);
+		switch (active) {
+			case "yolo":
+				return;
+
+			case "read":
+				if (isMutator) {
+					return blocked("workspace-sandbox: read-only mode — bash/write/edit are disabled");
 				}
-				parts.push("--", "bash", "-c", event.input.command);
-				event.input.command = parts.map(shq).join(" ");
 				return;
-			}
-			const denied = await ask(ctx, "run this command?", event.input.command);
-			if (denied) return denied;
-			return;
-		}
 
-		if (isToolCallEventType("write", event)) {
-			if (mode.mode === "landlock") {
-				const reason = inspectPath(event.input.path, workspace, allowlist);
-				if (reason) return { block: true, reason, terminate: false };
+			case "supervised":
+				if (isBash) {
+					const denied = await ask(ctx, "run this command?", event.input.command);
+					if (denied) return denied;
+					return;
+				}
+				if (isWrite || isEdit) {
+					const denied = await ask(ctx, isWrite ? "write to this path?" : "edit this path?", event.input.path);
+					if (denied) return denied;
+					return;
+				}
 				return;
-			}
-			const denied = await ask(ctx, "write to this path?", event.input.path);
-			if (denied) return denied;
-			return;
-		}
 
-		if (isToolCallEventType("edit", event)) {
-			if (mode.mode === "landlock") {
-				const reason = inspectPath(event.input.path, workspace, allowlist);
-				if (reason) return { block: true, reason, terminate: false };
+			case "workspace":
+				if (sandbox.mode !== "landlock") {
+					// Fallback if the user selected workspace without Landlock.
+					const denied = await ask(ctx, "run this command? (workspace needs Landlock; supervised fallback)", isBash ? event.input.command : event.input.path);
+					if (denied) return denied;
+					return;
+				}
+				if (isBash) {
+					const parts = [sandbox.bin, "--ws", workspace];
+					for (const allow of allowlist) {
+						if (allow !== workspace) parts.push("--allow", allow);
+					}
+					parts.push("--", "bash", "-c", event.input.command);
+					event.input.command = parts.map(shq).join(" ");
+					return;
+				}
+				if (isWrite || isEdit) {
+					const reason = inspectPath(event.input.path, workspace, allowlist);
+					if (reason) return blocked(reason);
+					return;
+				}
 				return;
-			}
-			const denied = await ask(ctx, "edit this path?", event.input.path);
-			if (denied) return denied;
-			return;
 		}
 	});
 
 	// ── /sandbox command (human control) ──
 
 	pi.registerCommand("sandbox", {
-		description: "Show, enable, or disable the workspace sandbox (/sandbox status|strict|yolo)",
+		description: "Set or show the sandbox mode (/sandbox read|supervised|workspace|yolo|status)",
 		handler: async (args, ctx) => {
 			const sub = args.trim().toLowerCase();
-			if (sub === "yolo") {
-				yolo = true;
-				ctx.ui.notify("[workspace-sandbox] YOLO — filesystem guard OFF (writes unrestricted). /sandbox strict to re-enable", "warning");
-			} else if (sub === "strict" || sub === "on" || sub === "off") {
-				yolo = false;
-				ctx.ui.notify(`[workspace-sandbox] Strict mode — ${mode.mode === "landlock" ? "kernel-enforced (Landlock)" : "approval-gated"} guard ON`, "info");
-			} else if (sub) {
-				ctx.ui.notify("Usage: /sandbox [status|strict|yolo]", "warning");
+			if (sub === "read" || sub === "supervised" || sub === "yolo") {
+				active = sub;
+				ctx.ui.notify(`[workspace-sandbox] Mode: ${active}`, "info");
+			} else if (sub === "workspace") {
+				if (sandbox.mode === "landlock") {
+					active = "workspace";
+					ctx.ui.notify("[workspace-sandbox] Mode: workspace (Landlock kernel enforcement)", "info");
+				} else {
+					active = "supervised";
+					ctx.ui.notify("[workspace-sandbox] Landlock unavailable — using supervised instead", "warning");
+				}
+			} else if (sub === "status" || sub === "") {
+				const detail =
+					active === "workspace" && sandbox.mode === "landlock"
+						? "Landlock (kernel-enforced)"
+						: active;
+				ctx.ui.notify(`[workspace-sandbox] Mode: ${detail}${active === "supervised" ? " (ask before every bash/write/edit)" : ""}`, "info");
 			} else {
-				ctx.ui.notify(
-					yolo
-						? "[workspace-sandbox] YOLO mode (guard OFF)"
-						: `[workspace-sandbox] Active: ${mode.mode === "landlock" ? "Landlock (kernel-enforced)" : "approval (ask before every call)"}`,
-					"info",
-				);
+				ctx.ui.notify("Usage: /sandbox [read|supervised|workspace|yolo|status]", "warning");
 			}
 		},
 	});
