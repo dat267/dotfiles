@@ -338,11 +338,8 @@ export default function (pi: ExtensionAPI) {
 					: g.status === "completed"
 						? theme.fg("success", "completed")
 						: theme.fg("error", `blocked: ${g.blockedReason ?? "?"}`);
-			return new Text(
-				theme.fg("muted", "goal: ") + badge + theme.fg("dim", ` · ${g.roundsStarted}/${g.maxRounds} rounds`),
-				0,
-				0,
-			);
+			const rounds = g.status === "active" ? theme.fg("dim", ` · ${g.roundsStarted}/${g.maxRounds} rounds`) : "";
+			return new Text(theme.fg("muted", "goal: ") + badge + rounds, 0, 0);
 		},
 	});
 

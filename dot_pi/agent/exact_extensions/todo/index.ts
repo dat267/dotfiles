@@ -194,8 +194,9 @@ export default function (pi: ExtensionAPI) {
 						};
 					}
 					todo.done = !todo.done;
+					const status = todo.done ? "completed" : "uncompleted";
 					return {
-						content: [{ type: "text", text: `Todo #${todo.id} ${todo.done ? "completed" : "uncompleted"}` }],
+						content: [{ type: "text", text: `Todo #${todo.id} ${status}: ${todo.text}` }],
 						details: { action: "toggle", todos: [...todos], nextId } as TodoDetails,
 					};
 				}
