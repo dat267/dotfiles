@@ -29,8 +29,8 @@ interface TodoDetails {
 }
 
 const TodoParams = Type.Object({
-	action: StringEnum(["list", "add", "toggle", "clear"] as const),
-	text: Type.Optional(Type.String({ description: "Todo text (for add)" })),
+	action: StringEnum(["list", "replace", "toggle", "clear"] as const),
+	items: Type.Optional(Type.Array(Type.String({ description: "Todo text" }), { description: "Todo texts (for replace)" })),
 	id: Type.Optional(Type.Number({ description: "Todo ID (for toggle)" })),
 });
 
@@ -85,10 +85,11 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "todo",
 		label: "Todo",
-		description: "Manage a todo list. Actions: list, add (text), toggle (id), clear",
-		promptSnippet: "Manage a structured todo list — add, list, toggle, or clear",
+		description: "Manage a todo list. Actions: list, replace (items), toggle (id), clear",
+		promptSnippet: "Manage a structured todo list — replace, list, toggle, or clear",
 		promptGuidelines: [
-			"Use the todo tool to track multi-step tasks: add items, then toggle them as you complete each step.",
+			"Use the todo tool to track multi-step tasks: call replace(items) with the full list of steps, then toggle them as you complete each step.",
+			"replace overwrites the entire todo list — always pass the complete set of items.",
 			"When the user asks for a plan with numbered steps, create todos for each step and check them off during implementation.",
 			"When all todos are done, clear the list with todo(action: \"clear\") to keep session state tidy.",
 		],
@@ -107,19 +108,19 @@ export default function (pi: ExtensionAPI) {
 					};
 				}
 
-				case "add": {
-					if (!params.text) {
+				case "replace": {
+					if (!params.items || params.items.length === 0) {
 						return {
-							content: [{ type: "text", text: "Error: text required for add" }],
-							details: { action: "add", todos: [...todos], nextId, error: "text required" } as TodoDetails,
+							content: [{ type: "text", text: "Error: items array required for replace" }],
+							details: { action: "replace", todos: [...todos], nextId, error: "items required" } as TodoDetails,
 						};
 					}
-					const newTodo: Todo = { id: nextId++, text: params.text, done: false };
-					todos.push(newTodo);
+					todos = params.items.map((text, i) => ({ id: i + 1, text, done: false }));
+					nextId = todos.length + 1;
 					refreshWidget(ctx);
 					return {
-						content: [{ type: "text", text: `Added todo #${newTodo.id}: ${newTodo.text}` }],
-						details: { action: "add", todos: [...todos], nextId } as TodoDetails,
+						content: [{ type: "text", text: `Replaced todo list with ${todos.length} items` }],
+						details: { action: "replace", todos: [...todos], nextId } as TodoDetails,
 					};
 				}
 
@@ -177,7 +178,7 @@ export default function (pi: ExtensionAPI) {
 
 		renderCall(args, theme, _context) {
 			let text = theme.fg("toolTitle", theme.bold("todo ")) + theme.fg("muted", args.action);
-			if (args.text) text += ` ${theme.fg("dim", `"${args.text}"`)}`;
+			if (args.items) text += ` ${theme.fg("dim", `[${args.items.length} items]`)}`;
 			if (args.id !== undefined) text += ` ${theme.fg("accent", `#${args.id}`)}`;
 			return new Text(text, 0, 0);
 		},
@@ -213,13 +214,10 @@ export default function (pi: ExtensionAPI) {
 					return new Text(listText, 0, 0);
 				}
 
-				case "add": {
-					const added = todoList[todoList.length - 1];
+				case "replace": {
 					return new Text(
-						theme.fg("success", "✓ Added ") +
-							theme.fg("accent", `#${added.id}`) +
-							" " +
-							theme.fg("muted", added.text),
+						theme.fg("success", "✓ ") +
+							theme.fg("muted", `Replaced with ${todoList.length} todos`),
 						0,
 						0,
 					);
