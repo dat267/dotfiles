@@ -210,3 +210,24 @@ export function statusLineText(g: GoalView | null): string {
 			return `Blocked (${g.blockedReason?.code ?? "unknown"}): ${obj}`;
 	}
 }
+
+/**
+ * Lightweight questionnaire prompt for the model to use when creating a goal.
+ * The model reads this and asks the user clarifying questions before calling goal(create).
+ * No separate UI, no interactive dialog — just a structured prompt.
+ */
+export function renderGoalQuestionnaire(objective: string): string {
+	return (
+		"<goal_questionnaire>\n" +
+		`Proposed objective: ${JSON.stringify(objective)}\n\n` +
+		"Before creating the goal, clarify the following with the user. " +
+		"Ask the user each question concisely — do not proceed without their input:\n\n" +
+		"1. **Success criteria** — What specifically counts as done? What evidence is needed?\n" +
+		"2. **Boundaries** — What is explicitly out of scope? What should NOT be changed?\n" +
+		"3. **Steps** — What are the high-level steps or approach? (Briefly, not a full plan)\n" +
+		"4. **Blockers** — Any known blockers or dependencies the user is aware of?\n\n" +
+		"After the user answers, create the goal with goal(create) using the full clarified objective. " +
+		"The user's success criteria should be reflected in the todo list (replace items with actionable steps).\n" +
+		"</goal_questionnaire>"
+	);
+}

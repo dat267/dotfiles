@@ -280,6 +280,7 @@ export default function (pi: ExtensionAPI) {
 		promptSnippet: "Manage the session goal — create, update, complete, block, or clear",
 		promptGuidelines: [
 			"Use the goal tool for multi-step tasks: create a goal with an objective, and the session continues automatically until it completes or blocks.",
+			"Before creating a goal, run the goal questionnaire to clarify the objective with the user (success criteria, boundaries, steps, blockers). Reflect the user's answers in the todo list.",
 			"Call goal(get) before any mutation and copy the exact id and revision; mutations fail on stale revisions.",
 			"Use the todo tool to track steps: create a todo list with replace(items), then toggle items as you complete them. When all todos are done, the goal auto-completes.",
 			"Use goal(complete) when evidence shows the whole objective is achieved, not just partial progress.",
