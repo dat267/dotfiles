@@ -1,7 +1,7 @@
 /**
- * Custom Footer — cache hit + context window only.
- * All dimmed, single line.
- * Format: "CH97.4% 3%/1M"
+ * Custom Footer — model, cache hit, context window.
+ * All dimmed, single line, left-aligned.
+ * Format: "model CH97.4% 3%/1M"
  *
  * Cache hit rate is tracked at turn_end (not walked per-frame).
  */
@@ -60,6 +60,9 @@ export default function (pi: ExtensionAPI) {
 							: `${contextPercent}%/${formatTokens(contextWindow)}`;
 
 					const parts: string[] = [];
+					if (ctx.model?.id) {
+						parts.push(ctx.model.id);
+					}
 					if (latestCacheHitRate !== undefined) {
 						parts.push(`CH${latestCacheHitRate.toFixed(1)}%`);
 					}
