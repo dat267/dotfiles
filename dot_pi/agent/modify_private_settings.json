@@ -1,0 +1,22 @@
+chezmoi:modify-template
+{{- $current := fromJson (.chezmoi.stdin | default "{}") }}
+{{- setValueAtPath "tuiMode" "fullscreen" $current }}
+{{- setValueAtPath "fullscreenExitOutput" "resume-hint" $current }}
+{{- setValueAtPath "hideThinkingBlock" true $current }}
+{{- setValueAtPath "skills" (list "~/.pi/agent/skills") $current }}
+{{- setValueAtPath "defaultProvider" "charm-hyper" $current }}
+{{- setValueAtPath "defaultModel" "deepseek-v4-flash" $current }}
+{{- setValueAtPath "defaultThinkingLevel" "minimal" $current }}
+{{- setValueAtPath "showCacheMissNotices" false $current }}
+{{- setValueAtPath "theme" "dark" $current }}
+{{- setValueAtPath "steeringMode" "one-at-a-time" $current }}
+{{- setValueAtPath "transport" "auto" $current }}
+{{- setValueAtPath "markdown.mermaid" "streaming" $current }}
+{{- setValueAtPath "defaultProjectTrust" "ask" $current }}
+{{- setValueAtPath "doubleEscapeAction" "none" $current }}
+{{- setValueAtPath "fullscreenScrollbar" "auto" $current }}
+{{- setValueAtPath "outputPad" 1 $current }}
+{{- setValueAtPath "compaction.enabled" true $current }}
+{{- setValueAtPath "compaction.reserveTokens" 8192 $current }}
+{{- setValueAtPath "compaction.keepRecentTokens" 10000 $current }}
+{{ toPrettyJson $current }}
