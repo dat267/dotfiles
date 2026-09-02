@@ -438,18 +438,22 @@ up() {
 		}
 	fi
 
-# --- SSH agent: use systemd ssh-agent (Linux) or gpg-agent (Termux fallback) ---
+# --- SSH agent: use systemd ssh-agent (Linux) or OpenSSH ssh-agent (Termux) ---
 # On Linux, systemd socket-activates ssh-agent at /run/user/$UID/ssh-agent-$UID.sock.
-# On Termux/Android, fall back to gpg-agent SSH emulation.
-# Keys are registered once with `ssh-add ~/.ssh/id_ed25519` (writes the
-# keygrip into ~/.gnupg/sshcontrol); gpg-agent then offers the key and
-# caches the passphrase for 8h (default-cache-ttl-ssh in gpg-agent.conf).
-# Note: AddKeysToAgent yes only helps after a first successful auth in the
-# same session, and does NOT persist the keygrip — use ssh-add for that.
+# On Termux/Android, use a plain OpenSSH ssh-agent on a fixed socket, reused
+# across shells. gpg-agent's SSH emulation is NOT used: gpg 2.5 re-protects
+# every ssh-added key through pinentry, which needs a TTY the daemon lacks,
+# so ssh-add would fail with "agent refused operation" on headless Android.
+# OpenSSH's agent keeps keys in memory and needs no pinentry. Keys must be
+# added once per agent lifetime with `ssh-add ~/.ssh/id_ed25519` (or let
+# AddKeysToAgent yes add them on first successful auth).
 if [ -S "/run/user/$(id -u)/ssh-agent-$(id -u).sock" ]; then
 	export SSH_AUTH_SOCK="/run/user/$(id -u)/ssh-agent-$(id -u).sock"
-elif command -v gpgconf >/dev/null 2>&1; then
-	gpg-connect-agent /bye >/dev/null 2>&1
-	ssh_sock="$(gpgconf --list-dirs agent-ssh-socket 2>/dev/null)"
-	[ -n "$ssh_sock" ] && export SSH_AUTH_SOCK="$ssh_sock"
+elif command -v ssh-agent >/dev/null 2>&1; then
+	agent_sock="$HOME/.ssh/ssh-agent.sock"
+	if [ ! -S "$agent_sock" ]; then
+		mkdir -p "$HOME/.ssh"
+		ssh-agent -a "$agent_sock" >/dev/null 2>&1
+	fi
+	export SSH_AUTH_SOCK="$agent_sock"
 fi
