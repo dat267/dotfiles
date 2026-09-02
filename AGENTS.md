@@ -74,7 +74,6 @@ Scripts under `dot_local/scripts/py/` (standard library only; see its `AGENTS.md
 | `/tmp`, `/var/tmp` | Scratch files, test artifacts |
 | `/dev`, `/proc`, `/sys` | Device access, process info |
 | `~/.cache`, `~/.npm`, `~/.cargo` | Per-user caches |
-| Pi module path | Extension loading |
 
 ### What the agent CANNOT do
 

@@ -15,16 +15,10 @@
  */
 
 import { spawnSync } from "node:child_process";
-import {
-	readFileSync,
-	mkdirSync,
-	statSync,
-	writeFileSync,
-	existsSync,
-} from "node:fs";
+import { mkdirSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -81,30 +75,11 @@ function shq(s: string): string {
 	return "'" + s.replace(/'/g, `'\\''`) + "'";
 }
 
-/** Resolve the pi package install root by walking up from its main file. */
-function piModuleRoot(): string | undefined {
-	try {
-		const entry = require.resolve("@earendil-works/pi-coding-agent");
-		let dir = dirname(entry);
-		for (let i = 0; i < 6; i++) {
-			const pkg = join(dir, "package.json");
-			if (existsSync(pkg)) {
-				const json = JSON.parse(readFileSync(pkg, "utf-8")) as { name?: string };
-				if (json.name === "@earendil-works/pi-coding-agent") return dir;
-			}
-			dir = dirname(dir);
-		}
-	} catch {
-		// fall through
-	}
-	return undefined;
-}
-
 /** System-prompt note, accurate for the active mode. */
 function promptNote(active: ActiveMode, sandbox: SandboxMode, workspace: string): string {
 	const shared =
 		`Workspace filesystem policy (sandbox extension, mode: ${active}):\n` +
-		`- The workspace (${workspace}) is writable; also /tmp, /var/tmp, /dev, /proc, /sys, per-user caches (~/.cache, ~/.npm, ~/.cargo), and the pi module path.\n` +
+		`- The workspace (${workspace}) is writable; also /tmp, /var/tmp, /dev, /proc, /sys, and per-user caches (~/.cache, ~/.npm, ~/.cargo).\n` +
 		`- Every other directory is read-only for writes. Reads are allowed everywhere.\n` +
 		`- Use /tmp for scratch files and test artifacts.\n` +
 		`- Deployments (chezmoi apply, extension installs/removals) are executed by the user in their own terminal, never by the agent. Stage changes inside the workspace and give the user the exact commands.\n` +
@@ -145,7 +120,6 @@ function blocked(reason: string): { block: true; reason: string; terminate: fals
 
 export default function (pi: ExtensionAPI) {
 	const sandbox = resolveMode();
-	const piPath = piModuleRoot();
 	// Default: kernel mode if Landlock is available, otherwise supervised.
 	let active: ActiveMode = sandbox.mode === "landlock" ? "workspace" : "supervised";
 
@@ -177,7 +151,7 @@ export default function (pi: ExtensionAPI) {
 		const isEdit = isToolCallEventType("edit", event);
 		const isMutator = isBash || isPowerShell || isWrite || isEdit;
 		const workspace = ctx.cwd;
-		const allowlist = defaultAllowlist(workspace, piPath);
+		const allowlist = defaultAllowlist(workspace);
 
 		switch (active) {
 			case "yolo":

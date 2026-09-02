@@ -12,7 +12,7 @@ import { defaultAllowlist, inspectPath } from "./guard.ts";
 
 const WS = "/home/dat/proj";
 const PI = "/home/dat/.local/lib/node_modules/@earendil-works/pi-coding-agent";
-const ALLOW = defaultAllowlist(WS, PI);
+const ALLOW = defaultAllowlist(WS);
 
 test("workspace targets pass", () => {
 	assert.equal(inspectPath("src/main.ts", WS, ALLOW), null);
@@ -22,8 +22,12 @@ test("workspace targets pass", () => {
 
 test("allowlist targets pass", () => {
 	assert.equal(inspectPath("/tmp/out.txt", WS, ALLOW), null);
-	assert.equal(inspectPath(`${PI}/index.ts`, WS, ALLOW), null);
 	assert.equal(inspectPath("/dev/null", WS, ALLOW), null);
+});
+
+test("pi module path and run dir are blocked (write escapes removed)", () => {
+	assert.ok(inspectPath(`${PI}/index.js`, WS, ALLOW), "pi install dir must be read-only for writes");
+	assert.ok(inspectPath("/run/user/1000/x", WS, ALLOW), "/run/user must be blocked");
 });
 
 test("outside targets are blocked", () => {
