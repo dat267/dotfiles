@@ -1,9 +1,14 @@
 {{- /* chezmoi:modify-template */ -}}
-{{- $input := .chezmoi.stdin -}}
-{{- if regexMatch `(?m)^\[include\]` $input -}}
-{{- $input -}}
-{{- else -}}
-{{- $input }}
-[include]
-	path = ~/.gitconfig.base
-{{- end -}}
+{{- $config := fromIni (.chezmoi.stdin | default "") -}}
+{{- /* Clean up old include — no longer needed */ -}}
+{{- $_ := deleteValueAtPath "include" $config -}}
+{{- $_ := setValueAtPath "core.autocrlf" "input" $config -}}
+{{- $_ := setValueAtPath "init.defaultBranch" "main" $config -}}
+{{- $_ := setValueAtPath "pull.rebase" false $config -}}
+{{- $_ := setValueAtPath "color.ui" "auto" $config -}}
+{{- $_ := setValueAtPath "rebase.autosquash" true $config -}}
+{{- $_ := setValueAtPath "merge.allowUnrelatedHistories" true $config -}}
+{{- $_ := setValueAtPath "push.autoSetupRemote" true $config -}}
+{{- $_ := setValueAtPath "user.email" "dat267@outlook.com" $config -}}
+{{- $_ := setValueAtPath "user.name" "Dat Do" $config -}}
+{{ toIni $config }}
