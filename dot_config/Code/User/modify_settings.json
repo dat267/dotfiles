@@ -1,7 +1,7 @@
 {{- /* chezmoi:modify-template */ -}}
 {{- $config := fromJson (.chezmoi.stdin | default "{}") -}}
-{{- $_ := setValueAtPath "editor.minimap.renderCharacters" false $config -}}
-{{- $_ := setValueAtPath "editor.minimap.enabled" false $config -}}
+{{- $_ := setValueAtPath "editor.minimap.renderCharacters" true $config -}}
+{{- $_ := setValueAtPath "editor.minimap.enabled" true $config -}}
 {{- $_ := setValueAtPath "files.enableTrash" true $config -}}
 {{- $_ := setValueAtPath "files.autoSave" "afterDelay" $config -}}
 {{- $_ := setValueAtPath "files.insertFinalNewline" true $config -}}
