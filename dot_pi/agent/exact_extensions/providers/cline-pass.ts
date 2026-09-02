@@ -2,8 +2,8 @@
  * ClinePass provider extension for pi
  *
  * Auth: ~/.pi/agent/auth.json (provider id "cline-pass") or CLINE_API_KEY.
- * Trimmed to actively useful models. Model ids are bare (no provider prefix),
- * matching the charm-hyper catalog convention.
+ * Trimmed to actively useful models. ClinePass API requires a provider
+ * prefix in model ids ("cline-pass/<model>").
  */
 
 import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
@@ -24,7 +24,7 @@ const COMPAT_REASONING = {
 
 const MODELS: Model<typeof API>[] = [
 	{
-		id: "deepseek-v4-flash",
+		id: "cline-pass/deepseek-v4-flash",
 		name: "DeepSeek V4 Flash",
 		api: API,
 		provider: PROVIDER_ID,
@@ -41,7 +41,7 @@ const MODELS: Model<typeof API>[] = [
 		compat: COMPAT_REASONING,
 	},
 	{
-		id: "deepseek-v4-pro",
+		id: "cline-pass/deepseek-v4-pro",
 		name: "DeepSeek V4 Pro",
 		api: API,
 		provider: PROVIDER_ID,
@@ -58,7 +58,7 @@ const MODELS: Model<typeof API>[] = [
 		compat: COMPAT_REASONING,
 	},
 	{
-		id: "glm-5.3",
+		id: "cline-pass/glm-5.3",
 		name: "GLM-5.3",
 		api: API,
 		provider: PROVIDER_ID,
@@ -75,7 +75,7 @@ const MODELS: Model<typeof API>[] = [
 		compat: COMPAT_REASONING,
 	},
 	{
-		id: "kimi-k3",
+		id: "cline-pass/kimi-k3",
 		name: "Kimi K3",
 		api: API,
 		provider: PROVIDER_ID,
@@ -92,7 +92,7 @@ const MODELS: Model<typeof API>[] = [
 		compat: COMPAT_REASONING,
 	},
 	{
-		id: "mimo-v2.5-pro",
+		id: "cline-pass/mimo-v2.5-pro",
 		name: "MiMo-V2.5-Pro",
 		api: API,
 		provider: PROVIDER_ID,
@@ -109,7 +109,7 @@ const MODELS: Model<typeof API>[] = [
 		compat: COMPAT_REASONING,
 	},
 	{
-		id: "minimax-m3",
+		id: "cline-pass/minimax-m3",
 		name: "MiniMax-M3",
 		api: API,
 		provider: PROVIDER_ID,
@@ -126,7 +126,7 @@ const MODELS: Model<typeof API>[] = [
 		compat: COMPAT_REASONING,
 	},
 	{
-		id: "qwen3.7-plus",
+		id: "cline-pass/qwen3.7-plus",
 		name: "Qwen3.7 Plus",
 		api: API,
 		provider: PROVIDER_ID,
@@ -143,7 +143,7 @@ const MODELS: Model<typeof API>[] = [
 		compat: COMPAT_REASONING,
 	},
 	{
-		id: "qwen3.8-max",
+		id: "cline-pass/qwen3.8-max",
 		name: "Qwen3.8 Max",
 		api: API,
 		provider: PROVIDER_ID,
