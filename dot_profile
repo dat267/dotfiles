@@ -441,7 +441,11 @@ up() {
 # --- SSH agent: use systemd ssh-agent (Linux) or gpg-agent (Termux fallback) ---
 # On Linux, systemd socket-activates ssh-agent at /run/user/$UID/ssh-agent-$UID.sock.
 # On Termux/Android, fall back to gpg-agent SSH emulation.
-# Keys are auto-added on first use via AddKeysToAgent yes (see ~/.ssh/config).
+# Keys are registered once with `ssh-add ~/.ssh/id_ed25519` (writes the
+# keygrip into ~/.gnupg/sshcontrol); gpg-agent then offers the key and
+# caches the passphrase for 8h (default-cache-ttl-ssh in gpg-agent.conf).
+# Note: AddKeysToAgent yes only helps after a first successful auth in the
+# same session, and does NOT persist the keygrip — use ssh-add for that.
 if [ -S "/run/user/$(id -u)/ssh-agent-$(id -u).sock" ]; then
 	export SSH_AUTH_SOCK="/run/user/$(id -u)/ssh-agent-$(id -u).sock"
 elif command -v gpgconf >/dev/null 2>&1; then
