@@ -43,6 +43,12 @@ let armed = false;
 let lastStopReason: string | null = null;
 let todoUtils: ReturnType<typeof setupTodo> | null = null;
 
+// Continuation guard: auto-block if no progress after N consecutive turns.
+// Reset on any goal mutation (appendChange).
+const MAX_CONTINUATIONS = 10;
+let continuationsSinceMutation = 0;
+let previousActiveTodoCount = 0;
+
 function view(): GoalView | null {
 	return goalView(fold, armed);
 }
@@ -77,6 +83,7 @@ function appendChange(pi: ExtensionAPI, operation: GoalOperation, goal: GoalSnap
 	const data: GoalChangeData = { operation, goal };
 	applyChange(fold, data);
 	pi.appendEntry(CHANGE_CUSTOM_TYPE, data);
+	continuationsSinceMutation = 0; // any mutation resets progress
 }
 
 function nextRevision(current: GoalSnapshot, patch: Partial<GoalSnapshot>): GoalSnapshot {
@@ -110,6 +117,26 @@ function maybeContinue(pi: ExtensionAPI, ctx: ExtensionContext, opts: { requireI
 		return;
 	}
 
+	// Auto-block if no progress after N consecutive continuations.
+	// Reset the counter if todos changed (toggling todos doesn't mutate the goal revision).
+	const activeTodoCount = todoUtils ? todoUtils.activeTodosCount() : 0;
+	if (activeTodoCount !== previousActiveTodoCount) {
+		continuationsSinceMutation = 0;
+		previousActiveTodoCount = activeTodoCount;
+	}
+
+	if (continuationsSinceMutation >= MAX_CONTINUATIONS) {
+		appendChange(pi, "block", nextRevision(g, {
+			phase: "blocked",
+			blockedReason: { code: "loop-limit", message: `No progress after ${MAX_CONTINUATIONS} consecutive continuations` },
+		}));
+		armed = false;
+		refreshGoalWidget(ctx);
+		ctx.ui.notify(`[goal] Auto-blocked: no progress after ${MAX_CONTINUATIONS} continuations — /goal resume to restart`, "warning");
+		return;
+	}
+
+	continuationsSinceMutation++;
 	refreshGoalWidget(ctx);
 	ctx.ui.notify("[goal] Continuing...", "info");
 
@@ -140,11 +167,15 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_tree", async (_event, ctx) => {
 		refold(ctx);
 		armed = false;
+		continuationsSinceMutation = 0;
+		previousActiveTodoCount = 0;
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
 		armed = false;
 		lastStopReason = null;
+		continuationsSinceMutation = 0;
+		previousActiveTodoCount = 0;
 		refold(ctx);
 
 		const flagObjective = pi.getFlag("goal");
