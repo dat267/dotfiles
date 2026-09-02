@@ -1,7 +1,7 @@
 /**
  * Custom Footer — model, cache hit, context window.
  * All dimmed, single line, left-aligned.
- * Format: "CH97.4% 3%/1M model cwd"
+ * Format: "CH97.4% · 3%/1M · model · cwd"
  *
  * Cache hit rate is tracked at turn_end (not walked per-frame).
  */
@@ -70,7 +70,7 @@ export default function (pi: ExtensionAPI) {
 						parts.push(ctx.model.id);
 					}
 					parts.push(basename(ctx.sessionManager.getCwd()));
-					const line = theme.fg("dim", parts.join(" "));
+					const line = theme.fg("dim", parts.join(" · "));
 					return [truncateToWidth(line, 80)];
 				},
 			};
