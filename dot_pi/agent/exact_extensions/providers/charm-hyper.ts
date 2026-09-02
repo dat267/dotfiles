@@ -4,7 +4,7 @@
  * Registers the Charm Hyper provider (https://hyper.charm.land) with an
  * embedded static model catalog.
  *
- * Auth: ~/.pi/agent/auth.json (provider id "charm-hyper") or HYPERCHARM_API_KEY.
+ * Auth: ~/.pi/agent/auth.json (provider id "hyper") or HYPER_API_KEY env var.
  *
  * Trimmed to actively useful models (~50% of original).
  */
@@ -15,8 +15,22 @@ import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const API: Api = "openai-completions";
-const PROVIDER_ID = "charm-hyper";
+const PROVIDER_ID = "hyper";
 const BASE_URL = "https://hyper.charm.land/v1";
+
+const COMPAT_REASONING = {
+	supportsStore: false,
+	supportsReasoningEffort: true,
+	thinkingFormat: "deepseek" as const,
+	maxTokensField: "max_tokens" as const,
+};
+
+const COMPAT_NOREASON = {
+	supportsStore: false,
+	supportsReasoningEffort: false,
+	thinkingFormat: "deepseek" as const,
+	maxTokensField: "max_tokens" as const,
+};
 
 const MODELS: Model<typeof API>[] = [
 	{
@@ -34,6 +48,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 0.2, output: 0.4, cacheRead: 0.04, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 384_000,
+		compat: COMPAT_REASONING,
 	},
 	{
 		id: "deepseek-v4-flash-0731",
@@ -50,6 +65,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 0.44, output: 1.32, cacheRead: 0.044, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 384_000,
+		compat: COMPAT_REASONING,
 	},
 	{
 		id: "deepseek-v4-pro",
@@ -66,6 +82,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 0.8, output: 1.6, cacheRead: 0.16, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 384_000,
+		compat: COMPAT_REASONING,
 	},
 	{
 		id: "deepseek-v4-pro-0813",
@@ -82,6 +99,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 0.8, output: 1.6, cacheRead: 0.16, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 262_144,
+		compat: COMPAT_REASONING,
 	},
 	{
 		id: "glm-5.3",
@@ -98,6 +116,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 131_072,
+		compat: COMPAT_REASONING,
 	},
 	{
 		id: "kimi-k3",
@@ -114,6 +133,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 131_072,
+		compat: COMPAT_REASONING,
 	},
 	{
 		id: "minimax-m3",
@@ -130,6 +150,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 0.3, output: 1.2, cacheRead: 0.06, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 512_000,
+		compat: COMPAT_REASONING,
 	},
 	{
 		id: "qwen3.7-max",
@@ -146,6 +167,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 2.5, output: 7.5, cacheRead: 0.5, cacheWrite: 3.125 },
 		contextWindow: 1_000_000,
 		maxTokens: 65_536,
+		compat: COMPAT_REASONING,
 	},
 	{
 		id: "qwen3.7-plus",
@@ -162,6 +184,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 1.2, output: 4.8, cacheRead: 0.12, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 64_000,
+		compat: COMPAT_REASONING,
 	},
 	{
 		id: "qwen3.8-flash",
@@ -174,6 +197,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 0.15, output: 0.47, cacheRead: 0.016, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 128_000,
+		compat: COMPAT_NOREASON,
 	},
 	{
 		id: "qwen3.8-max",
@@ -190,6 +214,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 2, output: 6, cacheRead: 0.25, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 65_536,
+		compat: COMPAT_REASONING,
 	},
 	{
 		id: "qwen3-next-80b-a3b-instruct",
@@ -206,6 +231,7 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 0.5, output: 1.5, cacheRead: 0.1, cacheWrite: 0 },
 		contextWindow: 128_000,
 		maxTokens: 12_800,
+		compat: COMPAT_REASONING,
 	},
 ];
 
@@ -214,7 +240,7 @@ export function registerCharmHyper(pi: ExtensionAPI) {
 		id: PROVIDER_ID,
 		name: "Charm Hyper",
 		baseUrl: BASE_URL,
-		auth: { apiKey: envApiKeyAuth("Charm Hyper API key", ["HYPERCHARM_API_KEY"]) },
+		auth: { apiKey: envApiKeyAuth("Hyper API key", ["HYPER_API_KEY"]) },
 		models: MODELS,
 		api: openAICompletionsApi(),
 	});

@@ -141,7 +141,4 @@ bindkey '^H' backward-delete-char
 # SSH agent is set up in ~/.profile (plain OpenSSH ssh-agent on Termux,
 # systemd ssh-agent on Linux). Do NOT override SSH_AUTH_SOCK here.
 
-# pi Hyper Charm provider key: sourced from an untracked local file so the
-# provider works on fresh machines. Create it yourself (chmod 600):
-#   echo "export HYPERCHARM_API_KEY=sk-..." > ~/.secrets/hypercharm.env
-[ -f "$HOME/.secrets/hypercharm.env" ] && . "$HOME/.secrets/hypercharm.env"
+# pi Hyper provider key: stored in ~/.pi/agent/auth.json (provider id "hyper")
