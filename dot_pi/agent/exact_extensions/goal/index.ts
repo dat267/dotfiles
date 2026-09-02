@@ -40,6 +40,7 @@ import {
 	type GoalSnapshot,
 	type GoalView,
 } from "./state.ts";
+import { setupTodo } from "./todo.ts";
 
 // ── State ────────────────────────────────────────────────────────────────
 
@@ -149,6 +150,8 @@ function maybeContinue(pi: ExtensionAPI, ctx: ExtensionContext, opts: { requireI
 // ── Extension entry ──────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
+	setupTodo(pi);
+
 	pi.registerFlag("goal", {
 		description: "Start with an armed goal; rounds continue automatically until complete/blocked",
 		type: "string",
