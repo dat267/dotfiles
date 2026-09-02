@@ -316,7 +316,7 @@ export default function (pi: ExtensionAPI) {
 					if (!current) return { content: [{ type: "text", text: "Error: no goal to mutate" }] };
 					if (current.id !== cas.id || current.revision !== cas.revision) {
 						return {
-							content: [{ type: "text", text: `Error: stale revision — goal is now rev ${current.revision} (${current.id})` }],
+							content: [{ type: "text", text: `Error: goal was modified since your last read. Call goal(get) to get the current state, then retry your mutation with the id and revision from that response. Current: rev ${current.revision} (${current.id})` }],
 						};
 					}
 
