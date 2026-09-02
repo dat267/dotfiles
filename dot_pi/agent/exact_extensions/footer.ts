@@ -8,6 +8,7 @@
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { basename } from "node:path";
 
 export default function (pi: ExtensionAPI) {
@@ -47,7 +48,7 @@ export default function (pi: ExtensionAPI) {
 			return {
 				dispose: unsub,
 				invalidate() {},
-				render(_width: number): string[] {
+				render(width: number): string[] {
 					// -- Read cached values (O(1), no branch walk) --
 					const contextUsage = ctx.getContextUsage();
 					const contextWindow = contextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
@@ -69,7 +70,7 @@ export default function (pi: ExtensionAPI) {
 						parts.push(truncate(ctx.model.id, 25));
 					}
 					parts.push(truncate(basename(ctx.sessionManager.getCwd()), 25));
-					const line = theme.fg("dim", parts.join(" · "));
+					const line = theme.fg("dim", truncate(parts.join(" · "), Math.min(80, Math.max(0, width))));
 					return [line];
 				},
 			};
@@ -84,6 +85,17 @@ function formatTokens(count: number): string {
 	return `${Math.round(count / 1_000_000)}M`;
 }
 
+/** Truncate by display width (CJK-safe); plain text only, no ANSI. */
 function truncate(text: string, max: number): string {
-	return text.length > max ? `${text.slice(0, max - 3)}...` : text;
+	if (max <= 3) return "...".slice(0, Math.max(0, max));
+	if (visibleWidth(text) <= max) return text;
+	let out = "";
+	let w = 0;
+	for (const ch of text) {
+		const cw = visibleWidth(ch);
+		if (w + cw > max - 3) break;
+		out += ch;
+		w += cw;
+	}
+	return out + "...";
 }

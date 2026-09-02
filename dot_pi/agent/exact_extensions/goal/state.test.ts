@@ -98,6 +98,33 @@ test("create allowed after complete, with a fresh id", () => {
 	assert.equal(goalView(fold, false)?.id, "g2");
 });
 
+test("create after a completed goal resets the round budget", () => {
+	const g1 = activeGoal();
+	const done = next(g1, { phase: "complete" });
+	const g2 = activeGoal({ id: "g2" });
+	const fold = foldGoal([
+		changeEntry({ operation: "create", goal: g1 }),
+		roundEntry({ goalId: g1.id, revision: 1, round: 1 }),
+		changeEntry({ operation: "complete", goal: done }),
+		changeEntry({ operation: "create", goal: g2 }),
+	]);
+	assert.equal(fold.roundsStarted, 0);
+	assert.equal(goalView(fold, false)?.id, "g2");
+});
+
+test("clear resets rounds so a new goal starts fresh", () => {
+	const g = activeGoal();
+	const fold = foldGoal([
+		changeEntry({ operation: "create", goal: g }),
+		roundEntry({ goalId: g.id, revision: 1, round: 1 }),
+		changeEntry({ operation: "clear", goal: null }),
+		changeEntry({ operation: "create", goal: activeGoal({ id: "g2" }) }),
+		roundEntry({ goalId: "g2", revision: 1, round: 1 }),
+	]);
+	assert.equal(fold.roundsStarted, 1);
+	assert.equal(goalView(fold, false)?.id, "g2");
+});
+
 // ── mutations (CAS revisions, phase transitions) ──────────────────────────
 
 test("mutations must advance revision by exactly one", () => {

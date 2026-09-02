@@ -207,6 +207,7 @@ export function applyChange(state: FoldState, data: GoalChangeData): void {
 		if (!current) throw new Error("goal fold: clear requires a current goal");
 		requireNextRevision(current, { id: current.id, revision: current.revision + 1 }, "clear");
 		state.goal = undefined;
+		state.roundsStarted = 0;
 		state.lastRef = { id: current.id, revision: current.revision + 1 };
 		return;
 	}
@@ -218,9 +219,9 @@ export function applyChange(state: FoldState, data: GoalChangeData): void {
 		}
 		if (state.goal && state.goal.phase !== "complete") throw new Error("goal fold: create requires no active/paused/blocked goal");
 		if (state.seenGoalIds.has(goal.id)) throw new Error("goal fold: goal id already created");
-		if (state.roundsStarted !== 0) throw new Error("goal fold: create must have zero started rounds");
 		state.seenGoalIds.add(goal.id);
 		state.goal = goal;
+		state.roundsStarted = 0;
 		state.lastRef = { id: goal.id, revision: goal.revision };
 		return;
 	}

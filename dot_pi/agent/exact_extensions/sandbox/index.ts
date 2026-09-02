@@ -111,11 +111,11 @@ function promptNote(active: ActiveMode, sandbox: SandboxMode, workspace: string)
 		`- Common blocked paths: ~/.config/, ~/.ssh/, ~/.local/bin/, ~/.gnupg/, /etc/, /usr/, /opt/. These return Permission denied.`;
 	switch (active) {
 		case "read":
-			return shared + `\n- Read-only mode: the bash, write, and edit tools are DISABLED. You cannot modify anything.`;
+			return shared + `\n- Read-only mode: bash, write, edit, and powershell calls are always blocked. You cannot modify anything.`;
 		case "supervised":
 			return shared + `\n- Supervised mode: every bash, write, and edit call prompts the user for approval before running.`;
 		case "workspace":
-			return shared + `\n- Enforcement is kernel-level (Landlock): blocked writes return Permission denied from the OS.`;
+			return shared + `\n- Enforcement: bash runs under a kernel-level Landlock gate (blocked writes return Permission denied from the OS); write and edit targets are checked in-process with symlink resolution.`;
 		case "yolo":
 			return `Workspace filesystem sandbox is DISABLED (yolo mode, /sandbox to re-enable). All filesystem writes are unrestricted.`;
 	}

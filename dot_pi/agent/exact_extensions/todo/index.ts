@@ -60,6 +60,10 @@ export default function (pi: ExtensionAPI) {
 	 * Reconstruct state from session entries.
 	 * Scans tool results for this tool and applies them in order.
 	 */
+	/** Deep copy: result details must never share objects with live state
+	 * or with earlier session entries (branch reconstruction correctness). */
+	const snapshot = (): Todo[] => todos.map((t) => ({ ...t }));
+
 	const reconstructState = (ctx: ExtensionContext) => {
 		todos = [];
 		nextId = 1;
@@ -71,7 +75,7 @@ export default function (pi: ExtensionAPI) {
 
 			const details = msg.details as TodoDetails | undefined;
 			if (details) {
-				todos = details.todos;
+				todos = details.todos.map((t) => ({ ...t }));
 				nextId = details.nextId;
 			}
 		}
@@ -104,7 +108,7 @@ export default function (pi: ExtensionAPI) {
 					refreshWidget(ctx);
 					return {
 						content: [{ type: "text", text }],
-						details: { action: "list", todos: [...todos], nextId } as TodoDetails,
+						details: { action: "list", todos: snapshot(), nextId } as TodoDetails,
 					};
 				}
 
@@ -112,7 +116,7 @@ export default function (pi: ExtensionAPI) {
 					if (!params.items || params.items.length === 0) {
 						return {
 							content: [{ type: "text", text: "Error: items array required for replace" }],
-							details: { action: "replace", todos: [...todos], nextId, error: "items required" } as TodoDetails,
+							details: { action: "replace", todos: snapshot(), nextId, error: "items required" } as TodoDetails,
 						};
 					}
 					todos = params.items.map((text, i) => ({ id: i + 1, text, done: false }));
@@ -120,7 +124,7 @@ export default function (pi: ExtensionAPI) {
 					refreshWidget(ctx);
 					return {
 						content: [{ type: "text", text: `Replaced todo list with ${todos.length} items` }],
-						details: { action: "replace", todos: [...todos], nextId } as TodoDetails,
+						details: { action: "replace", todos: snapshot(), nextId } as TodoDetails,
 					};
 				}
 
@@ -128,7 +132,7 @@ export default function (pi: ExtensionAPI) {
 					if (params.id === undefined) {
 						return {
 							content: [{ type: "text", text: "Error: id required for toggle" }],
-							details: { action: "toggle", todos: [...todos], nextId, error: "id required" } as TodoDetails,
+							details: { action: "toggle", todos: snapshot(), nextId, error: "id required" } as TodoDetails,
 						};
 					}
 					const todo = todos.find((t) => t.id === params.id);
@@ -137,7 +141,7 @@ export default function (pi: ExtensionAPI) {
 							content: [{ type: "text", text: `Todo #${params.id} not found` }],
 							details: {
 								action: "toggle",
-								todos: [...todos],
+								todos: snapshot(),
 								nextId,
 								error: `#${params.id} not found`,
 							} as TodoDetails,
@@ -148,7 +152,7 @@ export default function (pi: ExtensionAPI) {
 					refreshWidget(ctx);
 					return {
 						content: [{ type: "text", text: `Todo #${todo.id} ${status}: ${todo.text}` }],
-						details: { action: "toggle", todos: [...todos], nextId } as TodoDetails,
+						details: { action: "toggle", todos: snapshot(), nextId } as TodoDetails,
 					};
 				}
 
@@ -168,7 +172,7 @@ export default function (pi: ExtensionAPI) {
 						content: [{ type: "text", text: `Unknown action: ${params.action}` }],
 						details: {
 							action: "list",
-							todos: [...todos],
+							todos: snapshot(),
 							nextId,
 							error: `unknown action: ${params.action}`,
 						} as TodoDetails,

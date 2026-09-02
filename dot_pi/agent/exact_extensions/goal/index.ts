@@ -233,6 +233,141 @@ export default function (pi: ExtensionAPI) {
 		reason: Type.Optional(Type.String({ description: "Blocking condition (block)" })),
 	});
 
+	const runGoalAction = async (params: Static<typeof GoalParams>) => {
+		const g = view();
+		const cas =
+			typeof params.id === "string" && typeof params.revision === "number"
+				? { id: params.id, revision: params.revision }
+				: undefined;
+
+		switch (params.action) {
+			case "get":
+				return {
+					content: [{ type: "text", text: g ? JSON.stringify(g, null, 2) : "No goal" }],
+				};
+
+			case "create": {
+				if (!params.objective?.trim()) {
+					return { content: [{ type: "text", text: "Error: objective required for create" }] };
+				}
+				if (fold.goal && fold.goal.phase !== "complete") {
+					return {
+						content: [{ type: "text", text: `Error: a goal is already active: ${fold.goal.objective}` }],
+					};
+				}
+				const maxRounds = Math.min(
+					Math.max(1, Math.floor(params.maxRounds ?? DEFAULT_MAX_ROUNDS)),
+					HARD_ROUND_CAP,
+				);
+				const created: GoalSnapshot = {
+					id: newGoalId(),
+					revision: 1,
+					objective: params.objective.trim(),
+					phase: "active",
+					maxRounds,
+				};
+				appendChange(pi, "create", created);
+				// The initial armed turn counts as round 1 (event-derived like
+				// every continuation, so the fold stays strict).
+				appendRound(pi, created, 1);
+				armed = true;
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Goal created and armed: ${params.objective.trim()} (max ${maxRounds} rounds). Work toward it; the session continues automatically while it is active.`,
+						},
+					],
+				};
+			}
+
+			case "edit":
+			case "pause":
+			case "resume":
+			case "complete":
+			case "block": {
+				if (!cas) {
+					return { content: [{ type: "text", text: "Error: id and revision required for mutations (call get first)" }] };
+				}
+				const current = fold.goal;
+				if (!current) return { content: [{ type: "text", text: "Error: no goal to mutate" }] };
+				if (current.id !== cas.id || current.revision !== cas.revision) {
+					return {
+						content: [{ type: "text", text: `Error: goal was modified since your last read. Call goal(get) to get the current state, then retry your mutation with the id and revision from that response. Current: rev ${current.revision} (${current.id})` }],
+					};
+				}
+
+				if (params.action === "edit") {
+					const objective = params.objective?.trim();
+					const maxRounds = params.maxRounds !== undefined
+						? Math.min(Math.max(1, Math.floor(params.maxRounds)), HARD_ROUND_CAP)
+						: undefined;
+					if (!objective && maxRounds === undefined) {
+						return { content: [{ type: "text", text: "Error: edit needs objective and/or maxRounds" }] };
+					}
+					appendChange(pi, "edit", nextRevision(current, {
+						...(objective ? { objective } : {}),
+						...(maxRounds !== undefined ? { maxRounds } : {}),
+					}));
+					return { content: [{ type: "text", text: `Goal updated: ${view()?.objective}` }] };
+				}
+
+				if (params.action === "pause") {
+					appendChange(pi, "pause", nextRevision(current, { phase: "paused" }));
+					return { content: [{ type: "text", text: `Goal paused: ${current.objective}` }] };
+				}
+
+				if (params.action === "resume") {
+					if (current.phase !== "paused" && current.phase !== "blocked") {
+						return { content: [{ type: "text", text: "Error: only paused or blocked goals can resume" }] };
+					}
+					appendChange(pi, "resume", nextRevision(current, { phase: "active" }));
+					armed = true;
+					return { content: [{ type: "text", text: `Goal resumed and armed: ${current.objective}` }] };
+				}
+
+				if (params.action === "complete") {
+					appendChange(pi, "complete", nextRevision(current, { phase: "complete" }));
+					armed = false;
+					return { content: [{ type: "text", text: `Goal completed: ${current.objective}` }] };
+				}
+
+				// block
+				const reason = params.reason?.trim();
+				if (!reason) {
+					return { content: [{ type: "text", text: "Error: concrete blocking condition required for block" }] };
+				}
+				if (fold.roundsStarted < BLOCKED_AFTER_ROUNDS) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Error: blocked requires at least ${BLOCKED_AFTER_ROUNDS} rounds; current round is ${fold.roundsStarted}. Keep working or re-check the blocker.`,
+							},
+						],
+					};
+				}
+				appendChange(pi, "block", nextRevision(current, {
+					phase: "blocked",
+					blockedReason: { code: "model-reported", message: reason },
+				}));
+				armed = false;
+				return {
+					content: [
+						{ type: "text", text: `Goal blocked (${reason}): ${current.objective}. Human review needed.` },
+					],
+				};
+			}
+
+			case "clear": {
+				if (!fold.goal) return { content: [{ type: "text", text: "Error: no goal to clear" }] };
+				appendChange(pi, "clear", null);
+				armed = false;
+				return { content: [{ type: "text", text: "Goal cleared" }] };
+			}
+		}
+	};
+
 	pi.registerTool({
 		name: "goal",
 		label: "Goal",
@@ -251,144 +386,9 @@ export default function (pi: ExtensionAPI) {
 		parameters: GoalParams,
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const result = await this.executeInner(params);
+			const result = await runGoalAction(params);
 			refreshGoalWidget(ctx);
 			return result;
-		},
-
-		executeInner: async (params: Static<typeof GoalParams>) => {
-			const g = view();
-			const cas =
-				typeof params.id === "string" && typeof params.revision === "number"
-					? { id: params.id, revision: params.revision }
-					: undefined;
-
-			switch (params.action) {
-				case "get":
-					return {
-						content: [{ type: "text", text: g ? JSON.stringify(g, null, 2) : "No goal" }],
-					};
-
-				case "create": {
-					if (!params.objective?.trim()) {
-						return { content: [{ type: "text", text: "Error: objective required for create" }] };
-					}
-					if (fold.goal && fold.goal.phase !== "complete") {
-						return {
-							content: [{ type: "text", text: `Error: a goal is already active: ${fold.goal.objective}` }],
-						};
-					}
-					const maxRounds = Math.min(
-						Math.max(1, Math.floor(params.maxRounds ?? DEFAULT_MAX_ROUNDS)),
-						HARD_ROUND_CAP,
-					);
-					const created: GoalSnapshot = {
-						id: newGoalId(),
-						revision: 1,
-						objective: params.objective.trim(),
-						phase: "active",
-						maxRounds,
-					};
-					appendChange(pi, "create", created);
-					// The initial armed turn counts as round 1 (event-derived like
-					// every continuation, so the fold stays strict).
-					appendRound(pi, created, 1);
-					armed = true;
-					return {
-						content: [
-							{
-								type: "text",
-								text: `Goal created and armed: ${params.objective.trim()} (max ${maxRounds} rounds). Work toward it; the session continues automatically while it is active.`,
-							},
-						],
-					};
-				}
-
-				case "edit":
-				case "pause":
-				case "resume":
-				case "complete":
-				case "block": {
-					if (!cas) {
-						return { content: [{ type: "text", text: "Error: id and revision required for mutations (call get first)" }] };
-					}
-					const current = fold.goal;
-					if (!current) return { content: [{ type: "text", text: "Error: no goal to mutate" }] };
-					if (current.id !== cas.id || current.revision !== cas.revision) {
-						return {
-							content: [{ type: "text", text: `Error: goal was modified since your last read. Call goal(get) to get the current state, then retry your mutation with the id and revision from that response. Current: rev ${current.revision} (${current.id})` }],
-						};
-					}
-
-					if (params.action === "edit") {
-						const objective = params.objective?.trim();
-						const maxRounds = params.maxRounds !== undefined
-							? Math.min(Math.max(1, Math.floor(params.maxRounds)), HARD_ROUND_CAP)
-							: undefined;
-						if (!objective && maxRounds === undefined) {
-							return { content: [{ type: "text", text: "Error: edit needs objective and/or maxRounds" }] };
-						}
-						appendChange(pi, "edit", nextRevision(current, {
-							...(objective ? { objective } : {}),
-							...(maxRounds !== undefined ? { maxRounds } : {}),
-						}));
-						return { content: [{ type: "text", text: `Goal updated: ${view()?.objective}` }] };
-					}
-
-					if (params.action === "pause") {
-						appendChange(pi, "pause", nextRevision(current, { phase: "paused" }));
-						return { content: [{ type: "text", text: `Goal paused: ${current.objective}` }] };
-					}
-
-					if (params.action === "resume") {
-						if (current.phase !== "paused" && current.phase !== "blocked") {
-							return { content: [{ type: "text", text: "Error: only paused or blocked goals can resume" }] };
-						}
-						appendChange(pi, "resume", nextRevision(current, { phase: "active" }));
-						armed = true;
-						return { content: [{ type: "text", text: `Goal resumed and armed: ${current.objective}` }] };
-					}
-
-					if (params.action === "complete") {
-						appendChange(pi, "complete", nextRevision(current, { phase: "complete" }));
-						armed = false;
-						return { content: [{ type: "text", text: `Goal completed: ${current.objective}` }] };
-					}
-
-					// block
-					const reason = params.reason?.trim();
-					if (!reason) {
-						return { content: [{ type: "text", text: "Error: concrete blocking condition required for block" }] };
-					}
-					if (fold.roundsStarted < BLOCKED_AFTER_ROUNDS) {
-						return {
-							content: [
-								{
-									type: "text",
-									text: `Error: blocked requires at least ${BLOCKED_AFTER_ROUNDS} rounds; current round is ${fold.roundsStarted}. Keep working or re-check the blocker.`,
-								},
-							],
-						};
-					}
-					appendChange(pi, "block", nextRevision(current, {
-						phase: "blocked",
-						blockedReason: { code: "model-reported", message: reason },
-					}));
-					armed = false;
-					return {
-						content: [
-							{ type: "text", text: `Goal blocked (${reason}): ${current.objective}. Human review needed.` },
-						],
-					};
-				}
-
-				case "clear": {
-					if (!fold.goal) return { content: [{ type: "text", text: "Error: no goal to clear" }] };
-					appendChange(pi, "clear", null);
-					armed = false;
-					return { content: [{ type: "text", text: "Goal cleared" }] };
-				}
-			}
 		},
 
 		renderCall(args, theme) {
