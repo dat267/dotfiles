@@ -1,8 +1,11 @@
 # User-level global install location: `npm i -g` installs into ~/.local
 # (binaries in ~/.local/bin, already on PATH via dot_profile) instead of
 # /usr/lib/node_modules, which needs root (EACCES on system npm).
-# npm expands ${HOME} in config values.
+{{- if eq .chezmoi.os "windows" -}}
+prefix={{ .chezmoi.homeDir }}/.local
+{{- else -}}
 prefix=${HOME}/.local
+{{- end -}}
 
 # Retained from the pre-existing ~/.npmrc: allow installing deps from any git host.
 allow-git=all
