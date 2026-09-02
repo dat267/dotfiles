@@ -6,7 +6,8 @@
  *
  * Auth: ~/.pi/agent/auth.json (provider id "hyper") or HYPER_API_KEY env var.
  *
- * Trimmed to actively useful models.
+ * Trimmed to actively useful models; fetchModels overlays the live /v1/models
+ * catalog so "refresh models" keeps the dynamic set current.
  */
 
 import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
@@ -191,6 +192,64 @@ export function registerCharmHyper(pi: ExtensionAPI) {
 		baseUrl: BASE_URL,
 		auth: { apiKey: envApiKeyAuth("Hyper API key", ["HYPER_API_KEY"]) },
 		models: MODELS,
+		fetchModels: async (context) => {
+			const key = context.credential?.type === "api_key" ? context.credential.key : undefined;
+			if (!key || !context.allowNetwork) return [];
+			const res = await fetch(`${BASE_URL}/models`, {
+				headers: { Authorization: `Bearer ${key}` },
+				signal: context.signal,
+			});
+			if (!res.ok) {
+				throw new Error(`hyper /models HTTP ${res.status}`);
+			}
+			const body = (await res.json()) as {
+				data?: {
+					id?: string;
+					display_name?: string;
+					context_window?: number;
+					max_output_tokens?: number;
+					reasoning?: {
+						effort_levels?: { value?: string }[];
+				} | null;
+					pricing?: {
+						input?: number;
+						output?: number;
+						cache_create?: number;
+						cache_hit?: number;
+					} | null;
+				}[];
+			};
+			return (body.data ?? [])
+				.filter((m) => m.id)
+				.map((m): Model<typeof API> => {
+					const reasoning = (m.reasoning?.effort_levels ?? []).length > 0;
+					const levels = (m.reasoning?.effort_levels ?? [])
+						.map((l) => l.value)
+						.filter((v): v is string => !!v);
+					const thinkingLevelMap = {
+						off: null, minimal: null, low: null, medium: null,
+						high: levels.includes("high") ? "high" : null,
+						xhigh: levels.includes("xhigh") ? "xhigh" : null,
+						max: levels.includes("max") ? "max" : null,
+					};
+					return {
+						id: m.id!, name: m.display_name ?? m.id!, api: API,
+						provider: PROVIDER_ID, baseUrl: BASE_URL,
+						reasoning,
+						thinkingLevelMap,
+						input: ["text"],
+						cost: {
+							input: m.pricing?.input ?? 0,
+							output: m.pricing?.output ?? 0,
+							cacheRead: m.pricing?.cache_hit ?? 0,
+							cacheWrite: m.pricing?.cache_create ?? 0,
+						},
+						contextWindow: m.context_window ?? 1_000_000,
+						maxTokens: m.max_output_tokens ?? 128_000,
+						compat: reasoning ? COMPAT_REASONING : COMPAT_NOREASON,
+					};
+				});
+		},
 		api: openAICompletionsApi(),
 	});
 
