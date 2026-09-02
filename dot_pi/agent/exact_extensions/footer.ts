@@ -6,7 +6,6 @@
  * Cache hit rate is tracked at turn_end (not walked per-frame).
  */
 
-import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { basename } from "node:path";
@@ -67,9 +66,9 @@ export default function (pi: ExtensionAPI) {
 					}
 					parts.push(contextDisplay);
 					if (ctx.model?.id) {
-						parts.push(truncateToWidth(ctx.model.id, 25));
+						parts.push(truncate(ctx.model.id, 25));
 					}
-					parts.push(truncateToWidth(basename(ctx.sessionManager.getCwd()), 25));
+					parts.push(truncate(basename(ctx.sessionManager.getCwd()), 25));
 					const line = theme.fg("dim", parts.join(" · "));
 					return [line];
 				},
@@ -83,4 +82,8 @@ function formatTokens(count: number): string {
 	if (count < 10_000) return `${(count / 1000).toFixed(1)}k`;
 	if (count < 1_000_000) return `${(count / 1000).toFixed(0)}k`;
 	return `${Math.round(count / 1_000_000)}M`;
+}
+
+function truncate(text: string, max: number): string {
+	return text.length > max ? `${text.slice(0, max - 3)}...` : text;
 }
