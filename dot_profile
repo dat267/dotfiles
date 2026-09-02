@@ -455,7 +455,13 @@ elif command -v ssh-agent >/dev/null 2>&1; then
 		# Socket exists — check if the agent is still alive.
 		# ssh-add -l exits 0 (has keys) or 1 (empty, alive);
 		# any other exit means the socket is stale (dead agent).
-		SSH_AUTH_SOCK="$agent_sock" timeout 1 ssh-add -l >/dev/null 2>&1
+		# Connecting to a dead Unix socket returns ECONNREFUSED
+		# instantly, so timeout is only a safety net.
+		if command -v timeout >/dev/null 2>&1; then
+			SSH_AUTH_SOCK="$agent_sock" timeout 1 ssh-add -l >/dev/null 2>&1
+		else
+			SSH_AUTH_SOCK="$agent_sock" ssh-add -l >/dev/null 2>&1
+		fi
 		rc=$?
 		if [ $rc -ne 0 ] && [ $rc -ne 1 ]; then
 			rm -f "$agent_sock"
@@ -463,7 +469,7 @@ elif command -v ssh-agent >/dev/null 2>&1; then
 	fi
 	if [ ! -S "$agent_sock" ]; then
 		mkdir -p "$HOME/.ssh"
-		ssh-agent -a "$agent_sock" >/dev/null 2>&1
+		eval "$(ssh-agent -a "$agent_sock" 2>/dev/null)"
 	fi
 	export SSH_AUTH_SOCK="$agent_sock"
 fi
