@@ -34,6 +34,17 @@ Prefixes can stack (`private_executable_`, `executable_dot_`, `private_dot_`).
 chezmoi diff          # verify before applying
 chezmoi apply --force <target-path>  # full apply may fail on mimeapps.list TTY conflict
 python3 script.py --help   # verify new CLI scripts parse
+
+## Chezmoi Source
+
+Clone the chezmoi repo to discover available features:
+
+```sh
+git clone --depth 1 https://github.com/twpayne/chezmoi.git /tmp/chezmoi
+grep -r "feature-name" /tmp/chezmoi --include="*.go"
+```
+
+Key areas: `internal/chezmoi/` for core mechanics (source state, file attributes, templates), `internal/cmd/` for commands and template functions. The repo is the authoritative reference — AGENTS.md only documents patterns used in this dotfiles repo.
 ```
 
 ## Python Scripts
