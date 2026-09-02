@@ -1,22 +1,22 @@
 chezmoi:modify-template
 {{- $current := fromJson (.chezmoi.stdin | default "{}") }}
-{{- setValueAtPath "tuiMode" "fullscreen" $current }}
-{{- setValueAtPath "fullscreenExitOutput" "resume-hint" $current }}
-{{- setValueAtPath "hideThinkingBlock" true $current }}
-{{- setValueAtPath "skills" (list "~/.pi/agent/skills") $current }}
-{{- setValueAtPath "defaultProvider" "charm-hyper" $current }}
-{{- setValueAtPath "defaultModel" "deepseek-v4-flash" $current }}
-{{- setValueAtPath "defaultThinkingLevel" "minimal" $current }}
-{{- setValueAtPath "showCacheMissNotices" false $current }}
-{{- setValueAtPath "theme" "dark" $current }}
-{{- setValueAtPath "steeringMode" "one-at-a-time" $current }}
-{{- setValueAtPath "transport" "auto" $current }}
-{{- setValueAtPath "markdown.mermaid" "streaming" $current }}
-{{- setValueAtPath "defaultProjectTrust" "ask" $current }}
-{{- setValueAtPath "doubleEscapeAction" "none" $current }}
-{{- setValueAtPath "fullscreenScrollbar" "auto" $current }}
-{{- setValueAtPath "outputPad" 1 $current }}
-{{- setValueAtPath "compaction.enabled" true $current }}
-{{- setValueAtPath "compaction.reserveTokens" 8192 $current }}
-{{- setValueAtPath "compaction.keepRecentTokens" 10000 $current }}
+{{- $_ := setValueAtPath "tuiMode" "fullscreen" $current }}
+{{- $_ := setValueAtPath "fullscreenExitOutput" "resume-hint" $current }}
+{{- $_ := setValueAtPath "hideThinkingBlock" true $current }}
+{{- $_ := setValueAtPath "skills" (list "~/.pi/agent/skills") $current }}
+{{- $_ := setValueAtPath "defaultProvider" "charm-hyper" $current }}
+{{- $_ := setValueAtPath "defaultModel" "deepseek-v4-flash" $current }}
+{{- $_ := setValueAtPath "defaultThinkingLevel" "minimal" $current }}
+{{- $_ := setValueAtPath "showCacheMissNotices" false $current }}
+{{- $_ := setValueAtPath "theme" "dark" $current }}
+{{- $_ := setValueAtPath "steeringMode" "one-at-a-time" $current }}
+{{- $_ := setValueAtPath "transport" "auto" $current }}
+{{- $_ := setValueAtPath "markdown.mermaid" "streaming" $current }}
+{{- $_ := setValueAtPath "defaultProjectTrust" "ask" $current }}
+{{- $_ := setValueAtPath "doubleEscapeAction" "none" $current }}
+{{- $_ := setValueAtPath "fullscreenScrollbar" "auto" $current }}
+{{- $_ := setValueAtPath "outputPad" 1 $current }}
+{{- $_ := setValueAtPath "compaction.enabled" true $current }}
+{{- $_ := setValueAtPath "compaction.reserveTokens" 8192 $current }}
+{{- $_ := setValueAtPath "compaction.keepRecentTokens" 10000 $current }}
 {{ toPrettyJson $current }}
