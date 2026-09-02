@@ -7,7 +7,7 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "defaultProvider" "charm-hyper" $current }}
 {{- $_ := setValueAtPath "defaultModel" "deepseek-v4-flash" $current }}
 {{- $_ := setValueAtPath "defaultThinkingLevel" "minimal" $current }}
-{{- $_ := setValueAtPath "showCacheMissNotices" false $current }}
+{{- $_ := setValueAtPath "showCacheMissNotices" true $current }}
 {{- $_ := setValueAtPath "theme" "dark" $current }}
 {{- $_ := setValueAtPath "steeringMode" "one-at-a-time" $current }}
 {{- $_ := setValueAtPath "transport" "auto" $current }}
