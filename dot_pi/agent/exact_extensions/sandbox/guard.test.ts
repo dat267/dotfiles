@@ -23,6 +23,7 @@ test("workspace targets pass", () => {
 test("allowlist targets pass", () => {
 	assert.equal(inspectPath("/tmp/out.txt", WS, ALLOW), null);
 	assert.equal(inspectPath("/dev/null", WS, ALLOW), null);
+	assert.equal(inspectPath("/home/dat/go/bin/x", WS, ALLOW), null);
 });
 
 test("pi module path and run dir are blocked (write escapes removed)", () => {

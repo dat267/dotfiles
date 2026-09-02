@@ -68,7 +68,7 @@ export function inspectPath(
 	return null;
 }
 
-/** Build the allowlist: workspace, /tmp, devices, per-user caches. */
+/** Build the allowlist: workspace, /tmp, devices, caches, GOPATH. */
 export function defaultAllowlist(workspace: string): string[] {
 	const list = [
 		workspace,
@@ -77,6 +77,7 @@ export function defaultAllowlist(workspace: string): string[] {
 		"/proc",
 		"/sys",
 		"/var/tmp",
+		homedir() + "/go", // GOPATH: module cache + go install binaries
 		homedir() + "/.cache",
 		homedir() + "/.npm",
 		homedir() + "/.cargo",
