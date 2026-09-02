@@ -18,7 +18,6 @@
   "defaultProjectTrust": "ask",
   "doubleEscapeAction": "none",
   "fullscreenScrollbar": "auto",
-  "version": "0.84.4",
   "outputPad": 1,
   "compaction": {
     "enabled": true,
