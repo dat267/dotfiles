@@ -1,9 +1,9 @@
 {
-	"name": "pi-extension-todo",
+	"name": "pi-extension-goal-x",
 	"private": true,
 	"version": "1.0.0",
 	"type": "module",
 	"pi": {
-		"extensions": ["./index.ts"]
+		"extensions": ["./goal.ts"]
 	}
 }
