@@ -6,7 +6,7 @@
  *
  * Auth: ~/.pi/agent/auth.json (provider id "hyper") or HYPER_API_KEY env var.
  *
- * Trimmed to actively useful models (~50% of original).
+ * Trimmed to actively useful models.
  */
 
 import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
@@ -51,23 +51,6 @@ const MODELS: Model<typeof API>[] = [
 		compat: COMPAT_REASONING,
 	},
 	{
-		id: "deepseek-v4-flash-0731",
-		name: "DeepSeek V4 Flash (0731)",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: true,
-		thinkingLevelMap: {
-			off: null, minimal: null, low: null, medium: null,
-			high: "high", xhigh: "xhigh", max: null,
-		},
-		input: ["text"],
-		cost: { input: 0.44, output: 1.32, cacheRead: 0.044, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 384_000,
-		compat: COMPAT_REASONING,
-	},
-	{
 		id: "deepseek-v4-pro",
 		name: "DeepSeek V4 Pro",
 		api: API,
@@ -82,23 +65,6 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 0.8, output: 1.6, cacheRead: 0.16, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 384_000,
-		compat: COMPAT_REASONING,
-	},
-	{
-		id: "deepseek-v4-pro-0813",
-		name: "DeepSeek V4 Pro (0813)",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: true,
-		thinkingLevelMap: {
-			off: null, minimal: null, low: null, medium: null,
-			high: "high", xhigh: null, max: "max",
-		},
-		input: ["text"],
-		cost: { input: 0.8, output: 1.6, cacheRead: 0.16, cacheWrite: 0 },
-		contextWindow: 1_000_000,
-		maxTokens: 262_144,
 		compat: COMPAT_REASONING,
 	},
 	{
@@ -214,23 +180,6 @@ const MODELS: Model<typeof API>[] = [
 		cost: { input: 2, output: 6, cacheRead: 0.25, cacheWrite: 0 },
 		contextWindow: 1_000_000,
 		maxTokens: 65_536,
-		compat: COMPAT_REASONING,
-	},
-	{
-		id: "qwen3-next-80b-a3b-instruct",
-		name: "Qwen3 Next 80B A3B",
-		api: API,
-		provider: PROVIDER_ID,
-		baseUrl: BASE_URL,
-		reasoning: true,
-		thinkingLevelMap: {
-			off: null, minimal: null, low: null, medium: null,
-			high: "high", xhigh: null, max: null,
-		},
-		input: ["text"],
-		cost: { input: 0.5, output: 1.5, cacheRead: 0.1, cacheWrite: 0 },
-		contextWindow: 128_000,
-		maxTokens: 12_800,
 		compat: COMPAT_REASONING,
 	},
 ];
