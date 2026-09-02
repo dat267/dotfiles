@@ -1,13 +1,14 @@
 /**
  * Custom Footer — model, cache hit, context window.
  * All dimmed, single line, left-aligned.
- * Format: "CH97.4% 3%/1M model"
+ * Format: "CH97.4% 3%/1M model cwd"
  *
  * Cache hit rate is tracked at turn_end (not walked per-frame).
  */
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { basename } from "node:path";
 
 export default function (pi: ExtensionAPI) {
 	let latestCacheHitRate: number | undefined;
@@ -67,6 +68,7 @@ export default function (pi: ExtensionAPI) {
 					if (ctx.model?.id) {
 						parts.push(ctx.model.id);
 					}
+					parts.push(basename(ctx.sessionManager.getCwd()));
 					const line = theme.fg("dim", parts.join(" "));
 					return [line];
 				},
