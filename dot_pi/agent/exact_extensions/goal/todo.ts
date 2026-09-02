@@ -32,7 +32,7 @@ const TodoParams = Type.Object({
 	id: Type.Optional(Type.Number({ description: "Todo ID (for toggle)" })),
 });
 
-export function setupTodo(pi: ExtensionAPI): void {
+export function setupTodo(pi: ExtensionAPI): { isAllTodosDone: () => boolean; activeTodosCount: () => number } {
 	let todos: Todo[] = [];
 	let nextId = 1;
 	let widgetOn = false;
@@ -203,4 +203,8 @@ export function setupTodo(pi: ExtensionAPI): void {
 			else ctx.ui.setWidget(TODO_WIDGET, undefined);
 		},
 	});
+	return {
+		isAllTodosDone: () => todos.length > 0 && todos.every((t) => t.done),
+		activeTodosCount: () => todos.filter((t) => !t.done).length,
+	};
 }
