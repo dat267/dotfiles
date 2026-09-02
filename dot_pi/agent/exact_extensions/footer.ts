@@ -6,6 +6,7 @@
  * Cache hit rate is tracked at turn_end (not walked per-frame).
  */
 
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { basename } from "node:path";
@@ -70,7 +71,7 @@ export default function (pi: ExtensionAPI) {
 					}
 					parts.push(basename(ctx.sessionManager.getCwd()));
 					const line = theme.fg("dim", parts.join(" "));
-					return [line];
+					return [truncateToWidth(line, 80)];
 				},
 			};
 		});
