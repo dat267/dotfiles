@@ -67,11 +67,11 @@ export default function (pi: ExtensionAPI) {
 					}
 					parts.push(contextDisplay);
 					if (ctx.model?.id) {
-						parts.push(ctx.model.id);
+						parts.push(truncateToWidth(ctx.model.id, 25));
 					}
-					parts.push(basename(ctx.sessionManager.getCwd()));
+					parts.push(truncateToWidth(basename(ctx.sessionManager.getCwd()), 25));
 					const line = theme.fg("dim", parts.join(" · "));
-					return [truncateToWidth(line, 80)];
+					return [line];
 				},
 			};
 		});
