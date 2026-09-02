@@ -73,7 +73,7 @@ Scripts under `dot_local/scripts/py/` (standard library only; see its `AGENTS.md
 | Workspace (`chezmoi source directory`) | All edits, writes, new files go here |
 | `/tmp`, `/var/tmp` | Scratch files, test artifacts |
 | `/dev`, `/proc`, `/sys` | Device access, process info |
-| `~/.cache`, `~/.npm`, `~/.cargo`, `~/go` | Per-user caches |
+| `~/.cache`, `~/.npm`, `~/.cargo` | Per-user caches |
 | Pi module path | Extension loading |
 
 ### What the agent CANNOT do
