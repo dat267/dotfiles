@@ -439,7 +439,7 @@ up() {
 	fi
 
 # --- SSH agent: use systemd ssh-agent (Linux) or OpenSSH ssh-agent (Termux) ---
-# On Linux, systemd socket-activates ssh-agent at /run/user/$UID/ssh-agent-$UID.sock.
+# On Linux, systemd socket-activates ssh-agent at /run/user/$UID/ssh-agent.socket.
 # On Termux/Android, use a plain OpenSSH ssh-agent on a fixed socket, reused
 # across shells. gpg-agent's SSH emulation is NOT used: gpg 2.5 re-protects
 # every ssh-added key through pinentry, which needs a TTY the daemon lacks,
@@ -447,8 +447,8 @@ up() {
 # OpenSSH's agent keeps keys in memory and needs no pinentry. Keys must be
 # added once per agent lifetime with `ssh-add ~/.ssh/id_ed25519` (or let
 # AddKeysToAgent yes add them on first successful auth).
-if [ -S "/run/user/$(id -u)/ssh-agent-$(id -u).sock" ]; then
-	export SSH_AUTH_SOCK="/run/user/$(id -u)/ssh-agent-$(id -u).sock"
+if [ -S "/run/user/$(id -u)/ssh-agent.socket" ]; then
+	export SSH_AUTH_SOCK="/run/user/$(id -u)/ssh-agent.socket"
 elif command -v ssh-agent >/dev/null 2>&1; then
 	agent_sock="$HOME/.ssh/ssh-agent.sock"
 	if [ -S "$agent_sock" ]; then

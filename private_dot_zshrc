@@ -137,10 +137,9 @@ zle -N zle-line-init
 bindkey '^?' backward-delete-char
 bindkey '^H' backward-delete-char
 
+
 # SSH agent is set up in ~/.profile (plain OpenSSH ssh-agent on Termux,
-# systemd ssh-agent on Linux). Do NOT override SSH_AUTH_SOCK here —
-# gpg-agent's SSH emulation is removed (gpg 2.5 needs pinentry, which
-# fails headless on Android).
+# systemd ssh-agent on Linux). Do NOT override SSH_AUTH_SOCK here.
 
 # pi Hyper Charm provider key: sourced from an untracked local file so the
 # provider works on fresh machines. Create it yourself (chmod 600):
