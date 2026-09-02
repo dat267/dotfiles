@@ -33,7 +33,7 @@ opt.undofile = true
 opt.swapfile = false
 opt.clipboard = "unnamedplus"
 
--- Explicit background avoids E1568 when terminal doesn't respond to DSR
+-- Explicit background (supplemented by NVIM_NOTTYFAST env var for E1568)
 opt.background = "dark"
 
 local autocmd = vim.api.nvim_create_autocmd
