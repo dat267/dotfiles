@@ -133,11 +133,11 @@ export function applyChange(
 		throw new Error(`operation ${operation} must produce phase ${expected}, got ${next.phase}`);
 	}
 
-	// A blocked goal must always carry its blocker reason.
-	if (next.phase === "blocked" && !next.blockedReason) {
-		throw new Error("blocked goal requires a blocker reason");
+	// A stopped goal (blocked or paused) must always carry its stop reason.
+	if ((next.phase === "blocked" || next.phase === "paused") && !next.blockedReason) {
+		throw new Error("stopped goal requires a blocker reason");
 	}
-	if (next.phase !== "blocked" && next.blockedReason && operation !== "resume") {
+	if (next.phase !== "blocked" && next.phase !== "paused" && next.blockedReason) {
 		throw new Error("blockedReason present on a non-blocked phase");
 	}
 

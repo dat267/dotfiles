@@ -97,7 +97,7 @@ function updateStatusBar(ctx: ExtensionContext) {
 	}
 	const phase = theme.fg(PHASE_COLOR[goal.phase], goal.phase);
 	const marker = goal.armed ? theme.fg("accent", " ▶") : "";
-	ctx.ui.setStatus(CUSTOM_TYPE, `${phase}${marker} ${statusLine(goal)}`);
+	ctx.ui.setStatus(CUSTOM_TYPE, `${marker} ${theme.fg(PHASE_COLOR[goal.phase], statusLine(goal) ?? "")}`.trimStart());
 	if (!bannerEnabled) {
 		ctx.ui.setWidget(CUSTOM_TYPE, undefined);
 		return;
@@ -125,7 +125,7 @@ function stopGoal(
 	const next = {
 		...goal,
 		phase,
-		blockedReason: phase === "blocked" ? reason : goal.phase === "blocked" ? goal.blockedReason : undefined,
+		blockedReason: reason,
 		revision: goal.revision + 1,
 		updatedAt: Date.now(),
 	};
@@ -373,7 +373,7 @@ export default function piGoal(pi: ExtensionAPI) {
 			}
 
 			if (params.action === "complete") {
-				const next = { ...goal, phase: "complete" as const, revision: goal.revision + 1, updatedAt: Date.now() };
+				const next = { ...goal, phase: "complete" as const, blockedReason: undefined, revision: goal.revision + 1, updatedAt: Date.now() };
 				armed = false;
 				pendingTurn = null;
 				mutate(pi, ctx, "complete", next);
@@ -462,6 +462,12 @@ export default function piGoal(pi: ExtensionAPI) {
 				mutate(pi, ctx, "resume", next);
 				refreshView();
 				emitEvent(pi, "resumed", "Goal resumed.");
+				// Surface an immediate budget gate instead of silently idling.
+				const stop = budgetStopReason(goal, ctx.getContextUsage());
+				if (stop) {
+					ctx.ui.notify(`Resumed, but ${stop.message}`, "warning");
+					return;
+				}
 				queueRound(pi, ctx);
 				return;
 			}
@@ -485,7 +491,7 @@ export default function piGoal(pi: ExtensionAPI) {
 			armed = true;
 			mutate(pi, ctx, "create", next);
 			refreshView();
-			emitEvent(pi, "resumed", `Goal set${tokenBudget ? ` (budget ${tokenBudget})` : " (until context limit)"}: ${truncateObjective(objective, 120)}`);
+			emitEvent(pi, "set", `Goal set${tokenBudget ? ` (budget ${tokenBudget})` : " (until context limit)"}: ${truncateObjective(objective, 120)}`);
 			queueRound(pi, ctx);
 		},
 	});

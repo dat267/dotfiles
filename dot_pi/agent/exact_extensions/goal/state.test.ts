@@ -36,7 +36,7 @@ test("create produces a revision-1 active goal", () => {
 
 test("fold replays lifecycle changes and turn entries", () => {
 	const g = createGoalState("obj", null, T0);
-	const paused = { ...g, phase: "paused", revision: 2, updatedAt: T0 + 100 };
+	const paused = { ...g, phase: "paused", blockedReason: { code: "human-paused", message: "m" }, revision: 2, updatedAt: T0 + 100 };
 	const resumed = { ...g, phase: "active", revision: 3, updatedAt: T0 + 200 };
 	const view = foldGoal([
 		change("create", g, T0),
@@ -80,7 +80,7 @@ test("fold rejects discontinuous revisions", () => {
 
 test("fold rejects illegal phase transitions", () => {
 	const g = createGoalState("obj", null, T0);
-	const paused = { ...g, phase: "paused", revision: 2, updatedAt: T0 + 100 };
+	const paused = { ...g, phase: "paused", blockedReason: { code: "human-paused", message: "m" }, revision: 2, updatedAt: T0 + 100 };
 	// paused -> paused is not a legal transition
 	assert.throws(
 		() => foldGoal([change("create", g, T0), change("pause", paused, T0 + 100), change("pause", { ...paused, revision: 3, updatedAt: T0 + 200 }, T0 + 200)]),
@@ -117,7 +117,7 @@ test("fold ignores turn entries from a previous goal", () => {
 
 test("fold rejects timestamp regression", () => {
 	const g = createGoalState("obj", null, T0);
-	const older = { ...g, phase: "paused", revision: 2, updatedAt: T0 - 1 };
+	const older = { ...g, phase: "paused", blockedReason: { code: "human-paused", message: "m" }, revision: 2, updatedAt: T0 - 1 };
 	assert.throws(
 		() => foldGoal([change("create", g, T0), change("pause", older, T0 - 1)]),
 		/regression/,
