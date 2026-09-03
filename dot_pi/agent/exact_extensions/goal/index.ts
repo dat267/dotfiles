@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { handleGoalCommand, type CommandApi } from "./command.ts";
+import { handleAgentEnd } from "./continuation.ts";
 import {
 	budgetStopReason,
 	createGoalState,
@@ -379,47 +380,32 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	pi.on("agent_end", (event, ctx) => {
-		lastKnownUsage = ctx.getContextUsage();
-		if (!goal) { pendingTurn = null; createdThisRun = false; return; }
+		const { state: newState, actions } = handleAgentEnd(
+			{ goal, armed, pendingTurn, createdThisRun, lastKnownUsage },
+			{
+				contextUsage: ctx.getContextUsage(),
+				aborted: !!ctx.signal?.aborted,
+				hasPendingMessages: ctx.hasPendingMessages(),
+			},
+		);
 
-		// Was this run a goal attempt (reserved or admitted)? Decides how
-		// cancellation is handled, per dsh: a cancelled attempt pauses the
-		// goal; unrelated cancellation only disarms continuation.
-		const wasGoalAttempt = pendingTurn !== null || createdThisRun;
+		// Update module-level state
+		goal = newState.goal;
+		armed = newState.armed;
+		pendingTurn = newState.pendingTurn;
+		createdThisRun = newState.createdThisRun;
+		lastKnownUsage = newState.lastKnownUsage;
 
-		// Admit the reserved turn, or the creating run when the goal was
-		// created mid-turn and finished without any continuation round.
-		if (wasGoalAttempt) {
-			admitTurn(pi, goal);
-			createdThisRun = false;
-		}
-
-		if (goal.phase !== "active") { updateStatusBar(ctx); return; }
-
-		// Cancellation: a cancelled goal attempt pauses so it cannot
-		// auto-restart; unrelated cancellation only disarms continuation.
-		if (ctx.signal?.aborted) {
-			if (wasGoalAttempt) {
-				stopGoal(pi, ctx, "paused", { code: "cancelled", message: "Goal round was cancelled." });
-			} else {
-				armed = false;
-				refreshView();
-				updateStatusBar(ctx);
+		// Apply side-effect actions
+		for (const action of actions) {
+			switch (action.type) {
+				case "admitTurn": admitTurn(pi, action.goal); break;
+				case "stopGoal": stopGoal(pi, ctx, action.phase, action.reason); break;
+				case "disarm": armed = false; refreshView(); updateStatusBar(ctx); break;
+				case "queueRound": queueRound(pi, ctx); break;
+				case "notify": ctx.ui.notify(action.message, action.level); break;
+				case "updateStatusBar": updateStatusBar(ctx); break;
 			}
-			return;
 		}
-
-		if (!armed || ctx.hasPendingMessages()) { updateStatusBar(ctx); return; }
-
-		// Cap gate: pause at the context cap (default 90%, before compaction).
-		const stop = budgetStopReason(goal, ctx.getContextUsage());
-		if (stop) {
-			stopGoal(pi, ctx, "paused", stop);
-			ctx.ui.notify(`Goal paused: ${stop.message} Resume with /goal resume.`, "warning");
-			return;
-		}
-
-		// Reserve the next round and queue the continuation prompt.
-		queueRound(pi, ctx);
 	});
 }
