@@ -397,7 +397,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("goal", {
-		description: "Set, view, pause, resume, or clear a goal; bare /goal toggles the editor banner",
+		description: "Manage the session goal — /goal toggles the banner",
 		getArgumentCompletions: (prefix: string) => {
 			const values = ["set", "status", "pause", "resume", "clear", "banner"];
 			return values.filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v }));
