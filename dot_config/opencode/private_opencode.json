@@ -38,7 +38,7 @@
       "**/passwd": "deny",
       "**/gshadow": "deny"
     },
-    "task": "allow",
+    "task": "deny",
     "webfetch": "allow",
     "websearch": "allow",
     "bash": {
