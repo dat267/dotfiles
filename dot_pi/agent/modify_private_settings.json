@@ -3,7 +3,6 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "tuiMode" "fullscreen" $current }}
 {{- $_ := setValueAtPath "fullscreenExitOutput" "resume-hint" $current }}
 {{- $_ := setValueAtPath "hideThinkingBlock" true $current }}
-{{- $_ := setValueAtPath "skills" (list "~/.pi/agent/skills") $current }}
 {{- $_ := setValueAtPath "defaultProvider" "hyper" $current }}
 {{- $_ := setValueAtPath "defaultModel" "deepseek-v4-flash" $current }}
 {{- $_ := setValueAtPath "defaultThinkingLevel" "minimal" $current }}
