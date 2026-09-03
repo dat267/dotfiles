@@ -40,11 +40,24 @@ const PHASE_COLOR: Record<GoalPhase, "success" | "warning" | "error" | "accent">
 function latestState(ctx: ExtensionContext): GoalView | null {
 	try {
 		const entries = ctx.sessionManager.getBranch();
-		return foldGoal(
+		const view = foldGoal(
 			entries
 				.filter((e) => e.type === "custom" && (e.customType === CUSTOM_TYPE || e.customType === TURN_TYPE))
 				.map((e) => ({ customType: (e as any).customType as string, data: (e as any).data })),
 		);
+		if (!view) return null;
+		// Attribute every assistant token emitted after goal creation to the
+		// goal. The session log is the authority — this stays correct across
+		// restarts and for goals that never had an admitted continuation round.
+		let tokens = 0;
+		for (const e of entries) {
+			if (e.type !== "message") continue;
+			const msg = (e as any).message;
+			if (msg?.role !== "assistant" || !msg.usage?.totalTokens) continue;
+			const ts = Date.parse((e as any).timestamp ?? "");
+			if (!Number.isNaN(ts) && ts >= view.createdAt) tokens += msg.usage.totalTokens;
+		}
+		return { ...view, tokensUsed: Math.max(tokens, view.tokensUsed) };
 	} catch (err) {
 		return null;
 	}
@@ -382,7 +395,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("goal", {
-		description: "Set, view, pause, resume, or clear a goal; /goal banner toggles the editor banner",
+		description: "Set, view, pause, resume, or clear a goal; bare /goal toggles the editor banner",
 		getArgumentCompletions: (prefix: string) => {
 			const values = ["set", "status", "pause", "resume", "clear", "banner"];
 			return values.filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v }));
@@ -391,10 +404,17 @@ export default function piGoal(pi: ExtensionAPI) {
 			const trimmed = args.trim();
 
 			if (!trimmed || trimmed === "status") {
+				if (!trimmed) {
+					// Bare /goal toggles the banner; /goal status shows status.
+					bannerEnabled = !bannerEnabled;
+					updateStatusBar(ctx);
+					ctx.ui.notify(`Goal banner ${bannerEnabled ? "shown" : "hidden"}.`, "info");
+					return;
+				}
 				ctx.ui.notify(
 					goal
-						? `${statusLine(goal)}\n${truncateObjective(goal.objective, 120)}\nBanner: ${bannerEnabled ? "on" : "off"} (/goal banner to toggle)`
-						: `No goal set. Use /goal set <objective>\nBanner: ${bannerEnabled ? "on" : "off"} (/goal banner to toggle)`,
+						? `${statusLine(goal)}\n${truncateObjective(goal.objective, 120)}\nBanner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`
+						: `No goal set. Use /goal set <objective>\nBanner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`,
 					"info",
 				);
 				return;
