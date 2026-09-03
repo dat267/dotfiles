@@ -147,7 +147,7 @@ export default function piGoal(pi: ExtensionAPI) {
 		promptGuidelines: ["Call get_goal before update_goal to copy the exact id and revision."],
 		parameters: { type: "object", properties: {}, additionalProperties: false } as any,
 		async execute() {
-			return { content: [{ type: "text", text: JSON.stringify(goal ? {
+			const value = goal ? {
 				goal: {
 					id: goal.id,
 					revision: goal.revision,
@@ -155,11 +155,14 @@ export default function piGoal(pi: ExtensionAPI) {
 					phase: goal.phase,
 					roundsStarted: goal.roundsStarted,
 					maxGoalRounds: goal.maxGoalRounds,
-					...goal.blockedReason ? { blockedReason: goal.blockedReason } : {},
+					...(goal.blockedReason ? { blockedReason: goal.blockedReason } : {}),
 				},
 				activation: goal.phase === "active" ? "armed" : "disarmed",
-			} : { goal: null }, null, 2) }],
-			details: { goal },
+			} : { goal: null };
+			return {
+				content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
+				details: { goal },
+			};
 		},
 	});
 
