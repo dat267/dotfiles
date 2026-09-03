@@ -4,7 +4,7 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { interceptToolCall, type InterceptorInput } from "./interceptor.ts";
+import { interceptToolCall, checkNonInteractive, promptNote, type InterceptorInput } from "./interceptor.ts";
 
 function makeInput(overrides: Partial<InterceptorInput> = {}): InterceptorInput {
 	return {
@@ -150,5 +150,67 @@ void describe("interceptToolCall", () => {
 		}));
 		assert.equal(r.action, "wrap");
 		assert.match(r.command, /'echo it'\\''s fine'/);
+	});
+});
+
+void describe("promptNote", () => {
+	void it("read mode includes mode name and final warning", () => {
+		const note = promptNote("read", "landlock", "/home/user/project");
+		assert.match(note, /mode: read/);
+		assert.match(note, /Read-only mode/);
+		assert.match(note, /cannot modify/);
+	});
+
+	void it("supervised mode includes the workspace path", () => {
+		const note = promptNote("supervised", "approval", "/home/user/project");
+		assert.match(note, /mode: supervised/);
+		assert.match(note, /\/home\/user\/project/);
+		assert.match(note, /prompts the user/);
+	});
+
+	void it("workspace mode mentions Landlock enforcement", () => {
+		const note = promptNote("workspace", "landlock", "/home/user/project");
+		assert.match(note, /mode: workspace/);
+		assert.match(note, /Landlock/);
+		assert.match(note, /kernel-level/);
+	});
+
+	void it("yolo mode warns sandbox is disabled", () => {
+		const note = promptNote("yolo", "approval", "/home/user/project");
+		assert.match(note, /DISABLED/);
+		assert.match(note, /yolo/);
+		assert.match(note, /re-enable/);
+	});
+
+	void it("includes shared boilerplate in non-yolo modes", () => {
+		const note = promptNote("supervised", "approval", "/home/user/project");
+		assert.match(note, /Workspace filesystem policy/);
+		assert.match(note, /Use \/tmp for scratch/);
+		assert.match(note, /Permission denied/);
+	});
+
+	void it("yolo mode omits shared boilerplate", () => {
+		const note = promptNote("yolo", "approval", "/home/user/project");
+		assert.doesNotMatch(note, /Workspace filesystem policy/);
+	});
+});
+
+void describe("checkNonInteractive", () => {
+	void it("returns null for tui mode", () => {
+		const r = checkNonInteractive("tui");
+		assert.equal(r, null);
+	});
+
+	void it("blocks for non-tui mode", () => {
+		const r = checkNonInteractive("headless");
+		assert.notEqual(r, null);
+		assert.equal(r!.block, true);
+		assert.match(r!.reason, /non-interactive/);
+	});
+
+	void it("blocks for rpc mode", () => {
+		const r = checkNonInteractive("rpc");
+		assert.notEqual(r, null);
+		assert.equal(r!.block, true);
 	});
 });

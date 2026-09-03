@@ -22,7 +22,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { interceptToolCall, type ActiveMode, type InterceptorInput, type ToolType } from "./interceptor.ts";
+import { interceptToolCall, promptNote, checkNonInteractive, blocked, type ActiveMode } from "./interceptor.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -70,47 +70,17 @@ function resolveMode(): SandboxMode {
 
 const MUTATOR_TOOLS = ["bash", "write", "edit", "powershell"] as const;
 
-/** System-prompt note, accurate for the active mode. */
-function promptNote(active: ActiveMode, sandbox: SandboxMode, workspace: string): string {
-	const shared =
-		`Workspace filesystem policy (sandbox extension, mode: ${active}):\n` +
-		`- The workspace (${workspace}) is writable; also /tmp, /var/tmp, /dev, /proc, /sys, per-user caches + Go (~/.cache, ~/.npm, ~/.cargo, ~/go).\n` +
-		`- Every other directory is read-only for writes. Reads are allowed everywhere.\n` +
-		`- Use /tmp for scratch files and test artifacts.\n` +
-		`- Deployments (chezmoi apply, extension installs/removals) are executed by the user in their own terminal, never by the agent. Stage changes inside the workspace and give the user the exact commands.\n` +
-		`- Common blocked paths: ~/.config/, ~/.ssh/, ~/.local/bin/, ~/.gnupg/, /etc/, /usr/, /opt/. These return Permission denied.`;
-	switch (active) {
-		case "read":
-			return shared + `\n- Read-only mode: bash, write, edit, and powershell calls are always blocked. You cannot modify anything.`;
-		case "supervised":
-			return shared + `\n- Supervised mode: every bash, write, and edit call prompts the user for approval before running.`;
-		case "workspace":
-			return shared + `\n- Enforcement: bash runs under a kernel-level Landlock gate (blocked writes return Permission denied from the OS); write and edit targets are checked in-process with symlink resolution.`;
-		case "yolo":
-			return `Workspace filesystem sandbox is DISABLED (yolo mode, /sandbox to re-enable). All filesystem writes are unrestricted.`;
-	}
-}
-
 /** Ask the user to allow a mutating call (supervised mode). */
 async function ask(
 	ctx: ExtensionContext,
 	label: string,
 	detail: string,
 ): Promise<{ block: true; reason: string; terminate: false } | null> {
-	if (ctx.mode !== "tui") {
-		return {
-			block: true,
-			reason: "sandbox: approval required, but this session is non-interactive",
-			terminate: false,
-		};
-	}
+	const b = checkNonInteractive(ctx.mode);
+	if (b) return b;
 	const allow = await ctx.ui.confirm("sandbox (supervised)", `${label}\n\n${detail}`);
 	if (allow === true) return null;
 	return { block: true, reason: "sandbox: declined by user", terminate: false };
-}
-
-function blocked(reason: string): { block: true; reason: string; terminate: false } {
-	return { block: true, reason, terminate: false };
 }
 
 export default function (pi: ExtensionAPI) {
@@ -136,7 +106,7 @@ export default function (pi: ExtensionAPI) {
 				);
 			}
 		}
-		return { systemPrompt: event.systemPrompt + "\n\n" + promptNote(active, sandbox, ctx.cwd) };
+		return { systemPrompt: event.systemPrompt + "\n\n" + promptNote(active, sandbox.mode, ctx.cwd) };
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
