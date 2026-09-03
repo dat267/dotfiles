@@ -2,7 +2,7 @@
  * Todo — session-persisted todo list, merged into the goal extension.
  *
  * Tool: todo — actions list | replace | toggle | clear
- * Command: /todos — toggle the todo widget
+ * Command: /todo — toggle the todo widget
  *
  * State is reconstructed from tool result details in session entries,
  * so branching works correctly.
@@ -195,7 +195,7 @@ export function setupTodo(pi: ExtensionAPI): { isAllTodosDone: () => boolean; ac
 		},
 	});
 
-	pi.registerCommand("todos", {
+	pi.registerCommand("todo", {
 		description: "Toggle the todo widget",
 		handler: async (_args, ctx) => {
 			widgetOn = !widgetOn;
