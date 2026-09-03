@@ -42,6 +42,7 @@ $global:__dotfiles_profile_loaded = $true
         $scriptResolvers = [ordered]@{
             '.py'  = 'python'
             '.js'  = 'node'
+            '.mjs' = 'node'
             '.lua' = 'lua'
         }
 
