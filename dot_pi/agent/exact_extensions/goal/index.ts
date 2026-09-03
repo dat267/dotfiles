@@ -1,5 +1,6 @@
-import type { ExtensionAPI, ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
-import { Box, Text } from "@earendil-works/pi-tui";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
+import { handleGoalCommand, type CommandApi } from "./command.ts";
 import {
 	budgetStopReason,
 	createGoalState,
@@ -10,10 +11,21 @@ import {
 	wrapupContext,
 	type GoalChangeEntry,
 	type GoalOperation,
-	type GoalPhase,
+	type GoalSnapshot,
 	type GoalTurnEntry,
 	type GoalView,
-} from "./state";
+} from "./state.ts";
+import {
+	PHASE_COLOR,
+	renderGoalChangeEntry,
+	renderGoalEventMessage,
+	renderGoalTurnEntry,
+	renderGetGoalRenderCall,
+	renderGetGoalRenderResult,
+	renderCreateGoalRenderCall,
+	renderUpdateGoalRenderCall,
+	renderUpdateGoalRenderResult,
+} from "./render.ts";
 
 const CUSTOM_TYPE = "pi-goal";
 const TURN_TYPE = "pi-goal-turn";
@@ -31,13 +43,6 @@ let bannerEnabled = false;
 let createdThisRun = false;
 /** Last observed context usage, for renderers that have no ctx. */
 let lastKnownUsage: { tokens: number | null; contextWindow: number } | undefined;
-
-const PHASE_COLOR: Record<GoalPhase, "success" | "warning" | "error" | "accent"> = {
-	active: "success",
-	paused: "warning",
-	blocked: "error",
-	complete: "accent",
-};
 
 function latestState(ctx: ExtensionContext): GoalView | null {
 	try {
@@ -140,86 +145,22 @@ function queueRound(pi: ExtensionAPI, ctx: ExtensionContext) {
 	);
 }
 
-// ── TUI helpers ───────────────────────────────────────────────────────────
-
-/** Strip the <goal_round>/<goal_complete>/<goal_blocked> wrapper tags for display. */
-function displayBody(content: string): string {
-	return content
-		.replace(/<\/?goal_(round|complete|blocked)>\n?/g, "")
-		.trim();
-}
-
-function goalCard(
-	theme: Theme,
-	{ label, body, phase, detail }: { label: string; body: string; phase?: GoalPhase; detail?: string[] },
-	expanded: boolean,
-): Box {
-	const box = new Box(1, 0, (t) => theme.bg("customMessageBg", t));
-	const coloredLabel = phase ? theme.fg(PHASE_COLOR[phase], label) : theme.fg("customMessageLabel", theme.bold(label));
-	box.addChild(new Text(`${coloredLabel}${detail ? theme.fg("dim", ` ${detail}`) : ""}`, 0, 0));
-	box.addChild(new Text(theme.fg("customMessageText", expanded ? body : truncateObjective(body, 80)), 0, 0));
-	return box;
-}
-
 export default function piGoal(pi: ExtensionAPI) {
 	// Continuation prompts and wrap-up notices (sent via sendMessage, in LLM context).
 	pi.registerMessageRenderer<Record<string, unknown>>(EVENT_TYPE, (message, { expanded }, theme) => {
 		const kind = (message.details as any)?.kind ?? "event";
 		const turn = (message.details as any)?.turn as number | undefined;
-		const labels: Record<string, string> = {
-			round: "Goal round",
-			paused: "Goal paused",
-			blocked: "Goal blocked",
-			complete: "Goal complete",
-			resumed: "Goal resumed",
-		};
-		return goalCard(
-			theme,
-			{
-				label: labels[kind] ?? "Goal",
-				body: displayBody(message.content),
-				phase: kind === "blocked" ? "blocked" : kind === "complete" ? "complete" : goal?.phase,
-				detail: kind === "round" && turn ? `#${turn}` : undefined,
-			},
-			expanded,
-		);
+		return renderGoalEventMessage(kind, message.content, turn, goal?.phase, theme, expanded);
 	});
 
 	// Durable lifecycle mutations (appendEntry) render as transcript cards.
 	pi.registerEntryRenderer<Record<string, unknown>>(CUSTOM_TYPE, (entry, { expanded }, theme) => {
-		const data = entry.data as GoalChangeEntry;
-		const opLabels: Record<GoalOperation, string> = {
-			create: "created",
-			edit: "edited",
-			pause: "paused",
-			resume: "resumed",
-			complete: "completed",
-			block: "blocked",
-			clear: "cleared",
-		};
-		const phase = data.goal?.phase ?? (data.operation === "clear" ? "complete" : undefined);
-		const body = data.goal
-			? `${data.goal.objective}${data.goal.blockedReason ? `\n${data.goal.blockedReason.code}: ${data.goal.blockedReason.message}` : ""}`
-			: "Goal cleared. Durable history remains in the session log.";
-		return goalCard(
-			theme,
-			{
-				label: `Goal ${opLabels[data.operation]}`,
-				body,
-				phase,
-				detail: data.goal ? `rev ${data.goal.revision}` : undefined,
-			},
-			expanded,
-		);
+		return renderGoalChangeEntry(entry.data as GoalChangeEntry, theme, expanded);
 	});
 
 	// Admitted goal rounds: one durable card per round.
 	pi.registerEntryRenderer<Record<string, unknown>>(TURN_TYPE, (entry, { expanded }, theme) => {
-		const data = entry.data as GoalTurnEntry;
-		const body = expanded
-			? `goal ${data.goalId} rev ${data.revision} · round ${data.turn}`
-			: `round ${data.turn}`;
-		return goalCard(theme, { label: "Goal round admitted", body, phase: "active" }, expanded);
+		return renderGoalTurnEntry(entry.data as GoalTurnEntry, theme, expanded);
 	});
 
 	pi.registerTool({
@@ -229,18 +170,10 @@ export default function piGoal(pi: ExtensionAPI) {
 		promptSnippet: "Read the current goal objective and state",
 		promptGuidelines: ["Call get_goal before update_goal to copy the exact id and revision."],
 		parameters: { type: "object", properties: {}, additionalProperties: false } as any,
-		renderCall: (_args, theme) => new Text(theme.fg("toolTitle", "Get goal"), 0, 0),
+		renderCall: (_args, theme) => renderGetGoalRenderCall(theme),
 		renderResult: (result, _options, theme) => {
-			const details = (result.details as { goal?: GoalView | null })?.goal;
-			if (!details) return new Text(theme.fg("muted", "No goal set"), 0, 0);
-			const pct = lastKnownUsage?.tokens != null
-				? `${Math.round((lastKnownUsage.tokens / lastKnownUsage.contextWindow) * 100)}%`
-				: "?";
-			return new Text(
-				theme.fg("toolTitle", `${details.phase} · rev ${details.revision} · ${details.turnsStarted} rounds · ctx ${pct}`),
-				0,
-				0,
-			);
+			const details = (result.details as { goal?: GoalView | null })?.goal ?? null;
+			return renderGetGoalRenderResult(details, lastKnownUsage, theme);
 		},
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			const usage = ctx.getContextUsage();
@@ -283,12 +216,7 @@ export default function piGoal(pi: ExtensionAPI) {
 			required: ["objective"],
 			additionalProperties: false,
 		} as any,
-		renderCall: (args, theme) =>
-			new Text(
-				theme.fg("toolTitle", `Create goal: ${truncateObjective(String(args?.objective ?? ""), 60)} · cap ${args?.context_cap ?? 90}% of context`),
-				0,
-				0,
-			),
+		renderCall: (args, theme) => renderCreateGoalRenderCall(args as Record<string, unknown> | undefined, theme),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
 			if (!objective) return { content: [{ type: "text", text: "objective is required." }], isError: true };
@@ -331,16 +259,8 @@ export default function piGoal(pi: ExtensionAPI) {
 			required: ["goal_id", "revision", "action"],
 			additionalProperties: false,
 		} as any,
-		renderCall: (args, theme) => {
-			return new Text(
-				theme.fg("toolTitle", `Goal ${args?.action ?? "?"}`) +
-					(args?.blocked_reason ? theme.fg("dim", `: ${truncateObjective(String(args.blocked_reason), 60)}`) : ""),
-				0,
-				0,
-			);
-		},
-		renderResult: (result, _options, theme) =>
-			new Text(theme.fg(result.isError ? "error" : "toolOutput", result.content[0]?.type === "text" ? result.content[0].text : ""), 0, 0),
+		renderCall: (args, theme) => renderUpdateGoalRenderCall(args as Record<string, unknown> | undefined, theme),
+		renderResult: (result, _options, theme) => renderUpdateGoalRenderResult(result as any, theme),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			if (!goal) return { content: [{ type: "text", text: "No goal is set." }], isError: true };
 			if (params.goal_id !== goal.id || params.revision !== goal.revision) {
@@ -384,95 +304,26 @@ export default function piGoal(pi: ExtensionAPI) {
 			return values.filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v }));
 		},
 		handler: async (args: string, ctx: ExtensionContext) => {
-			const trimmed = args.trim();
-
-			if (!trimmed || trimmed === "status") {
-				if (!trimmed) {
-					// Bare /goal toggles the banner; /goal status shows status.
-					bannerEnabled = !bannerEnabled;
-					updateStatusBar(ctx);
-					ctx.ui.notify(`Goal banner ${bannerEnabled ? "shown" : "hidden"}.`, "info");
-					return;
-				}
-				ctx.ui.notify(
-					goal
-						? `${statusLine(goal, ctx.getContextUsage())}\n${truncateObjective(goal.objective, 120)}\nBanner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`
-						: `No goal set. Use /goal set <objective>\nBanner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`,
-					"info",
-				);
-				return;
-			}
-
-			if (trimmed === "banner") {
-				bannerEnabled = !bannerEnabled;
-				updateStatusBar(ctx);
-				ctx.ui.notify(`Goal banner ${bannerEnabled ? "shown" : "hidden"}.`, "info");
-				return;
-			}
-
-			if (trimmed === "clear") {
-				if (!goal) { ctx.ui.notify("No goal is set.", "info"); return; }
-				mutate(pi, ctx, "clear", null, { id: goal.id, revision: goal.revision });
-				return;
-			}
-
-			if (trimmed === "pause") {
-				if (!goal || goal.phase !== "active") { ctx.ui.notify("No active goal.", "warning"); return; }
-				armed = false;
-				stopGoal(pi, ctx, "paused", { code: "human-paused", message: "Paused by user." });
-				return;
-			}
-
-			if (trimmed === "resume") {
-				// dsh rule: resume accepts a stopped phase or a disarmed active
-				// goal; an active armed goal rejects the redundant operation.
-				if (!goal || (goal.phase === "active" && goal.armed)) {
-					ctx.ui.notify("No stopped goal to resume.", "warning");
-					return;
-				}
-				const next = { ...goal, phase: "active" as const, blockedReason: undefined, revision: goal.revision + 1, updatedAt: Date.now() };
-				armed = true;
-				pendingTurn = null;
-				mutate(pi, ctx, "resume", next);
-				refreshView();
-				// Surface an immediate cap gate instead of silently idling.
-				const gate = budgetStopReason(goal, ctx.getContextUsage());
-				if (gate) {
-					ctx.ui.notify(`Resumed, but ${gate.message}`, "warning");
-					return;
-				}
-				queueRound(pi, ctx);
-				return;
-			}
-
-			// Creation requires the explicit "set" verb — any other unknown
-			// word is a typo, not an objective (e.g. "/goal view", "/goal cleared").
-			if (!trimmed.startsWith("set ")) {
-				ctx.ui.notify(
-					`Unknown subcommand "${truncateObjective(trimmed, 20)}". Use /goal set <objective>, /goal status, pause, resume, clear, or bare /goal to toggle the banner.`,
-					"warning",
-				);
-				return;
-			}
-			let objective = trimmed.slice(4);
-			let contextCap: number | null = null;
-			const capMatch = objective.match(/\s--cap\s+(\d{1,3})\s*%?/);
-			if (capMatch) {
-				const pct = parseInt(capMatch[1], 10);
-				if (pct < 1 || pct > 100) { ctx.ui.notify("Cap must be 1-100 percent.", "warning"); return; }
-				contextCap = pct / 100;
-				objective = objective.replace(capMatch[0], "").trim();
-			}
-			if (!objective) { ctx.ui.notify("Usage: /goal set [--cap 60] <objective>", "warning"); return; }
-			if (goal && goal.phase !== "complete") {
-				ctx.ui.notify("An unfinished goal exists. /goal clear first (or /goal edit once implemented).", "warning");
-				return;
-			}
-			const next = createGoalState(objective, contextCap);
-			armed = true;
-			mutate(pi, ctx, "create", next);
-			refreshView();
-			queueRound(pi, ctx);
+			const api: CommandApi = {
+				get goal() { return goal; },
+				set goal(v: any) { goal = v; },
+				get armed() { return armed; },
+				set armed(v: boolean) { armed = v; },
+				get bannerEnabled() { return bannerEnabled; },
+				set bannerEnabled(v: boolean) { bannerEnabled = v; },
+				get pendingTurn() { return pendingTurn; },
+				set pendingTurn(v: number | null) { pendingTurn = v; },
+				get createdThisRun() { return createdThisRun; },
+				set createdThisRun(v: boolean) { createdThisRun = v; },
+				mutate: (op: string, next: any, cleared?: any) => (mutate as any)(pi, ctx, op, next, cleared),
+				stopGoal: (phase: any, reason: any) => stopGoal(pi, ctx, phase, reason),
+				queueRound: () => queueRound(pi, ctx),
+				refreshView: () => refreshView(),
+				updateStatusBar: () => updateStatusBar(ctx),
+				notify: (msg: string, level: any) => ctx.ui.notify(msg, level),
+				getContextUsage: () => ctx.getContextUsage(),
+			};
+			handleGoalCommand(args, pi, ctx, api);
 		},
 	});
 

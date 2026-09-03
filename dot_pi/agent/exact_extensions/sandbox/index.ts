@@ -22,7 +22,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { defaultAllowlist, inspectPath } from "./guard.ts";
+import { interceptToolCall, type ActiveMode, type InterceptorInput, type ToolType } from "./interceptor.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -38,8 +38,6 @@ type SandboxMode =
 	| { mode: "approval"; detail: string };
 
 type ActiveMode = "read" | "supervised" | "workspace" | "yolo";
-
-const MUTATOR_TOOLS = ["bash", "write", "edit", "powershell"] as const;
 
 /** Compile the Landlock gate once, then probe the kernel. */
 function resolveMode(): SandboxMode {
@@ -70,10 +68,7 @@ function resolveMode(): SandboxMode {
 	}
 }
 
-/** Single-quote a shell argument ('…' escaping). */
-function shq(s: string): string {
-	return "'" + s.replace(/'/g, `'\\''`) + "'";
-}
+const MUTATOR_TOOLS = ["bash", "write", "edit", "powershell"] as const;
 
 /** System-prompt note, accurate for the active mode. */
 function promptNote(active: ActiveMode, sandbox: SandboxMode, workspace: string): string {
@@ -145,64 +140,36 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
-		const isBash = isToolCallEventType("bash", event);
-		const isPowerShell = isToolCallEventType("powershell", event);
-		const isWrite = isToolCallEventType("write", event);
-		const isEdit = isToolCallEventType("edit", event);
-		const isMutator = isBash || isPowerShell || isWrite || isEdit;
-		const workspace = ctx.cwd;
-		const allowlist = defaultAllowlist(workspace);
+		const toolType: ToolType = isToolCallEventType("bash", event) ? "bash"
+			: isToolCallEventType("powershell", event) ? "powershell"
+			: isToolCallEventType("write", event) ? "write"
+			: isToolCallEventType("edit", event) ? "edit"
+			: "other";
 
-		switch (active) {
-			case "yolo":
-				return;
+		const result = interceptToolCall({
+			active,
+			sandboxMode: sandbox.mode === "landlock" ? "landlock" : "approval",
+			sandboxBin: sandbox.mode === "landlock" ? sandbox.bin : "",
+			workspace: ctx.cwd,
+			toolType,
+			command: event.input.command ?? "",
+			path: event.input.path ?? "",
+		});
 
-			case "read":
-				if (isMutator) {
-					return blocked("sandbox: read-only mode — bash/write/edit are disabled");
-				}
+		switch (result.action) {
+			case "block":
+				return blocked(result.reason);
+			case "pass":
 				return;
-
-			case "supervised":
-				if (isBash || isPowerShell) {
-					const denied = await ask(ctx, "run this command?", event.input.command);
-					if (denied) return denied;
-					return;
-				}
-				if (isWrite || isEdit) {
-					const denied = await ask(ctx, isWrite ? "write to this path?" : "edit this path?", event.input.path);
-					if (denied) return denied;
-					return;
-				}
+			case "wrap":
+				event.input.command = result.command;
 				return;
-
-			case "workspace":
-				if (sandbox.mode !== "landlock") {
-					// Fallback if the user selected workspace without Landlock.
-					const denied = await ask(ctx, "run this command? (workspace needs Landlock; supervised fallback)", isBash ? event.input.command : event.input.path);
-					if (denied) return denied;
-					return;
-				}
-				if (isPowerShell) {
-					const denied = await ask(ctx, "run this command? (powershell not gated by Landlock on Linux)", event.input.command);
-					if (denied) return denied;
-					return;
-				}
-				if (isBash) {
-					const parts = [sandbox.bin, "--ws", workspace];
-					for (const allow of allowlist) {
-						if (allow !== workspace) parts.push("--allow", allow);
-					}
-					parts.push("--", "bash", "-c", event.input.command);
-					event.input.command = parts.map(shq).join(" ");
-					return;
-				}
-				if (isWrite || isEdit) {
-					const reason = inspectPath(event.input.path, workspace, allowlist);
-					if (reason) return blocked(reason);
-					return;
-				}
+			case "ask": {
+				const detail = toolType === "bash" || toolType === "powershell" ? event.input.command : event.input.path;
+				const denied = await ask(ctx, result.prompt, detail);
+				if (denied) return denied;
 				return;
+			}
 		}
 	});
 

@@ -1,0 +1,154 @@
+/**
+ * Tests for sandbox/interceptor.ts — pure dispatch logic.
+ */
+
+import { describe, it } from "node:test";
+import * as assert from "node:assert/strict";
+import { interceptToolCall, type InterceptorInput } from "./interceptor.ts";
+
+function makeInput(overrides: Partial<InterceptorInput> = {}): InterceptorInput {
+	return {
+		active: "yolo",
+		sandboxMode: "landlock",
+		sandboxBin: "/path/to/gate",
+		workspace: "/home/user/project",
+		toolType: "bash",
+		command: "echo hi",
+		path: "",
+		...overrides,
+	};
+}
+
+void describe("interceptToolCall", () => {
+	void it("yolo mode passes everything through", () => {
+		const r = interceptToolCall(makeInput({ active: "yolo", toolType: "bash" }));
+		assert.equal(r.action, "pass");
+	});
+
+	void it("yolo mode passes write through", () => {
+		const r = interceptToolCall(makeInput({ active: "yolo", toolType: "write" }));
+		assert.equal(r.action, "pass");
+	});
+
+	void it("read mode blocks bash", () => {
+		const r = interceptToolCall(makeInput({ active: "read", toolType: "bash" }));
+		assert.equal(r.action, "block");
+		assert.match(r.reason, /read-only/);
+	});
+
+	void it("read mode blocks write", () => {
+		const r = interceptToolCall(makeInput({ active: "read", toolType: "write" }));
+		assert.equal(r.action, "block");
+	});
+
+	void it("read mode blocks powershell", () => {
+		const r = interceptToolCall(makeInput({ active: "read", toolType: "powershell" }));
+		assert.equal(r.action, "block");
+	});
+
+	void it("read mode passes non-mutator", () => {
+		const r = interceptToolCall(makeInput({ active: "read", toolType: "other" }));
+		assert.equal(r.action, "pass");
+	});
+
+	void it("supervised mode asks for bash", () => {
+		const r = interceptToolCall(makeInput({ active: "supervised", toolType: "bash" }));
+		assert.equal(r.action, "ask");
+	});
+
+	void it("supervised mode asks for powershell", () => {
+		const r = interceptToolCall(makeInput({ active: "supervised", toolType: "powershell" }));
+		assert.equal(r.action, "ask");
+	});
+
+	void it("supervised mode asks for write", () => {
+		const r = interceptToolCall(makeInput({ active: "supervised", toolType: "write", path: "/tmp/test.txt" }));
+		assert.equal(r.action, "ask");
+		assert.match(r.prompt, /write/);
+	});
+
+	void it("supervised mode asks for edit", () => {
+		const r = interceptToolCall(makeInput({ active: "supervised", toolType: "edit", path: "/tmp/test.txt" }));
+		assert.equal(r.action, "ask");
+		assert.match(r.prompt, /edit/);
+	});
+
+	void it("supervised mode passes non-mutator", () => {
+		const r = interceptToolCall(makeInput({ active: "supervised", toolType: "other" }));
+		assert.equal(r.action, "pass");
+	});
+
+	void it("workspace mode with landlock wraps bash in gate", () => {
+		const r = interceptToolCall(makeInput({
+			active: "workspace",
+			sandboxMode: "landlock",
+			toolType: "bash",
+			command: "echo hello",
+			workspace: "/home/user/project",
+		}));
+		assert.equal(r.action, "wrap");
+		assert.match(r.command, /\/path\/to\/gate.*--ws.*\/home\/user\/project.*--allow/);
+		assert.match(r.command, /--.*bash.*-c.*echo hello'$/);
+	});
+
+	void it("workspace mode without landlock falls back to ask", () => {
+		const r = interceptToolCall(makeInput({
+			active: "workspace",
+			sandboxMode: "approval",
+			toolType: "bash",
+		}));
+		assert.equal(r.action, "ask");
+		assert.match(r.prompt, /Landlock/);
+	});
+
+	void it("workspace mode asks for powershell", () => {
+		const r = interceptToolCall(makeInput({
+			active: "workspace",
+			sandboxMode: "landlock",
+			toolType: "powershell",
+		}));
+		assert.equal(r.action, "ask");
+	});
+
+	void it("workspace mode blocks write outside allowlist", () => {
+		const r = interceptToolCall(makeInput({
+			active: "workspace",
+			sandboxMode: "landlock",
+			toolType: "write",
+			path: "/etc/passwd",
+			workspace: "/home/user/project",
+		}));
+		assert.equal(r.action, "block");
+	});
+
+	void it("workspace mode passes write inside workspace", () => {
+		const r = interceptToolCall(makeInput({
+			active: "workspace",
+			sandboxMode: "landlock",
+			toolType: "write",
+			path: "/home/user/project/foo.txt",
+			workspace: "/home/user/project",
+		}));
+		assert.equal(r.action, "pass");
+	});
+
+	void it("workspace mode passes non-mutator", () => {
+		const r = interceptToolCall(makeInput({
+			active: "workspace",
+			sandboxMode: "landlock",
+			toolType: "other",
+		}));
+		assert.equal(r.action, "pass");
+	});
+
+	void it("shq wraps command with single quotes", () => {
+		const r = interceptToolCall(makeInput({
+			active: "workspace",
+			sandboxMode: "landlock",
+			toolType: "bash",
+			command: "echo it's fine",
+		}));
+		assert.equal(r.action, "wrap");
+		assert.match(r.command, /'echo it'\\''s fine'/);
+	});
+});
