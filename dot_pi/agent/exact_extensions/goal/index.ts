@@ -432,7 +432,6 @@ export default function piGoal(pi: ExtensionAPI) {
 			if (trimmed === "clear") {
 				if (!goal) { ctx.ui.notify("No goal is set.", "info"); return; }
 				mutate(pi, ctx, "clear", null, { id: goal.id, revision: goal.revision });
-				emitEvent(pi, "cleared", "Goal cleared. Its durable history remains in the session log.");
 				return;
 			}
 
@@ -440,7 +439,6 @@ export default function piGoal(pi: ExtensionAPI) {
 				if (!goal || goal.phase !== "active") { ctx.ui.notify("No active goal.", "warning"); return; }
 				armed = false;
 				stopGoal(pi, ctx, "paused", { code: "human-paused", message: "Paused by user." });
-				emitEvent(pi, "paused", "Goal paused by user. /goal resume to continue.");
 				return;
 			}
 
@@ -461,7 +459,6 @@ export default function piGoal(pi: ExtensionAPI) {
 				pendingTurn = null;
 				mutate(pi, ctx, "resume", next);
 				refreshView();
-				emitEvent(pi, "resumed", "Goal resumed.");
 				// Surface an immediate budget gate instead of silently idling.
 				const stop = budgetStopReason(goal, ctx.getContextUsage());
 				if (stop) {
@@ -499,7 +496,6 @@ export default function piGoal(pi: ExtensionAPI) {
 			armed = true;
 			mutate(pi, ctx, "create", next);
 			refreshView();
-			emitEvent(pi, "set", `Goal set${tokenBudget ? ` (budget ${tokenBudget})` : " (until context limit)"}: ${truncateObjective(objective, 120)}`);
 			queueRound(pi, ctx);
 		},
 	});
@@ -540,7 +536,6 @@ export default function piGoal(pi: ExtensionAPI) {
 		if (ctx.signal?.aborted) {
 			if (wasGoalAttempt) {
 				stopGoal(pi, ctx, "paused", { code: "cancelled", message: "Goal round was cancelled." });
-				emitEvent(pi, "paused", "Goal paused (round cancelled). /goal resume to continue.");
 			} else {
 				armed = false;
 				refreshView();
@@ -556,10 +551,10 @@ export default function piGoal(pi: ExtensionAPI) {
 		if (stop) {
 			if (stop.code === "budget-exhausted") {
 				stopGoal(pi, ctx, "blocked", stop);
-				emitEvent(pi, "blocked", wrapupContext(goal.objective, stop.message));
+				ctx.ui.notify(`Goal blocked: ${stop.message}`, "warning");
 			} else {
 				stopGoal(pi, ctx, "paused", stop);
-				emitEvent(pi, "paused", `Goal paused: ${stop.message}\nResume with /goal resume (it will pause again at the context limit) or set a custom budget with /goal set --tokens.`);
+				ctx.ui.notify(`Goal paused: ${stop.message} Resume with /goal resume.`, "warning");
 			}
 			return;
 		}
