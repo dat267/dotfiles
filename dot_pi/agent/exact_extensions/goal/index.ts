@@ -25,8 +25,8 @@ let goal: GoalView | null = null;
 let armed = false;
 /** Reserved but not yet admitted goal turn number, or null. */
 let pendingTurn: number | null = null;
-/** Editor banner toggle (process-local, default on). */
-let bannerEnabled = true;
+/** Editor banner toggle (process-local, default off). */
+let bannerEnabled = false;
 /** Set when create_goal runs mid-turn: the creating run's tokens belong to the goal. */
 let createdThisRun = false;
 
