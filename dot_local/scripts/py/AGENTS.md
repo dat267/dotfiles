@@ -1,16 +1,22 @@
 # dot_local/scripts/py/ — Python Utility Scripts
 
-Python utility scripts chezmoi-deployed to `~/.local/bin/` (on PATH). All use `executable_` prefix.
+Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `dot_profile`). All use the `executable_` prefix.
+
+## Naming convention
+
+- Deployed name = filename minus the `executable_` prefix; words are **hyphen-separated** (never underscores): `install-aws.py`, `yazi-ffmpeg-split.py`, `url-decode-rename.py`
+- Grouped by prefix: `install-<tool>.py` / `uninstall-<tools>.py` installers, `yazi-*.py` Yazi helpers
+- Standalone tools keep a bare name: `cloudsh.py`, `dotfiles.py`, `lsp.py`, `sysinfo.py`, `mpv` (extensionless drop-in)
 
 ## Structure
 
 - `executable_yazi-*.py` — Yazi media/translate helpers, invoked via `keymap.toml` bindings
-- `executable_install_*.py` — Tool installers, each downloads latest GitHub release to `~/.local/bin/`
+- `executable_install-*.py` — Tool installers, each downloads latest GitHub release to `~/.local/bin/`
 - `executable_dotfiles.py` — rclone + git sync (`dotfiles up`/`dotfiles down`)
 - `executable_lsp.py` — LSP server installer (gopls, pyright, etc.)
 - `executable_start-awsvpn.py` — OpenVPN + SAML auth
 - `executable_cloudsh.py` — GCP Cloud Shell SSH tunnel
-- `executable_sysinfo.py`, `executable_url_decode_rename.py`, `executable_mpv`
+- `executable_sysinfo.py`, `executable_url-decode-rename.py`, `executable_mpv`
 - `_shared.py` — shared module (platform detection, colored logging, helpers)
 
 ## Conventions
