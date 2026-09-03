@@ -445,8 +445,10 @@ export default function piGoal(pi: ExtensionAPI) {
 			}
 
 			if (trimmed === "resume") {
-				if (!goal || (goal.phase !== "paused" && goal.phase !== "blocked")) {
-					ctx.ui.notify("No paused or blocked goal.", "warning");
+				// dsh rule: resume accepts a stopped phase or a disarmed active
+				// goal; an active armed goal rejects the redundant operation.
+				if (!goal || (goal.phase === "active" && goal.armed)) {
+					ctx.ui.notify("No stopped goal to resume.", "warning");
 					return;
 				}
 				const probe = budgetStopReason(goal, ctx.getContextUsage());
@@ -505,19 +507,31 @@ export default function piGoal(pi: ExtensionAPI) {
 	pi.on("agent_end", (event, ctx) => {
 		if (!goal) { pendingTurn = null; createdThisRun = false; return; }
 
+		// Was this run a goal attempt (reserved or admitted)? Decides how
+		// cancellation is handled, per dsh: a cancelled attempt pauses the
+		// goal; unrelated cancellation only disarms continuation.
+		const wasGoalAttempt = pendingTurn !== null || createdThisRun;
+
 		// Admit the reserved turn, or the creating run when the goal was
 		// created mid-turn and finished without any continuation round.
-		if (pendingTurn !== null || createdThisRun) {
+		if (wasGoalAttempt) {
 			admitTurn(pi, goal, sumTurnTokens(event.messages));
 			createdThisRun = false;
 		}
 
 		if (goal.phase !== "active") { updateStatusBar(ctx); return; }
 
-		// Cancellation pauses: never auto-restart an aborted goal round.
+		// Cancellation: a cancelled goal attempt pauses so it cannot
+		// auto-restart; unrelated cancellation only disarms continuation.
 		if (ctx.signal?.aborted) {
-			stopGoal(pi, ctx, "paused", { code: "cancelled", message: "Goal round was cancelled." });
-			emitEvent(pi, "paused", "Goal paused (round cancelled). /goal resume to continue.");
+			if (wasGoalAttempt) {
+				stopGoal(pi, ctx, "paused", { code: "cancelled", message: "Goal round was cancelled." });
+				emitEvent(pi, "paused", "Goal paused (round cancelled). /goal resume to continue.");
+			} else {
+				armed = false;
+				refreshView();
+				updateStatusBar(ctx);
+			}
 			return;
 		}
 
