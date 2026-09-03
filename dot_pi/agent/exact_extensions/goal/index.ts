@@ -305,23 +305,60 @@ export default function piGoal(pi: ExtensionAPI) {
 		},
 		handler: async (args: string, ctx: ExtensionContext) => {
 			const api: CommandApi = {
-				get goal() { return goal; },
-				set goal(v: any) { goal = v; },
-				get armed() { return armed; },
-				set armed(v: boolean) { armed = v; },
-				get bannerEnabled() { return bannerEnabled; },
-				set bannerEnabled(v: boolean) { bannerEnabled = v; },
-				get pendingTurn() { return pendingTurn; },
-				set pendingTurn(v: number | null) { pendingTurn = v; },
-				get createdThisRun() { return createdThisRun; },
-				set createdThisRun(v: boolean) { createdThisRun = v; },
-				mutate: (op: string, next: any, cleared?: any) => (mutate as any)(pi, ctx, op, next, cleared),
-				stopGoal: (phase: any, reason: any) => stopGoal(pi, ctx, phase, reason),
-				queueRound: () => queueRound(pi, ctx),
-				refreshView: () => refreshView(),
-				updateStatusBar: () => updateStatusBar(ctx),
+				toggleBanner: () => {
+					bannerEnabled = !bannerEnabled;
+					updateStatusBar(ctx);
+					ctx.ui.notify(`Goal banner ${bannerEnabled ? "shown" : "hidden"}.`, "info");
+				},
+				showStatus: () => {
+					const usage = ctx.getContextUsage();
+					ctx.ui.notify(
+						goal
+							? `${statusLine(goal, usage)}\n${truncateObjective(goal.objective, 120)}\nBanner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`
+							: `No goal set. Use /goal set <objective>\nBanner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`,
+						"info",
+					);
+				},
+				clearGoal: () => {
+					if (!goal) { ctx.ui.notify("No goal is set.", "info"); return; }
+					mutate(pi, ctx, "clear", null, { id: goal.id, revision: goal.revision });
+				},
+				pauseGoal: () => {
+					if (!goal || goal.phase !== "active") { ctx.ui.notify("No active goal.", "warning"); return; }
+					armed = false;
+					stopGoal(pi, ctx, "paused", { code: "human-paused", message: "Paused by user." });
+				},
+				resumeGoal: () => {
+					if (!goal || (goal.phase === "active" && goal.armed)) {
+						ctx.ui.notify("No stopped goal to resume.", "warning");
+						return;
+					}
+					const next = { ...goal, phase: "active" as const, blockedReason: undefined, revision: goal.revision + 1, updatedAt: Date.now() };
+					armed = true;
+					pendingTurn = null;
+					mutate(pi, ctx, "resume", next);
+					refreshView();
+					// Surface an immediate cap gate instead of silently idling.
+					if (goal) {
+						const gate = budgetStopReason(goal, ctx.getContextUsage());
+						if (gate) {
+							ctx.ui.notify(`Resumed, but ${gate.message}`, "warning");
+							return;
+						}
+					}
+					queueRound(pi, ctx);
+				},
+				setGoal: (next) => {
+					if (goal && goal.phase !== "complete") {
+						ctx.ui.notify("An unfinished goal exists. /goal clear first (or /goal edit once implemented).", "warning");
+						return;
+					}
+					armed = true;
+					mutate(pi, ctx, "create", next);
+					refreshView();
+					queueRound(pi, ctx);
+				},
 				notify: (msg: string, level: any) => ctx.ui.notify(msg, level),
-				getContextUsage: () => ctx.getContextUsage(),
 			};
 			handleGoalCommand(args, pi, ctx, api);
 		},
