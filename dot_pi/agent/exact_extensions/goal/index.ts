@@ -472,9 +472,17 @@ export default function piGoal(pi: ExtensionAPI) {
 				return;
 			}
 
-			let objective = trimmed;
+			// Creation requires the explicit "set" verb — any other unknown
+			// word is a typo, not an objective (e.g. "/goal view", "/goal cleared").
+			if (!trimmed.startsWith("set ")) {
+				ctx.ui.notify(
+					`Unknown subcommand "${truncateObjective(trimmed, 20)}". Use /goal set <objective>, /goal status, pause, resume, clear, or bare /goal to toggle the banner.`,
+					"warning",
+				);
+				return;
+			}
+			let objective = trimmed.slice(4);
 			let tokenBudget: number | null = null;
-			if (objective.startsWith("set ")) objective = objective.slice(4);
 			const tokensMatch = objective.match(/\s--tokens\s+(\d+[kKmM]?)/);
 			if (tokensMatch) {
 				const raw = tokensMatch[1];
