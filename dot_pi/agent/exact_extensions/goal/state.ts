@@ -10,7 +10,8 @@ export interface GoalSnapshot {
 	revision: number;
 	objective: string;
 	phase: GoalPhase;
-	tokenBudget: number | null;
+	/** Fraction of the context window at which the goal pauses (0 < cap <= 1). Null = default. */
+	contextCap: number | null;
 	blockedReason?: BlockedReason;
 	createdAt: number;
 	updatedAt: number;
@@ -19,7 +20,6 @@ export interface GoalSnapshot {
 export interface GoalView extends GoalSnapshot {
 	armed: boolean;
 	turnsStarted: number;
-	tokensUsed: number;
 }
 
 export type GoalOperation =
@@ -39,12 +39,11 @@ export interface GoalChangeEntry {
 	timestamp: number;
 }
 
-/** Per admitted goal turn (TURN_TYPE). tokens = sum of usage.totalTokens for that run. */
+/** Per admitted goal turn (TURN_TYPE). */
 export interface GoalTurnEntry {
 	goalId: string;
 	revision: number;
 	turn: number;
-	tokens: number;
 	timestamp: number;
 }
 
@@ -62,13 +61,13 @@ export function newGoalId(): string {
 	return `goal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function createGoalState(objective: string, tokenBudget: number | null, now = Date.now()): GoalSnapshot {
+export function createGoalState(objective: string, contextCap: number | null, now = Date.now()): GoalSnapshot {
 	return {
 		id: newGoalId(),
 		revision: 1,
 		objective,
 		phase: "active",
-		tokenBudget,
+		contextCap,
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -100,8 +99,9 @@ export function applyChange(
 	if (!next) throw new Error(`operation ${operation} requires a goal snapshot`);
 
 	if (!PHASES.includes(next.phase)) throw new Error(`illegal phase ${next.phase}`);
-	if (next.tokenBudget !== null && (!Number.isSafeInteger(next.tokenBudget) || next.tokenBudget <= 0)) {
-		throw new Error("tokenBudget must be a positive safe integer or null");
+	if (next.contextCap !== null && next.contextCap !== undefined &&
+		(!(next.contextCap > 0) || next.contextCap > 1)) {
+		throw new Error("contextCap must be null or a fraction in (0, 1]");
 	}
 
 	if (operation === "create") {
@@ -138,7 +138,7 @@ export function applyChange(
 		throw new Error("stopped goal requires a blocker reason");
 	}
 	if (next.phase !== "blocked" && next.phase !== "paused" && next.blockedReason) {
-		throw new Error("blockedReason present on a non-blocked phase");
+		throw new Error("blockedReason present on a non-stopped phase");
 	}
 
 	return next;
@@ -151,7 +151,6 @@ export function foldGoal(
 ): GoalView | null {
 	let current: GoalSnapshot | null = null;
 	let turnsStarted = 0;
-	let tokensUsed = 0;
 	let turnNo = 0;
 
 	for (const entry of entries) {
@@ -159,7 +158,6 @@ export function foldGoal(
 			current = applyChange(current, entry.data as GoalChangeEntry);
 			if (!current) {
 				turnsStarted = 0;
-				tokensUsed = 0;
 				turnNo = 0;
 			}
 		} else if (entry.customType === "pi-goal-turn") {
@@ -170,14 +168,14 @@ export function foldGoal(
 			}
 			turnNo = turn.turn;
 			turnsStarted = turn.turn;
-			tokensUsed += turn.tokens;
 		}
 	}
 
 	if (!current) return null;
-	return { ...current, armed: false, turnsStarted, tokensUsed };
+	return { ...current, armed: false, turnsStarted };
 }
 
+/** Default pause point: 90% of the context window, before compaction. */
 export const CONTEXT_PAUSE_FRACTION = 0.9;
 
 /** Why continuation must stop now, or null to continue. */
@@ -185,20 +183,12 @@ export function budgetStopReason(
 	goal: GoalView,
 	contextUsage: { tokens: number | null; contextWindow: number } | undefined,
 ): { code: string; message: string } | null {
-	if (goal.tokenBudget !== null) {
-		if (goal.tokensUsed >= goal.tokenBudget) {
-			return {
-				code: "budget-exhausted",
-				message: `Token budget exhausted: ${goal.tokensUsed}/${goal.tokenBudget}.`,
-			};
-		}
-		return null;
-	}
 	if (!contextUsage || contextUsage.tokens === null) return null;
-	if (contextUsage.tokens >= CONTEXT_PAUSE_FRACTION * contextUsage.contextWindow) {
+	const cap = goal.contextCap ?? CONTEXT_PAUSE_FRACTION;
+	if (contextUsage.tokens >= cap * contextUsage.contextWindow) {
 		return {
 			code: "context-limit",
-			message: `Context at ${Math.round((contextUsage.tokens / contextUsage.contextWindow) * 100)}% of window; pausing before compaction.`,
+			message: `Context at ${Math.round((contextUsage.tokens / contextUsage.contextWindow) * 100)}% (cap ${Math.round(cap * 100)}%).`,
 		};
 	}
 	return null;
@@ -215,20 +205,19 @@ export function truncateObjective(text: string, max = 60): string {
 	return flat.length <= max ? flat : `${flat.slice(0, max - 1)}…`;
 }
 
-export function statusLine(goal: GoalView | null): string {
+export function statusLine(goal: GoalView | null, contextUsage?: { tokens: number | null; contextWindow: number }): string {
 	if (!goal) return "";
-	const budget = goal.tokenBudget === null ? "ctx" : formatTokens(goal.tokenBudget);
-	const used = goal.tokenBudget === null
-		? formatTokens(goal.tokensUsed)
-		: `${formatTokens(goal.tokensUsed)}/${budget}`;
-	return `${goal.phase}${goal.armed ? " ▶" : ""} ${used} tok`;
+	const usage = contextUsage && contextUsage.tokens !== null
+		? `${Math.round((contextUsage.tokens / contextUsage.contextWindow) * 100)}%/${formatTokens(contextUsage.contextWindow)}`
+		: `${goal.turnsStarted} round${goal.turnsStarted === 1 ? "" : "s"}`;
+	return `${goal.phase}${goal.armed ? " ▶" : ""} ${usage}`;
 }
 
 export function goalRoundPrompt(goal: GoalView, turn: number): string {
 	return [
 		`<goal_round>`,
 		`<objective>${goal.objective}</objective>`,
-		`Round ${turn}. The current workspace, tool results, and session state are authoritative.`,
+		`Round ${turn}. The current workspace, tool results, and durable session state are authoritative.`,
 		`- Continue the objective. Require concrete evidence before claiming completion.`,
 		`- If work remains, leave the goal active and keep going.`,
 		`- If the same blocking condition has persisted for 3+ consecutive rounds, call update_goal with action "blocked" and a concrete blocked_reason.`,
