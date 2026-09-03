@@ -49,13 +49,15 @@ function latestState(ctx: ExtensionContext): GoalView | null {
 		// Attribute every assistant token emitted after goal creation to the
 		// goal. The session log is the authority — this stays correct across
 		// restarts and for goals that never had an admitted continuation round.
+		// Completed goals stop accruing at their completion timestamp.
+		const end = view.phase === "complete" ? view.updatedAt : Infinity;
 		let tokens = 0;
 		for (const e of entries) {
 			if (e.type !== "message") continue;
 			const msg = (e as any).message;
 			if (msg?.role !== "assistant" || !msg.usage?.totalTokens) continue;
 			const ts = Date.parse((e as any).timestamp ?? "");
-			if (!Number.isNaN(ts) && ts >= view.createdAt) tokens += msg.usage.totalTokens;
+			if (!Number.isNaN(ts) && ts >= view.createdAt && ts <= end) tokens += msg.usage.totalTokens;
 		}
 		return { ...view, tokensUsed: Math.max(tokens, view.tokensUsed) };
 	} catch (err) {
