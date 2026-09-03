@@ -1,0 +1,1 @@
+For every coding task — implementing a feature, fixing a bug, changing behavior, or touching tests — load and follow the tdd skill at ~/.pi/agent/skills/tdd/SKILL.md before writing or changing any production code. Work red-green-refactor: no production code without a failing test that demands it.
