@@ -27,6 +27,8 @@ let armed = false;
 let pendingTurn: number | null = null;
 /** Editor banner toggle (process-local, default on). */
 let bannerEnabled = true;
+/** Set when create_goal runs mid-turn: the creating run's tokens belong to the goal. */
+let createdThisRun = false;
 
 const PHASE_COLOR: Record<GoalPhase, "success" | "warning" | "error" | "accent"> = {
 	active: "success",
@@ -87,7 +89,7 @@ function updateStatusBar(ctx: ExtensionContext) {
 	}
 	ctx.ui.setWidget(CUSTOM_TYPE, [
 		`${theme.fg("customMessageLabel", theme.bold("goal"))} ${theme.fg("text", truncateObjective(goal.objective, 72))}`,
-		`${theme.fg(PHASE_COLOR[goal.phase], goal.phase)}${goal.armed ? theme.fg("accent", " ▶") : ""} ${theme.fg("dim", statusLine(goal))}`,
+		`${goal.armed ? theme.fg("accent", "▶ ") : ""}${theme.fg("dim", statusLine(goal) ?? "")}`,
 	]);
 }
 
@@ -307,6 +309,7 @@ export default function piGoal(pi: ExtensionAPI) {
 			const maxTokens = typeof params.max_tokens === "number" && params.max_tokens > 0 ? Math.round(params.max_tokens) : null;
 			const next = createGoalState(objective, maxTokens);
 			armed = true;
+			createdThisRun = true;
 			mutate(pi, ctx, "create", next);
 			refreshView();
 			return {
@@ -467,6 +470,7 @@ export default function piGoal(pi: ExtensionAPI) {
 		// Activation is never inherited: reload, resume, fork, and startup all disarm.
 		armed = false;
 		pendingTurn = null;
+		createdThisRun = false;
 		goal = latestState(ctx);
 		refreshView();
 		syncGoalTools(pi);
@@ -477,11 +481,13 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	pi.on("agent_end", (event, ctx) => {
-		if (!goal) { pendingTurn = null; return; }
+		if (!goal) { pendingTurn = null; createdThisRun = false; return; }
 
-		// Admit the reserved turn if this run was one.
-		if (pendingTurn !== null) {
+		// Admit the reserved turn, or the creating run when the goal was
+		// created mid-turn and finished without any continuation round.
+		if (pendingTurn !== null || createdThisRun) {
 			admitTurn(pi, goal, sumTurnTokens(event.messages));
+			createdThisRun = false;
 		}
 
 		if (goal.phase !== "active") { updateStatusBar(ctx); return; }
