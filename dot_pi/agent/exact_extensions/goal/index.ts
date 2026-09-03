@@ -187,7 +187,7 @@ export default function (pi: ExtensionAPI) {
 					objective: flagObjective.trim(),
 					phase: "active",
 				};
-				appendChange(pi, "create", created);
+				appendChange(pi, "set", created);
 			}
 			armed = true;
 			ctx.ui.notify(`[goal] Armed: ${flagObjective.trim()}`, "info");
@@ -217,8 +217,8 @@ export default function (pi: ExtensionAPI) {
 	// ── goal tool (model-facing) ──
 
 	const GoalParams = Type.Object({
-		action: StringEnum(["get", "create", "edit", "pause", "resume", "complete", "block", "clear"] as const),
-		objective: Type.Optional(Type.String({ description: "Objective text (create/edit)" })),
+		action: StringEnum(["get", "set", "edit", "pause", "resume", "complete", "block", "clear"] as const),
+		objective: Type.Optional(Type.String({ description: "Objective text (set/edit)" })),
 		id: Type.Optional(Type.String({ description: "Goal id (mutations, from get)" })),
 		revision: Type.Optional(Type.Number({ description: "Goal revision (mutations, from get)" })),
 		reason: Type.Optional(Type.String({ description: "Blocking condition (block)" })),
@@ -232,7 +232,7 @@ export default function (pi: ExtensionAPI) {
 			case "get":
 				return { content: [{ type: "text", text: g ? JSON.stringify(g, null, 2) : "No goal" }] };
 
-			case "create": {
+			case "set": {
 				if (!params.objective?.trim()) return { content: [{ type: "text", text: "Error: objective required for create" }] };
 				if (fold.goal && fold.goal.phase !== "complete") {
 					return { content: [{ type: "text", text: `Error: a goal is already active: ${fold.goal.objective}` }] };
@@ -243,7 +243,7 @@ export default function (pi: ExtensionAPI) {
 					objective: params.objective.trim(),
 					phase: "active",
 				};
-				appendChange(pi, "create", created);
+				appendChange(pi, "set", created);
 				armed = true;
 				return { content: [{ type: "text", text: `Goal created and armed: ${params.objective.trim()}. Work toward it; the session continues automatically until it is complete or blocked.` }] };
 			}

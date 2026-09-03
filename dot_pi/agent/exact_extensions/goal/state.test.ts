@@ -51,7 +51,7 @@ test("empty history yields no view", () => {
 
 test("create then fold yields the goal", () => {
 	const g = activeGoal();
-	const fold = foldGoal([changeEntry({ operation: "create", goal: g })]);
+	const fold = foldGoal([changeEntry({ operation: "set", goal: g })]);
 	const view = goalView(fold, true);
 	assert.equal(view?.objective, "make tests pass");
 	assert.equal(view?.armed, true);
@@ -61,8 +61,8 @@ test("create is rejected when a non-complete goal exists", () => {
 	const g = activeGoal();
 	assert.throws(
 		() => foldGoal([
-			changeEntry({ operation: "create", goal: g }),
-			changeEntry({ operation: "create", goal: activeGoal({ id: "g2" }) }),
+			changeEntry({ operation: "set", goal: g }),
+			changeEntry({ operation: "set", goal: activeGoal({ id: "g2" }) }),
 		]),
 		/goal id already created|no active\/paused\/blocked goal/,
 	);
@@ -73,9 +73,9 @@ test("create allowed after complete, with a fresh id", () => {
 	const g1done = next(g1, { phase: "complete" });
 	const g2 = activeGoal({ id: "g2" });
 	const fold = foldGoal([
-		changeEntry({ operation: "create", goal: g1 }),
+		changeEntry({ operation: "set", goal: g1 }),
 		changeEntry({ operation: "complete", goal: g1done }),
-		changeEntry({ operation: "create", goal: g2 }),
+		changeEntry({ operation: "set", goal: g2 }),
 	]);
 	assert.equal(goalView(fold, false)?.id, "g2");
 });
@@ -83,9 +83,9 @@ test("create allowed after complete, with a fresh id", () => {
 test("clear resets so a new goal starts fresh", () => {
 	const g = activeGoal();
 	const fold = foldGoal([
-		changeEntry({ operation: "create", goal: g }),
+		changeEntry({ operation: "set", goal: g }),
 		changeEntry({ operation: "clear", goal: null }),
-		changeEntry({ operation: "create", goal: activeGoal({ id: "g2" }) }),
+		changeEntry({ operation: "set", goal: activeGoal({ id: "g2" }) }),
 	]);
 	assert.equal(goalView(fold, false)?.id, "g2");
 });
@@ -95,7 +95,7 @@ test("clear resets so a new goal starts fresh", () => {
 test("mutations must advance revision by exactly one", () => {
 	assert.throws(
 		() => foldGoal([
-			changeEntry({ operation: "create", goal: activeGoal() }),
+			changeEntry({ operation: "set", goal: activeGoal() }),
 			changeEntry({ operation: "edit", goal: activeGoal({ objective: "other" }) }),
 		]),
 		/must advance the current goal by one revision/,
@@ -112,7 +112,7 @@ test("full lifecycle replays in order", () => {
 		blockedReason: { code: "model-reported", message: "dependency missing" },
 	}); // rev 5 block
 	const fold = foldGoal([
-		changeEntry({ operation: "create", goal: g }),
+		changeEntry({ operation: "set", goal: g }),
 		changeEntry({ operation: "edit", goal: e1 }),
 		changeEntry({ operation: "pause", goal: e2 }),
 		changeEntry({ operation: "resume", goal: e3 }),
@@ -129,7 +129,7 @@ test("invalid phase transitions throw", () => {
 	const done = next(g, { phase: "complete" }); // rev 2
 	assert.throws(
 		() => foldGoal([
-			changeEntry({ operation: "create", goal: g }),
+			changeEntry({ operation: "set", goal: g }),
 			changeEntry({ operation: "complete", goal: done }),
 			changeEntry({ operation: "resume", goal: next(done, { phase: "active" }) }),
 		]),
@@ -140,7 +140,7 @@ test("invalid phase transitions throw", () => {
 test("pause and block cannot change objective", () => {
 	assert.throws(
 		() => foldGoal([
-			changeEntry({ operation: "create", goal: activeGoal() }),
+			changeEntry({ operation: "set", goal: activeGoal() }),
 			changeEntry({ operation: "pause", goal: next(activeGoal(), { phase: "paused", objective: "hacked" }) }),
 		]),
 		/pause cannot change objective/,
@@ -151,7 +151,7 @@ test("clear requires current goal and tombstones it", () => {
 	assert.throws(() => foldGoal([changeEntry({ operation: "clear", goal: null })]), /clear requires a current goal/);
 	const g = activeGoal();
 	const fold = foldGoal([
-		changeEntry({ operation: "create", goal: g }),
+		changeEntry({ operation: "set", goal: g }),
 		changeEntry({ operation: "clear", goal: null }),
 	]);
 	assert.equal(goalView(fold, false), null);
@@ -160,7 +160,7 @@ test("clear requires current goal and tombstones it", () => {
 // ── statusLineText ────────────────────────────────────────────────────────
 
 test("status line shows active with armed flag", () => {
-	const fold = foldGoal([changeEntry({ operation: "create", goal: activeGoal() })]);
+	const fold = foldGoal([changeEntry({ operation: "set", goal: activeGoal() })]);
 	const text = statusLineText(goalView(fold, true));
 	assert.ok(text.startsWith("Active:"));
 	assert.ok(text.includes("armed"));
@@ -170,7 +170,7 @@ test("status line shows completed", () => {
 	const g = activeGoal();
 	const done = next(g, { phase: "complete" });
 	const fold = foldGoal([
-		changeEntry({ operation: "create", goal: g }),
+		changeEntry({ operation: "set", goal: g }),
 		changeEntry({ operation: "complete", goal: done }),
 	]);
 	const text = statusLineText(goalView(fold, false));
@@ -181,7 +181,7 @@ test("status line shows blocked with reason code", () => {
 	const g = activeGoal();
 	const blocked = next(g, { phase: "blocked", blockedReason: { code: "test", message: "just testing" } });
 	const fold = foldGoal([
-		changeEntry({ operation: "create", goal: g }),
+		changeEntry({ operation: "set", goal: g }),
 		changeEntry({ operation: "block", goal: blocked }),
 	]);
 	const text = statusLineText(goalView(fold, false));

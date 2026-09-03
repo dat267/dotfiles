@@ -22,7 +22,7 @@ export interface GoalSnapshot {
 	blockedReason?: GoalBlockReason;
 }
 
-export type GoalOperation = "create" | "edit" | "pause" | "resume" | "complete" | "block" | "clear";
+export type GoalOperation = "set" | "edit" | "pause" | "resume" | "complete" | "block" | "clear";
 
 export interface GoalChangeData {
 	operation: GoalOperation;
@@ -150,9 +150,9 @@ export function applyChange(state: FoldState, data: GoalChangeData): void {
 	}
 	const goal = data.goal;
 	if (!goal) throw new Error(`goal fold: ${op} requires a snapshot`);
-	if (op === "create") {
-		if (goal.revision !== 1 || goal.phase !== "active") throw new Error("goal fold: create must be revision 1 and active");
-		if (state.goal && state.goal.phase !== "complete") throw new Error("goal fold: create requires no active/paused/blocked goal");
+	if (op === "set") {
+		if (goal.revision !== 1 || goal.phase !== "active") throw new Error("goal fold: set must be revision 1 and active");
+		if (state.goal && state.goal.phase !== "complete") throw new Error("goal fold: set requires no active/paused/blocked goal");
 		if (state.seenGoalIds.has(goal.id)) throw new Error("goal fold: goal id already created");
 		state.seenGoalIds.add(goal.id);
 		state.goal = goal;

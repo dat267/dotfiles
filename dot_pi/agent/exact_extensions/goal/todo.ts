@@ -20,15 +20,15 @@ interface Todo {
 }
 
 interface TodoDetails {
-	action: "list" | "replace" | "toggle" | "clear";
+	action: "list" | "set" | "toggle" | "clear";
 	todos: Todo[];
 	nextId: number;
 	error?: string;
 }
 
 const TodoParams = Type.Object({
-	action: StringEnum(["list", "replace", "toggle", "clear"] as const),
-	items: Type.Optional(Type.Array(Type.String({ description: "Todo text" }), { description: "Todo texts (for replace)" })),
+	action: StringEnum(["list", "set", "toggle", "clear"] as const),
+	items: Type.Optional(Type.Array(Type.String({ description: "Todo text" }), { description: "Todo texts (for set)" })),
 	id: Type.Optional(Type.Number({ description: "Todo ID (for toggle)" })),
 });
 
@@ -80,7 +80,7 @@ export function setupTodo(pi: ExtensionAPI): { isAllTodosDone: () => boolean; ac
 		promptSnippet: "Manage a structured todo list — replace, list, toggle, or clear",
 		promptGuidelines: [
 			"Use the todo tool to track multi-step tasks: call replace(items) with the full list of steps, then toggle them as you complete each step.",
-			"replace overwrites the entire todo list — always pass the complete set of items.",
+			"set overwrites the entire todo list — always pass the complete set of items.",
 			"When the user asks for a plan with numbered steps, create todos for each step and check them off during implementation.",
 			"When all todos are done, clear the list with todo(action: \"clear\") to keep session state tidy.",
 		],
@@ -98,11 +98,11 @@ export function setupTodo(pi: ExtensionAPI): { isAllTodosDone: () => boolean; ac
 						details: { action: "list", todos: snapshot(), nextId } as TodoDetails,
 					};
 				}
-				case "replace": {
+				case "set": {
 					if (!params.items || params.items.length === 0) {
 						return {
 							content: [{ type: "text", text: "Error: items array required for replace" }],
-							details: { action: "replace", todos: snapshot(), nextId, error: "items required" } as TodoDetails,
+							details: { action: "set", todos: snapshot(), nextId, error: "items required" } as TodoDetails,
 						};
 					}
 					todos = params.items.map((text, i) => ({ id: i + 1, text, done: false }));
@@ -110,7 +110,7 @@ export function setupTodo(pi: ExtensionAPI): { isAllTodosDone: () => boolean; ac
 					refreshWidget(ctx);
 					return {
 						content: [{ type: "text", text: `Replaced todo list with ${todos.length} items` }],
-						details: { action: "replace", todos: snapshot(), nextId } as TodoDetails,
+						details: { action: "set", todos: snapshot(), nextId } as TodoDetails,
 					};
 				}
 				case "toggle": {
@@ -183,7 +183,7 @@ export function setupTodo(pi: ExtensionAPI): { isAllTodosDone: () => boolean; ac
 					}
 					return new Text(listText, 0, 0);
 				}
-				case "replace":
+				case "set":
 					return new Text(theme.fg("success", "✓ ") + theme.fg("muted", `Replaced with ${todoList.length} todos`), 0, 0);
 				case "toggle": {
 					const text = result.content[0];
