@@ -121,9 +121,21 @@ export function applyChange(
 		throw new Error(`illegal transition ${current.phase} -> ${next.phase}`);
 	}
 
-	// Edits and resumes may not silently drop blocker data on a blocked goal.
-	if (current.phase === "blocked" && next.phase === "blocked" && !next.blockedReason) {
-		throw new Error("blocked goal must retain a blocker reason");
+	// The operation must agree with the phase it produces.
+	const EXPECTED_PHASE: Record<string, GoalPhase> = {
+		pause: "paused",
+		resume: "active",
+		complete: "complete",
+		block: "blocked",
+	};
+	const expected = EXPECTED_PHASE[operation];
+	if (expected && next.phase !== expected) {
+		throw new Error(`operation ${operation} must produce phase ${expected}, got ${next.phase}`);
+	}
+
+	// A blocked goal must always carry its blocker reason.
+	if (next.phase === "blocked" && !next.blockedReason) {
+		throw new Error("blocked goal requires a blocker reason");
 	}
 	if (next.phase !== "blocked" && next.blockedReason && operation !== "resume") {
 		throw new Error("blockedReason present on a non-blocked phase");
