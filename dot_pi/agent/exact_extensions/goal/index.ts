@@ -25,6 +25,8 @@ let goal: GoalView | null = null;
 let armed = false;
 /** Reserved but not yet admitted goal turn number, or null. */
 let pendingTurn: number | null = null;
+/** Editor banner toggle (process-local, default on). */
+let bannerEnabled = true;
 
 const PHASE_COLOR: Record<GoalPhase, "success" | "warning" | "error" | "accent"> = {
 	active: "success",
@@ -79,6 +81,10 @@ function updateStatusBar(ctx: ExtensionContext) {
 	const phase = theme.fg(PHASE_COLOR[goal.phase], goal.phase);
 	const marker = goal.armed ? theme.fg("accent", " ▶") : "";
 	ctx.ui.setStatus(CUSTOM_TYPE, `${phase}${marker} ${statusLine(goal)}`);
+	if (!bannerEnabled) {
+		ctx.ui.setWidget(CUSTOM_TYPE, undefined);
+		return;
+	}
 	ctx.ui.setWidget(CUSTOM_TYPE, [
 		`${theme.fg("customMessageLabel", theme.bold("goal"))} ${theme.fg("text", truncateObjective(goal.objective, 72))}`,
 		`${theme.fg(PHASE_COLOR[goal.phase], goal.phase)}${goal.armed ? theme.fg("accent", " ▶") : ""} ${theme.fg("dim", statusLine(goal))}`,
@@ -373,16 +379,28 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("goal", {
-		description: "Set, view, pause, resume, or clear a goal",
+		description: "Set, view, pause, resume, or clear a goal; /goal banner toggles the editor banner",
 		getArgumentCompletions: (prefix: string) => {
-			const values = ["set", "status", "pause", "resume", "clear"];
+			const values = ["set", "status", "pause", "resume", "clear", "banner"];
 			return values.filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v }));
 		},
 		handler: async (args: string, ctx: ExtensionContext) => {
 			const trimmed = args.trim();
 
 			if (!trimmed || trimmed === "status") {
-				ctx.ui.notify(goal ? `${statusLine(goal)}\n${truncateObjective(goal.objective, 120)}` : "No goal set. Use /goal set <objective>", "info");
+				ctx.ui.notify(
+					goal
+						? `${statusLine(goal)}\n${truncateObjective(goal.objective, 120)}\nBanner: ${bannerEnabled ? "on" : "off"} (/goal banner to toggle)`
+						: `No goal set. Use /goal set <objective>\nBanner: ${bannerEnabled ? "on" : "off"} (/goal banner to toggle)`,
+					"info",
+				);
+				return;
+			}
+
+			if (trimmed === "banner") {
+				bannerEnabled = !bannerEnabled;
+				updateStatusBar(ctx);
+				ctx.ui.notify(`Goal banner ${bannerEnabled ? "shown" : "hidden"}.`, "info");
 				return;
 			}
 
