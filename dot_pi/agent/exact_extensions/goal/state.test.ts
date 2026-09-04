@@ -13,6 +13,7 @@ import {
 	statusLine,
 	truncateObjective,
 	goalView,
+	goalStatusMessage,
 	type GoalChangeEntry,
 	type GoalTurnEntry,
 } from "./state.ts";
@@ -163,6 +164,18 @@ test("statusLine shows phase, arm marker, and context usage", () => {
 	// without usage info, falls back to round count
 	assert.match(statusLine(g), /2 rounds$/);
 	assert.equal(statusLine(null), "");
+});
+
+test("goalStatusMessage composes the /goal status notification", () => {
+	const g = { ...createGoalState("obj", null, T0), armed: true, turnsStarted: 2 };
+	const usage = { tokens: 100_000, contextWindow: 1_000_000 };
+	const msg = goalStatusMessage(g, usage, true);
+	assert.match(msg, /^active ▶ 10%\/1\.0M\nobj\nBanner: on \(bare \/goal to toggle\)$/);
+
+	assert.equal(
+		goalStatusMessage(null, null, false),
+		"No goal set. Use /goal set <objective>\nBanner: off (bare /goal to toggle)",
+	);
 });
 
 test("truncateObjective flattens whitespace and caps length", () => {

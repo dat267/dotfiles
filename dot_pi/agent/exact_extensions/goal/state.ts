@@ -234,6 +234,17 @@ export function statusLine(goal: GoalView | null, contextUsage?: { tokens: numbe
 	return `${goal.phase}${goal.armed ? " ▶" : ""} ${usage}`;
 }
 
+/** Compose the /goal status notification (no goal → hint). */
+export function goalStatusMessage(
+	goal: GoalView | null,
+	contextUsage?: { tokens: number | null; contextWindow: number } | null,
+	bannerEnabled = false,
+): string {
+	const banner = `Banner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`;
+	if (!goal) return `No goal set. Use /goal set <objective>\n${banner}`;
+	return `${statusLine(goal, contextUsage ?? undefined)}\n${truncateObjective(goal.objective, 120)}\n${banner}`;
+}
+
 export function goalRoundPrompt(goal: GoalView, turn: number): string {
 	return [
 		`<goal_round>`,

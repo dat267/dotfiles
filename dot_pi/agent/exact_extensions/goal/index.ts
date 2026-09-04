@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { handleGoalCommand } from "./command.ts";
 import { CUSTOM_TYPE, EVENT_TYPE, GoalMachine, TURN_TYPE, type Effect } from "./machine.ts";
 import {
+	goalStatusMessage,
 	goalView,
 	statusLine,
 	truncateObjective,
@@ -199,14 +200,7 @@ export default function piGoal(pi: ExtensionAPI) {
 
 			handleGoalCommand(args, pi, ctx, {
 				toggleBanner: () => run({ type: "banner_toggle" }, `Goal banner ${machine.snapshot.bannerEnabled ? "shown" : "hidden"}.`),
-				showStatus: () => {
-					ctx.ui.notify(
-						goal
-							? `${statusLine(goal, usage)}\n${truncateObjective(goal.objective, 120)}\nBanner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`
-							: `No goal set. Use /goal set <objective>\nBanner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`,
-						"info",
-					);
-				},
+				showStatus: () => ctx.ui.notify(goalStatusMessage(goal, usage, bannerEnabled), "info"),
 				clearGoal: () => {
 					if (!goal) { ctx.ui.notify("No goal is set.", "info"); return; }
 					run({ type: "goal_clear", id: goal.id, revision: goal.revision }, "Goal cleared.");
