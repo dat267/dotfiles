@@ -1,0 +1,27 @@
+MenuBar=Disabled
+
+[Desktop Entry]
+DefaultProfile=
+
+[General]
+ConfigVersion=1
+
+[KonsoleWindow]
+AllowMenuAccelerators=true
+ForceNewTabs=true
+ListenForZModemTerminalCodes=true
+RemoveWindowTitleBarAndFrame=true
+ShowWindowTitleOnTitleBar=true
+UseSingleInstance=true
+
+[Notification Messages]
+CloseAllEmptyTabs=true
+
+[TabBar]
+CloseTabButton=None
+CloseTabOnMiddleMouseButton=true
+TabBarPosition=Left
+TabBarVisibility=AlwaysShowTabBar
+
+[UiSettings]
+ColorScheme=
