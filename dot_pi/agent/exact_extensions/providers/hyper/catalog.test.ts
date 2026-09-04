@@ -1,5 +1,5 @@
 /**
- * Tests for charm-hyper/catalog.ts — model construction seam.
+ * Tests for hyper/catalog.ts — model construction seam.
  */
 
 import { describe, it } from "node:test";

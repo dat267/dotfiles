@@ -7,7 +7,7 @@
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import { registerCharmHyper } from "./charm-hyper.ts";
+import { registerCharmHyper } from "./hyper/index.ts";
 
 export default function (pi: ExtensionAPI) {
 	registerCharmHyper(pi);

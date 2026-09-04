@@ -1,5 +1,5 @@
 /**
- * charm-hyper/catalog.ts — single model-construction seam.
+ * hyper/catalog.ts — single model-construction seam.
  *
  * CATALOG holds compact records (only fields that vary between models);
  * buildModels() fills the invariants (api, provider, baseUrl, input, compat).
