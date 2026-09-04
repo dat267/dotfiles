@@ -1,0 +1,24 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- $stdin := .chezmoi.stdin | default "" -}}
+{{- if eq (trim $stdin) "" -}}
+[Desktop Entry]
+DefaultProfile=Default.profile
+{{ else -}}
+{{- $lines := splitList "\n" $stdin -}}
+{{- $out := list -}}
+{{- $inDesktop := false -}}
+{{- $seen := false -}}
+{{- range $line := $lines -}}
+{{- if hasPrefix "[" $line -}}{{- $inDesktop = eq $line "[Desktop Entry]" -}}{{- end -}}
+{{- if and $inDesktop (hasPrefix "DefaultProfile=" $line) -}}
+{{- $seen = true -}}
+{{- $out = append $out "DefaultProfile=Default.profile" -}}
+{{- else -}}
+{{- $out = append $out $line -}}
+{{- end -}}
+{{- end -}}
+{{- if not $seen -}}
+{{- $out = concat $out (list "" "[Desktop Entry]" "DefaultProfile=Default.profile") -}}
+{{- end -}}
+{{ join "\n" $out }}
+{{- end }}
