@@ -16,6 +16,11 @@
     "attribution": {
       "trailer_style": "assisted-by",
       "generated_with": true
+    },
+    "tui": {
+      "transparent": true,
+      "scrollbar": "never",
+      "diff_mode": "unified"
     }
   }
 }

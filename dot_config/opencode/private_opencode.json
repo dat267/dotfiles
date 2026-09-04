@@ -2,6 +2,10 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "hyper/deepseek-v4-flash",
   "plugin": [],
+  "instructions": ["~/.pi/agent/APPEND_SYSTEM.md"],
+  "skills": {
+    "paths": ["~/.pi/agent/skills"]
+  },
   "lsp": true,
   "agent": {
     "explore": { "disable": false },
