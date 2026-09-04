@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { handleGoalCommand } from "./command.ts";
 import { CUSTOM_TYPE, EVENT_TYPE, GoalMachine, TURN_TYPE, type Effect } from "./machine.ts";
 import {
+	goalView,
 	statusLine,
 	truncateObjective,
 	type GoalView,
@@ -105,22 +106,7 @@ export default function piGoal(pi: ExtensionAPI) {
 		},
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			const { goal } = machine.snapshot;
-			const usage = ctx.getContextUsage();
-			const value = goal
-				? {
-						goal: {
-							id: goal.id,
-							revision: goal.revision,
-							objective: goal.objective,
-							phase: goal.phase,
-							turnsStarted: goal.turnsStarted,
-							contextCap: goal.contextCap,
-							contextUsage: usage ?? null,
-							...(goal.blockedReason ? { blockedReason: goal.blockedReason } : {}),
-						},
-						activation: goal.armed ? "armed" : "disarmed",
-					}
-				: { goal: null };
+			const value = goalView(goal, ctx.getContextUsage());
 			return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], details: { goal } };
 		},
 	});

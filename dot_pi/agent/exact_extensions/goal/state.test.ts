@@ -12,6 +12,7 @@ import {
 	foldGoal,
 	statusLine,
 	truncateObjective,
+	goalView,
 	type GoalChangeEntry,
 	type GoalTurnEntry,
 } from "./state.ts";
@@ -167,4 +168,34 @@ test("statusLine shows phase, arm marker, and context usage", () => {
 test("truncateObjective flattens whitespace and caps length", () => {
 	assert.equal(truncateObjective("  a\n\nb  "), "a b");
 	assert.equal(truncateObjective("x".repeat(100), 10), `${"x".repeat(9)}…`);
+});
+
+test("goalView shapes the get_goal tool-result contract for an active goal", () => {
+	const g = { ...createGoalState("obj", null, T0), armed: true, turnsStarted: 2 };
+	const usage = { tokens: 100_000, contextWindow: 1_000_000 };
+	assert.deepEqual(goalView(g, usage), {
+		goal: {
+			id: g.id,
+			revision: g.revision,
+			objective: "obj",
+			phase: "active",
+			turnsStarted: 2,
+			contextCap: null,
+			contextUsage: usage,
+		},
+		activation: "armed",
+	});
+});
+
+test("goalView omits blockedReason unless present, and reports null goal", () => {
+	const g = { ...createGoalState("obj", null, T0), armed: false, turnsStarted: 0, phase: "blocked" as const, blockedReason: { code: "stuck", message: "no path" } };
+	const view = goalView(g, null);
+	assert.equal(view.goal!.blockedReason && (view.goal!.blockedReason as any).message, "no path");
+	assert.equal(view.activation, "disarmed");
+	assert.equal(view.goal!.contextUsage, null);
+
+	const clean = { ...createGoalState("obj", null, T0), armed: false, turnsStarted: 0 };
+	assert.equal("blockedReason" in goalView(clean, null).goal!, false);
+
+	assert.deepEqual(goalView(null, null), { goal: null });
 });

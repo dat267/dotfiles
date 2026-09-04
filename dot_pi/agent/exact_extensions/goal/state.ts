@@ -205,6 +205,27 @@ export function truncateObjective(text: string, max = 60): string {
 	return flat.length <= max ? flat : `${flat.slice(0, max - 1)}…`;
 }
 
+/** Shape the get_goal tool-result payload (the model-facing contract). */
+export function goalView(
+	goal: GoalView | null,
+	usage: { tokens: number | null; contextWindow: number } | null,
+): { goal: Record<string, unknown> | null; activation: string } {
+	if (!goal) return { goal: null };
+	return {
+		goal: {
+			id: goal.id,
+			revision: goal.revision,
+			objective: goal.objective,
+			phase: goal.phase,
+			turnsStarted: goal.turnsStarted,
+			contextCap: goal.contextCap,
+			contextUsage: usage ?? null,
+			...(goal.blockedReason ? { blockedReason: goal.blockedReason } : {}),
+		},
+		activation: goal.armed ? "armed" : "disarmed",
+	};
+}
+
 export function statusLine(goal: GoalView | null, contextUsage?: { tokens: number | null; contextWindow: number }): string {
 	if (!goal) return "";
 	const usage = contextUsage && contextUsage.tokens !== null
