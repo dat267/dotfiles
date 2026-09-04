@@ -10,7 +10,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-from _shared import COLORS, log
+from _shared import COLORS, download, log
 
 def get_platform_info():
     system = platform.system().lower()
@@ -73,9 +73,7 @@ def main():
         with tempfile.TemporaryDirectory() as temp_dir:
             archive_path = os.path.join(temp_dir, f"gcloud.{archive_ext}")
 
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req) as resp, open(archive_path, "wb") as out:
-                shutil.copyfileobj(resp, out)
+            download(url, archive_path, headers={"User-Agent": "Mozilla/5.0"})
 
             log("Extracting archive...", "cyan")
             if archive_ext == "zip":

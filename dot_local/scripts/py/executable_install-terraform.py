@@ -10,7 +10,7 @@ import zipfile
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import COLORS, log, get_platform_info
+from _shared import COLORS, download, get_platform_info, log
 
 def fetch_latest_version():
     url = "https://releases.hashicorp.com/index.json"
@@ -67,9 +67,7 @@ def main():
         with tempfile.TemporaryDirectory() as temp_dir:
             zip_path = os.path.join(temp_dir, "terraform.zip")
 
-            req = urllib.request.Request(zip_url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req) as resp, open(zip_path, "wb") as out:
-                shutil.copyfileobj(resp, out)
+            download(zip_url, zip_path, headers={"User-Agent": "Mozilla/5.0"})
 
             log("Extracting binary...", "cyan")
             with zipfile.ZipFile(zip_path, "r") as zip_ref:

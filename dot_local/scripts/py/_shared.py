@@ -1,6 +1,22 @@
 import os
 import platform
+import shutil
 import sys
+import urllib.request
+
+DEFAULT_TIMEOUT = 60
+
+
+def download(url, dest, headers=None, timeout=DEFAULT_TIMEOUT, opener=None):
+    """Stream `url` to `dest`, return the dest path.
+
+    `opener(req, timeout)` is injectable for tests; defaults to urlopen.
+    """
+    open_url = opener or urllib.request.urlopen
+    req = urllib.request.Request(url, headers=headers or {})
+    with open_url(req, timeout) as resp, open(dest, "wb") as out:
+        shutil.copyfileobj(resp, out)
+    return dest
 
 COLORS = {
     "cyan": "\033[96m",

@@ -14,7 +14,7 @@ import urllib.error
 import xml.etree.ElementTree as ET
 import zipfile
 
-from _shared import COLORS, log
+from _shared import COLORS, download, log
 
 REPO_XML = "https://dl.google.com/android/repository/repository2-3.xml"
 
@@ -198,10 +198,8 @@ def install_cmdline_tools(os_name, sdk_root):
     with tempfile.TemporaryDirectory() as temp_dir:
         archive_path = os.path.join(temp_dir, "cmdline-tools.zip")
 
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         try:
-            with urllib.request.urlopen(req) as resp, open(archive_path, "wb") as out:
-                shutil.copyfileobj(resp, out)
+            download(url, archive_path, headers={"User-Agent": "Mozilla/5.0"})
         except urllib.error.HTTPError as e:
             log(f"Error downloading cmdline-tools: HTTP {e.code}", "red")
             sys.exit(1)

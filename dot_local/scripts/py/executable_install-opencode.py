@@ -12,7 +12,7 @@ import urllib.request
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import COLORS, log
+from _shared import COLORS, download, log
 
 
 def get_platform_filename():
@@ -63,10 +63,8 @@ def main():
         with tempfile.TemporaryDirectory() as temp_dir:
             archive_path = os.path.join(temp_dir, "opencode.tar.gz")
 
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             try:
-                with urllib.request.urlopen(req) as resp, open(archive_path, "wb") as out:
-                    shutil.copyfileobj(resp, out)
+                download(url, archive_path, headers={"User-Agent": "Mozilla/5.0"})
             except urllib.error.HTTPError as e:
                 if e.code == 404:
                     log(f"Error: Release asset not found at: {url}", "red")

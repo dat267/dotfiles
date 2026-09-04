@@ -1,9 +1,61 @@
 import unittest
+import tempfile
+import pathlib
 from unittest import mock
+from urllib.error import URLError
 
 import _loader
 
-get_platform_info = _loader.load("_shared").get_platform_info
+shared = _loader.load("_shared")
+get_platform_info = shared.get_platform_info
+download = shared.download
+
+
+class TestDownload(unittest.TestCase):
+    class FakeResponse:
+        def __init__(self, chunks):
+            self._chunks = chunks
+
+        def read(self, n=-1):
+            return self._chunks.pop(0) if self._chunks else b""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def test_streams_body_to_dest_and_returns_path(self):
+        fake = self.FakeResponse([b"hello ", b"world"])
+        with tempfile.TemporaryDirectory() as d:
+            dest = pathlib.Path(d) / "out.bin"
+            path = download("https://example.com/f", str(dest), opener=lambda req, timeout: fake)
+            self.assertEqual(path, str(dest))
+            self.assertEqual(dest.read_bytes(), b"hello world")
+
+    def test_passes_headers_and_timeout(self):
+        seen = {}
+        fake = self.FakeResponse([b"x"])
+
+        def opener(req, timeout):
+            seen["headers"] = req.headers
+            seen["timeout"] = timeout
+            return fake
+
+        with tempfile.TemporaryDirectory() as d:
+            dest = pathlib.Path(d) / "o"
+            download("https://example.com/f", str(dest), headers={"Authorization": "Bearer t"}, opener=opener)
+        self.assertEqual(seen["headers"].get("Authorization"), "Bearer t")
+        self.assertIsNotNone(seen["timeout"])
+
+    def test_network_error_propagates(self):
+        def boom(req, timeout):
+            raise URLError("boom")
+
+        with tempfile.TemporaryDirectory() as d:
+            dest = pathlib.Path(d) / "o"
+            with self.assertRaises(URLError):
+                download("https://example.com/f", str(dest), opener=boom)
 
 
 class TestGetPlatformInfo(unittest.TestCase):

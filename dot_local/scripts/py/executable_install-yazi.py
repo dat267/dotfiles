@@ -12,7 +12,7 @@ import zipfile
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import COLORS, log
+from _shared import COLORS, download, log
 
 def get_platform_info():
     system = platform.system().lower()
@@ -89,9 +89,7 @@ def main():
         with tempfile.TemporaryDirectory() as temp_dir:
             archive_path = os.path.join(temp_dir, archive_name)
 
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req) as resp, open(archive_path, "wb") as out:
-                shutil.copyfileobj(resp, out)
+            download(url, archive_path, headers={"User-Agent": "Mozilla/5.0"})
 
             log("Extracting archive...", "cyan")
             with zipfile.ZipFile(archive_path, "r") as zip_ref:

@@ -10,7 +10,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-from _shared import COLORS, log
+from _shared import COLORS, download, log
 
 def get_platform_info():
     system = platform.system().lower()
@@ -119,11 +119,9 @@ def main():
             extract_dir = os.path.join(temp_dir, "extract")
             os.makedirs(extract_dir, exist_ok=True)
 
-            req = urllib.request.Request(
-                download_url, headers={"User-Agent": "Mozilla/5.0"}
+            download(
+                download_url, archive_path, headers={"User-Agent": "Mozilla/5.0"}
             )
-            with urllib.request.urlopen(req) as resp, open(archive_path, "wb") as out:
-                shutil.copyfileobj(resp, out)
 
             log("Extracting archive...", "cyan")
             if archive_ext == "zip":
