@@ -22,7 +22,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { interceptToolCall, promptNote, checkNonInteractive, blocked, type ActiveMode } from "./interceptor.ts";
+import { interceptToolCall, promptNote, checkNonInteractive, blocked } from "./interceptor.ts";
+import { modeDetail, switchMode, type ActiveMode } from "./modes.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -36,8 +37,6 @@ const BUILD_LOG = join(CACHE_DIR, "build.log");
 type SandboxMode =
 	| { mode: "landlock"; bin: string }
 	| { mode: "approval"; detail: string };
-
-type ActiveMode = "read" | "supervised" | "workspace" | "yolo";
 
 /** Compile the Landlock gate once, then probe the kernel. */
 function resolveMode(): SandboxMode {
@@ -145,55 +144,36 @@ export default function (pi: ExtensionAPI) {
 
 	// ── Top-level mode commands ──
 
-	function setMode(mode: ActiveMode, ctx: ExtensionContext) {
-		if (mode === "workspace" && sandbox.mode !== "landlock") {
-			active = "supervised";
-			ctx.ui.notify("[sandbox] Landlock unavailable — using supervised instead", "warning");
-			return;
-		}
+	function applyMode(requested: ActiveMode, ctx: ExtensionContext) {
+		const { mode, warning } = switchMode(requested, sandbox.mode);
 		active = mode;
-		const detail =
-			mode === "workspace" && sandbox.mode === "landlock"
-				? "Landlock (kernel-enforced)"
-				: mode === "supervised"
-					? "ask before every bash/write/edit"
-					: mode;
-		ctx.ui.notify(`[sandbox] Mode: ${detail}`, "info");
-	}
-
-	function showStatus(ctx: ExtensionContext) {
-		const detail =
-			active === "workspace" && sandbox.mode === "landlock"
-				? "Landlock (kernel-enforced)"
-				: active === "supervised"
-					? "ask before every bash/write/edit"
-					: active;
-		ctx.ui.notify(`[sandbox] Mode: ${detail}`, "info");
+		if (warning) ctx.ui.notify(`[sandbox] ${warning}`, "warning");
+		else ctx.ui.notify(`[sandbox] Mode: ${modeDetail(mode, sandbox.mode)}`, "info");
 	}
 
 	pi.registerCommand("readonly", {
 		description: "Switch to read-only mode (bash/write/edit disabled)",
-		handler: async (_args, ctx) => setMode("read", ctx),
+		handler: async (_args, ctx) => applyMode("read", ctx),
 	});
 
 	pi.registerCommand("ask", {
 		description: "Switch to supervised mode (every bash/write/edit asks approval)",
-		handler: async (_args, ctx) => setMode("supervised", ctx),
+		handler: async (_args, ctx) => applyMode("supervised", ctx),
 	});
 
 	pi.registerCommand("sandbox", {
 		description: "Switch to workspace mode (Landlock kernel enforcement) or show status",
 		handler: async (args, ctx) => {
 			if (args.trim() === "") {
-				showStatus(ctx);
+				ctx.ui.notify(`[sandbox] Mode: ${modeDetail(active, sandbox.mode)}`, "info");
 			} else {
-				setMode("workspace", ctx);
+				applyMode("workspace", ctx);
 			}
 		},
 	});
 
 	pi.registerCommand("yolo", {
 		description: "Switch to unrestricted mode (all writes allowed)",
-		handler: async (_args, ctx) => setMode("yolo", ctx),
+		handler: async (_args, ctx) => applyMode("yolo", ctx),
 	});
 }
