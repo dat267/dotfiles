@@ -3,13 +3,14 @@
  * All dimmed, single line, left-aligned.
  * Format: "CH97.4% · 3%/1M · model · cwd"
  *
- * Cache hit rate is tracked at turn_end (not walked per-frame).
+ * Cache hit rate is tracked at turn_end (not walked per-frame); the
+ * formula lives once in format.ts.
  */
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { visibleWidth } from "@earendil-works/pi-tui";
 import { basename } from "node:path";
+import { cacheHitRate, formatTokens, truncate } from "./format.ts";
 
 export default function (pi: ExtensionAPI) {
 	let latestCacheHitRate: number | undefined;
@@ -17,9 +18,9 @@ export default function (pi: ExtensionAPI) {
 	pi.on("turn_end", async (event) => {
 		const m = event.message as AssistantMessage;
 		if (m.role !== "assistant") return;
-		const promptTokens = (m.usage.input ?? 0) + (m.usage.cacheRead ?? 0) + (m.usage.cacheWrite ?? 0);
-		if (promptTokens > 0) {
-			latestCacheHitRate = ((m.usage.cacheRead ?? 0) / promptTokens) * 100;
+		const rate = cacheHitRate(m.usage);
+		if (rate !== undefined) {
+			latestCacheHitRate = rate;
 		}
 	});
 
@@ -27,10 +28,9 @@ export default function (pi: ExtensionAPI) {
 		latestCacheHitRate = undefined;
 		for (const e of ctx.sessionManager.getBranch()) {
 			if (e.type === "message" && e.message.role === "assistant") {
-				const m = e.message as AssistantMessage;
-				const promptTokens = (m.usage.input ?? 0) + (m.usage.cacheRead ?? 0) + (m.usage.cacheWrite ?? 0);
-				if (promptTokens > 0) {
-					latestCacheHitRate = ((m.usage.cacheRead ?? 0) / promptTokens) * 100;
+				const rate = cacheHitRate((e.message as AssistantMessage).usage);
+				if (rate !== undefined) {
+					latestCacheHitRate = rate;
 				}
 			}
 		}
@@ -76,26 +76,4 @@ export default function (pi: ExtensionAPI) {
 			};
 		});
 	});
-}
-
-function formatTokens(count: number): string {
-	if (count < 1000) return count.toString();
-	if (count < 10_000) return `${(count / 1000).toFixed(1)}k`;
-	if (count < 1_000_000) return `${(count / 1000).toFixed(0)}k`;
-	return `${Math.round(count / 1_000_000)}M`;
-}
-
-/** Truncate by display width (CJK-safe); plain text only, no ANSI. */
-function truncate(text: string, max: number): string {
-	if (max <= 3) return "...".slice(0, Math.max(0, max));
-	if (visibleWidth(text) <= max) return text;
-	let out = "";
-	let w = 0;
-	for (const ch of text) {
-		const cw = visibleWidth(ch);
-		if (w + cw > max - 3) break;
-		out += ch;
-		w += cw;
-	}
-	return out + "...";
 }
