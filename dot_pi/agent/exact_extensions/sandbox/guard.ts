@@ -67,20 +67,3 @@ export function inspectPath(
 	}
 	return null;
 }
-
-/** Build the allowlist: workspace, /tmp, devices, caches, GOPATH. */
-export function defaultAllowlist(workspace: string): string[] {
-	const list = [
-		workspace,
-		"/tmp",
-		"/dev",
-		"/proc",
-		"/sys",
-		"/var/tmp",
-		homedir() + "/go", // GOPATH: module cache + go install binaries
-		homedir() + "/.cache",
-		homedir() + "/.npm",
-		homedir() + "/.cargo",
-	];
-	return list;
-}

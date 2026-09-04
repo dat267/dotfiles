@@ -5,7 +5,8 @@
  * Decides: block, wrap in gate, ask user, or pass through.
  */
 
-import { defaultAllowlist, inspectPath } from "./guard.ts";
+import { inspectPath } from "./guard.ts";
+import { defaultAllowlist, writablePathsNote } from "./policy.ts";
 
 export type ActiveMode = "read" | "supervised" | "workspace" | "yolo";
 export type SandboxMode = "landlock" | "approval";
@@ -35,7 +36,7 @@ export type InterceptorResult =
 export function promptNote(active: ActiveMode, sandbox: SandboxMode, workspace: string): string {
 	const shared =
 		`Workspace filesystem policy (sandbox extension, mode: ${active}):\n` +
-		`- The workspace (${workspace}) is writable; also /tmp, /var/tmp, /dev, /proc, /sys, per-user caches + Go (~/.cache, ~/.npm, ~/.cargo, ~/go).\n` +
+		`- ${writablePathsNote(workspace)}\n` +
 		`- Every other directory is read-only for writes. Reads are allowed everywhere.\n` +
 		`- Use /tmp for scratch files and test artifacts.\n` +
 		`- Deployments (chezmoi apply, extension installs/removals) are executed by the user in their own terminal, never by the agent. Stage changes inside the workspace and give the user the exact commands.\n` +

@@ -6,9 +6,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { defaultAllowlist, inspectPath } from "./guard.ts";
+import { inspectPath } from "./guard.ts";
+import { defaultAllowlist } from "./policy.ts";
 
 const WS = "/home/dat/proj";
 const PI = "/home/dat/.local/lib/node_modules/@earendil-works/pi-coding-agent";
@@ -23,7 +24,7 @@ test("workspace targets pass", () => {
 test("allowlist targets pass", () => {
 	assert.equal(inspectPath("/tmp/out.txt", WS, ALLOW), null);
 	assert.equal(inspectPath("/dev/null", WS, ALLOW), null);
-	assert.equal(inspectPath("/home/dat/go/bin/x", WS, ALLOW), null);
+	assert.equal(inspectPath(homedir() + "/go/bin/x", WS, ALLOW), null);
 });
 
 test("pi module path and run dir are blocked (write escapes removed)", () => {
@@ -32,7 +33,7 @@ test("pi module path and run dir are blocked (write escapes removed)", () => {
 });
 
 test("outside targets are blocked", () => {
-	assert.ok(inspectPath("/home/dat/Documents/x", WS, ALLOW));
+	assert.ok(inspectPath(homedir() + "/Documents/x", WS, ALLOW));
 	assert.ok(inspectPath("~/Documents/x", WS, ALLOW));
 	assert.ok(inspectPath("/etc/cron.d/x", WS, ALLOW));
 	assert.ok(inspectPath("../other", WS, ALLOW));
