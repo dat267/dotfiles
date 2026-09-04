@@ -24,7 +24,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	function seedCacheHitRate(ctx: any) {
-		latest = latestCacheHit(ctx.sessionManager.getBranch());
+		latestCacheHitRate = latestCacheHit(ctx.sessionManager.getBranch());
 	}
 
 	pi.on("session_tree", async (_event, ctx) => {
