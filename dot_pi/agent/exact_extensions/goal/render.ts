@@ -79,11 +79,14 @@ export function renderGoalEventMessage(
 		complete: "Goal complete",
 		resumed: "Goal resumed",
 	};
+	// Wrap-up cards repeat the objective already shown by the durable entry
+	// card — collapse to label-only when not expanded.
+	const wrapup = kind === "complete" || kind === "blocked";
 	return renderGoalCard(
 		theme,
 		{
 			label: labels[kind] ?? "Goal",
-			body: displayBody(content),
+			body: wrapup && !expanded ? "" : displayBody(content),
 			phase: kind === "blocked" ? "blocked" : kind === "complete" ? "complete" : currentPhase,
 			detail: kind === "round" && turn ? `#${turn}` : undefined,
 		},

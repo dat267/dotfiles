@@ -110,6 +110,24 @@ void describe("renderGoalEventMessage", () => {
 		assert.ok(card instanceof Box);
 	});
 
+	void it("collapses wrap-up events to label-only when not expanded", () => {
+		// The durable entry card right above already shows the objective;
+		// the wrap-up card must not repeat it.
+		for (const kind of ["complete", "blocked"] as const) {
+			const card = renderGoalEventMessage(kind, "The objective text", undefined, kind === "complete" ? "complete" : "blocked", stubTheme, false);
+			const lines = card.children.map((c: any) => c.text ?? c.lines?.join("") ?? "").join("\n");
+			assert.equal(lines.includes("objective text"), false, `${kind} card leaked body when collapsed`);
+		}
+	});
+
+	void it("keeps wrap-up body when expanded", () => {
+		for (const kind of ["complete", "blocked"] as const) {
+			const card = renderGoalEventMessage(kind, "The objective text", undefined, "complete", stubTheme, true);
+			const lines = card.children.map((c: any) => c.text ?? c.lines?.join("") ?? "").join("\n");
+			assert.equal(lines.includes("objective text"), true, `${kind} card lost body when expanded`);
+		}
+	});
+
 	void it("renders a blocked event", () => {
 		const card = renderGoalEventMessage("blocked", "Stuck", undefined, "blocked", stubTheme, false);
 		assert.ok(card instanceof Box);

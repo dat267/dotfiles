@@ -151,7 +151,7 @@ export default function piGoal(pi: ExtensionAPI) {
 		description: "Complete or block the current goal. Requires the exact id and revision from get_goal. complete requires evidence the objective is achieved. blocked requires a concrete blocked_reason and is rejected before 3 consecutive goal rounds. edit, pause, and resume are human-only (user runs /goal).",
 		promptSnippet: "Complete or block the current goal",
 		promptGuidelines: [
-			"Call get_goal first to get the exact id and revision.",
+			"Call get_goal first to get the exact id and revision, unless this turn already gave you both.",
 			"Mark complete only when the objective is actually achieved, with evidence.",
 			"Mark blocked only after the same condition persisted for at least 3 consecutive goal rounds.",
 		],
