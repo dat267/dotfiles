@@ -85,6 +85,9 @@ done
 
 PROMPT='%F{cyan}%~%f %F{yellow}%#%f '
 
+# Deterministic emacs keymap — don't let $EDITOR decide (zsh: no default
+# Home/End/Delete/Ctrl-arrow bindings on Arch; /etc/zsh/zshrc ships none).
+bindkey -e
 bindkey '^[[H' beginning-of-line
 bindkey '^[[F' end-of-line
 bindkey '^[OH' beginning-of-line
