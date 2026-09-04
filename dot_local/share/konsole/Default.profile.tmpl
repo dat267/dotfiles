@@ -1,0 +1,11 @@
+[General]
+Name=Default
+Parent=FALLBACK/
+
+[Appearance]
+{{ $fonts := list "FiraCode Nerd Font Mono" "JetBrainsMono Nerd Font Mono" "Hack Nerd Font Mono" "MesloLGS Nerd Font Mono" }}
+{{/* First installed Nerd Font Mono wins; generic Monospace fallback otherwise. */}}
+{{ $families := splitList "\n" (output "sh" "-c" "fc-list :mono family | sort -u") }}
+{{ $font := "Monospace" }}
+{{ range $want := $fonts }}{{ if eq $font "Monospace" }}{{ range $line := $families }}{{ if and (eq $font "Monospace") (regexMatch (printf "^%s(,|$)" $want) $line) }}{{ $font = $want }}{{ end }}{{ end }}{{ end }}{{ end }}
+Font={{ $font }},10,-1,5,400,0,0,0,0,0
