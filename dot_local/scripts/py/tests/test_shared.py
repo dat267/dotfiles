@@ -9,6 +9,50 @@ import _loader
 shared = _loader.load("_shared")
 get_platform_info = shared.get_platform_info
 download = shared.download
+fetch_json = shared.fetch_json
+github_latest_tag = shared.github_latest_tag
+
+
+class TestFetchJson(unittest.TestCase):
+    class FakeResponse:
+        def read(self):
+            return b'{"tag_name": "v1.2.3"}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def test_parses_json_and_defaults_timeout(self):
+        seen = {}
+
+        def opener(req, timeout):
+            seen["timeout"] = timeout
+            return self.FakeResponse()
+
+        self.assertEqual(fetch_json("https://api.example.com/x", opener=opener), {"tag_name": "v1.2.3"})
+        self.assertLessEqual(seen["timeout"], 5)
+
+    def test_returns_none_on_failure(self):
+        def boom(req, timeout):
+            raise URLError("no net")
+
+        self.assertIsNone(fetch_json("https://api.example.com/x", opener=boom))
+
+
+class TestGithubLatestTag(unittest.TestCase):
+    def test_returns_tag_name_with_v_stripped(self):
+        fake = TestFetchJson.FakeResponse()
+        tag = github_latest_tag("owner/repo", opener=lambda req, timeout: fake)
+        self.assertEqual(tag, "1.2.3")
+
+    def test_none_when_no_tag_name(self):
+        class Empty(TestFetchJson.FakeResponse):
+            def read(self):
+                return b"{}"
+
+        self.assertIsNone(github_latest_tag("owner/repo", opener=lambda req, timeout: Empty()))
 
 
 class TestDownload(unittest.TestCase):

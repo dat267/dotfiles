@@ -84,14 +84,8 @@ class TestExtractArchive(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(dest, "y.txt")))
 
 
-class TestGithubVersion(unittest.TestCase):
-    def test_strips_v_prefix(self):
-        with mock.patch.object(lsp, "fetch_json", return_value={"tag_name": "v1.2.3"}):
-            self.assertEqual(lsp.get_latest_github_version("a/b"), "1.2.3")
-
-    def test_none_on_missing(self):
-        with mock.patch.object(lsp, "fetch_json", return_value=None):
-            self.assertIsNone(lsp.get_latest_github_version("a/b"))
+# get_latest_github_version moved to _shared.github_latest_tag;
+# covered in tests/test_shared.py (TestGithubLatestTag).
 
 
 if __name__ == "__main__":

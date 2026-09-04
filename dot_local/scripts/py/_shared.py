@@ -1,3 +1,4 @@
+import json
 import os
 import platform
 import shutil
@@ -5,6 +6,25 @@ import sys
 import urllib.request
 
 DEFAULT_TIMEOUT = 60
+
+
+def fetch_json(url, timeout=5, opener=None):
+    """GET url, return parsed JSON or None on failure."""
+    open_url = opener or urllib.request.urlopen
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with open_url(req, timeout) as response:
+            return json.loads(response.read().decode())
+    except Exception:
+        return None
+
+
+def github_latest_tag(repo, timeout=5, opener=None):
+    """Resolve the latest GitHub release tag for `repo`. Strips leading 'v'."""
+    data = fetch_json(f"https://api.github.com/repos/{repo}/releases/latest", timeout, opener)
+    if data and "tag_name" in data:
+        return data["tag_name"].lstrip("v")
+    return None
 
 
 def download(url, dest, headers=None, timeout=DEFAULT_TIMEOUT, opener=None):

@@ -10,7 +10,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-from _shared import COLORS, download, log
+from _shared import COLORS, download, fetch_json, log
 
 def get_platform_info():
     system = platform.system().lower()
@@ -39,43 +39,41 @@ def get_platform_info():
 
 def fetch_latest_pwsh_release(os_name, arch_name):
     url = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        with urllib.request.urlopen(req) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            assets = data.get("assets", [])
+        data = fetch_json(url) or {}
+        assets = data.get("assets", [])
 
-            # Asset extension and naming pattern:
-            # Linux: *linux-x64.tar.gz or *linux-arm64.tar.gz
-            # Windows: *win-x64.zip or *win-arm64.zip
-            # OS X: *osx-x64.tar.gz or *osx-arm64.tar.gz
-            if os_name == "windows":
-                pattern = f"win-{arch_name}.zip"
-            elif os_name == "darwin":
-                pattern = f"osx-{arch_name}.tar.gz"
-            else:
-                pattern = f"linux-{arch_name}.tar.gz"
+        # Asset extension and naming pattern:
+        # Linux: *linux-x64.tar.gz or *linux-arm64.tar.gz
+        # Windows: *win-x64.zip or *win-arm64.zip
+        # OS X: *osx-x64.tar.gz or *osx-arm64.tar.gz
+        if os_name == "windows":
+            pattern = f"win-{arch_name}.zip"
+        elif os_name == "darwin":
+            pattern = f"osx-{arch_name}.tar.gz"
+        else:
+            pattern = f"linux-{arch_name}.tar.gz"
 
+        matching_assets = [
+            a for a in assets if a.get("name", "").endswith(pattern)
+        ]
+        if not matching_assets:
+            # Fallback check (some releases might have different architecture naming)
+            pattern_fallback = (
+                "win-x64.zip"
+                if os_name == "windows"
+                else ("osx-x64.tar.gz" if os_name == "darwin" else "linux-x64.tar.gz")
+            )
             matching_assets = [
-                a for a in assets if a.get("name", "").endswith(pattern)
+                a for a in assets if a.get("name", "").endswith(pattern_fallback)
             ]
-            if not matching_assets:
-                # Fallback check (some releases might have different architecture naming)
-                pattern_fallback = (
-                    "win-x64.zip"
-                    if os_name == "windows"
-                    else ("osx-x64.tar.gz" if os_name == "darwin" else "linux-x64.tar.gz")
-                )
-                matching_assets = [
-                    a for a in assets if a.get("name", "").endswith(pattern_fallback)
-                ]
 
-            if not matching_assets:
-                raise ValueError(
-                    f"No matching PowerShell assets found for pattern: {pattern}"
-                )
+        if not matching_assets:
+            raise ValueError(
+                f"No matching PowerShell assets found for pattern: {pattern}"
+            )
 
-            return data["tag_name"], matching_assets[0]["browser_download_url"]
+        return data["tag_name"], matching_assets[0]["browser_download_url"]
     except Exception as e:
         log(f"Error resolving PowerShell release: {e}", "red")
         sys.exit(1)

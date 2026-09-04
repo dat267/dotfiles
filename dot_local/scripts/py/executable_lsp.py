@@ -2,7 +2,6 @@
 
 import argparse
 import gzip
-import json
 import os
 import platform
 import shutil
@@ -12,6 +11,8 @@ import sys
 import tarfile
 import urllib.request
 import zipfile
+
+from _shared import fetch_json, github_latest_tag
 
 # Force IPv4 — Termux IPv6 lookups fail on some networks
 _orig_getaddrinfo = socket.getaddrinfo
@@ -82,24 +83,6 @@ def download_file(url, dest, description="File"):
     except Exception as e:
         print(f"\n[Error] Failed download: {e}")
         return False
-
-
-def fetch_json(url):
-    """GET url, return parsed JSON or None on failure."""
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            return json.loads(response.read().decode())
-    except Exception:
-        return None
-
-
-def get_latest_github_version(repo):
-    """Resolve latest release tag from a GitHub repo. Strips leading 'v'."""
-    data = fetch_json(f"https://api.github.com/repos/{repo}/releases/latest")
-    if data and "tag_name" in data:
-        return data["tag_name"].lstrip("v")
-    return None
 
 
 def get_latest_node_version():
@@ -188,7 +171,7 @@ def install_lua_lsp(sys_os, arch):
         create_proxy(lua_bin, "lua-language-server")
         return
 
-    version = get_latest_github_version("LuaLS/lua-language-server") or "3.13.5"
+    version = github_latest_tag("LuaLS/lua-language-server") or "3.13.5"
     os_str = (
         "win32" if sys_os == "windows" else "darwin" if sys_os == "darwin" else "linux"
     )

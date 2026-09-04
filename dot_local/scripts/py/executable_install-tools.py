@@ -8,7 +8,7 @@ import tempfile
 import urllib.error
 import urllib.request
 
-from _shared import COLORS, log, get_platform_info
+from _shared import COLORS, fetch_json, get_platform_info, log
 
 REPO = "dat267/dotfiles"
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
@@ -28,12 +28,11 @@ def main():
     url = f"https://api.github.com/repos/{REPO}/releases"
     log(f"Fetching latest tools release from {REPO}...", "cyan")
 
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    try:
-        with urllib.request.urlopen(req) as response:
-            releases = json.loads(response.read().decode("utf-8"))
-    except urllib.error.URLError as e:
-        log(f"Error fetching releases: {e}", "red")
+    log(f"Fetching latest tools release from {REPO}...", "cyan")
+
+    releases = fetch_json(url)
+    if releases is None:
+        log("Error fetching releases.", "red")
         sys.exit(1)
 
     tools_releases = [r for r in releases if r.get("tag_name", "").startswith("max/")]
