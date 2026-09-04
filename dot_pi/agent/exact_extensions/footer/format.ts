@@ -5,6 +5,7 @@
  * the turn_end tracker and the branch-replay seeder.
  */
 
+import { basename } from "node:path";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 interface UsageLike {
@@ -40,4 +41,45 @@ export function truncate(text: string, max: number): string {
 		w += cw;
 	}
 	return out + "...";
+}
+
+interface EntryLike {
+	type?: string;
+	message?: { role?: string; usage?: UsageLike };
+}
+
+/** Branch-replay seed: last defined assistant cache-hit rate. */
+export function latestCacheHit(entries: EntryLike[]): number | undefined {
+	let rate: number | undefined;
+	for (const e of entries) {
+		if (e.type === "message" && e.message?.role === "assistant") {
+			const r = cacheHitRate(e.message.usage ?? {});
+			if (r !== undefined) rate = r;
+		}
+	}
+	return rate;
+}
+
+export interface FooterInput {
+	cacheHit?: number;
+	contextUsage?: { percent?: number | null; contextWindow?: number } | null;
+	modelWindow?: number;
+	modelId?: string;
+	cwd: string;
+}
+
+/** Compose the full footer line: "CH97.4% · 3%/1M · model · cwd". */
+export function footerLine(input: FooterInput, width: number): string {
+	const window = input.contextUsage?.contextWindow ?? input.modelWindow ?? 0;
+	const percent = input.contextUsage?.percent;
+	const contextDisplay = percent === null || percent === undefined
+		? `?/${formatTokens(window)}`
+		: `${percent.toFixed(1)}%/${formatTokens(window)}`;
+
+	const parts: string[] = [];
+	if (input.cacheHit !== undefined) parts.push(`CH${input.cacheHit.toFixed(1)}%`);
+	parts.push(contextDisplay);
+	if (input.modelId) parts.push(truncate(input.modelId, 25));
+	parts.push(truncate(basename(input.cwd), 25));
+	return truncate(parts.join(" · "), Math.min(80, Math.max(0, width)));
 }

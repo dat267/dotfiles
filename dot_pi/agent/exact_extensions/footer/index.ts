@@ -9,8 +9,7 @@
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { basename } from "node:path";
-import { cacheHitRate, formatTokens, truncate } from "./format.ts";
+import { cacheHitRate, footerLine, latestCacheHit } from "./format.ts";
 
 export default function (pi: ExtensionAPI) {
 	let latestCacheHitRate: number | undefined;
@@ -25,15 +24,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	function seedCacheHitRate(ctx: any) {
-		latestCacheHitRate = undefined;
-		for (const e of ctx.sessionManager.getBranch()) {
-			if (e.type === "message" && e.message.role === "assistant") {
-				const rate = cacheHitRate((e.message as AssistantMessage).usage);
-				if (rate !== undefined) {
-					latestCacheHitRate = rate;
-				}
-			}
-		}
+		latest = latestCacheHit(ctx.sessionManager.getBranch());
 	}
 
 	pi.on("session_tree", async (_event, ctx) => {
@@ -51,26 +42,13 @@ export default function (pi: ExtensionAPI) {
 				render(width: number): string[] {
 					// -- Read cached values (O(1), no branch walk) --
 					const contextUsage = ctx.getContextUsage();
-					const contextWindow = contextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
-					const contextPercent =
-						contextUsage?.percent !== null && contextUsage?.percent !== undefined
-							? contextUsage.percent.toFixed(1)
-							: "?";
-					const contextDisplay =
-						contextPercent === "?"
-							? `?/${formatTokens(contextWindow)}`
-							: `${contextPercent}%/${formatTokens(contextWindow)}`;
-
-					const parts: string[] = [];
-					if (latestCacheHitRate !== undefined) {
-						parts.push(`CH${latestCacheHitRate.toFixed(1)}%`);
-					}
-					parts.push(contextDisplay);
-					if (ctx.model?.id) {
-						parts.push(truncate(ctx.model.id, 25));
-					}
-					parts.push(truncate(basename(ctx.sessionManager.getCwd()), 25));
-					const line = theme.fg("dim", truncate(parts.join(" · "), Math.min(80, Math.max(0, width))));
+					const line = theme.fg("dim", footerLine({
+						cacheHit: latestCacheHitRate,
+						contextUsage,
+						modelWindow: ctx.model?.contextWindow,
+						modelId: ctx.model?.id,
+						cwd: ctx.sessionManager.getCwd(),
+					}, width));
 					return [line];
 				},
 			};
