@@ -1,2 +1,0 @@
-{{- /* chezmoi:modify-template */ -}}
-{{- "LEN:" }}{{ len .chezmoi.stdin }}:
