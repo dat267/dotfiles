@@ -238,8 +238,9 @@ export default function piGoal(pi: ExtensionAPI) {
 			const entries = ctx.sessionManager.getBranch();
 			machine.dispatch({
 				type: "session_start",
+				// Machine owns goal-entry filtering; we only strip non-custom entries.
 				entries: entries
-					.filter((e) => e.type === "custom" && (e.customType === CUSTOM_TYPE || e.customType === TURN_TYPE))
+					.filter((e) => e.type === "custom")
 					.map((e) => ({ customType: (e as any).customType as string, data: (e as any).data })),
 			});
 		} catch {

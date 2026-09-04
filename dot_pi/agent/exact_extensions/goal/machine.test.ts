@@ -292,3 +292,81 @@ void describe("GoalMachine.session_start corruption", () => {
 		assert.equal(reply, undefined);
 	});
 });
+
+void describe("GoalMachine round-trip (write shape replays via fold)", () => {
+	function machineWithCollector() {
+		const m = new GoalMachine();
+		const entries: { customType: string; data: unknown }[] = [];
+		const orig = m.dispatch.bind(m);
+		(m as unknown as { dispatch: typeof orig }).dispatch = ((event: Parameters<typeof orig>[0]) => {
+			const result = orig(event);
+			for (const e of result.effects) {
+				if (e.kind === "appendEntry") entries.push({ customType: e.entryType, data: e.data });
+			}
+			return result;
+		}) as typeof orig;
+		return { m, entries };
+	}
+
+	void it("full lifecycle: what the machine writes, a fresh session reads", () => {
+		const { m, entries } = machineWithCollector();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "round trip", cap: 0.8 });
+
+		// two admitted rounds
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		m.dispatch({ type: "agent_settled", contextUsage: USAGE });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		m.dispatch({ type: "agent_settled", contextUsage: USAGE });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+
+		// pause / resume cycle (adds revision churn)
+		m.dispatch({ type: "goal_pause" });
+		m.dispatch({ type: "goal_resume" });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+
+		// complete
+		const snapBefore = m.snapshot.goal!;
+		m.dispatch({ type: "goal_update", goal_id: snapBefore.id, revision: snapBefore.revision, action: "complete" });
+		const snap = m.snapshot.goal!;
+
+		// replay through a fresh machine, as session_start does after restart
+		const fresh = new GoalMachine();
+		fresh.dispatch({ type: "session_start", entries });
+		const replayed = fresh.snapshot.goal!;
+
+		assert.equal(replayed.id, snap.id);
+		assert.equal(replayed.revision, snap.revision);
+		assert.equal(replayed.objective, snap.objective);
+		assert.equal(replayed.phase, "complete");
+		assert.equal(replayed.turnsStarted, snap.turnsStarted);
+		assert.equal(replayed.contextCap, 0.8);
+	});
+
+	void it("mid-lifecycle pause: replay preserves paused phase + reason", () => {
+		const { m, entries } = machineWithCollector();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "pause me", cap: null });
+		m.dispatch({ type: "goal_pause" });
+
+		const fresh = new GoalMachine();
+		fresh.dispatch({ type: "session_start", entries });
+		const g = fresh.snapshot.goal!;
+		assert.equal(g.phase, "paused");
+		assert.equal(g.blockedReason?.code, "human-paused");
+		assert.equal(g.turnsStarted, 0);
+	});
+
+	void it("session_start ignores non-goal custom entries (machine owns filtering)", () => {
+		const m = new GoalMachine();
+		m.dispatch({
+			type: "session_start",
+			entries: [
+				{ customType: "pi-todo", data: { noise: true } },
+				makeChangeEntry("create"),
+				{ customType: "pi-goal-event", data: { noise: true } },
+			],
+		});
+		assert.equal(m.snapshot.goal?.objective, "test");
+	});
+});

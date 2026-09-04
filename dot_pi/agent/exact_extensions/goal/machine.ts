@@ -200,9 +200,22 @@ export class GoalMachine {
 	}
 
 	private commit(operation: GoalOperation, next: GoalSnapshot | null, cleared?: { id: string; revision: number }): Effect[] {
+		// Persist a clean snapshot: GoalView-only fields (armed, turnsStarted) never leak in.
+		const clean = next
+			? {
+					id: next.id,
+					revision: next.revision,
+					objective: next.objective,
+					phase: next.phase,
+					contextCap: next.contextCap,
+					...(next.blockedReason ? { blockedReason: next.blockedReason } : {}),
+					createdAt: next.createdAt,
+					updatedAt: next.updatedAt,
+				}
+			: null;
 		const data: GoalChangeEntry = cleared
 			? { operation, cleared, timestamp: Date.now() }
-			: { operation, goal: next ?? undefined, timestamp: Date.now() };
+			: { operation, goal: clean ?? undefined, timestamp: Date.now() };
 		const turns = this.view?.id === next?.id ? this.view.turnsStarted : 0;
 		this.view = next ? { ...next, armed: this.armed, turnsStarted: turns } : null;
 		return [{ kind: "appendEntry", entryType: CUSTOM_TYPE, data }, { kind: "renderStatus" }];
