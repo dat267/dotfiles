@@ -95,6 +95,19 @@ void describe("GoalMachine.agent_end", () => {
 		assert.equal(m.snapshot.goal?.turnsStarted, 1);
 	});
 
+	void it("goal completed in the creating run: no round admission", () => {
+		// The user saw "Goal round admitted #1" AFTER "Goal completed rev 2" —
+		// admitting a round for a finished goal is noise.
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "ship it", cap: null });
+		m.dispatch({ type: "goal_update", goal_id: m.snapshot.goal!.id, revision: 1, action: "complete" });
+		const { effects } = m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		const turn = effects.find((e) => e.kind === "appendEntry" && e.entryType === TURN_TYPE);
+		assert.equal(turn, undefined, "completed goal must not admit rounds");
+		assert.equal(m.snapshot.goal?.turnsStarted, 0);
+	});
+
 	void it("pendingTurn: admits turn, clears reservation", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });

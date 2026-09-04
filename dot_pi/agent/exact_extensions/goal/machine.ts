@@ -266,6 +266,15 @@ export class GoalMachine {
 			return { effects: [{ kind: "renderStatus" }] };
 		}
 
+		// Completed goals admit no rounds — a finishing run is not work done
+		// "for" the goal, and the round card after the completion card is noise.
+		if (this.view.phase === "complete") {
+			this.pendingTurn = null;
+			this.createdThisRun = false;
+			effects.push({ kind: "renderStatus" });
+			return { effects };
+		}
+
 		// Was this run a goal attempt? Decides how cancellation is handled.
 		const wasGoalAttempt = this.pendingTurn !== null || this.createdThisRun;
 
