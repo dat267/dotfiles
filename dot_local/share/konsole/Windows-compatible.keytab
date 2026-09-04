@@ -1,4 +1,4 @@
-keyboard Windows-compatible
+keyboard "Windows-compatible"
 
 # Windows Terminal parity:
 # Ctrl+Backspace deletes the previous word. Konsole's default sends 0x7F
