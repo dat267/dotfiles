@@ -364,8 +364,19 @@ export class GoalMachine {
 					.filter((e) => e.customType === CUSTOM_TYPE || e.customType === TURN_TYPE)
 					.map((e) => ({ customType: e.customType, data: e.data })),
 			);
-		} catch {
+		} catch (err) {
+			// Surface corruption: never silently drop the goal.
 			this.view = null;
+			this.armed = false;
+			this.pendingTurn = null;
+			this.createdThisRun = false;
+			return {
+				effects: [{
+					kind: "notify",
+					message: `Goal state corrupt, ignoring: ${err instanceof Error ? err.message : String(err)}`,
+					level: "warning",
+				}],
+			};
 		}
 		// Activation is never inherited: reload, resume, fork, and startup all disarm.
 		this.armed = false;

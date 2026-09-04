@@ -273,3 +273,22 @@ void describe("GoalMachine.commands", () => {
 		assert.equal(m.snapshot.goal?.objective, "from command");
 	});
 });
+
+void describe("GoalMachine.session_start corruption", () => {
+	void it("corrupt entries: goal null + notify warning (not silent)", () => {
+		const g = createGoalState("test", null);
+		const m = new GoalMachine();
+		// discontinuous revision — foldGoal throws on this
+		const corrupt: { customType: string; data: unknown } = {
+			customType: CUSTOM_TYPE,
+			data: { operation: "resume", goal: { ...g, phase: "active", revision: 5, updatedAt: Date.now() + 1 }, timestamp: Date.now() + 1 },
+		};
+		const { effects, reply } = m.dispatch({ type: "session_start", entries: [makeChangeEntry("create", g), corrupt] });
+		assert.equal(m.snapshot.goal, null);
+		const notify = effects.find((e) => e.kind === "notify");
+		assert.ok(notify, "expected corruption notify");
+		assert.equal((notify as { level: string }).level, "warning");
+		assert.match((notify as { message: string }).message, /corrupt/i);
+		assert.equal(reply, undefined);
+	});
+});
