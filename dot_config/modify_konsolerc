@@ -21,4 +21,4 @@ DefaultProfile=Default.profile
 {{- $out = concat $out (list "" "[Desktop Entry]" "DefaultProfile=Default.profile") -}}
 {{- end -}}
 {{ join "\n" $out }}
-{{- end }}
+{{- end -}}
