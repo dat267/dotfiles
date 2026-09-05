@@ -34,6 +34,12 @@ void describe("buildModels", () => {
 		const glm = buildModels().find((m) => m.id === "glm-5.3")!;
 		assert.equal(glm.cost.input, 1.4);
 		assert.equal(glm.contextWindow, 1_000_000);
+
+		const glmFlash = buildModels().find((m) => m.id === "glm-5.3-flash")!;
+		assert.equal(glmFlash.reasoning, true);
+		assert.equal(glmFlash.contextWindow, 1_048_576);
+		assert.equal(glmFlash.maxTokens, 131_072);
+		assert.deepEqual(glmFlash.cost, { input: 0.16, output: 0.54, cacheRead: 0.03, cacheWrite: 0 });
 	});
 });
 

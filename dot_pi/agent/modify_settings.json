@@ -4,7 +4,7 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "fullscreenExitOutput" "resume-hint" $current }}
 {{- $_ := setValueAtPath "hideThinkingBlock" true $current }}
 {{- $_ := setValueAtPath "defaultProvider" "hyper" $current }}
-{{- $_ := setValueAtPath "defaultModel" "deepseek-v4-flash" $current }}
+{{- $_ := setValueAtPath "defaultModel" "glm-5.3-flash" $current }}
 {{- $_ := setValueAtPath "defaultThinkingLevel" "minimal" $current }}
 {{- $_ := setValueAtPath "showCacheMissNotices" true $current }}
 {{- $_ := setValueAtPath "theme" "dark" $current }}

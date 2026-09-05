@@ -59,6 +59,12 @@ const CATALOG: CompactEntry[] = [
 		contextWindow: 1_000_000, maxTokens: 131_072,
 	},
 	{
+		id: "glm-5.3-flash", name: "GLM-5.3 Flash", reasoning: true,
+		efforts: ["low", "high", "max"],
+		cost: { input: 0.16, output: 0.54, cacheRead: 0.03, cacheWrite: 0 },
+		contextWindow: 1_048_576, maxTokens: 131_072,
+	},
+	{
 		id: "kimi-k3", name: "Kimi K3", reasoning: true,
 		efforts: ["high"],
 		cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 0 },
