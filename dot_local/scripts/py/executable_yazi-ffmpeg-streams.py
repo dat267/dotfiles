@@ -1,9 +1,23 @@
 #!/usr/bin/env python3
+"""Reorder audio or subtitle tracks in media files (promote one to first).
+
+Usage: yazi-ffmpeg-streams.py {audio,subtitle} [files...] [--dir DIR]
+
+For .mkv files with mkvmerge installed, uses mkvmerge --track-order
+(lossless remux). Otherwise re-muxes with ffmpeg. Interactive via Yazi.
+"""
+import argparse
 import json
 import os
 import shutil
 import subprocess
 import sys
+
+KINDS = ("audio", "subtitle")
+
+# ffmpeg fallback: how the OTHER stream kind is kept in the output.
+# audio → keep subtitles if present; subtitle → keep all audio tracks.
+OTHER_KEEP = {"audio": "0:s?", "subtitle": "0:a"}
 
 
 def print_flush(*args, **kwargs):
@@ -16,7 +30,7 @@ def input_flush(prompt):
     return sys.stdin.readline().rstrip("\r\n")
 
 
-def get_audio_streams(filepath):
+def get_streams(filepath, kind):
     cmd = [
         "ffprobe", "-v", "quiet", "-print_format", "json",
         "-show_streams", filepath,
@@ -28,20 +42,20 @@ def get_audio_streams(filepath):
         print_flush(f"Error reading streams: {e}")
         return []
 
-    auds = []
+    out = []
     for s in data.get("streams", []):
-        if s.get("codec_type") != "audio":
+        if s.get("codec_type") != kind:
             continue
         idx = s.get("index")
         codec = s.get("codec_name", "?")
         channels = s.get("channels", "?")
         lang = s.get("tags", {}).get("language", "?")
         title = s.get("tags", {}).get("title", "")
-        auds.append({"index": idx, "codec": codec, "channels": channels, "lang": lang, "title": title})
-    return auds
+        out.append({"index": idx, "codec": codec, "channels": channels, "lang": lang, "title": title})
+    return out
 
 
-def get_audio_count(filepath):
+def get_stream_count(filepath, kind):
     cmd = [
         "ffprobe", "-v", "quiet", "-print_format", "json",
         "-show_streams", filepath,
@@ -49,18 +63,18 @@ def get_audio_count(filepath):
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
         data = json.loads(result.stdout)
+        return sum(1 for s in data.get("streams", []) if s.get("codec_type") == kind)
     except Exception:
         return 0
-    return len([s for s in data.get("streams", []) if s.get("codec_type") == "audio"])
 
 
-def _promote_mkvmerge(filepath, stream_type, target_local_idx):
+def _promote_mkvmerge(filepath, kind, target_local_idx):
     result = subprocess.run(
         ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_streams", filepath],
         capture_output=True, text=True, check=True
     )
     streams = json.loads(result.stdout).get("streams", [])
-    type_streams = [s for s in streams if s.get("codec_type") == stream_type]
+    type_streams = [s for s in streams if s.get("codec_type") == kind]
     if len(type_streams) < 2:
         print_flush("Need at least 2 tracks to reorder.")
         return False
@@ -69,7 +83,7 @@ def _promote_mkvmerge(filepath, stream_type, target_local_idx):
 
     order_items = []
     for s in streams:
-        if s.get("codec_type") != stream_type:
+        if s.get("codec_type") != kind:
             order_items.append(str(s["index"]))
     order_items.append(str(target_global))
     for s in type_streams:
@@ -95,26 +109,30 @@ def _promote_mkvmerge(filepath, stream_type, target_local_idx):
     return True
 
 
-def promote_audio(filepath, target_aud_idx):
-    if shutil.which("mkvmerge") and filepath.lower().endswith('.mkv'):
-        return _promote_mkvmerge(filepath, "audio", target_aud_idx)
+def promote_stream(filepath, kind, target_idx):
+    if shutil.which("mkvmerge") and filepath.lower().endswith(".mkv"):
+        return _promote_mkvmerge(filepath, kind, target_idx)
 
-    aud_count = get_audio_count(filepath)
-    if aud_count < 2:
-        print_flush("Need at least 2 audio tracks to reorder.")
+    p = kind[0]  # 'a' or 's'
+    count = get_stream_count(filepath, kind)
+    if count < 2:
+        print_flush(f"Need at least 2 {kind} tracks to reorder.")
         return False
 
     ext = os.path.splitext(filepath)[1] or ".mkv"
     tmp = filepath + ".reorder" + ext
     cmd = ["ffmpeg", "-y", "-i", filepath]
     cmd.extend(["-map", "0:v"])
-    cmd.extend(["-map", f"0:a:{target_aud_idx}"])
-    for i in range(aud_count):
-        if i != target_aud_idx:
-            cmd.extend(["-map", f"0:a:{i}"])
-    cmd.extend(["-map", "0:s?"])
+    if kind == "subtitle":
+        cmd.extend(["-map", OTHER_KEEP[kind]])
+    cmd.extend(["-map", f"0:{p}:{target_idx}"])
+    for i in range(count):
+        if i != target_idx:
+            cmd.extend(["-map", f"0:{p}:{i}"])
+    if kind == "audio":
+        cmd.extend(["-map", OTHER_KEEP[kind]])
     cmd.extend(["-c", "copy"])
-    cmd.extend(["-disposition:a:0", "default"])
+    cmd.extend([f"-disposition:{p}:0", "default"])
     cmd.append(tmp)
 
     print_flush(f"\nRunning: {' '.join(cmd)}\n")
@@ -137,10 +155,12 @@ def main():
         sys.exit(1)
 
     import argparse
-    parser = argparse.ArgumentParser(description="Reorder audio tracks in media files.")
+    parser = argparse.ArgumentParser(description="Reorder audio or subtitle tracks in media files.")
+    parser.add_argument("kind", choices=KINDS, help="Which stream type to reorder")
     parser.add_argument("files", nargs="*", help="Media files to process")
     parser.add_argument("--dir", metavar="DIR", help="Process all video files in a directory")
     args = parser.parse_args()
+    kind = args.kind
 
     files = []
     if args.files:
@@ -161,8 +181,8 @@ def main():
     all_titles = {}
     title_at_index = {}
     for f in files:
-        auds = get_audio_streams(f)
-        for i, s in enumerate(auds):
+        found = get_streams(f, kind)
+        for i, s in enumerate(found):
             t = s["title"] or f"(untitled {s['lang']})"
             if t not in all_titles:
                 all_titles[t] = {"lang": s["lang"], "codec": s["codec"], "channels": s["channels"]}
@@ -170,11 +190,11 @@ def main():
 
     sorted_titles = sorted(all_titles.keys())
     if not sorted_titles:
-        print_flush("No audio tracks found.")
+        print_flush(f"No {kind} tracks found.")
         input_flush("Press Enter to return to Yazi.")
         sys.exit(0)
 
-    print_flush(f"\nAll unique audio tracks across {len(files)} file(s):")
+    print_flush(f"\nAll unique {kind} tracks across {len(files)} file(s):")
     for i, t in enumerate(sorted_titles):
         info = all_titles[t]
         ch = f"{info['channels']}ch" if info["channels"] != "?" else "?"
@@ -202,20 +222,20 @@ def main():
     ok = fail = skip = 0
 
     for f in files:
-        auds = get_audio_streams(f)
-        target_aud_idx = None
-        for i, s in enumerate(auds):
+        found = get_streams(f, kind)
+        target_local_idx = None
+        for i, s in enumerate(found):
             t = s["title"] or f"(untitled {s['lang']})"
             if t == target_title:
-                target_aud_idx = i
+                target_local_idx = i
                 break
-        if target_aud_idx is None or len(auds) < 2:
+        if target_local_idx is None or len(found) < 2:
             skip += 1
             continue
-        if target_aud_idx == 0:
+        if target_local_idx == 0:
             skip += 1
             continue
-        if promote_audio(f, target_aud_idx):
+        if promote_stream(f, kind, target_local_idx):
             print_flush(f"  {os.path.basename(f)}: OK")
             ok += 1
         else:

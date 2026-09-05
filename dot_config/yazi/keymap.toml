@@ -40,10 +40,10 @@ desc = "Split"
 
 [[mgr.prepend_keymap]]
 on = ["z", "r"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-subtitle.py %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-streams.py subtitle %S 2>&1' --block"
 desc = "Reorder subtitles"
 
 [[mgr.prepend_keymap]]
 on = ["z", "a"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-audio.py %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-streams.py audio %S 2>&1' --block"
 desc = "Reorder audio"
