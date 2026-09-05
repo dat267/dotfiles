@@ -1,4 +1,4 @@
-For every coding task — implementing a feature, fixing a bug, changing behavior, or touching tests — load and follow the tdd skill at ~/.pi/agent/skills/tdd/SKILL.md before writing or changing any production code. Work red-green-refactor: no production code without a failing test that demands it. After a behavior change, run the relevant test suite (node --test / python3 -m unittest) and report pass/fail counts.
+For every coding task — implementing a feature, fixing a bug, changing behavior, or touching tests — load and follow the tdd skill at ~/.pi/agent/skills/tdd/SKILL.md before writing or changing any production code. Work red-green-refactor: no production code without a failing test that demands it.
 
 ## Verify before asserting
 
