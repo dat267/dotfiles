@@ -27,16 +27,32 @@ def github_latest_tag(repo, timeout=5, opener=None):
     return None
 
 
-def download(url, dest, headers=None, timeout=DEFAULT_TIMEOUT, opener=None):
+def download(url, dest, headers=None, timeout=DEFAULT_TIMEOUT, opener=None, on_progress=None):
     """Stream `url` to `dest`, return the dest path.
 
     `opener(req, timeout)` is injectable for tests; defaults to urlopen.
+    `on_progress(done_bytes, total_bytes)` is called per chunk when given;
+    total_bytes is 0 when the server sends no content-length.
     """
     open_url = opener or urllib.request.urlopen
     req = urllib.request.Request(url, headers=headers or {})
+    done = 0
     with open_url(req, timeout) as resp, open(dest, "wb") as out:
-        shutil.copyfileobj(resp, out)
+        total = int(resp.headers.get("content-length", 0)) if hasattr(resp, "headers") else 0
+        while True:
+            chunk = resp.read(1024 * 256)
+            if not chunk:
+                break
+            out.write(chunk)
+            done += len(chunk)
+            if on_progress:
+                on_progress(done, total)
     return dest
+
+
+def is_termux():
+    """True when running inside Termux (root path or TERMUX_VERSION marker)."""
+    return os.path.exists("/data/data/com.termux") or "TERMUX_VERSION" in os.environ
 
 COLORS = {
     "cyan": "\033[96m",

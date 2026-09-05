@@ -9,10 +9,9 @@ import socket
 import subprocess
 import sys
 import tarfile
-import urllib.request
 import zipfile
 
-from _shared import fetch_json, github_latest_tag
+from _shared import download, fetch_json, github_latest_tag, is_termux
 
 # Force IPv4 — Termux IPv6 lookups fail on some networks
 _orig_getaddrinfo = socket.getaddrinfo
@@ -42,9 +41,7 @@ def get_platform():
     sys_os = platform.system().lower()
     arch = platform.machine().lower()
     arch_str = "arm64" if "arm" in arch or "aarch64" in arch else "x64"
-    if sys_os == "linux" and (
-        os.path.exists("/data/data/com.termux") or "TERMUX_VERSION" in os.environ
-    ):
+    if sys_os == "linux" and is_termux():
         sys_os = "android"
     return sys_os, arch_str
 
@@ -52,34 +49,18 @@ def get_platform():
 def download_file(url, dest, description="File"):
     """Download url to dest with progress bar. Returns True on success."""
     print(f"\n[Connecting] {description}...")
+
+    def on_progress(done, total):
+        if total > 0:
+            pct = int(done * 100 / total)
+            print(f"\r -> Progress: {pct}% ({done // 1024} KB / {total // 1024} KB)", end="", flush=True)
+        else:
+            print(f"\r -> Progress: {done // 1024} KB", end="", flush=True)
+
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            total = int(response.headers.get("content-length", 0))
-            current = 0
-            block_size = 1024 * 256
-            with open(dest, "wb") as f:
-                while True:
-                    chunk = response.read(block_size)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    current += len(chunk)
-                    if total > 0:
-                        pct = int(current * 100 / total)
-                        print(
-                            f"\r -> Progress: {pct}% ({current // 1024} KB / {total // 1024} KB)",
-                            end="",
-                            flush=True,
-                        )
-                    else:
-                        print(
-                            f"\r -> Progress: {current // 1024} KB",
-                            end="",
-                            flush=True,
-                        )
-            print(f"\n[Finished] {description}")
-            return True
+        download(url, dest, headers={"User-Agent": "Mozilla/5.0"}, timeout=10, on_progress=on_progress)
+        print(f"\n[Finished] {description}")
+        return True
     except Exception as e:
         print(f"\n[Error] Failed download: {e}")
         return False

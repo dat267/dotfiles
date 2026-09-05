@@ -1,3 +1,5 @@
+import io
+import os
 import unittest
 import tempfile
 import pathlib
@@ -135,3 +137,67 @@ class TestGetPlatformInfo(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDownloadProgress(unittest.TestCase):
+    """download() gains an optional on_progress(done, total) hook."""
+
+    def test_progress_callback_receives_totals(self):
+        import _loader
+
+        shared = _loader.load("_shared")
+
+        class Resp(io.BytesIO):
+            headers = {"content-length": "10"}
+
+        chunks = []
+
+        def fake_opener(req, timeout):
+            return Resp(b"1234567890")
+
+        def on_progress(done, total):
+            chunks.append((done, total))
+
+        dest = os.path.join(tempfile.mkdtemp(), "out")
+        shared.download("http://x", dest, opener=fake_opener, on_progress=on_progress)
+        self.assertEqual(chunks, [(10, 10)])
+
+    def test_no_callback_still_works(self):
+        import _loader
+
+        shared = _loader.load("_shared")
+        dest = os.path.join(tempfile.mkdtemp(), "out")
+
+        class Resp(io.BytesIO):
+            headers = {}
+
+        dest_result = shared.download("http://x", dest, opener=lambda req, t: Resp(b"data"))
+        self.assertEqual(dest_result, dest)
+        self.assertEqual(open(dest, "rb").read(), b"data")
+
+
+class TestIsTermux(unittest.TestCase):
+    """is_termux() detects Termux via root path or TERMUX_VERSION."""
+
+    def _detect(self, path_exists, env):
+        import _loader
+
+        shared = _loader.load("_shared")
+        with mock.patch("os.path.exists", return_value=path_exists), mock.patch.dict(
+            os.environ, env, clear=False
+        ):
+            saved = os.environ.pop("TERMUX_VERSION", None) if "TERMUX_VERSION" not in env else None
+            try:
+                return shared.is_termux()
+            finally:
+                if saved is not None:
+                    os.environ["TERMUX_VERSION"] = saved
+
+    def test_env_marker(self):
+        self.assertTrue(self._detect(False, {"TERMUX_VERSION": "1"}))
+
+    def test_root_path(self):
+        self.assertTrue(self._detect(True, {}))
+
+    def test_neither(self):
+        self.assertFalse(self._detect(False, {}))
