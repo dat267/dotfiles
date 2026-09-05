@@ -32,6 +32,11 @@ run_onchange_after_systemd-user-reload.sh.tmpl
 {{- end }}
 
 {{- if ne .chezmoi.os "linux" }}
+.config/konsolerc
+.local/share/konsole
+{{- end }}
+
+{{- if ne .chezmoi.os "linux" }}
 .config/systemd
 {{- end }}
 
