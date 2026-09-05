@@ -1,5 +1,8 @@
 -- LSP via Neovim's built-in client (no plugin). Servers must be installed
 -- system-wide. vim.lsp.config + vim.lsp.enable is the native 0.11+ API.
+-- Note: lsp.py also installs PowerShellEditorServices (~/.local/share/powershell_es)
+-- for non-nvim use; it is intentionally NOT enabled here — no pwsh host binary
+-- on this machine and the Start-EditorServices.ps1 cmd needs one. Inert by design.
 
 local servers = {
   gopls = {
