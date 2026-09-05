@@ -14,7 +14,6 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 - `executable_install-*.py` — Tool installers, each downloads latest GitHub release to `~/.local/bin/`
 - `executable_dotfiles.py` — rclone + git sync (`dotfiles up`/`dotfiles down`)
 - `executable_lsp.py` — LSP server installer (gopls, pyright, etc.)
-- `executable_start-awsvpn.py` — OpenVPN + SAML auth
 - `executable_cloudsh.py` — GCP Cloud Shell SSH tunnel
 - `executable_sysinfo.py`, `executable_url-decode-rename.py`, `executable_mpv`
 - `_shared.py` — shared module (platform detection, colored logging, helpers)
