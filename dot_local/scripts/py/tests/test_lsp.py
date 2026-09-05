@@ -7,11 +7,15 @@ lsp = _loader.load("lsp")
 
 
 class TestGetPlatform(unittest.TestCase):
-    def detect(self, system, machine, termux=False):
+    def detect(self, system, machine, termux=False, termux_root=False):
         env = {"TERMUX_VERSION": "1"} if termux else {}
+        # Patch the /data/data/com.termux path check too — it is real when the
+        # suite runs inside Termux and would otherwise leak into the result.
         with mock.patch("platform.system", return_value=system), mock.patch(
             "platform.machine", return_value=machine
-        ), mock.patch.dict("os.environ", env, clear=False):
+        ), mock.patch.dict("os.environ", env, clear=False), mock.patch(
+            "os.path.exists", return_value=termux_root
+        ):
             import os
 
             saved = None
@@ -34,6 +38,10 @@ class TestGetPlatform(unittest.TestCase):
             self.detect("Linux", "aarch64", termux=True),
             ("android", "arm64"),
         )
+
+    def test_termux_via_root_path(self):
+        # Second detection branch: env var absent, Termux root path exists.
+        self.assertEqual(self.detect("Linux", "x86_64", termux_root=True), ("android", "x64"))
 
     def test_windows(self):
         self.assertEqual(self.detect("Windows", "AMD64"), ("windows", "x64"))
