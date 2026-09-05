@@ -64,6 +64,10 @@ local servers = {
       },
     },
   },
+  marksman = {
+    filetypes = { "markdown", "markdown.mypreview" },
+    cmd = { "marksman" },
+  },
   rust_analyzer = {
     filetypes = { "rust" },
     cmd = { "rust-analyzer" },
