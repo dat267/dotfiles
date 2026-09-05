@@ -48,9 +48,7 @@ class TestUninstallTools(unittest.TestCase):
             uninstall, "INSTALL_DIR", tmp
         ), mock.patch.object(
             uninstall, "get_platform_info", return_value=("linux", "x86_64")
-        ), mock.patch.object(uninstall.urllib.request, "urlopen", mock.mock_open(
-            read_data=__import__("json").dumps(RELEASES).encode()
-        )):
+        ), mock.patch.object(uninstall, "fetch_json", return_value=RELEASES):
             uninstall.main()
         self.assertFalse(os.path.exists(tool))
 
@@ -66,9 +64,7 @@ class TestUninstallTools(unittest.TestCase):
         ]
         with mock.patch("sys.argv", ["uninstall_tools"]), mock.patch.object(
             uninstall, "get_platform_info", return_value=("linux", "x86_64")
-        ), mock.patch.object(uninstall.urllib.request, "urlopen", mock.mock_open(
-            read_data=__import__("json").dumps(releases).encode()
-        )):
+        ), mock.patch.object(uninstall, "fetch_json", return_value=releases):
             with self.assertRaises(SystemExit) as ctx:
                 uninstall.main()
             self.assertEqual(ctx.exception.code, 0)
