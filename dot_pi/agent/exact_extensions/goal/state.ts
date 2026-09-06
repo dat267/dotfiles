@@ -61,6 +61,20 @@ export function newGoalId(): string {
 	return `goal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** Strip GoalView-only fields (armed, turnsStarted) for durable persistence. */
+export function toSnapshot(goal: GoalSnapshot): GoalSnapshot {
+	return {
+		id: goal.id,
+		revision: goal.revision,
+		objective: goal.objective,
+		phase: goal.phase,
+		contextCap: goal.contextCap,
+		...(goal.blockedReason ? { blockedReason: goal.blockedReason } : {}),
+		createdAt: goal.createdAt,
+		updatedAt: goal.updatedAt,
+	};
+}
+
 export function createGoalState(objective: string, contextCap: number | null, now = Date.now()): GoalSnapshot {
 	return {
 		id: newGoalId(),
@@ -105,7 +119,9 @@ export function applyChange(
 	}
 
 	if (operation === "create") {
-		if (current) throw new Error("create over an existing goal");
+		// Creating over a completed goal is legal (terminal phase — the machine
+		// allows /goal set after completion); over any live goal it is not.
+		if (current && current.phase !== "complete") throw new Error("create over an existing goal");
 		if (next.revision !== 1 || next.phase !== "active") {
 			throw new Error("create must produce a revision-1 active goal");
 		}

@@ -314,6 +314,22 @@ void describe("GoalMachine.commands", () => {
 		assert.ok(effects.some((e) => e.kind === "renderStatus"));
 	});
 
+	void it("commit routes through applyChange — illegal live transition throws, state untouched", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "x", cap: null });
+		const goal = m.snapshot.goal!;
+		m.dispatch({ type: "goal_update", goal_id: goal.id, revision: goal.revision, action: "complete" });
+		const completed = m.snapshot.goal!;
+
+		// Illegal: pause a completed goal — TRANSITIONS[complete] is empty.
+		const illegal = { ...completed, phase: "paused" as const, revision: completed.revision + 1, blockedReason: { code: "x", message: "y" } };
+		assert.throws(() => (m as unknown as { commit: (op: string, next: unknown) => unknown }).commit("pause", illegal), /illegal transition/);
+		// Rejected mutation left the goal untouched.
+		assert.equal(m.snapshot.goal?.phase, "complete");
+		assert.equal(m.snapshot.goal?.revision, completed.revision);
+	});
+
 	void it("goal_set: create entry + immediate round queue", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [] });
@@ -359,6 +375,23 @@ void describe("GoalMachine round-trip (write shape replays via fold)", () => {
 		}) as typeof orig;
 		return { m, entries };
 	}
+
+	void it("set-over-complete: fresh session replays the second goal (no false corruption)", () => {
+		// Live allows /goal set over a completed goal; replay must accept it too.
+		const { m, entries } = machineWithCollector();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "first", cap: null });
+		const first = m.snapshot.goal!;
+		m.dispatch({ type: "goal_update", goal_id: first.id, revision: first.revision, action: "complete" });
+		m.dispatch({ type: "goal_set", objective: "second", cap: null });
+		const second = m.snapshot.goal!;
+
+		const fresh = new GoalMachine();
+		fresh.dispatch({ type: "session_start", entries });
+		assert.equal(fresh.snapshot.goal?.id, second.id);
+		assert.equal(fresh.snapshot.goal?.objective, "second");
+		assert.equal(fresh.snapshot.goal?.phase, "active");
+	});
 
 	void it("full lifecycle: what the machine writes, a fresh session reads", () => {
 		const { m, entries } = machineWithCollector();
