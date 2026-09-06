@@ -42,13 +42,15 @@ export default function (pi: ExtensionAPI) {
 				render(width: number): string[] {
 					// -- Read cached values (O(1), no branch walk) --
 					const contextUsage = ctx.getContextUsage();
-					const line = theme.fg("dim", footerLine({
+					const line = footerLine({
 						cacheHit: latestCacheHitRate,
 						contextUsage,
 						modelWindow: ctx.model?.contextWindow,
 						modelId: ctx.model?.id,
 						cwd: ctx.sessionManager.getCwd(),
-					}, width));
+					}, width);
+					// Wrap ONCE on raw text — a second fg() inside would emit a reset
+					// that un-dims everything appended after it.
 					return [theme.fg("dim", withStatuses(line, footerData.getExtensionStatuses()))];
 				},
 			};
