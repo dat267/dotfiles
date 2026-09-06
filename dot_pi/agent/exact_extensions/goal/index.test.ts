@@ -161,39 +161,5 @@ void describe("goal extension smoke", () => {
 			}
 		});
 	});
-	void describe("deterministic 'goal:' prefix trigger", () => {
-		void it("goal: prompt injects refinement note — no questions, create and start", async () => {
-			// Raw one-liners became verbatim objectives. The prefix now guarantees
-			// entry into the goal pipeline; content refinement belongs to the model.
-			const { events, calls } = boot();
-			await events.session_start({}, ctx());
-			calls.length = 0;
-			const result = await events.before_agent_start({ type: "before_agent_start", prompt: "goal: proofread chapter 1 and summarize", systemPrompt: "" }, ctx());
-			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined, "no immediate create — model refines first");
-			assert.ok(result?.message, "refinement note injected");
-			assert.match(result.message.content, /create_goal/);
-			assert.match(result.message.content, /do not ask the user questions/);
-			assert.match(result.message.content, /proofread chapter 1/, "note carries the raw request");
-		});
-
-		void it("does not fire without the prefix", async () => {
-			const { events, calls } = boot();
-			await events.session_start({}, ctx());
-			calls.length = 0;
-			const result = await events.before_agent_start({ type: "before_agent_start", prompt: "please set a goal for proofreading", systemPrompt: "" }, ctx());
-			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined);
-			assert.equal(result, undefined);
-		});
-
-		void it("active goal: note only, no second create", async () => {
-			const { tools, events, calls } = boot();
-			await events.session_start({}, ctx());
-			await tools.create_goal.execute("id", { objective: "existing" }, {}, () => {}, ctx());
-			calls.length = 0;
-			const result = await events.before_agent_start({ type: "before_agent_start", prompt: "goal: another thing", systemPrompt: "" }, ctx());
-			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined, "no second create");
-			assert.ok(result?.message, "note tells the model a goal is active");
-		});
-	});
 
 });

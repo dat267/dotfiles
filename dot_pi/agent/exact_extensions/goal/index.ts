@@ -120,7 +120,6 @@ export default function piGoal(pi: ExtensionAPI) {
 		promptSnippet: "Create a goal for long-running objectives",
 		promptGuidelines: [
 			"Use create_goal when the user's request is a multi-step objective that should continue across rounds.",
-			"A user prompt starting with \"goal: \" enters the goal pipeline automatically — you will see a <goal_note> message: refine the request into a concrete objective, then call create_goal as your first tool call and get to work.",
 			"Do not create goals for trivial single-turn work.",
 			"Before creating, turn the request into a concrete objective with outcome, verification, constraints, and boundaries.",
 		],
@@ -230,35 +229,8 @@ export default function piGoal(pi: ExtensionAPI) {
 		},
 	});
 
-	// Deterministic trigger: a user prompt starting with "goal: " always
-	// creates a goal. Model judgment alone missed these (session evidence:
-	// 'goal: proofread…' messages ran as untracked work).
-	pi.on("before_agent_start", (event, ctx) => {
-		const match = event.prompt.trim().match(/^goal:\s*(.+)/is);
-		if (!match) return;
-		const { goal } = machine.snapshot;
-		if (goal && goal.phase === "active") {
-			return {
-				message: {
-					customType: EVENT_TYPE,
-					content: `<goal_note>The user typed "goal: …" but a goal is already active: ${goal.objective}. Ask whether to clear it first or fold the new request into the active goal.</goal_note>`,
-					display: false,
-					details: { kind: "note" },
-				},
-			};
-		}
-		// The raw one-liner is a request, not an objective. The model refines it
-		// (outcome, verification, constraints — refining without asking the user;
-		// never asking the user) and creates the goal via create_goal. Creation stays model-visible.
-		return {
-			message: {
-				customType: EVENT_TYPE,
-				content: `<goal_note>The user prefixed their request with "goal:" — they want this tracked as a session goal. Request: "${match[1].trim()}". Refine it into a concrete objective with outcome, verification, constraints, and boundaries — do not ask the user questions. Then call create_goal with the refined objective as your first tool call and get to work immediately.</goal_note>`,
-				display: false,
-				details: { kind: "note" },
-			},
-		};
-	});
+	// Deterministic trigger removed: 'goal: ' prompts now run as plain turns.
+	// Goal entry is model-driven (create_goal judgment) or human-driven (/goal set).
 
 	pi.on("session_start", (event, ctx) => {
 		try {
