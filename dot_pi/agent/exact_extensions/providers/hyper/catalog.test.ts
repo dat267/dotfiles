@@ -14,7 +14,10 @@ void describe("buildModels", () => {
 			assert.equal(m.api, API);
 			assert.equal(m.provider, PROVIDER_ID);
 			assert.equal(m.baseUrl, BASE_URL);
-			assert.deepEqual(m.input, ["text"]);
+			assert.ok(
+				m.input[0] === "text" && (m.input.length === 1 || (m.input.length === 2 && m.input[1] === "image")),
+				`invalid input modalities: ${m.input}`,
+			);
 		}
 	});
 
@@ -40,10 +43,23 @@ void describe("buildModels", () => {
 		assert.equal(glmFlash.contextWindow, 1_048_576);
 		assert.equal(glmFlash.maxTokens, 131_072);
 		assert.deepEqual(glmFlash.cost, { input: 0.16, output: 0.54, cacheRead: 0.03, cacheWrite: 0 });
+		assert.deepEqual(glmFlash.input, ["text", "image"], "glm-5.3-flash is vision-capable");
 	});
 });
 
 void describe("mapCatalogResponse", () => {
+	void it("vision capability maps to image input", () => {
+		// Live API reports capabilities.vision — glm-5.3-flash is vision-capable
+		// but the refresh path dropped it, so refreshed models lost image input.
+		const body = { data: [{
+			id: "test-vision", display_name: "Test Vision", context_window: 262_144,
+			max_output_tokens: 32_768, capabilities: { vision: true },
+			reasoning: null, pricing: null,
+		}] };
+		const m = mapCatalogResponse(body as any).find((x) => x.id === "test-vision")!;
+		assert.deepEqual(m.input, ["text", "image"]);
+	});
+
 	const BODY = {
 		data: [
 			{

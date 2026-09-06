@@ -37,6 +37,8 @@ export interface CompactEntry {
 	cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
 	contextWindow: number;
 	maxTokens: number;
+	/** Model accepts image input (API: capabilities.vision). */
+	vision?: boolean;
 }
 
 const CATALOG: CompactEntry[] = [
@@ -59,7 +61,7 @@ const CATALOG: CompactEntry[] = [
 		contextWindow: 1_000_000, maxTokens: 131_072,
 	},
 	{
-		id: "glm-5.3-flash", name: "GLM-5.3 Flash", reasoning: true,
+		id: "glm-5.3-flash", name: "GLM-5.3 Flash", reasoning: true, vision: true,
 		efforts: ["low", "high", "max"],
 		cost: { input: 0.16, output: 0.54, cacheRead: 0.03, cacheWrite: 0 },
 		contextWindow: 1_048_576, maxTokens: 131_072,
@@ -118,7 +120,7 @@ function toModel(entry: CompactEntry): Model<typeof API> {
 		baseUrl: BASE_URL,
 		reasoning: entry.reasoning,
 		...(entry.reasoning ? { thinkingLevelMap: levelMap } : {}),
-		input: ["text"],
+		input: entry.vision ? ["text", "image"] : ["text"],
 		cost: entry.cost,
 		contextWindow: entry.contextWindow,
 		maxTokens: entry.maxTokens,
@@ -139,6 +141,7 @@ export interface HyperCatalogBody {
 		context_window?: number;
 		max_output_tokens?: number;
 		reasoning?: { effort_levels?: { value?: string }[] } | null;
+		capabilities?: { vision?: boolean } | null;
 		pricing?: { input?: number; output?: number; cache_create?: number; cache_hit?: number } | null;
 	}[];
 }
@@ -156,6 +159,7 @@ export function mapCatalogResponse(body: HyperCatalogBody): Model<typeof API>[] 
 				name: m.display_name ?? m.id!,
 				reasoning: levels.length > 0,
 				efforts: levels,
+				vision: m.capabilities?.vision === true,
 				cost: {
 					input: m.pricing?.input ?? 0,
 					output: m.pricing?.output ?? 0,
