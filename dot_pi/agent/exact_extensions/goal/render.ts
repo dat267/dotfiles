@@ -23,6 +23,21 @@ export function displayBody(content: string): string {
 		.trim();
 }
 
+/**
+ * Pi gives entry cards a top spacer but no bottom margin — a card followed by
+ * assistant text sat flush. Wrap a rendered card so it always outputs exactly
+ * one trailing blank line (pi's top spacer supplies the line above).
+ */
+export function withBottomMargin(card: { render(width: number): string[] }): { render(width: number): string[] } {
+	return {
+		render(width: number): string[] {
+			const out = card.render(width);
+			if (out.at(-1) === "") return out; // already margins itself
+			return [...out, ""];
+		},
+	};
+}
+
 /** Build a goal card (Box with label + body). */
 export function renderGoalCard(
 	theme: Theme,

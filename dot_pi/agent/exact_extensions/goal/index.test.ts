@@ -18,7 +18,7 @@ void describe("goal extension smoke", () => {
 		const calls: Recorded[] = [];
 		const fakePi = {
 			registerMessageRenderer: () => {},
-			registerEntryRenderer: () => {},
+			registerEntryRenderer: (customType: string, fn: any) => calls.push({ kind: "entryRenderer", customType, fn }),
 			registerTool: (t: any) => calls.push({ kind: "tool", tool: t }),
 			registerCommand: (n: string, c: any) => calls.push({ kind: "command", name: n, command: c }),
 			on: (ev: string, fn: any) => calls.push({ kind: "event", event: ev, fn }),
@@ -106,6 +106,31 @@ void describe("goal extension smoke", () => {
 		const before = calls.length;
 		await events.agent_end({}, ctx());
 		assert.equal(calls.length, before);
+	});
+
+	void describe("card spacing", () => {
+		// Pi gives entry cards a top spacer but no bottom margin — a card followed
+		// by assistant text sat flush. Goal cards must render one trailing blank.
+		function lines(c: any, width = 80): string[] {
+			return c.render(width);
+		}
+
+		void it("durable entry card ends with one blank line", async () => {
+			const { calls } = boot();
+			const render = calls.find(c => c.kind === "entryRenderer" && c.customType === "pi-goal").fn;
+			const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
+			const out = lines(render({ data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", contextCap: null, createdAt: 1, updatedAt: 1 } } }, { expanded: false }, theme));
+			assert.equal(out.at(-1), "", "missing trailing blank line");
+			assert.equal(out.at(-2) !== "", true, "exactly one trailing blank");
+		});
+
+		void it("turn card ends with one blank line", async () => {
+			const { calls } = boot();
+			const render = calls.find(c => c.kind === "entryRenderer" && c.customType === "pi-goal-turn").fn;
+			const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
+			const out = lines(render({ data: { goalId: "g1", revision: 1, turn: 2, timestamp: 1 } }, { expanded: false }, theme));
+			assert.equal(out.at(-1), "", "missing trailing blank line");
+		});
 	});
 
 	void describe("deterministic 'goal:' prefix trigger", () => {

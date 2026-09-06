@@ -18,6 +18,7 @@ import {
 	renderCreateGoalRenderCall,
 	renderUpdateGoalRenderCall,
 	renderUpdateGoalRenderResult,
+	withBottomMargin,
 } from "./render.ts";
 
 export default function piGoal(pi: ExtensionAPI) {
@@ -90,12 +91,12 @@ export default function piGoal(pi: ExtensionAPI) {
 
 	// Durable lifecycle mutations (appendEntry) render as transcript cards.
 	pi.registerEntryRenderer<Record<string, unknown>>(CUSTOM_TYPE, (entry, { expanded }, theme) => {
-		return renderGoalChangeEntry(entry.data as any, theme, expanded);
+		return withBottomMargin(renderGoalChangeEntry(entry.data as any, theme, expanded));
 	});
 
 	// Admitted goal rounds: one durable card per round.
 	pi.registerEntryRenderer<Record<string, unknown>>(TURN_TYPE, (entry, { expanded }, theme) => {
-		return renderGoalTurnEntry(entry.data as any, theme, expanded);
+		return withBottomMargin(renderGoalTurnEntry(entry.data as any, theme, expanded));
 	});
 
 	pi.registerTool({
