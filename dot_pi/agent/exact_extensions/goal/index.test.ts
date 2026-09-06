@@ -115,6 +115,27 @@ void describe("goal extension smoke", () => {
 			return c.render(width);
 		}
 
+		void it("card wrappers are real components — they must survive invalidate()", () => {
+			// Regression: withBottomMargin returned a bare {render} object; Box.invalidate
+			// walks children calling child.invalidate() → TUI crash on resume/resize.
+		const { calls, tools } = boot();
+			for (const r of calls.filter(c => c.kind === "entryRenderer")) {
+				const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
+				const comp = r.fn({ data: { operation: "create", goal: { id: "g", revision: 1, objective: "o", phase: "active", contextCap: null, createdAt: 1, updatedAt: 1 } } }, { expanded: false }, theme);
+				assert.equal(typeof comp.invalidate, "function", `${r.customType} wrapper is not a full component`);
+			}
+			for (const name of ["get_goal", "create_goal", "update_goal"]) {
+				const tool = tools[name];
+				for (const meth of ["renderCall", "renderResult"] as const) {
+					if (!tool[meth]) continue;
+					const comp = meth === "renderCall"
+						? tool[meth]({ action: "complete" }, { fg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t })
+						: tool[meth]({ content: [{ type: "text", text: "ok" }], details: { goal: null } }, {}, { fg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t });
+					assert.equal(typeof comp.invalidate, "function", `${name}.${meth} wrapper is not a full component`);
+				}
+			}
+		});
+
 		void it("durable entry card ends with one blank line", async () => {
 			const { calls } = boot();
 			const render = calls.find(c => c.kind === "entryRenderer" && c.customType === "pi-goal").fn;

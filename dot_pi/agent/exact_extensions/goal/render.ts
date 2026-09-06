@@ -5,7 +5,7 @@
  * Extracted from index.ts to make rendering testable and separable.
  */
 
-import { Box, Text } from "@earendil-works/pi-tui";
+import { Box, Container, Spacer, Text } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateObjective, type GoalChangeEntry, type GoalOperation, type GoalPhase, type GoalTurnEntry, type GoalView } from "./state.ts";
 
@@ -25,17 +25,15 @@ export function displayBody(content: string): string {
 
 /**
  * Pi gives entry cards a top spacer but no bottom margin — a card followed by
- * assistant text sat flush. Wrap a rendered card so it always outputs exactly
- * one trailing blank line (pi's top spacer supplies the line above).
+ * assistant text sat flush. Wrap a rendered card in a real Container so it
+ * always outputs exactly one trailing blank line. Must be a full component
+ * (invalidate() included) — bare {render} objects crash Box.invalidate.
  */
-export function withBottomMargin(card: { render(width: number): string[] }): { render(width: number): string[] } {
-	return {
-		render(width: number): string[] {
-			const out = card.render(width);
-			if (out.at(-1) === "") return out; // already margins itself
-			return [...out, ""];
-		},
-	};
+export function withBottomMargin(card: Box | Text | Container): Container {
+	const c = new Container();
+	c.addChild(card);
+	c.addChild(new Spacer(1));
+	return c;
 }
 
 /** Build a goal card (Box with label + body). */
