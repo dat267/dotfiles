@@ -102,14 +102,13 @@ export default function piGoal(pi: ExtensionAPI) {
 		parameters: { type: "object", properties: {}, additionalProperties: false } as any,
 		renderCall: (_args, theme) => renderGetGoalRenderCall(theme),
 		renderResult: (result, _options, theme) => {
-			const details = result.details as { goal?: GoalView | null; usage?: { tokens: number | null; contextWindow: number } } | undefined;
-			return renderGetGoalRenderResult(details?.goal ?? null, details?.usage, theme);
+			const details = result.details as { goal?: GoalView | null } | undefined;
+			return renderGetGoalRenderResult(details?.goal ?? null, theme);
 		},
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
-			const usage = ctx.getContextUsage();
 			const { goal } = machine.snapshot;
-			const value = goalView(goal, usage);
-			return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], details: { goal, usage } };
+			const value = goalView(goal);
+			return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], details: { goal } };
 		},
 	});
 

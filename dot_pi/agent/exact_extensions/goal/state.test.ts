@@ -169,15 +169,13 @@ test("truncateObjective flattens whitespace and caps length", () => {
 
 test("goalView shapes the get_goal tool-result contract for an active goal", () => {
 	const g = { ...createGoalState("obj", T0), armed: true, turnsStarted: 2 };
-	const usage = { tokens: 100_000, contextWindow: 1_000_000 };
-	assert.deepEqual(goalView(g, usage), {
+	assert.deepEqual(goalView(g), {
 		goal: {
 			id: g.id,
 			revision: g.revision,
 			objective: "obj",
 			phase: "active",
 			turnsStarted: 2,
-			contextUsage: usage,
 		},
 		activation: "armed",
 	});
@@ -185,13 +183,12 @@ test("goalView shapes the get_goal tool-result contract for an active goal", () 
 
 test("goalView omits blockedReason unless present, and reports null goal", () => {
 	const g = { ...createGoalState("obj", T0), armed: false, turnsStarted: 0, phase: "blocked" as const, blockedReason: { code: "stuck", message: "no path" } };
-	const view = goalView(g, null);
+	const view = goalView(g);
 	assert.equal(view.goal!.blockedReason && (view.goal!.blockedReason as any).message, "no path");
 	assert.equal(view.activation, "disarmed");
-	assert.equal(view.goal!.contextUsage, null);
 
 	const clean = { ...createGoalState("obj", T0), armed: false, turnsStarted: 0 };
-	assert.equal("blockedReason" in goalView(clean, null).goal!, false);
+	assert.equal("blockedReason" in goalView(clean).goal!, false);
 
-	assert.deepEqual(goalView(null, null), { goal: null });
+	assert.deepEqual(goalView(null), { goal: null });
 });

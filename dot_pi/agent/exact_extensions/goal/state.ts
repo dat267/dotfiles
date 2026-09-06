@@ -194,10 +194,7 @@ export function truncateObjective(text: string, max = 60): string {
 }
 
 /** Shape the get_goal tool-result payload (the model-facing contract). */
-export function goalView(
-	goal: GoalView | null,
-	usage: { tokens: number | null; contextWindow: number } | null,
-): { goal: Record<string, unknown> | null; activation: string } {
+export function goalView(goal: GoalView | null): { goal: Record<string, unknown> | null; activation: string } {
 	if (!goal) return { goal: null };
 	return {
 		goal: {
@@ -206,7 +203,6 @@ export function goalView(
 			objective: goal.objective,
 			phase: goal.phase,
 			turnsStarted: goal.turnsStarted,
-			contextUsage: usage ?? null,
 			...(goal.blockedReason ? { blockedReason: goal.blockedReason } : {}),
 		},
 		activation: goal.armed ? "armed" : "disarmed",

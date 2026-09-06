@@ -88,7 +88,6 @@ export class GoalMachine {
 	private pendingTurn: number | null = null;
 	private createdThisRun = false;
 	private bannerEnabled = false;
-	private lastUsage: { tokens: number | null; contextWindow: number } | undefined;
 
 	get snapshot() {
 		return {
@@ -98,7 +97,6 @@ export class GoalMachine {
 			/** True while the run that created the goal is still executing. */
 			createdThisRun: this.createdThisRun,
 			bannerEnabled: this.bannerEnabled,
-			lastUsage: this.lastUsage,
 		};
 	}
 
@@ -257,7 +255,6 @@ export class GoalMachine {
 	}
 
 	private agentEnd(usage: { tokens: number | null; contextWindow: number }, aborted: boolean): DispatchResult {
-		this.lastUsage = usage;
 		const effects: Effect[] = [];
 
 		if (!this.view) {
@@ -319,8 +316,6 @@ export class GoalMachine {
 	}
 
 	private agentSettled(usage: { tokens: number | null; contextWindow: number }): DispatchResult {
-		this.lastUsage = usage;
-
 		if (!this.view || this.view.phase !== "active" || !this.armed) {
 			return { effects: [{ kind: "renderStatus" }] };
 		}

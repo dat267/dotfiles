@@ -158,13 +158,13 @@ void describe("tool renderers", () => {
 	});
 
 	void it("renderGetGoalRenderResult shows no goal", () => {
-		const r = renderGetGoalRenderResult(null, undefined, stubTheme);
+		const r = renderGetGoalRenderResult(null, stubTheme);
 		assert.ok(r instanceof Text);
 	});
 
 	void it("renderGetGoalRenderResult shows goal details", () => {
-		const goal = { ...createGoalState("test", null), turnsStarted: 2, armed: false, blockedReason: undefined };
-		const r = renderGetGoalRenderResult(goal, { tokens: 10000, contextWindow: 100000 }, stubTheme);
+		const goal = { ...createGoalState("test"), turnsStarted: 2, armed: false, blockedReason: undefined };
+		const r = renderGetGoalRenderResult(goal, stubTheme);
 		assert.ok(r instanceof Text);
 	});
 

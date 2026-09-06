@@ -111,17 +111,10 @@ export function renderGetGoalRenderCall(theme: Theme): Text {
 	return new Text(theme.fg("toolTitle", "Get goal"), 0, 0);
 }
 
-export function renderGetGoalRenderResult(
-	goal: GoalView | null,
-	contextUsage: { tokens: number | null; contextWindow: number } | undefined,
-	theme: Theme,
-): Text {
+export function renderGetGoalRenderResult(goal: GoalView | null, theme: Theme): Text {
 	if (!goal) return new Text(theme.fg("muted", "No goal set"), 0, 0);
-	const pct = contextUsage?.tokens != null
-		? `${Math.round((contextUsage.tokens / contextUsage.contextWindow) * 100)}%`
-		: "?";
 	return new Text(
-		theme.fg("toolTitle", `${goal.phase} · rev ${goal.revision} · ${goal.turnsStarted} rounds · ctx ${pct}`),
+		theme.fg("toolTitle", `${goal.phase} · rev ${goal.revision} · ${goal.turnsStarted} rounds`),
 		0,
 		0,
 	);
