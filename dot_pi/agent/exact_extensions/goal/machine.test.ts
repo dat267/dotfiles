@@ -69,10 +69,13 @@ void describe("GoalMachine.goal_create", () => {
 	});
 
 	void it("completed goal: creation over it is allowed", () => {
-		const g = createGoalState("old", null);
+		// Fold entries get timestamps strictly in the past — live commits stamp
+		// Date.now(), and applyChange rejects any timestamp that regresses.
+		const past = Date.now() - 10_000;
+		const g = createGoalState("old", null, past);
 		const done: { customType: string; data: GoalChangeEntry } = {
 			customType: CUSTOM_TYPE,
-			data: { operation: "complete", goal: { ...g, phase: "complete", revision: 2, updatedAt: Date.now() + 1 }, timestamp: Date.now() + 1 },
+			data: { operation: "complete", goal: { ...g, phase: "complete", revision: 2, updatedAt: past + 1 }, timestamp: past + 1 },
 		};
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create", g), done] });
