@@ -2,15 +2,11 @@
 import argparse
 import os
 import platform
-import shutil
 import sys
-import tempfile
-import urllib.request
-import zipfile
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import COLORS, download, log
+from _shared import install_github_release_binary, log
 
 
 def get_platform_suffix():
@@ -58,35 +54,8 @@ def main():
     dest_path = os.path.join(INSTALL_DIR, binary_name)
 
     try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            zip_path = os.path.join(temp_dir, "bun.zip")
-
-            download(url, zip_path, headers={"User-Agent": "Mozilla/5.0"})
-
-            log("Extracting archive...", "cyan")
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(temp_dir)
-
-            src = None
-            for dirpath, _, filenames in os.walk(temp_dir):
-                if binary_name in filenames:
-                    src = os.path.join(dirpath, binary_name)
-                    break
-            if not src:
-                log("Error: Binary not found in archive.", "red")
-                sys.exit(1)
-
-            if not suffix.startswith("windows"):
-                os.chmod(src, 0o755)
-
-            try:
-                if os.path.exists(dest_path):
-                    os.remove(dest_path)
-            except Exception as e:
-                log(f"Warning: Could not remove existing file: {e}", "yellow")
-
-            shutil.move(src, dest_path)
-            log(f"Bun installed successfully -> {dest_path}", "green")
+        dest_path = install_github_release_binary(url, binary_name, INSTALL_DIR, extract="zip")
+        log(f"Bun installed successfully -> {dest_path}", "green")
 
     except Exception as e:
         log(f"Error installing Bun: {e}", "red")

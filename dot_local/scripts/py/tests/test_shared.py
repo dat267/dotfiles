@@ -201,3 +201,72 @@ class TestIsTermux(unittest.TestCase):
 
     def test_neither(self):
         self.assertFalse(self._detect(False, {}))
+
+
+class TestInstallGithubReleaseBinary(unittest.TestCase):
+    """The one install seam: download → (extract) → chmod → atomic replace."""
+
+    class FakeResponse(TestDownload.FakeResponse):
+        pass
+
+    def install(self, tmp, **kwargs):
+        return shared.install_github_release_binary(**kwargs, dest_dir=tmp)
+
+    def test_plain_binary_downloads_chmods_and_installs(self):
+        fake = self.FakeResponse([b"#!/bin/sh\n", b"echo hi"])
+        with tempfile.TemporaryDirectory() as d:
+            dest = self.install(d, url="https://example.com/tool", binary_name="tool", opener=lambda req, timeout: fake)
+            self.assertEqual(dest, os.path.join(d, "tool"))
+            self.assertEqual(pathlib.Path(dest).read_bytes(), b"#!/bin/sh\necho hi")
+            self.assertTrue(os.access(dest, os.X_OK))
+
+    def test_zip_archive_binary_found_by_walk(self):
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("nested/dir/tool", "BINARY")
+        fake = self.FakeResponse([buf.getvalue()])
+        with tempfile.TemporaryDirectory() as d:
+            dest = self.install(d, url="https://example.com/t.zip", binary_name="tool", extract="zip", opener=lambda req, timeout: fake)
+            self.assertEqual(pathlib.Path(dest).read_bytes(), b"BINARY")
+
+    def test_targz_archive_binary_found_by_walk(self):
+        import tarfile
+
+        buf = io.BytesIO()
+        with tempfile.TemporaryDirectory() as d:
+            member = pathlib.Path(d) / "tool"
+            member.write_bytes(b"TARBIN")
+            with tarfile.open(fileobj=buf, mode="w:gz") as t:
+                t.add(str(member), arcname="pkg/tool")
+        fake = self.FakeResponse([buf.getvalue()])
+        with tempfile.TemporaryDirectory() as d:
+            dest = self.install(d, url="https://example.com/t.tar.gz", binary_name="tool", extract="tar.gz", opener=lambda req, timeout: fake)
+            self.assertEqual(pathlib.Path(dest).read_bytes(), b"TARBIN")
+
+    def test_missing_binary_raises(self):
+        import zipfile
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("other.txt", "nope")
+        fake = self.FakeResponse([buf.getvalue()])
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaises(RuntimeError):
+                self.install(d, url="https://example.com/t.zip", binary_name="tool", extract="zip", opener=lambda req, timeout: fake)
+
+    def test_existing_dest_replaced_atomically(self):
+        fake = self.FakeResponse([b"new"])
+        with tempfile.TemporaryDirectory() as d:
+            old = pathlib.Path(d) / "tool"
+            old.write_bytes(b"old")
+            dest = self.install(d, url="https://example.com/tool", binary_name="tool", opener=lambda req, timeout: fake)
+            self.assertEqual(pathlib.Path(dest).read_bytes(), b"new")
+
+    def test_no_chmod_on_windows(self):
+        fake = self.FakeResponse([b"x"])
+        with tempfile.TemporaryDirectory() as d:
+            with mock.patch("os.name", "nt"):
+                dest = self.install(d, url="https://example.com/tool.exe", binary_name="tool.exe", opener=lambda req, timeout: fake)
+            self.assertFalse(os.access(dest, os.X_OK))

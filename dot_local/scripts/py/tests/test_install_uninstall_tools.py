@@ -79,15 +79,18 @@ class TestInstallTools(unittest.TestCase):
             install, "INSTALL_DIR", tmp
         ), mock.patch.object(
             install, "get_platform_info", return_value=("linux", "x86_64")
-        ), mock.patch.object(install.urllib.request, "urlopen", fake_download), mock.patch.object(
-            install.shutil, "move"
-        ) as move:
+        ), mock.patch.object(
+            install, "fetch_json", return_value=RELEASES
+        ), mock.patch.object(
+            install, "install_github_release_binary"
+        ) as helper:
             install.main()
         # Both assets of the latest max/ release were considered; the
         # matching-suffix one (toolA-linux-x86_64) must be installed.
-        dest = os.path.join(tmp, "toolA")
-        move.assert_called_once()
-        self.assertEqual(move.call_args.args[1], dest)
+        self.assertEqual(helper.call_count, 1)
+        self.assertEqual(helper.call_args.args[0], "http://x/toolA-linux-x86_64")
+        self.assertEqual(helper.call_args.args[1], "toolA")
+        self.assertEqual(helper.call_args.args[2], tmp)
 
 
 if __name__ == "__main__":

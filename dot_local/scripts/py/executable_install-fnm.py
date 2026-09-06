@@ -2,15 +2,11 @@
 import argparse
 import os
 import platform
-import shutil
 import sys
-import tempfile
-import urllib.request
-import zipfile
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import COLORS, download, log
+from _shared import install_github_release_binary, log
 
 def get_platform_filename():
     system = platform.system().lower()
@@ -47,31 +43,8 @@ def main():
     dest_path = os.path.join(INSTALL_DIR, binary_name)
 
     try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            zip_path = os.path.join(temp_dir, "fnm.zip")
-
-            download(url, zip_path, headers={"User-Agent": "Mozilla/5.0"})
-
-            log("Extracting binary...", "cyan")
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extract(binary_name, path=temp_dir)
-
-            src_binary = os.path.join(temp_dir, binary_name)
-            if not os.path.exists(src_binary):
-                log("Error: Extracted binary not found in archive.", "red")
-                sys.exit(1)
-
-            if "windows" not in filename:
-                os.chmod(src_binary, 0o755)
-
-            try:
-                if os.path.exists(dest_path):
-                    os.remove(dest_path)
-            except Exception as e:
-                log(f"Warning: Could not remove existing file: {e}", "yellow")
-
-            shutil.move(src_binary, dest_path)
-            log(f"fnm installed successfully -> {dest_path}", "green")
+        dest_path = install_github_release_binary(url, binary_name, INSTALL_DIR, extract="zip")
+        log(f"fnm installed successfully -> {dest_path}", "green")
 
     except Exception as e:
         log(f"Error installing fnm: {e}", "red")
