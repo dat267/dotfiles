@@ -5,7 +5,7 @@
  * Extracted from index.ts to make rendering testable and separable.
  */
 
-import { Box, Container, Spacer, Text } from "@earendil-works/pi-tui";
+import { Box, Text } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateObjective, type GoalChangeEntry, type GoalOperation, type GoalPhase, type GoalTurnEntry, type GoalView } from "./state.ts";
 
@@ -23,26 +23,15 @@ export function displayBody(content: string): string {
 		.trim();
 }
 
-/**
- * Pi gives entry cards a top spacer but no bottom margin — a card followed by
- * assistant text sat flush. Wrap a rendered card in a real Container so it
- * always outputs exactly one trailing blank line. Must be a full component
- * (invalidate() included) — bare {render} objects crash Box.invalidate.
- */
-export function withBottomMargin(card: Box | Text | Container): Container {
-	const c = new Container();
-	c.addChild(card);
-	c.addChild(new Spacer(1));
-	return c;
-}
-
 /** Build a goal card (Box with label + body). */
 export function renderGoalCard(
 	theme: Theme,
 	{ label, body, phase, detail }: { label: string; body: string; phase?: GoalPhase; detail?: string },
 	expanded: boolean,
 ): Box {
-	const box = new Box(1, 0, (t) => theme.bg("customMessageBg", t));
+	// Box(1,1): tinted vertical padding like pi's own tool cards — top spacer
+	// comes from pi, bottom padding from the box; no custom wrappers.
+	const box = new Box(1, 1, (t) => theme.bg("customMessageBg", t));
 	const coloredLabel = phase ? theme.fg(PHASE_COLOR[phase], label) : theme.fg("customMessageLabel", theme.bold(label));
 	box.addChild(new Text(`${coloredLabel}${detail ? theme.fg("dim", ` ${detail}`) : ""}`, 0, 0));
 	box.addChild(new Text(theme.fg("customMessageText", expanded ? body : truncateObjective(body, 80)), 0, 0));

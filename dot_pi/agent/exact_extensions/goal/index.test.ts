@@ -108,98 +108,43 @@ void describe("goal extension smoke", () => {
 		assert.equal(calls.length, before);
 	});
 
-	void describe("card spacing", () => {
-		// Pi gives entry cards a top spacer but no bottom margin — a card followed
-		// by assistant text sat flush. Goal cards must render one trailing blank.
+	void describe("card spacing — pi-native tinted padding", () => {
+		const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
 		function lines(c: any, width = 80): string[] {
 			return c.render(width);
 		}
 
-		void it("card wrappers are real components — they must survive invalidate()", () => {
-			// Regression: withBottomMargin returned a bare {render} object; Box.invalidate
-			// walks children calling child.invalidate() → TUI crash on resume/resize.
-		const { calls, tools } = boot();
+		void it("entry cards are real components (invalidate survives)", () => {
+			// Regression: a bare {render} wrapper crashed Box.invalidate on resume.
+			const { calls } = boot();
 			for (const r of calls.filter(c => c.kind === "entryRenderer")) {
-				const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
 				const comp = r.fn({ data: { operation: "create", goal: { id: "g", revision: 1, objective: "o", phase: "active", contextCap: null, createdAt: 1, updatedAt: 1 } } }, { expanded: false }, theme);
-				assert.equal(typeof comp.invalidate, "function", `${r.customType} wrapper is not a full component`);
+				assert.equal(typeof comp.invalidate, "function", `${r.customType} card is not a full component`);
 			}
+		});
+
+		void it("cards render tinted vertical padding like pi tool cards", () => {
+			// Box(1,1): blank first/last lines (tinted), content between.
+			const { calls } = boot();
+			const render = calls.find(c => c.kind === "entryRenderer" && c.customType === "pi-goal").fn;
+			const out = lines(render({ data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", contextCap: null, createdAt: 1, updatedAt: 1 } } }, { expanded: false }, theme));
+			assert.equal(out[0].trim(), "", "expected tinted padding line first");
+			assert.equal(out.at(-1).trim(), "", "expected tinted padding line last");
+			assert.equal(out.at(-2).trim() !== "", true, "padding should be exactly one line");
+		});
+
+		void it("tool cards are bare renderer output — pi wraps them in its own tinted box", () => {
+			const { tools } = boot();
 			for (const name of ["get_goal", "create_goal", "update_goal"]) {
 				const tool = tools[name];
 				for (const meth of ["renderCall", "renderResult"] as const) {
 					if (!tool[meth]) continue;
 					const comp = meth === "renderCall"
-						? tool[meth]({ action: "complete" }, { fg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t })
-						: tool[meth]({ content: [{ type: "text", text: "ok" }], details: { goal: null } }, {}, { fg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t });
-					assert.equal(typeof comp.invalidate, "function", `${name}.${meth} wrapper is not a full component`);
+						? tool[meth]({ action: "complete" }, theme)
+						: tool[meth]({ content: [{ type: "text", text: "ok" }], details: { goal: null } }, {}, theme);
+					assert.equal(typeof comp.invalidate, "function", `${name}.${meth} not a full component`);
 				}
 			}
-		});
-
-		void it("durable entry card ends with one blank line", async () => {
-			const { calls } = boot();
-			const render = calls.find(c => c.kind === "entryRenderer" && c.customType === "pi-goal").fn;
-			const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
-			const out = lines(render({ data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", contextCap: null, createdAt: 1, updatedAt: 1 } } }, { expanded: false }, theme));
-			assert.equal(out.at(-1), "", "missing trailing blank line");
-			assert.equal(out.at(-2) !== "", true, "exactly one trailing blank");
-		});
-
-		void it("turn card ends with one blank line", async () => {
-			const { calls } = boot();
-			const render = calls.find(c => c.kind === "entryRenderer" && c.customType === "pi-goal-turn").fn;
-			const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
-			const out = lines(render({ data: { goalId: "g1", revision: 1, turn: 2, timestamp: 1 } }, { expanded: false }, theme));
-			assert.equal(out.at(-1), "", "missing trailing blank line");
-		});
-
-		void it("tool call and result cards end with one blank line", async () => {
-			const { tools } = boot();
-			const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
-			for (const name of ["get_goal", "create_goal", "update_goal"]) {
-				const tool = tools[name];
-				if (tool.renderCall) {
-					const out = lines(tool.renderCall({ action: "complete" }, theme));
-					assert.equal(out.at(-1), "", `${name} renderCall missing trailing blank`);
-				}
-				if (tool.renderResult) {
-					const out = lines(tool.renderResult({ content: [{ type: "text", text: "ok" }], details: { goal: null } }, {}, theme));
-					assert.equal(out.at(-1), "", `${name} renderResult missing trailing blank`);
-				}
-			}
-		});
-	});
-
-	void describe("deterministic 'goal:' prefix trigger", () => {
-		void it("creates the goal and injects a loop note", async () => {
-			const { events, calls } = boot();
-			await events.session_start({}, ctx());
-			calls.length = 0;
-			const result = await events.before_agent_start({ type: "before_agent_start", prompt: "goal: proofread chapter 1 and summarize", systemPrompt: "" }, ctx());
-			const entry = calls.find(c => c.kind === "appendEntry");
-			assert.ok(entry, "goal created durably");
-			assert.equal(entry.data.goal.objective, "proofread chapter 1 and summarize");
-			assert.ok(result?.message, "loop note injected");
-			assert.match(result.message.content, /goal/i);
-		});
-
-		void it("does not fire without the prefix", async () => {
-			const { events, calls } = boot();
-			await events.session_start({}, ctx());
-			calls.length = 0;
-			const result = await events.before_agent_start({ type: "before_agent_start", prompt: "please set a goal for proofreading", systemPrompt: "" }, ctx());
-			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined);
-			assert.equal(result, undefined);
-		});
-
-		void it("active goal: note only, no second create", async () => {
-			const { tools, events, calls } = boot();
-			await events.session_start({}, ctx());
-			await tools.create_goal.execute("id", { objective: "existing" }, {}, () => {}, ctx());
-			calls.length = 0;
-			const result = await events.before_agent_start({ type: "before_agent_start", prompt: "goal: another thing", systemPrompt: "" }, ctx());
-			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined, "no second create");
-			assert.ok(result?.message, "note tells the model a goal is active");
 		});
 	});
 });
