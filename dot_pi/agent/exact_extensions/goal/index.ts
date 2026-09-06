@@ -126,10 +126,9 @@ export default function piGoal(pi: ExtensionAPI) {
 		promptSnippet: "Create a goal for long-running objectives",
 		promptGuidelines: [
 			"Use create_goal when the user's request is a multi-step objective that should continue across rounds.",
-			"A user prompt starting with \"goal: \" enters the goal pipeline automatically — you will see a <goal_note> message: refine the request into a concrete objective (ask clarifying questions if vague), then call create_goal as your first tool call before doing any work.",
+			"A user prompt starting with \"goal: \" enters the goal pipeline automatically — you will see a <goal_note> message: refine the request into a concrete objective, then call create_goal as your first tool call and get to work.",
 			"Do not create goals for trivial single-turn work.",
 			"Before creating, turn the request into a concrete objective with outcome, verification, constraints, and boundaries.",
-			"Ask a clarifying question instead of creating a vague goal.",
 		],
 		parameters: {
 			type: "object",
@@ -239,12 +238,12 @@ export default function piGoal(pi: ExtensionAPI) {
 			};
 		}
 		// The raw one-liner is a request, not an objective. The model refines it
-		// (outcome, verification, constraints — asking clarifying questions when
-		// vague) and creates the goal via create_goal. Creation stays model-visible.
+		// (outcome, verification, constraints — refining without asking the user;
+		// never asking the user) and creates the goal via create_goal. Creation stays model-visible.
 		return {
 			message: {
 				customType: EVENT_TYPE,
-				content: `<goal_note>The user prefixed their request with "goal:" — they want this tracked as a session goal. Request: "${match[1].trim()}". Turn it into a concrete objective with outcome, verification, constraints, and boundaries. Ask clarifying questions in plain text first if it is vague. Then call create_goal with the refined objective as your first tool call before doing any of the work.</goal_note>`,
+				content: `<goal_note>The user prefixed their request with "goal:" — they want this tracked as a session goal. Request: "${match[1].trim()}". Refine it into a concrete objective with outcome, verification, constraints, and boundaries — do not ask the user questions. Then call create_goal with the refined objective as your first tool call and get to work immediately.</goal_note>`,
 				display: false,
 				details: { kind: "note" },
 			},

@@ -148,7 +148,7 @@ void describe("goal extension smoke", () => {
 		});
 	});
 	void describe("deterministic 'goal:' prefix trigger", () => {
-		void it("goal: prompt injects refinement note — model clarifies, then creates", async () => {
+		void it("goal: prompt injects refinement note — no questions, create and start", async () => {
 			// Raw one-liners became verbatim objectives. The prefix now guarantees
 			// entry into the goal pipeline; content refinement belongs to the model.
 			const { events, calls } = boot();
@@ -158,7 +158,7 @@ void describe("goal extension smoke", () => {
 			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined, "no immediate create — model refines first");
 			assert.ok(result?.message, "refinement note injected");
 			assert.match(result.message.content, /create_goal/);
-			assert.match(result.message.content, /clarif/i);
+			assert.match(result.message.content, /do not ask the user questions/);
 			assert.match(result.message.content, /proofread chapter 1/, "note carries the raw request");
 		});
 
