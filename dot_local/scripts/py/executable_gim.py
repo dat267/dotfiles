@@ -27,12 +27,15 @@ def resolve_spec(spec):
         version = "@" + version
     else:
         module, version = spec, "@main"
-    if "/" not in module:
+    # Shorthand is anything without a host segment (no dot in the first
+    # path element): "adl", "adl/tools". Full paths (github.com/...,
+    # gitlab.com/...) pass through untouched.
+    if "." not in module.split("/", 1)[0]:
         module = "github.com/dat267/" + module
-    if module.startswith("github.com/"):
-        owner = module.rsplit("/", 1)[0]
-    else:
-        owner = "github.com/dat267"
+    # GOPRIVATE owner = host + first path segment (covers every repo of
+    # the owner: github.com/dat267 matches github.com/dat267/<repo>/...).
+    parts = module.split("/")
+    owner = "/".join(parts[:2]) if len(parts) >= 2 else "github.com/dat267"
     return module, version, owner
 
 

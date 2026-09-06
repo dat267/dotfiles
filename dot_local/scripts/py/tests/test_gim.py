@@ -32,6 +32,18 @@ class TestResolveSpec(unittest.TestCase):
             ("github.com/other/x", "@v0.0.1", "github.com/other"),
         )
 
+    def test_subpath_shorthand(self):
+        self.assertEqual(
+            gim.resolve_spec("adl/tools"),
+            ("github.com/dat267/adl/tools", "@main", "github.com/dat267"),
+        )
+
+    def test_subpath_shorthand_pinned(self):
+        self.assertEqual(
+            gim.resolve_spec("adl/tools@v0.3"),
+            ("github.com/dat267/adl/tools", "@v0.3", "github.com/dat267"),
+        )
+
 
 class TestMain(unittest.TestCase):
     def test_runs_go_install_with_ssh_env(self):
