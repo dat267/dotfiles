@@ -4,7 +4,7 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { formatTokens, footerLine, truncate, withStatuses } from "./format.ts";
+import { formatTokens, footerLine, truncate, truncateLeft, withStatuses } from "./format.ts";
 
 void describe("formatTokens", () => {
 	void it("boundaries", () => {
@@ -55,6 +55,19 @@ void describe("truncate", () => {
 	void it("max <= 3 degrades gracefully", () => {
 		assert.equal(truncate("abcdef", 2), "..");
 		assert.equal(truncate("abcdef", 0), "");
+	});
+});
+
+void describe("truncateLeft", () => {
+	void it("keeps the rightmost chars with ... prefix", () => {
+		assert.equal(truncateLeft("abcdefghij", 8), "...fghij");
+	});
+	void it("short strings pass through", () => {
+		assert.equal(truncateLeft("abc", 10), "abc");
+	});
+	void it("max <= 3 degrades gracefully", () => {
+		assert.equal(truncateLeft("abcdef", 2), "..");
+		assert.equal(truncateLeft("abcdef", 0), "");
 	});
 });
 

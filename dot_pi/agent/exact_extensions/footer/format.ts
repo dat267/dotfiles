@@ -27,6 +27,21 @@ export function truncate(text: string, max: number): string {
 	return out + "...";
 }
 
+/** Truncate from the left — keeps the rightmost chars, ellipsis prefix. */
+export function truncateLeft(text: string, max: number): string {
+	if (max <= 3) return "...".slice(0, Math.max(0, max));
+	if (visibleWidth(text) <= max) return text;
+	let out = "";
+	let w = 0;
+	for (const ch of [...text].reverse()) {
+		const cw = visibleWidth(ch);
+		if (w + cw > max - 3) break;
+		out = ch + out;
+		w += cw;
+	}
+	return "..." + out;
+}
+
 export interface FooterInput {
 	contextUsage?: { percent?: number | null; contextWindow?: number } | null;
 	modelWindow?: number;
@@ -43,7 +58,7 @@ export function footerLine(input: FooterInput, width: number): string {
 		: `${percent.toFixed(1)}%/${formatTokens(window)}`;
 
 	const parts: string[] = [contextDisplay];
-	if (input.modelId) parts.push(truncate(input.modelId, 25));
+	if (input.modelId) parts.push(truncateLeft(input.modelId, 25));
 	parts.push(truncate(basename(input.cwd), 25));
 	return truncate(parts.join(" · "), Math.min(80, Math.max(0, width)));
 }
