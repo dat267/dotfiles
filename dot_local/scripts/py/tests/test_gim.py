@@ -11,8 +11,9 @@ gim = _loader.load("gim")
 
 
 class TestResolveSpec(unittest.TestCase):
-    def test_default_spec(self):
-        self.assertEqual(gim.resolve_spec(None), ("github.com/dat267/adl", "@main", "github.com/dat267"))
+    def test_requires_spec(self):
+        with self.assertRaises(ValueError):
+            gim.resolve_spec(None)
 
     def test_shorthand_repo(self):
         self.assertEqual(gim.resolve_spec("datetime"), ("github.com/dat267/datetime", "@main", "github.com/dat267"))
@@ -57,6 +58,15 @@ class TestMain(unittest.TestCase):
         self.assertEqual(env["GOPRIVATE"], "github.com/dat267")
         self.assertEqual(env["GIT_CONFIG_KEY_0"], "url.git@github.com:.insteadOf")
         self.assertEqual(env["GIT_CONFIG_VALUE_0"], "https://github.com/")
+
+    def test_empty_argv_prints_usage_and_fails(self):
+        with mock.patch.object(gim.subprocess, "run", return_value=mock.Mock(returncode=0)) as run, mock.patch(
+            "sys.stdout"
+        ) as stdout:
+            rc = gim.main([])
+        self.assertNotEqual(rc, 0)
+        run.assert_not_called()
+        stdout.write.assert_called()
 
     def test_no_global_env_mutation(self):
         before = dict(os.environ)
