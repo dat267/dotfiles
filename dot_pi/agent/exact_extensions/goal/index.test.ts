@@ -67,6 +67,19 @@ void describe("goal extension smoke", () => {
 		assert.equal(calls.some(c => c.kind === "appendEntry" || c.kind === "sendMessage"), false);
 	});
 
+	void it("get_goal card renders live usage, not stale lastUsage", async () => {
+		// Session evidence: first turn of a session showed 'ctx ?' because the
+		// card read lastUsage (agent_end-only) instead of the live usage the
+		// execute path already fetched.
+		const { tools } = boot();
+		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
+		await tools.get_goal.execute("id", {}, {}, () => {}, ctx());
+		const rendered = tools.get_goal.renderResult({ details: { goal: { phase: "active", revision: 1, turnsStarted: 0 } } }, {}, { fg: (_c: string, t: string) => t } as any);
+		const text = rendered.text ?? String(rendered);
+		assert.match(text, /\d+%/);
+		assert.doesNotMatch(text, /\?/);
+	});
+
 	void it("routes create_goal effects: durable entry + status rerender", async () => {
 		const { tools, calls } = boot();
 		const result = await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
