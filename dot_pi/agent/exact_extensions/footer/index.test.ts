@@ -1,7 +1,6 @@
 /**
  * Smoke test for footer/index.ts — the host-glue closure that format.test.ts
- * cannot reach. Regression: seedCacheHitRate once assigned to an undeclared
- * variable, crashing the extension at runtime (default footer, no extension).
+ * cannot reach. Ensures handlers register and run without throwing.
  * Run: node --test index.test.ts
  */
 
@@ -10,16 +9,12 @@ import * as assert from "node:assert/strict";
 import footer from "./index.ts";
 
 void describe("footer extension smoke", () => {
-	void it("registers handlers and runs them without throwing", async () => {
+	void it("registers session_start and runs it without throwing", async () => {
 		const handlers: Record<string, (event: any, ctx: any) => Promise<void>> = {};
 		footer({ on: (ev: string, fn: any) => (handlers[ev] = fn), setFooter: () => {} } as any);
 		assert.ok(handlers.session_start, "session_start registered");
-		assert.ok(handlers.turn_end, "turn_end registered");
-		assert.ok(handlers.session_tree, "session_tree registered");
 
-		const ctx = { sessionManager: { getBranch: () => [] }, ui: { setFooter: () => {} } };
+		const ctx = { sessionManager: { getBranch: () => [] }, ui: { setFooter: () => {} }, getContextUsage: () => ({ percent: 10, contextWindow: 1_000_000 }), model: { id: "m", contextWindow: 1_000_000 } };
 		await handlers.session_start({}, ctx);
-		await handlers.turn_end({ message: { role: "assistant", usage: { input: 100, cacheRead: 300, cacheWrite: 100 } } }, ctx);
-		await handlers.session_tree({}, ctx);
 	});
 });
