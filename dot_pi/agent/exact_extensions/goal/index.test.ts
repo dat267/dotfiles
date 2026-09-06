@@ -67,14 +67,28 @@ void describe("goal extension smoke", () => {
 		assert.equal(calls.some(c => c.kind === "appendEntry" || c.kind === "sendMessage"), false);
 	});
 
-	void it("get_goal card renders live usage, not stale lastUsage", async () => {
+	void it("get_goal includes usage in details and renders from details.usage directly", async () => {
+		const { tools } = boot();
+		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
+		const result = await tools.get_goal.execute("id", {}, {}, () => {}, ctx());
+		assert.ok((result.details as any)?.usage, "usage attached to details");
+		assert.equal((result.details as any).usage.tokens, 100_000);
+		assert.equal((result.details as any).usage.contextWindow, 1_000_000);
+
+		// Renderer uses details.usage directly
+		const rendered = tools.get_goal.renderResult(result, {}, { fg: (_c: string, t: string) => t } as any);
+		const text = rendered.render(80).join("");
+		assert.match(text, /10%/);
+	});
+
+	void it("get_goal card renders live usage from details, not stale lastUsage", async () => {
 		// Session evidence: first turn of a session showed 'ctx ?' because the
 		// card read lastUsage (agent_end-only) instead of the live usage the
 		// execute path already fetched.
 		const { tools } = boot();
 		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
-		await tools.get_goal.execute("id", {}, {}, () => {}, ctx());
-		const rendered = tools.get_goal.renderResult({ details: { goal: { phase: "active", revision: 1, turnsStarted: 0 } } }, {}, { fg: (_c: string, t: string) => t } as any);
+		const res = await tools.get_goal.execute("id", {}, {}, () => {}, ctx());
+		const rendered = tools.get_goal.renderResult(res, {}, { fg: (_c: string, t: string) => t } as any);
 		const text = rendered.render(80).join("");
 		assert.match(text, /\d+%/);
 		assert.doesNotMatch(text, /\?/);

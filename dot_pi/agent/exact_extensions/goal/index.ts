@@ -76,11 +76,6 @@ export default function piGoal(pi: ExtensionAPI) {
 		pi.setActiveTools(Array.from(active));
 	}
 
-	// Live usage captured by get_goal's execute — the card renderer has no ctx
-	// access, and machine.lastUsage is only set at agent_end (showed 'ctx ?'
-	// on a session's first turn).
-	let latestUsage: { tokens: number | null; contextWindow: number } | undefined;
-
 	// Continuation prompts and wrap-up notices (sent via sendMessage, in LLM context).
 	pi.registerMessageRenderer<Record<string, unknown>>(EVENT_TYPE, (message, { expanded }, theme) => {
 		const kind = (message.details as any)?.kind ?? "event";
@@ -107,15 +102,14 @@ export default function piGoal(pi: ExtensionAPI) {
 		parameters: { type: "object", properties: {}, additionalProperties: false } as any,
 		renderCall: (_args, theme) => renderGetGoalRenderCall(theme),
 		renderResult: (result, _options, theme) => {
-			const details = (result.details as { goal?: GoalView | null })?.goal ?? null;
-			return renderGetGoalRenderResult(details, latestUsage, theme);
+			const details = result.details as { goal?: GoalView | null; usage?: { tokens: number | null; contextWindow: number } } | undefined;
+			return renderGetGoalRenderResult(details?.goal ?? null, details?.usage, theme);
 		},
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			const usage = ctx.getContextUsage();
-			latestUsage = usage;
 			const { goal } = machine.snapshot;
 			const value = goalView(goal, usage);
-			return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], details: { goal } };
+			return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], details: { goal, usage } };
 		},
 	});
 
