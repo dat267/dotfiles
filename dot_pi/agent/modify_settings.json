@@ -14,4 +14,6 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "doubleEscapeAction" "none" $current }}
 {{- $_ := setValueAtPath "fullscreenScrollbar" "auto" $current }}
 {{- $_ := setValueAtPath "outputPad" 1 $current }}
+{{- $_ := setValueAtPath "editorPaddingX" 1 $current }}
 {{ toPrettyJson $current }}
+
