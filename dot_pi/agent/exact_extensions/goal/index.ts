@@ -55,9 +55,7 @@ export default function piGoal(pi: ExtensionAPI) {
 			ctx.ui.setWidget(CUSTOM_TYPE, undefined);
 			return;
 		}
-		const phase = theme.fg(PHASE_COLOR[goal.phase], goal.phase);
-		const marker = armed ? theme.fg("accent", " ▶") : "";
-		ctx.ui.setStatus(CUSTOM_TYPE, `${phase}${marker} ${statusLine(goal, usage)}`);
+		// Nothing goal-related on the statusline — the widget banner is the surface.
 		if (!bannerEnabled) {
 			ctx.ui.setWidget(CUSTOM_TYPE, undefined);
 			return;
