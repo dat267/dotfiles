@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { handleGoalCommand } from "./command.ts";
+import { parseGoalCommand } from "./command.ts";
 import { CUSTOM_TYPE, EVENT_TYPE, GoalMachine, TURN_TYPE, type Effect } from "./machine.ts";
 import {
 	goalStatusMessage,
@@ -205,18 +205,34 @@ export default function piGoal(pi: ExtensionAPI) {
 				else if (!isError && fallback) ctx.ui.notify(fallback, "info");
 			};
 
-			handleGoalCommand(args, pi, ctx, {
-				toggleBanner: () => run({ type: "banner_toggle" }, `Goal banner ${machine.snapshot.bannerEnabled ? "shown" : "hidden"}.`),
-				showStatus: () => ctx.ui.notify(goalStatusMessage(goal, usage, bannerEnabled), "info"),
-				clearGoal: () => {
-					if (!goal) { ctx.ui.notify("No goal is set.", "info"); return; }
+			const cmd = parseGoalCommand(args);
+			switch (cmd.kind) {
+				case "toggle_banner":
+					run({ type: "banner_toggle" }, `Goal banner ${machine.snapshot.bannerEnabled ? "shown" : "hidden"}.`);
+					break;
+				case "show_status":
+					ctx.ui.notify(goalStatusMessage(goal, usage, bannerEnabled), "info");
+					break;
+				case "clear":
+					if (!goal) {
+						ctx.ui.notify("No goal is set.", "info");
+						return;
+					}
 					run({ type: "goal_clear", id: goal.id, revision: goal.revision }, "Goal cleared.");
-				},
-				pauseGoal: () => run({ type: "goal_pause" }, "Goal paused."),
-				resumeGoal: () => run({ type: "goal_resume" }, "Goal resumed."),
-				setGoal: (next) => run({ type: "goal_set", objective: next.objective, cap: next.contextCap }, "Goal set."),
-				notify: (msg: string, level: any) => ctx.ui.notify(msg, level),
-			});
+					break;
+				case "pause":
+					run({ type: "goal_pause" }, "Goal paused.");
+					break;
+				case "resume":
+					run({ type: "goal_resume" }, "Goal resumed.");
+					break;
+				case "set":
+					run({ type: "goal_set", objective: cmd.objective, cap: cmd.contextCap }, "Goal set.");
+					break;
+				case "error":
+					ctx.ui.notify(cmd.message, "warning");
+					break;
+			}
 		},
 	});
 

@@ -1,83 +1,71 @@
 /**
- * goal/command.ts — /goal command handler.
+ * goal/command.ts — /goal CLI command parser.
  *
- * Narrow CommandApi that exposes operations, not steps.
- * The handler is a pure dispatcher: parse subcommand → call one API method.
+ * Pure function: takes the raw argument string and returns a typed command intent.
+ * No I/O, no framework dependencies, no side effects.
  */
 
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { createGoalState, truncateObjective, type GoalSnapshot } from "./state.ts";
+import { truncateObjective } from "./state.ts";
 
-export interface CommandApi {
-	/** Toggle the editor banner on/off. */
-	toggleBanner(): void;
-	/** Show the current goal status to the user. */
-	showStatus(): void;
-	/** Clear the current goal. */
-	clearGoal(): void;
-	/** Pause the current active goal. */
-	pauseGoal(): void;
-	/** Resume a stopped or disarmed goal. */
-	resumeGoal(): void;
-	/** Set a new goal from the prepared snapshot. */
-	setGoal(next: GoalSnapshot): void;
-	/** Notify the user. */
-	notify(message: string, level: "info" | "warning"): void;
-}
+export type GoalCommand =
+	| { kind: "toggle_banner" }
+	| { kind: "show_status" }
+	| { kind: "clear" }
+	| { kind: "pause" }
+	| { kind: "resume" }
+	| { kind: "set"; objective: string; contextCap: number | null }
+	| { kind: "error"; message: string };
 
-export function handleGoalCommand(args: string, _pi: ExtensionAPI, _ctx: ExtensionContext, api: CommandApi): void {
+export function parseGoalCommand(args: string): GoalCommand {
 	const trimmed = args.trim();
 
-	if (!trimmed || trimmed === "status") {
-		if (!trimmed) {
-			api.toggleBanner();
-			return;
-		}
-		api.showStatus();
-		return;
+	if (!trimmed) {
+		return { kind: "toggle_banner" };
+	}
+
+	if (trimmed === "status") {
+		return { kind: "show_status" };
 	}
 
 	if (trimmed === "banner") {
-		api.toggleBanner();
-		return;
+		return { kind: "toggle_banner" };
 	}
 
 	if (trimmed === "clear") {
-		api.clearGoal();
-		return;
+		return { kind: "clear" };
 	}
 
 	if (trimmed === "pause") {
-		api.pauseGoal();
-		return;
+		return { kind: "pause" };
 	}
 
 	if (trimmed === "resume") {
-		api.resumeGoal();
-		return;
+		return { kind: "resume" };
 	}
 
 	// Creation requires the explicit "set" verb — any other unknown
 	// word is a typo, not an objective (e.g. "/goal view", "/goal cleared").
-	if (!trimmed.startsWith("set ")) {
-		api.notify(
-			`Unknown subcommand "${truncateObjective(trimmed, 20)}". Use /goal set <objective>, /goal status, pause, resume, clear, or bare /goal to toggle the banner.`,
-			"warning",
-		);
-		return;
+	if (!trimmed.startsWith("set ") && trimmed !== "set") {
+		return {
+			kind: "error",
+			message: `Unknown subcommand "${truncateObjective(trimmed, 20)}". Use /goal set <objective>, /goal status, pause, resume, clear, or bare /goal to toggle the banner.`,
+		};
 	}
 
-	let objective = trimmed.slice(4);
+	let objective = trimmed.slice(3).trim();
 	let contextCap: number | null = null;
 	const capMatch = objective.match(/(?:^|\s)--cap\s+(\d{1,3})\s*%?/);
 	if (capMatch) {
 		const pct = parseInt(capMatch[1], 10);
-		if (pct < 1 || pct > 100) { api.notify("Cap must be 1-100 percent.", "warning"); return; }
+		if (pct < 1 || pct > 100) {
+			return { kind: "error", message: "Cap must be 1-100 percent." };
+		}
 		contextCap = pct / 100;
 		objective = objective.replace(capMatch[0], "").trim();
 	}
-	if (!objective) { api.notify("Usage: /goal set [--cap 60] <objective>", "warning"); return; }
+	if (!objective) {
+		return { kind: "error", message: "Usage: /goal set [--cap 60] <objective>" };
+	}
 
-	const next = createGoalState(objective, contextCap);
-	api.setGoal(next);
+	return { kind: "set", objective, contextCap };
 }
