@@ -133,7 +133,7 @@ export class GoalMachine {
 			kind: "sendMessage",
 			customType: EVENT_TYPE,
 			content: wrapupContext(objective, blockedReason),
-			display: true,
+			display: false,
 			details: { kind },
 			triggerTurn: false,
 		};
@@ -193,7 +193,7 @@ export class GoalMachine {
 			kind: "sendMessage",
 			customType: EVENT_TYPE,
 			content: goalRoundPrompt(this.view, turn),
-			display: true,
+			display: false,
 			details: { kind: "round", turn },
 			triggerTurn: true,
 		}, { kind: "renderStatus" }];

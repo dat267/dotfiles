@@ -94,12 +94,17 @@ export function renderGoalEventMessage(
 	);
 }
 
-/** Render an admitted goal turn entry. */
+/** Render an admitted goal turn entry — one line; the round prompt card is model-only. */
 export function renderGoalTurnEntry(data: GoalTurnEntry, theme: Theme, expanded: boolean): Box {
-	const body = expanded
-		? `goal ${data.goalId} rev ${data.revision} · round ${data.turn}`
-		: `round ${data.turn}`;
-	return renderGoalCard(theme, { label: "Goal round admitted", body, phase: "active" }, expanded);
+	return renderGoalCard(
+		theme,
+		{
+			label: `Goal round admitted #${data.turn}`,
+			body: expanded ? `goal ${data.goalId} rev ${data.revision}` : "",
+			phase: "active",
+		},
+		expanded,
+	);
 }
 
 // ── Tool renderers ────────────────────────────────────────────────────────
@@ -143,7 +148,12 @@ export function renderUpdateGoalRenderCall(args: Record<string, unknown> | undef
 	);
 }
 
-export function renderUpdateGoalRenderResult(result: { isError?: boolean; content: { type: string; text: string }[] }, theme: Theme): Text {
+export function renderUpdateGoalRenderResult(result: { isError?: boolean; details?: { goal?: { phase?: GoalPhase } | null }; content: { type: string; text: string }[] }, theme: Theme): Text {
 	const text = result.content[0]?.type === "text" ? result.content[0].text : "";
-	return new Text(theme.fg(result.isError ? "error" : "toolOutput", text), 0, 0);
+	if (result.isError) return new Text(theme.fg("error", text), 0, 0);
+	// Success repeats the durable entry card right below — collapse to a
+	// phase-colored status line instead of the full instruction text.
+	const phase = result.details?.goal?.phase;
+	const short = phase === "blocked" ? "Goal blocked" : "Goal complete";
+	return new Text(theme.fg(PHASE_COLOR[phase ?? "complete"], short), 0, 0);
 }
