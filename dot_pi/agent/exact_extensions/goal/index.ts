@@ -208,6 +208,11 @@ export default function piGoal(pi: ExtensionAPI) {
 		} as any,
 		renderCall: (args, theme) => renderAskUserRenderCall(args as Record<string, unknown> | undefined, theme),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			const { pendingTurn, createdThisRun } = machine.snapshot;
+			if (machine.snapshot.goal?.phase === "active" && pendingTurn !== null && !createdThisRun) {
+				// Autonomous continuation run — a blocking selector would stall the loop.
+				return { content: [{ type: "text", text: "ask_user is disabled while the goal loop is running autonomously. Proceed with your best judgment and state any assumption you make." }] };
+			}
 			const question = typeof params.question === "string" ? params.question.trim() : "";
 			const options = Array.isArray(params.options)
 				? params.options.filter((o: unknown): o is string => typeof o === "string" && o.trim() !== "")

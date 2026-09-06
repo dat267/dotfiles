@@ -97,6 +97,8 @@ export class GoalMachine {
 			goal: this.view ? { ...this.view, armed: this.armed } : null,
 			armed: this.armed,
 			pendingTurn: this.pendingTurn,
+			/** True while the run that created the goal is still executing. */
+			createdThisRun: this.createdThisRun,
 			bannerEnabled: this.bannerEnabled,
 			lastUsage: this.lastUsage,
 		};

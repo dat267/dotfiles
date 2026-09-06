@@ -211,5 +211,22 @@ void describe("goal extension smoke", () => {
 				assert.equal(result.isError, true, JSON.stringify(params));
 			}
 		});
+
+		void it("refuses during autonomous goal rounds — no blocking selector mid-loop", async () => {
+			// Continuation runs are machine-driven; a blocking selector stalls the loop.
+			const { tools, events } = boot();
+			await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
+			await events.agent_end({}, ctx()); // creating run ends, turn 1 admitted
+			await events.agent_settled({}, ctx()); // queues round 2, pendingTurn reserved
+			const result = await tools["ask_user"].execute("id", { question: "Scope?", options: ["A", "B"] }, {}, () => {}, uiCtx("A"));
+			assert.match(result.content[0].text, /goal loop/i);
+		});
+
+		void it("allowed in the creating run — refinement is its purpose", async () => {
+			const { tools } = boot();
+			await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
+			const result = await tools["ask_user"].execute("id", { question: "Scope?", options: ["A", "B"] }, {}, () => {}, uiCtx("A"));
+			assert.match(result.content[0].text, /A/);
+		});
 	});
 });
