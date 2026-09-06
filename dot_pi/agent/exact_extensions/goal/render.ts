@@ -135,13 +135,6 @@ export function renderCreateGoalRenderCall(args: Record<string, unknown> | undef
 	);
 }
 
-/** Render the ask_user tool call with its options. */
-export function renderAskUserRenderCall(args: Record<string, unknown> | undefined, theme: Theme): Text {
-	const question = truncateObjective(String(args?.question ?? ""), 60);
-	const opts = Array.isArray(args?.options) ? ` (${(args.options as unknown[]).length} options)` : "";
-	return new Text(theme.fg("toolTitle", `Ask user: ${question}${opts}`), 0, 0);
-}
-
 export function renderUpdateGoalRenderCall(args: Record<string, unknown> | undefined, theme: Theme): Text {
 	const action = args?.action as string | undefined;
 	const blockedReason = args?.blocked_reason as string | undefined;

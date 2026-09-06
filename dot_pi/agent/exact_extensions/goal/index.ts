@@ -189,53 +189,6 @@ export default function piGoal(pi: ExtensionAPI) {
 		},
 	});
 
-	// Multiple-choice clarification for the goal refinement flow (and any
-	// other time the model should offer options instead of guessing).
-	pi.registerTool({
-		name: "ask_user",
-		label: "Ask User",
-		description: "Ask the user a multiple-choice question. Use during goal refinement when the request is ambiguous, or whenever choosing between concrete alternatives. Returns the selected option verbatim.",
-		promptSnippet: "Ask the user a multiple-choice question",
-		promptGuidelines: ["Prefer ask_user over guessing when the request is ambiguous and the answers are enumerable.", "Provide 2-6 short, mutually distinct options."],
-		parameters: {
-			type: "object",
-			properties: {
-				question: { type: "string", description: "The question to ask." },
-				options: { type: "array", items: { type: "string" }, description: "2-6 answer options." },
-			},
-			required: ["question", "options"],
-			additionalProperties: false,
-		} as any,
-		renderCall: (args, theme) => renderAskUserRenderCall(args as Record<string, unknown> | undefined, theme),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-			const { pendingTurn, createdThisRun } = machine.snapshot;
-			if (machine.snapshot.goal?.phase === "active" && pendingTurn !== null && !createdThisRun) {
-				// Autonomous continuation run — a blocking selector would stall the loop.
-				return { content: [{ type: "text", text: "ask_user is disabled while the goal loop is running autonomously. Proceed with your best judgment and state any assumption you make." }] };
-			}
-			const question = typeof params.question === "string" ? params.question.trim() : "";
-			const options = Array.isArray(params.options)
-				? params.options.filter((o: unknown): o is string => typeof o === "string" && o.trim() !== "")
-				: [];
-			if (!question || options.length < 2) {
-				return { content: [{ type: "text", text: "question and options (2-6) are required." }], isError: true };
-			}
-			const TYPE_OWN = "Type my own answer…";
-			const choice = await ctx.ui.select(question, [...options, TYPE_OWN]);
-			if (choice === undefined) {
-				return { content: [{ type: "text", text: "User dismissed the question. Proceed with your best judgment or ask again in plain text." }] };
-			}
-			if (choice === TYPE_OWN) {
-				const own = await ctx.ui.input(question, "Type your answer");
-				if (own === undefined || own.trim() === "") {
-					return { content: [{ type: "text", text: "User dismissed the question. Proceed with your best judgment or ask again in plain text." }] };
-				}
-				return { content: [{ type: "text", text: `User answered: ${own.trim()}` }] };
-			}
-			return { content: [{ type: "text", text: `User selected: ${choice}` }] };
-		},
-	});
-
 	pi.registerCommand("goal", {
 		description: "Manage the session goal — /goal toggles the banner",
 		getArgumentCompletions: (prefix: string) => {
@@ -291,7 +244,7 @@ export default function piGoal(pi: ExtensionAPI) {
 		return {
 			message: {
 				customType: EVENT_TYPE,
-				content: `<goal_note>The user prefixed their request with "goal:" — they want this tracked as a session goal. Request: "${match[1].trim()}". Turn it into a concrete objective with outcome, verification, constraints, and boundaries. If anything is ambiguous, ask via ask_user with multiple-choice options. Then call create_goal with the refined objective as your first tool call before doing any of the work.</goal_note>`,
+				content: `<goal_note>The user prefixed their request with "goal:" — they want this tracked as a session goal. Request: "${match[1].trim()}". Turn it into a concrete objective with outcome, verification, constraints, and boundaries. Ask clarifying questions in plain text first if it is vague. Then call create_goal with the refined objective as your first tool call before doing any of the work.</goal_note>`,
 				display: false,
 				details: { kind: "note" },
 			},

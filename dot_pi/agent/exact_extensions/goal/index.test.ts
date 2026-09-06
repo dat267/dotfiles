@@ -43,9 +43,9 @@ void describe("goal extension smoke", () => {
 		signal: { aborted: false },
 	});
 
-	void it("registers the four goal tools and lifecycle events", () => {
+	void it("registers the three goal tools and lifecycle events", () => {
 		const { tools, events } = boot();
-		assert.deepEqual(Object.keys(tools).sort(), ["ask_user", "create_goal", "get_goal", "update_goal"]);
+		assert.deepEqual(Object.keys(tools).sort(), ["create_goal", "get_goal", "update_goal"]);
 		for (const ev of ["session_start", "agent_end", "agent_settled"]) {
 			assert.ok(events[ev], `${ev} registered`);
 		}
@@ -158,8 +158,7 @@ void describe("goal extension smoke", () => {
 			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined, "no immediate create — model refines first");
 			assert.ok(result?.message, "refinement note injected");
 			assert.match(result.message.content, /create_goal/);
-			assert.match(result.message.content, /ask_user/);
-			assert.match(result.message.content, /multiple-choice/);
+			assert.match(result.message.content, /clarif/i);
 			assert.match(result.message.content, /proofread chapter 1/, "note carries the raw request");
 		});
 
@@ -183,74 +182,4 @@ void describe("goal extension smoke", () => {
 		});
 	});
 
-	void describe("ask_user tool — multiple-choice clarification", () => {
-		const uiCtx = (choice: string | undefined) => ({
-			...ctx(),
-			ui: { ...ctx().ui, select: async (_t: string, opts: string[]) => choice === undefined ? undefined : (opts.find(o => o === choice) ?? choice) },
-		});
-
-		void it("returns the selected option", async () => {
-			const { tools } = boot();
-			const t = tools["ask_user"];
-			assert.ok(t, "ask_user registered");
-			const result = await t.execute("id", { question: "Scope?", options: ["Chapter 1 only", "Whole book"] }, {}, () => {}, uiCtx("Whole book"));
-			assert.match(result.content[0].text, /Whole book/);
-		});
-
-		void it("dismissed dialog: says so instead of inventing an answer", async () => {
-			const { tools } = boot();
-			const result = await tools["ask_user"].execute("id", { question: "Scope?", options: ["A", "B"] }, {}, () => {}, uiCtx(undefined));
-			assert.match(result.content[0].text, /dismiss/i);
-		});
-
-		void it("always appends a type-your-own option; choosing it opens a text input", async () => {
-			const { tools } = boot();
-			let selectOpts: string[] | undefined;
-			let inputAsked = false;
-			const c = { ...ctx(), ui: { ...ctx().ui,
-				select: async (_t: string, opts: string[]) => { selectOpts = opts; return "Type my own answer…"; },
-				input: async () => { inputAsked = true; return "just episodes 2-5"; },
-			} };
-			const result = await tools["ask_user"].execute("id", { question: "Scope?", options: ["A", "B"] }, {}, () => {}, c);
-			assert.equal(selectOpts?.at(-1), "Type my own answer…", "type-in option appended");
-			assert.equal(inputAsked, true, "text input opened");
-			assert.match(result.content[0].text, /just episodes 2-5/);
-		});
-
-		void it("type-your-own + dismissed input = dismissed", async () => {
-			const { tools } = boot();
-			const c = { ...ctx(), ui: { ...ctx().ui,
-				select: async () => "Type my own answer…",
-				input: async () => undefined,
-			} };
-			const result = await tools["ask_user"].execute("id", { question: "Scope?", options: ["A", "B"] }, {}, () => {}, c);
-			assert.match(result.content[0].text, /dismiss/i);
-		});
-
-		void it("requires question and at least 2 options", async () => {
-			const { tools } = boot();
-			const t = tools["ask_user"];
-			for (const params of [{}, { question: "q" }, { question: "q", options: ["only"] }]) {
-				const result = await t.execute("id", params as any, {}, () => {}, uiCtx("x"));
-				assert.equal(result.isError, true, JSON.stringify(params));
-			}
-		});
-
-		void it("refuses during autonomous goal rounds — no blocking selector mid-loop", async () => {
-			// Continuation runs are machine-driven; a blocking selector stalls the loop.
-			const { tools, events } = boot();
-			await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
-			await events.agent_end({}, ctx()); // creating run ends, turn 1 admitted
-			await events.agent_settled({}, ctx()); // queues round 2, pendingTurn reserved
-			const result = await tools["ask_user"].execute("id", { question: "Scope?", options: ["A", "B"] }, {}, () => {}, uiCtx("A"));
-			assert.match(result.content[0].text, /goal loop/i);
-		});
-
-		void it("allowed in the creating run — refinement is its purpose", async () => {
-			const { tools } = boot();
-			await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
-			const result = await tools["ask_user"].execute("id", { question: "Scope?", options: ["A", "B"] }, {}, () => {}, uiCtx("A"));
-			assert.match(result.content[0].text, /A/);
-		});
-	});
 });
