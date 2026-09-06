@@ -70,6 +70,14 @@ void describe("handleGoalCommand", () => {
 		assert.ok(api.calls.includes("setGoal"));
 	});
 
+	void it("leading --cap is parsed, not swallowed into the objective", () => {
+		const captured: { objective: string; cap: number | null }[] = [];
+		const api = makeApi({ setGoal: (next) => { captured.push({ objective: next.objective, cap: next.contextCap }); } });
+		handleGoalCommand("set --cap 60 ship the release", null as any, null as any, api);
+		assert.equal(captured[0].objective, "ship the release");
+		assert.equal(captured[0].cap, 0.6);
+	});
+
 	void it("unknown subcommand shows warning", () => {
 		const calls: string[] = [];
 		const api = makeApi({ notify: (msg, _lvl) => { calls.push(msg); } });

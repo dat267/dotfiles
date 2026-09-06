@@ -169,11 +169,17 @@ export default function piGoal(pi: ExtensionAPI) {
 		renderCall: (args, theme) => renderUpdateGoalRenderCall(args as Record<string, unknown> | undefined, theme),
 		renderResult: (result, _options, theme) => renderUpdateGoalRenderResult(result as any, theme),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			if (params.action !== "complete" && params.action !== "blocked") {
+				return {
+					content: [{ type: "text", text: `Unknown action ${JSON.stringify(params.action)}. Use "complete" or "blocked".` }],
+					isError: true,
+				};
+			}
 			const { effects, reply, isError } = machine.dispatch({
 				type: "goal_update",
 				goal_id: String(params.goal_id ?? ""),
 				revision: Number(params.revision ?? -1),
-				action: params.action === "complete" ? "complete" : "blocked",
+				action: params.action,
 				blocked_reason: typeof params.blocked_reason === "string" ? params.blocked_reason : undefined,
 			});
 			apply(effects, ctx);

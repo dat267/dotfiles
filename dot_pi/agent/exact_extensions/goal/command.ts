@@ -69,7 +69,7 @@ export function handleGoalCommand(args: string, _pi: ExtensionAPI, _ctx: Extensi
 
 	let objective = trimmed.slice(4);
 	let contextCap: number | null = null;
-	const capMatch = objective.match(/\s--cap\s+(\d{1,3})\s*%?/);
+	const capMatch = objective.match(/(?:^|\s)--cap\s+(\d{1,3})\s*%?/);
 	if (capMatch) {
 		const pct = parseInt(capMatch[1], 10);
 		if (pct < 1 || pct > 100) { api.notify("Cap must be 1-100 percent.", "warning"); return; }
