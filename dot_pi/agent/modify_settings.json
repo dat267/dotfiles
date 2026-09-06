@@ -6,7 +6,6 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "defaultProvider" "hyper" $current }}
 {{- $_ := setValueAtPath "defaultModel" "glm-5.3-flash" $current }}
 {{- $_ := setValueAtPath "defaultThinkingLevel" "minimal" $current }}
-{{- $_ := setValueAtPath "showCacheMissNotices" true $current }}
 {{- $_ := setValueAtPath "theme" "dark" $current }}
 {{- $_ := setValueAtPath "steeringMode" "one-at-a-time" $current }}
 {{- $_ := setValueAtPath "transport" "auto" $current }}
@@ -15,7 +14,4 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "doubleEscapeAction" "none" $current }}
 {{- $_ := setValueAtPath "fullscreenScrollbar" "auto" $current }}
 {{- $_ := setValueAtPath "outputPad" 1 $current }}
-{{- $_ := setValueAtPath "compaction.enabled" true $current }}
-{{- $_ := setValueAtPath "compaction.reserveTokens" 8192 $current }}
-{{- $_ := setValueAtPath "compaction.keepRecentTokens" 10000 $current }}
 {{ toPrettyJson $current }}
