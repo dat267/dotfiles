@@ -1,10 +1,13 @@
+import pathlib
 import re
+import tempfile
 import unittest
 from unittest import mock
 
 import _loader
 
 lsp = _loader.load("lsp")
+shared = _loader.load("_shared")
 
 
 class TestGetPlatform(unittest.TestCase):
@@ -95,6 +98,37 @@ class TestExtractArchive(unittest.TestCase):
 
 # get_latest_github_version moved to _shared.github_latest_tag;
 # covered in tests/test_shared.py (TestGithubLatestTag).
+# extract_archive moved to _shared.extract_archive;
+# covered in tests/test_shared.py (TestExtractArchive).
+
+
+class TestLspDeduplication(unittest.TestCase):
+    """lsp.py must not carry copies of _shared helpers."""
+
+    def test_uses_shared_extract_archive(self):
+        import inspect
+
+        self.assertNotIn("def extract_archive", inspect.getsource(lsp))
+
+    def test_marksman_uses_install_helper(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(
+            lsp, "BIN_DIR", d
+        ), mock.patch.object(lsp, "install_github_release_binary") as helper:
+            lsp.install_marksman("linux", "x64")
+        helper.assert_called_once_with(
+            "https://github.com/artempyanykh/marksman/releases/latest/download/marksman-linux-x64",
+            "marksman",
+            d,
+        )
+
+    def test_marksman_skips_when_already_installed(self):
+        with tempfile.TemporaryDirectory() as d:
+            pathlib.Path(d, "marksman").write_text("x")
+            with mock.patch.object(lsp, "BIN_DIR", d), mock.patch.object(
+                lsp, "install_github_release_binary"
+            ) as helper:
+                lsp.install_marksman("linux", "x64")
+        helper.assert_not_called()
 
 
 class TestServerManifest(unittest.TestCase):

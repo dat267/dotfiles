@@ -11,7 +11,7 @@ import sys
 import tarfile
 import zipfile
 
-from _shared import download, fetch_json, github_latest_tag, is_termux
+from _shared import download, extract_archive, fetch_json, github_latest_tag, install_github_release_binary, is_termux
 
 # Force IPv4 — Termux IPv6 lookups fail on some networks
 _orig_getaddrinfo = socket.getaddrinfo
@@ -73,17 +73,6 @@ def get_latest_node_version():
         return data[0]["version"]
 
 
-def extract_archive(src, dest_dir):
-    """Extract .zip or .tar.gz archive into dest_dir."""
-    os.makedirs(dest_dir, exist_ok=True)
-    if src.endswith(".zip"):
-        with zipfile.ZipFile(src, "r") as z:
-            z.extractall(dest_dir)
-    else:
-        with tarfile.open(src, "r:gz") as t:
-            t.extractall(path=dest_dir)
-
-
 def create_proxy(target_bin, bin_name):
     """Create a shell wrapper script for target_bin in BIN_DIR.
 
@@ -113,8 +102,7 @@ def install_marksman(sys_os, arch):
         return
 
     ext = ".exe" if sys_os == "windows" else ""
-    dest_bin = os.path.join(BIN_DIR, "marksman" + ext)
-    if os.path.exists(dest_bin):
+    if os.path.exists(os.path.join(BIN_DIR, "marksman" + ext)):
         return
 
     if sys_os == "windows":
@@ -125,8 +113,10 @@ def install_marksman(sys_os, arch):
         suffix = "linux-arm64" if arch == "arm64" else "linux-x64"
 
     url = f"https://github.com/artempyanykh/marksman/releases/latest/download/marksman-{suffix}"
-    if download_file(url, dest_bin, "Marksman Binary"):
-        os.chmod(dest_bin, 0o755)
+    try:
+        install_github_release_binary(url, "marksman" + ext, BIN_DIR)
+    except Exception as e:
+        print(f"\n[Error] Failed to install Marksman: {e}")
 
 
 def install_lua_lsp(sys_os, arch):
