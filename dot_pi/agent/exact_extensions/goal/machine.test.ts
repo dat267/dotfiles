@@ -225,6 +225,26 @@ void describe("GoalMachine.goal_update", () => {
 		assert.match(reply ?? '', /rev 1/);
 	});
 
+	void describe("param acceptance — the machine owns the full contract", () => {
+		void it("unknown action: rejected with the valid set", () => {
+			// Session evidence: index.ts coerced any non-'complete' action to 'blocked'.
+			const m = armedMachine();
+			const { reply, isError } = m.dispatch({ type: "goal_update", goal_id: "any", revision: 1, action: "pause" as any });
+			assert.equal(isError, true);
+			assert.match(reply ?? '', /Unknown action "pause"/);
+			assert.match(reply ?? '', /complete.*blocked/s);
+		});
+
+		void it("non-numeric revision: rejected without throwing", () => {
+			const m = armedMachine();
+			for (const bad of [undefined, "abc", NaN]) {
+				const { reply, isError } = m.dispatch({ type: "goal_update", goal_id: "any", revision: bad as any, action: "complete" });
+				assert.equal(isError, true, `revision ${JSON.stringify(bad)} must be rejected`);
+				assert.match(reply ?? '', /revision/);
+			}
+		});
+	});
+
 	void it("create reply carries id and revision into model context", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [] });

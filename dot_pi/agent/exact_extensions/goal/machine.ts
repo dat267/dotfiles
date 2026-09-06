@@ -40,8 +40,9 @@ export interface AgentSettledEvent {
 export interface GoalUpdateEvent {
 	type: "goal_update";
 	goal_id: string;
-	revision: number;
-	action: "complete" | "blocked";
+	/** Raw tool param — the machine owns acceptance, not the caller. */
+	revision: number | string | undefined;
+	action: string;
 	blocked_reason?: string;
 }
 
@@ -139,7 +140,15 @@ export class GoalMachine {
 		};
 	}
 
-	private goalUpdate(goalId: string, revision: number, action: "complete" | "blocked", blockedReason?: string): DispatchResult {
+	private goalUpdate(goalId: string, rawRevision: number | string | undefined, rawAction: string, blockedReason?: string): DispatchResult {
+		if (rawAction !== "complete" && rawAction !== "blocked") {
+			return { effects: [], reply: `Unknown action ${JSON.stringify(rawAction)}. Use "complete" or "blocked".`, isError: true };
+		}
+		const action = rawAction as "complete" | "blocked";
+		const revision = typeof rawRevision === "number" ? rawRevision : Number(rawRevision);
+		if (!Number.isFinite(revision)) {
+			return { effects: [], reply: `revision is required — the exact number from get_goal (current goal revision: ${this.view?.revision ?? "n/a"}).`, isError: true };
+		}
 		if (!this.view) return { effects: [], reply: "No goal is set.", isError: true };
 		if (goalId !== this.view.id) {
 			// Name the current ref — the model can retry without a get_goal round trip.
