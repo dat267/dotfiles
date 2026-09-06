@@ -203,6 +203,30 @@ void describe("goal extension smoke", () => {
 			assert.match(result.content[0].text, /dismiss/i);
 		});
 
+		void it("always appends a type-your-own option; choosing it opens a text input", async () => {
+			const { tools } = boot();
+			let selectOpts: string[] | undefined;
+			let inputAsked = false;
+			const c = { ...ctx(), ui: { ...ctx().ui,
+				select: async (_t: string, opts: string[]) => { selectOpts = opts; return "Type my own answer…"; },
+				input: async () => { inputAsked = true; return "just episodes 2-5"; },
+			} };
+			const result = await tools["ask_user"].execute("id", { question: "Scope?", options: ["A", "B"] }, {}, () => {}, c);
+			assert.equal(selectOpts?.at(-1), "Type my own answer…", "type-in option appended");
+			assert.equal(inputAsked, true, "text input opened");
+			assert.match(result.content[0].text, /just episodes 2-5/);
+		});
+
+		void it("type-your-own + dismissed input = dismissed", async () => {
+			const { tools } = boot();
+			const c = { ...ctx(), ui: { ...ctx().ui,
+				select: async () => "Type my own answer…",
+				input: async () => undefined,
+			} };
+			const result = await tools["ask_user"].execute("id", { question: "Scope?", options: ["A", "B"] }, {}, () => {}, c);
+			assert.match(result.content[0].text, /dismiss/i);
+		});
+
 		void it("requires question and at least 2 options", async () => {
 			const { tools } = boot();
 			const t = tools["ask_user"];

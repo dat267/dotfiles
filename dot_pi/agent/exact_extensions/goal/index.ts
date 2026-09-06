@@ -220,9 +220,17 @@ export default function piGoal(pi: ExtensionAPI) {
 			if (!question || options.length < 2) {
 				return { content: [{ type: "text", text: "question and options (2-6) are required." }], isError: true };
 			}
-			const choice = await ctx.ui.select(question, options);
+			const TYPE_OWN = "Type my own answer…";
+			const choice = await ctx.ui.select(question, [...options, TYPE_OWN]);
 			if (choice === undefined) {
 				return { content: [{ type: "text", text: "User dismissed the question. Proceed with your best judgment or ask again in plain text." }] };
+			}
+			if (choice === TYPE_OWN) {
+				const own = await ctx.ui.input(question, "Type your answer");
+				if (own === undefined || own.trim() === "") {
+					return { content: [{ type: "text", text: "User dismissed the question. Proceed with your best judgment or ask again in plain text." }] };
+				}
+				return { content: [{ type: "text", text: `User answered: ${own.trim()}` }] };
 			}
 			return { content: [{ type: "text", text: `User selected: ${choice}` }] };
 		},
