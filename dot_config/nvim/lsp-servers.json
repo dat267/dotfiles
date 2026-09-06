@@ -1,0 +1,14 @@
+{
+  "gopls": { "binary": "gopls", "install": "gopls" },
+  "pyright": { "binary": "pyright-langserver", "install": "node" },
+  "ts_ls": { "binary": "typescript-language-server", "enabled": false, "install": "node" },
+  "bashls": { "binary": "bash-language-server", "install": "node" },
+  "jsonls": { "binary": "vscode-json-language-server", "install": "node" },
+  "yamlls": { "binary": "yaml-language-server", "install": "node" },
+  "html": { "binary": "vscode-html-language-server", "install": "node" },
+  "cssls": { "binary": "vscode-css-language-server", "install": "node" },
+  "lua_ls": { "binary": "lua-language-server", "install": "lua_lsp" },
+  "marksman": { "binary": "marksman", "install": "marksman" },
+  "rust_analyzer": { "binary": "rust-analyzer", "install": "rust_analyzer" },
+  "powershell_es": { "editor": false, "install": "powershell_es" }
+}

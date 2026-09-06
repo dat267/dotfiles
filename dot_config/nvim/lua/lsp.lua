@@ -1,8 +1,21 @@
 -- LSP via Neovim's built-in client (no plugin). Servers must be installed
 -- system-wide. vim.lsp.config + vim.lsp.enable is the native 0.11+ API.
--- Note: lsp.py also installs PowerShellEditorServices (~/.local/share/powershell_es)
--- for non-nvim use; it is intentionally NOT enabled here — no pwsh host binary
--- on this machine and the Start-EditorServices.ps1 cmd needs one. Inert by design.
+--
+-- The server SET lives in lsp-servers.json (single source of truth shared
+-- with lsp.py, which installs the binaries). This file owns the editor
+-- concerns per server: filetypes, cmd args, settings. A server configured
+-- here but absent from the manifest is drift — it gets reported, never run.
+-- powershell_es is manifest-only (editor: false): installed for non-nvim
+-- use, intentionally NOT enabled here — the Start-EditorServices.ps1 cmd
+-- needs a pwsh host binary this machine doesn't have. Inert by design.
+
+local ok_manifest, manifest = pcall(function()
+  return vim.fn.json_decode(vim.fn.readfile(vim.fn.stdpath("config") .. "/lsp-servers.json"))
+end)
+if not ok_manifest or type(manifest) ~= "table" then
+  vim.notify("lsp-servers.json missing or invalid — no LSPs enabled", vim.log.levels.WARN)
+  manifest = {}
+end
 
 local servers = {
   gopls = {
@@ -78,17 +91,23 @@ local servers = {
 }
 
 for name, cfg in pairs(servers) do
-  vim.lsp.config(name, cfg)
+  if manifest[name] == nil then
+    vim.notify(string.format("LSP drift: server '%s' configured in lsp.lua but absent from lsp-servers.json — skipped", name), vim.log.levels.WARN)
+  elseif manifest[name].editor == false then
+    -- Manifest says install-only (e.g. powershell_es); never configure.
+  else
+    vim.lsp.config(name, cfg)
+  end
 end
 
 -- Only enable servers whose binary is actually installed, so loading a file
--- with a missing LSP never errors or spams startup messages. Configs with
--- `enabled = false` are skipped entirely.
+-- with a missing LSP never errors or spams startup messages. The manifest's
+-- `enabled: false` skips a server entirely.
 local enabled = {}
-for name, cfg in pairs(servers) do
-  if cfg.enabled ~= false then
-    local cmd = cfg.cmd or {}
-    if #cmd > 0 and vim.fn.executable(cmd[1]) == 1 then
+for name, entry in pairs(manifest) do
+  if entry.editor ~= false and entry.enabled ~= false then
+    local cfg = servers[name]
+    if cfg and vim.fn.executable(entry.binary) == 1 then
       enabled[#enabled + 1] = name
     end
   end

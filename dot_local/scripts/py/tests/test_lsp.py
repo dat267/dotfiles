@@ -1,3 +1,4 @@
+import re
 import unittest
 from unittest import mock
 
@@ -94,6 +95,69 @@ class TestExtractArchive(unittest.TestCase):
 
 # get_latest_github_version moved to _shared.github_latest_tag;
 # covered in tests/test_shared.py (TestGithubLatestTag).
+
+
+class TestServerManifest(unittest.TestCase):
+    """Single source of truth for the LSP server set: lsp-servers.json.
+
+    Both lsp.py (install recipes) and lsp.lua (editor configs) derive from
+    it. These tests pin the cross-file agreement so the lists cannot drift.
+    """
+
+    def setUp(self):
+        import json
+        import pathlib
+
+        root = pathlib.Path(_loader.PY_DIR).parent.parent.parent  # repo root
+        self.root = root
+        manifest_path = root / "dot_config/nvim/lsp-servers.json"
+        self.manifest = json.loads(manifest_path.read_text())
+        self.lua = (root / "dot_config/nvim/lua/lsp.lua").read_text()
+
+    def server_blocks(self):
+        """Map server name -> config block text from lsp.lua's servers table."""
+        servers_table = re.search(r"^local servers = \{(.*?)^\}", self.lua, re.S | re.M)
+        self.assertIsNotNone(servers_table, "local servers table not found in lsp.lua")
+        blocks = {}
+        for m in re.finditer(r"^  (\w+) = \{(.*?)^  \},", servers_table.group(1), re.S | re.M):
+            blocks[m.group(1)] = m.group(2)
+        return blocks
+
+    def test_manifest_has_editor_servers_with_binary_and_recipe(self):
+        for name, entry in self.manifest.items():
+            with self.subTest(server=name):
+                self.assertIn("install", entry, f"{name} missing install recipe")
+                if entry.get("editor", True):
+                    self.assertTrue(entry.get("binary"), f"{name} missing binary")
+
+    def test_every_lua_server_is_in_manifest_and_binary_matches(self):
+        blocks = self.server_blocks()
+        for name, block in blocks.items():
+            with self.subTest(server=name):
+                self.assertIn(name, self.manifest, f"{name} configured in lsp.lua but absent from manifest")
+                binary = self.manifest[name].get("binary")
+                cmd = re.search(r'cmd = \{ "([^"]+)"', block)
+                if cmd and binary:
+                    self.assertEqual(cmd.group(1), binary, f"{name}: lsp.lua cmd[0] != manifest binary")
+
+    def test_every_manifest_editor_server_has_lua_config(self):
+        blocks = self.server_blocks()
+        for name, entry in self.manifest.items():
+            if entry.get("editor", True):
+                self.assertIn(name, blocks, f"{name} in manifest but unconfigured in lsp.lua")
+
+    def test_recipes_cover_all_install_keys(self):
+        recipes = set(lsp.INSTALL_RECIPES)
+        for name, entry in self.manifest.items():
+            self.assertIn(entry["install"], recipes, f"{name}: recipe '{entry['install']}' has no installer")
+
+    def test_node_manifest_binaries_are_installed_by_node_recipe(self):
+        node_installed = [
+            e["binary"] for e in self.manifest.values()
+            if e.get("binary") and e["install"] == "node"
+        ]
+        for binary in node_installed:
+            self.assertIn(binary, lsp.NPM_BINS, f"{binary} not produced by the node recipe")
 
 
 if __name__ == "__main__":

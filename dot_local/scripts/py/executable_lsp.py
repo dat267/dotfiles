@@ -170,7 +170,7 @@ def install_lua_lsp(sys_os, arch):
 
 
 def install_node_tools(sys_os, arch):
-    """Install Node.js runtime and npm-based LSPs (bash-language-server, typescript, pyright, prettier)."""
+    """Install Node.js runtime and npm-based LSPs from NPM_PKGS/NPM_BINS."""
     print("\n=== Installing Node.js & npm Tools ===")
     node_target = os.path.join(SHARE_DIR, "node")
     npm_ext = ".cmd" if sys_os == "windows" else ""
@@ -220,30 +220,16 @@ def install_node_tools(sys_os, arch):
         )
 
     if os.path.exists(npm_bin):
-        pkgs = [
-            "bash-language-server",
-            "typescript",
-            "typescript-language-server",
-            "pyright",
-            "prettier",
-        ]
-        tools = [
-            "bash-language-server",
-            "typescript-language-server",
-            "pyright",
-            "pyright-langserver",
-            "prettier",
-        ]
         if sys_os == "android":
-            subprocess.run([npm_bin, "install", "-g"] + pkgs)
+            subprocess.run([npm_bin, "install", "-g"] + NPM_PKGS)
             prefix_dir = os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
-            for t in tools:
+            for t in NPM_BINS:
                 src = os.path.join(prefix_dir, "bin", t)
                 if os.path.exists(src):
                     create_proxy(src, t)
         else:
-            subprocess.run([npm_bin, "install", "-g", "--prefix", node_target] + pkgs)
-            for t in tools:
+            subprocess.run([npm_bin, "install", "-g", "--prefix", node_target] + NPM_PKGS)
+            for t in NPM_BINS:
                 src = (
                     os.path.join(node_target, t + npm_ext)
                     if sys_os == "windows"
@@ -251,6 +237,30 @@ def install_node_tools(sys_os, arch):
                 )
                 if os.path.exists(src):
                     create_proxy(src, t)
+
+
+# npm packages and the binaries they produce — the node recipe installs all
+# of them; both lists are pinned by tests/test_lsp.py against the manifest.
+NPM_PKGS = [
+    "bash-language-server",
+    "typescript",
+    "typescript-language-server",
+    "pyright",
+    "prettier",
+    "vscode-langservers-extracted",
+    "yaml-language-server",
+]
+NPM_BINS = [
+    "bash-language-server",
+    "typescript-language-server",
+    "pyright",
+    "pyright-langserver",
+    "prettier",
+    "vscode-json-language-server",
+    "vscode-html-language-server",
+    "vscode-css-language-server",
+    "yaml-language-server",
+]
 
 
 def install_black(sys_os):
@@ -361,18 +371,12 @@ def uninstall_all(sys_os):
             shutil.rmtree(path)
             print(f"[Removed] {path}")
 
-    bins_to_remove = [
-        "marksman",
-        "lua-language-server",
-        "bash-language-server",
-        "typescript-language-server",
-        "pyright",
-        "pyright-langserver",
-        "black",
-        "gopls",
-        "prettier",
-        "rust-analyzer",
-    ]
+    # Derive the binary list: manifest binaries + node-produced + formatters.
+    bins_to_remove = sorted(
+        {e["binary"] for e in load_manifest().values() if e.get("binary")}
+        | set(NPM_BINS)
+        | {"black"}
+    )
     extensions = ["", ".exe", ".cmd", ".bat"]
     for b in bins_to_remove:
         for ext in extensions:
@@ -396,6 +400,34 @@ def uninstall_all(sys_os):
         )
 
 
+# Install recipes, keyed by the manifest's `install` field.
+INSTALL_RECIPES = {
+    "marksman": install_marksman,
+    "lua_lsp": install_lua_lsp,
+    "node": install_node_tools,
+    "black": install_black,
+    "gopls": install_gopls,
+    "powershell_es": install_powershell_es,
+    "rust_analyzer": install_rust_analyzer,
+}
+
+
+def manifest_path():
+    """Deployed location of the shared LSP server manifest."""
+    return os.path.expanduser("~/.config/nvim/lsp-servers.json")
+
+
+def load_manifest(path=None):
+    """Parse the manifest; {} when missing or unreadable (full-install fallback)."""
+    import json
+
+    try:
+        with open(path or manifest_path()) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Install or uninstall LSP servers and runtimes.")
     parser.add_argument('action', choices=['install', 'uninstall'], help='Action to perform')
@@ -408,13 +440,23 @@ def main():
         uninstall_all(sys_os)
     else:
         init_dirs()
-        install_marksman(sys_os, arch)
-        install_lua_lsp(sys_os, arch)
-        install_node_tools(sys_os, arch)
-        install_black(sys_os)
-        install_gopls()
-        install_powershell_es()
-        install_rust_analyzer(sys_os, arch)
+        manifest = load_manifest()
+        if not manifest:
+            # No manifest (not yet deployed) — run every recipe, legacy order.
+            for install in INSTALL_RECIPES:
+                INSTALL_RECIPES[install](sys_os, arch)
+            return
+        ran_node = False
+        for name, entry in manifest.items():
+            recipe = INSTALL_RECIPES.get(entry["install"])
+            if recipe is None:
+                print(f"[Skip] {name}: unknown recipe '{entry['install']}'")
+                continue
+            if recipe is install_node_tools:
+                if ran_node:
+                    continue
+                ran_node = True
+            recipe(sys_os, arch)
 
 
 if __name__ == "__main__":
