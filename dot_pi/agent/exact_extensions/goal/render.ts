@@ -100,7 +100,7 @@ export function renderGoalEventMessage(
  *  stack with the next component's top spacer into 2 empty lines. */
 export function renderGoalTurnEntry(data: GoalTurnEntry, theme: Theme, expanded: boolean): Text {
 	const detail = expanded ? ` · goal ${data.goalId} rev ${data.revision}` : "";
-	return new Text(theme.fg(PHASE_COLOR.active, `Goal round admitted #${data.turn}`) + theme.fg("dim", detail), 0, 0);
+	return new Text(" " + theme.fg(PHASE_COLOR.active, `Goal round admitted #${data.turn}`) + theme.fg("dim", detail), 0, 0);
 }
 
 // ── Tool renderers ────────────────────────────────────────────────────────

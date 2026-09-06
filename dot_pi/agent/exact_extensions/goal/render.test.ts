@@ -144,7 +144,7 @@ void describe("renderGoalTurnEntry", () => {
 		const data: GoalTurnEntry = { goalId: "g1", revision: 1, turn: 3, timestamp: Date.now() };
 		const card = renderGoalTurnEntry(data, stubTheme, false);
 		assert.ok(card instanceof Text, "flat Text — no tinted box, no vertical padding");
-		assert.ok(card.text.includes("#3"), `label missing round number: ${card.text}`);
+		assert.ok(card.text.startsWith(" ") && card.text.includes("#3"), `missing 1-space left padding / round number: ${card.text}`);
 	});
 });
 
