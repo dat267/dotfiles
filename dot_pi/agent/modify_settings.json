@@ -5,7 +5,6 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "hideThinkingBlock" true $current }}
 {{- $_ := setValueAtPath "defaultProvider" "hyper" $current }}
 {{- $_ := setValueAtPath "defaultModel" "glm-5.3-flash" $current }}
-{{- $_ := setValueAtPath "defaultThinkingLevel" "minimal" $current }}
 {{- $_ := setValueAtPath "theme" "dark" $current }}
 {{- $_ := setValueAtPath "steeringMode" "one-at-a-time" $current }}
 {{- $_ := setValueAtPath "transport" "auto" $current }}
