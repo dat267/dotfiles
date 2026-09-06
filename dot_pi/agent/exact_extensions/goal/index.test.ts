@@ -43,9 +43,9 @@ void describe("goal extension smoke", () => {
 		signal: { aborted: false },
 	});
 
-	void it("registers the three goal tools and lifecycle events", () => {
+	void it("registers the four goal tools and lifecycle events", () => {
 		const { tools, events } = boot();
-		assert.deepEqual(Object.keys(tools).sort(), ["create_goal", "get_goal", "update_goal"]);
+		assert.deepEqual(Object.keys(tools).sort(), ["ask_user", "create_goal", "get_goal", "update_goal"]);
 		for (const ev of ["session_start", "agent_end", "agent_settled"]) {
 			assert.ok(events[ev], `${ev} registered`);
 		}
@@ -158,7 +158,8 @@ void describe("goal extension smoke", () => {
 			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined, "no immediate create — model refines first");
 			assert.ok(result?.message, "refinement note injected");
 			assert.match(result.message.content, /create_goal/);
-			assert.match(result.message.content, /clarif/i);
+			assert.match(result.message.content, /ask_user/);
+			assert.match(result.message.content, /multiple-choice/);
 			assert.match(result.message.content, /proofread chapter 1/, "note carries the raw request");
 		});
 
@@ -179,6 +180,36 @@ void describe("goal extension smoke", () => {
 			const result = await events.before_agent_start({ type: "before_agent_start", prompt: "goal: another thing", systemPrompt: "" }, ctx());
 			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined, "no second create");
 			assert.ok(result?.message, "note tells the model a goal is active");
+		});
+	});
+
+	void describe("ask_user tool — multiple-choice clarification", () => {
+		const uiCtx = (choice: string | undefined) => ({
+			...ctx(),
+			ui: { ...ctx().ui, select: async (_t: string, opts: string[]) => choice === undefined ? undefined : (opts.find(o => o === choice) ?? choice) },
+		});
+
+		void it("returns the selected option", async () => {
+			const { tools } = boot();
+			const t = tools["ask_user"];
+			assert.ok(t, "ask_user registered");
+			const result = await t.execute("id", { question: "Scope?", options: ["Chapter 1 only", "Whole book"] }, {}, () => {}, uiCtx("Whole book"));
+			assert.match(result.content[0].text, /Whole book/);
+		});
+
+		void it("dismissed dialog: says so instead of inventing an answer", async () => {
+			const { tools } = boot();
+			const result = await tools["ask_user"].execute("id", { question: "Scope?", options: ["A", "B"] }, {}, () => {}, uiCtx(undefined));
+			assert.match(result.content[0].text, /dismiss/i);
+		});
+
+		void it("requires question and at least 2 options", async () => {
+			const { tools } = boot();
+			const t = tools["ask_user"];
+			for (const params of [{}, { question: "q" }, { question: "q", options: ["only"] }]) {
+				const result = await t.execute("id", params as any, {}, () => {}, uiCtx("x"));
+				assert.equal(result.isError, true, JSON.stringify(params));
+			}
 		});
 	});
 });
