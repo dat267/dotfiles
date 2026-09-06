@@ -141,7 +141,7 @@ export function renderUpdateGoalRenderCall(args: Record<string, unknown> | undef
 	const action = args?.action as string | undefined;
 	const blockedReason = args?.blocked_reason as string | undefined;
 	return new Text(
-		theme.fg("toolTitle", `Goal ${action ?? "?"}`) +
+		theme.fg("toolTitle", `Update goal → ${action ?? "?"}`) +
 			(blockedReason ? theme.fg("dim", `: ${truncateObjective(String(blockedReason), 60)}`) : ""),
 		0,
 		0,
@@ -154,6 +154,6 @@ export function renderUpdateGoalRenderResult(result: { isError?: boolean; detail
 	// Success repeats the durable entry card right below — collapse to a
 	// phase-colored status line instead of the full instruction text.
 	const phase = result.details?.goal?.phase;
-	const short = phase === "blocked" ? "Goal blocked" : "Goal complete";
+	const short = phase === "blocked" ? "Goal blocked ✓" : "Goal complete ✓";
 	return new Text(theme.fg(PHASE_COLOR[phase ?? "complete"], short), 0, 0);
 }
