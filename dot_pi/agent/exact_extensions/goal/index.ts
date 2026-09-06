@@ -116,7 +116,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "create_goal",
 		label: "Create Goal",
-		description: "Create a persisted session goal for a long-running objective. The loop pauses when context usage reaches the cap (default 90% of the window, before compaction). Pass context_cap (percent of the window, 1-100) to set a custom cap — lower pauses sooner. Do not use for trivial single-turn work.",
+		description: "Create a persisted session goal for a long-running objective. Do not use for trivial single-turn work.",
 		promptSnippet: "Create a goal for long-running objectives",
 		promptGuidelines: [
 			"Use create_goal when the user's request is a multi-step objective that should continue across rounds.",
@@ -127,7 +127,6 @@ export default function piGoal(pi: ExtensionAPI) {
 			type: "object",
 			properties: {
 				objective: { type: "string", description: "The concrete completion objective." },
-				context_cap: { type: "number", description: "Optional context cap in percent of the window (1-100). Default 90." },
 			},
 			required: ["objective"],
 			additionalProperties: false,
@@ -136,10 +135,7 @@ export default function piGoal(pi: ExtensionAPI) {
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
 			if (!objective) return { content: [{ type: "text", text: "objective is required." }], isError: true };
-			const cap = typeof params.context_cap === "number" && params.context_cap > 0 && params.context_cap <= 100
-				? params.context_cap / 100
-				: null;
-			const { effects, reply, isError } = machine.dispatch({ type: "goal_create", objective, cap });
+			const { effects, reply, isError } = machine.dispatch({ type: "goal_create", objective });
 			apply(effects, ctx);
 			return { content: [{ type: "text", text: reply ?? "Goal created." }], isError, details: { goal: machine.snapshot.goal } };
 		},
@@ -220,7 +216,7 @@ export default function piGoal(pi: ExtensionAPI) {
 					run({ type: "goal_resume" }, "Goal resumed.");
 					break;
 				case "set":
-					run({ type: "goal_set", objective: cmd.objective, cap: cmd.contextCap }, "Goal set.");
+					run({ type: "goal_set", objective: cmd.objective }, "Goal set.");
 					break;
 				case "error":
 					ctx.ui.notify(cmd.message, "warning");

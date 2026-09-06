@@ -10,8 +10,6 @@ export interface GoalSnapshot {
 	revision: number;
 	objective: string;
 	phase: GoalPhase;
-	/** Fraction of the context window at which the goal pauses (0 < cap <= 1). Null = default. */
-	contextCap: number | null;
 	blockedReason?: BlockedReason;
 	createdAt: number;
 	updatedAt: number;
@@ -68,20 +66,18 @@ export function toSnapshot(goal: GoalSnapshot): GoalSnapshot {
 		revision: goal.revision,
 		objective: goal.objective,
 		phase: goal.phase,
-		contextCap: goal.contextCap,
 		...(goal.blockedReason ? { blockedReason: goal.blockedReason } : {}),
 		createdAt: goal.createdAt,
 		updatedAt: goal.updatedAt,
 	};
 }
 
-export function createGoalState(objective: string, contextCap: number | null, now = Date.now()): GoalSnapshot {
+export function createGoalState(objective: string, now = Date.now()): GoalSnapshot {
 	return {
 		id: newGoalId(),
 		revision: 1,
 		objective,
 		phase: "active",
-		contextCap,
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -113,11 +109,6 @@ export function applyChange(
 	if (!next) throw new Error(`operation ${operation} requires a goal snapshot`);
 
 	if (!PHASES.includes(next.phase)) throw new Error(`illegal phase ${next.phase}`);
-	if (next.contextCap !== null && next.contextCap !== undefined &&
-		(!(next.contextCap > 0) || next.contextCap > 1)) {
-		throw new Error("contextCap must be null or a fraction in (0, 1]");
-	}
-
 	if (operation === "create") {
 		// Creating over a completed goal is legal (terminal phase — the machine
 		// allows /goal set after completion); over any live goal it is not.
@@ -191,25 +182,6 @@ export function foldGoal(
 	return { ...current, armed: false, turnsStarted };
 }
 
-/** Default pause point: 90% of the context window, before compaction. */
-export const CONTEXT_PAUSE_FRACTION = 0.9;
-
-/** Why continuation must stop now, or null to continue. */
-export function budgetStopReason(
-	goal: GoalView,
-	contextUsage: { tokens: number | null; contextWindow: number } | undefined,
-): { code: string; message: string } | null {
-	if (!contextUsage || contextUsage.tokens === null) return null;
-	const cap = goal.contextCap ?? CONTEXT_PAUSE_FRACTION;
-	if (contextUsage.tokens >= cap * contextUsage.contextWindow) {
-		return {
-			code: "context-limit",
-			message: `Context at ${Math.round((contextUsage.tokens / contextUsage.contextWindow) * 100)}% (cap ${Math.round(cap * 100)}%).`,
-		};
-	}
-	return null;
-}
-
 export function formatTokens(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 	if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
@@ -234,7 +206,6 @@ export function goalView(
 			objective: goal.objective,
 			phase: goal.phase,
 			turnsStarted: goal.turnsStarted,
-			contextCap: goal.contextCap,
 			contextUsage: usage ?? null,
 			...(goal.blockedReason ? { blockedReason: goal.blockedReason } : {}),
 		},

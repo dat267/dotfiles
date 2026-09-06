@@ -56,7 +56,7 @@ void describe("goal extension smoke", () => {
 		const goalEntry = {
 			type: "custom",
 			customType: "pi-goal",
-			data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", contextCap: null, createdAt: 1, updatedAt: 1 } },
+			data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", createdAt: 1, updatedAt: 1 } },
 		};
 		await events.session_start({}, ctx([goalEntry]));
 
@@ -132,7 +132,7 @@ void describe("goal extension smoke", () => {
 			// Regression: a bare {render} wrapper crashed Box.invalidate on resume.
 			const { calls } = boot();
 			for (const r of calls.filter(c => c.kind === "entryRenderer")) {
-				const comp = r.fn({ data: { operation: "create", goal: { id: "g", revision: 1, objective: "o", phase: "active", contextCap: null, createdAt: 1, updatedAt: 1 } } }, { expanded: false }, theme);
+				const comp = r.fn({ data: { operation: "create", goal: { id: "g", revision: 1, objective: "o", phase: "active", createdAt: 1, updatedAt: 1 } } }, { expanded: false }, theme);
 				assert.equal(typeof comp.invalidate, "function", `${r.customType} card is not a full component`);
 			}
 		});
@@ -141,7 +141,7 @@ void describe("goal extension smoke", () => {
 			// Box(1,1): blank first/last lines (tinted), content between.
 			const { calls } = boot();
 			const render = calls.find(c => c.kind === "entryRenderer" && c.customType === "pi-goal").fn;
-			const out = lines(render({ data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", contextCap: null, createdAt: 1, updatedAt: 1 } } }, { expanded: false }, theme));
+			const out = lines(render({ data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", createdAt: 1, updatedAt: 1 } } }, { expanded: false }, theme));
 			assert.equal(out[0].trim(), "", "expected tinted padding line first");
 			assert.equal(out.at(-1).trim(), "", "expected tinted padding line last");
 			assert.equal(out.at(-2).trim() !== "", true, "padding should be exactly one line");

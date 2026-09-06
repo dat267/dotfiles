@@ -129,7 +129,7 @@ export function renderGetGoalRenderResult(
 
 export function renderCreateGoalRenderCall(args: Record<string, unknown> | undefined, theme: Theme): Text {
 	return new Text(
-		theme.fg("toolTitle", `Create goal: ${truncateObjective(String(args?.objective ?? ""), 60)} · cap ${args?.context_cap ?? 90}% of context`),
+		theme.fg("toolTitle", `Create goal: ${truncateObjective(String(args?.objective ?? ""), 60)}`),
 		0,
 		0,
 	);

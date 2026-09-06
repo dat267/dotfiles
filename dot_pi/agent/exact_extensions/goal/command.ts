@@ -13,7 +13,7 @@ export type GoalCommand =
 	| { kind: "clear" }
 	| { kind: "pause" }
 	| { kind: "resume" }
-	| { kind: "set"; objective: string; contextCap: number | null }
+	| { kind: "set"; objective: string }
 	| { kind: "error"; message: string };
 
 export function parseGoalCommand(args: string): GoalCommand {
@@ -53,19 +53,9 @@ export function parseGoalCommand(args: string): GoalCommand {
 	}
 
 	let objective = trimmed.slice(3).trim();
-	let contextCap: number | null = null;
-	const capMatch = objective.match(/(?:^|\s)--cap\s+(\d{1,3})\s*%?/);
-	if (capMatch) {
-		const pct = parseInt(capMatch[1], 10);
-		if (pct < 1 || pct > 100) {
-			return { kind: "error", message: "Cap must be 1-100 percent." };
-		}
-		contextCap = pct / 100;
-		objective = objective.replace(capMatch[0], "").trim();
-	}
 	if (!objective) {
-		return { kind: "error", message: "Usage: /goal set [--cap 60] <objective>" };
+		return { kind: "error", message: "Usage: /goal set <objective>" };
 	}
 
-	return { kind: "set", objective, contextCap };
+	return { kind: "set", objective };
 }

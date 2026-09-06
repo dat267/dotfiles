@@ -36,32 +36,7 @@ void describe("parseGoalCommand", () => {
 		assert.deepEqual(parseGoalCommand("set test objective"), {
 			kind: "set",
 			objective: "test objective",
-			contextCap: null,
 		});
-	});
-
-	void it("set with trailing --cap parses cap fraction", () => {
-		assert.deepEqual(parseGoalCommand("set objective --cap 60"), {
-			kind: "set",
-			objective: "objective",
-			contextCap: 0.6,
-		});
-	});
-
-	void it("set with leading --cap parses cap and preserves objective", () => {
-		assert.deepEqual(parseGoalCommand("set --cap 60 ship the release"), {
-			kind: "set",
-			objective: "ship the release",
-			contextCap: 0.6,
-		});
-	});
-
-	void it("set with invalid cap returns error", () => {
-		const res = parseGoalCommand("set --cap 150 ship it");
-		assert.equal(res.kind, "error");
-		if (res.kind === "error") {
-			assert.match(res.message, /Cap must be 1-100 percent/);
-		}
 	});
 
 	void it("set without objective returns usage error", () => {

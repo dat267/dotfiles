@@ -1,5 +1,5 @@
 /**
- * Tests for goal state logic (fold, CAS, transitions, cap gate).
+ * Tests for goal state logic (fold, CAS, transitions).
  * Run: node --test state.test.ts
  */
 
@@ -7,7 +7,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
 	applyChange,
-	budgetStopReason,
 	createGoalState,
 	foldGoal,
 	statusLine,
@@ -29,15 +28,14 @@ function turn(goalId: string, revision: number, turn: number, timestamp: number)
 }
 
 test("create produces a revision-1 active goal", () => {
-	const g = createGoalState("do the thing", null, T0);
+	const g = createGoalState("do the thing", T0);
 	assert.equal(g.revision, 1);
 	assert.equal(g.phase, "active");
-	assert.equal(g.contextCap, null);
-	assert.match(g.id, /^goal-/);
+		assert.match(g.id, /^goal-/);
 });
 
 test("fold replays lifecycle changes and turn entries", () => {
-	const g = createGoalState("obj", null, T0);
+	const g = createGoalState("obj", T0);
 	const paused = { ...g, phase: "paused", blockedReason: { code: "human-paused", message: "m" }, revision: 2, updatedAt: T0 + 100 };
 	const resumed = { ...g, phase: "active", revision: 3, updatedAt: T0 + 200 };
 	const view = foldGoal([
@@ -54,7 +52,7 @@ test("fold replays lifecycle changes and turn entries", () => {
 });
 
 test("fold returns null after a clear tombstone", () => {
-	const g = createGoalState("obj", null, T0);
+	const g = createGoalState("obj", T0);
 	const view = foldGoal([
 		change("create", g, T0),
 		change("clear", null, T0 + 100, { id: g.id, revision: g.revision }),
@@ -63,7 +61,7 @@ test("fold returns null after a clear tombstone", () => {
 });
 
 test("clear rejects a stale revision", () => {
-	const g = createGoalState("obj", null, T0);
+	const g = createGoalState("obj", T0);
 	assert.throws(
 		() => foldGoal([change("create", g, T0), change("clear", null, T0 + 100, { id: g.id, revision: 99 })]),
 		/stale clear/,
@@ -71,7 +69,7 @@ test("clear rejects a stale revision", () => {
 });
 
 test("fold rejects discontinuous revisions", () => {
-	const g = createGoalState("obj", null, T0);
+	const g = createGoalState("obj", T0);
 	const skip = { ...g, phase: "paused", blockedReason: { code: "x", message: "m" }, revision: 5, updatedAt: T0 + 100 };
 	assert.throws(
 		() => foldGoal([change("create", g, T0), change("pause", skip, T0 + 100)]),
@@ -80,7 +78,7 @@ test("fold rejects discontinuous revisions", () => {
 });
 
 test("fold rejects illegal phase transitions", () => {
-	const g = createGoalState("obj", null, T0);
+	const g = createGoalState("obj", T0);
 	const paused = { ...g, phase: "paused", blockedReason: { code: "x", message: "m" }, revision: 2, updatedAt: T0 + 100 };
 	assert.throws(
 		() => foldGoal([change("create", g, T0), change("pause", paused, T0 + 100), change("pause", { ...paused, revision: 3, updatedAt: T0 + 200 }, T0 + 200)]),
@@ -94,7 +92,7 @@ test("fold rejects illegal phase transitions", () => {
 });
 
 test("fold rejects non-sequential goal turns", () => {
-	const g = createGoalState("obj", null, T0);
+	const g = createGoalState("obj", T0);
 	assert.throws(
 		() => foldGoal([change("create", g, T0), turn(g.id, 1, 2, T0 + 10)]),
 		/non-sequential/,
@@ -102,7 +100,7 @@ test("fold rejects non-sequential goal turns", () => {
 });
 
 test("fold ignores turn entries from a previous goal", () => {
-	const g1 = createGoalState("first", null, T0);
+	const g1 = createGoalState("first", T0);
 	const g2 = createGoalState("second", null, T0 + 500);
 	const view = foldGoal([
 		change("create", g1, T0),
@@ -115,7 +113,7 @@ test("fold ignores turn entries from a previous goal", () => {
 });
 
 test("fold rejects timestamp regression", () => {
-	const g = createGoalState("obj", null, T0);
+	const g = createGoalState("obj", T0);
 	const older = { ...g, phase: "paused", blockedReason: { code: "x", message: "m" }, revision: 2, updatedAt: T0 - 1 };
 	assert.throws(
 		() => foldGoal([change("create", g, T0), change("pause", older, T0 - 1)]),
@@ -124,7 +122,7 @@ test("fold rejects timestamp regression", () => {
 });
 
 test("applyChange enforces CAS revision", () => {
-	const g = createGoalState("obj", null, T0);
+	const g = createGoalState("obj", T0);
 	assert.throws(
 		() => applyChange(g, { operation: "pause", goal: { ...g, revision: 7 }, timestamp: T0 + 1 }),
 		/discontinuous/,
@@ -132,7 +130,7 @@ test("applyChange enforces CAS revision", () => {
 });
 
 test("entering blocked requires a blocker reason", () => {
-	const g = createGoalState("obj", null, T0);
+	const g = createGoalState("obj", T0);
 	const noReason = { ...g, phase: "blocked", revision: 2, updatedAt: T0 + 1 };
 	assert.throws(
 		() => applyChange(g, { operation: "block", goal: noReason, timestamp: T0 + 1 }),
@@ -144,22 +142,8 @@ test("entering blocked requires a blocker reason", () => {
 	);
 });
 
-test("context cap pauses at the fraction of the window", () => {
-	const base = { ...createGoalState("obj", null, T0), armed: true, turnsStarted: 1 };
-	// default cap 90%
-	assert.equal(budgetStopReason(base, { tokens: 91, contextWindow: 100 })?.code, "context-limit");
-	assert.equal(budgetStopReason(base, { tokens: 50, contextWindow: 100 }), null);
-	// custom cap 50%
-	const capped = { ...base, contextCap: 0.5 };
-	assert.equal(budgetStopReason(capped, { tokens: 50, contextWindow: 100 })?.code, "context-limit");
-	assert.equal(budgetStopReason(capped, { tokens: 49, contextWindow: 100 }), null);
-	// unknown usage must not pause blindly
-	assert.equal(budgetStopReason(base, { tokens: null, contextWindow: 100 }), null);
-	assert.equal(budgetStopReason(base, undefined), null);
-});
-
 test("statusLine shows phase, arm marker, and context usage", () => {
-	const g = { ...createGoalState("obj", null, T0), armed: true, turnsStarted: 2 };
+	const g = { ...createGoalState("obj", T0), armed: true, turnsStarted: 2 };
 	assert.match(statusLine(g, { tokens: 221_000, contextWindow: 1_000_000 }), /^active ▶ 22%\/1\.0M$/);
 	// without usage info, falls back to round count
 	assert.match(statusLine(g), /2 rounds$/);
@@ -167,7 +151,7 @@ test("statusLine shows phase, arm marker, and context usage", () => {
 });
 
 test("goalStatusMessage composes the /goal status notification", () => {
-	const g = { ...createGoalState("obj", null, T0), armed: true, turnsStarted: 2 };
+	const g = { ...createGoalState("obj", T0), armed: true, turnsStarted: 2 };
 	const usage = { tokens: 100_000, contextWindow: 1_000_000 };
 	const msg = goalStatusMessage(g, usage, true);
 	assert.match(msg, /^active ▶ 10%\/1\.0M\nobj\nBanner: on \(bare \/goal to toggle\)$/);
@@ -184,7 +168,7 @@ test("truncateObjective flattens whitespace and caps length", () => {
 });
 
 test("goalView shapes the get_goal tool-result contract for an active goal", () => {
-	const g = { ...createGoalState("obj", null, T0), armed: true, turnsStarted: 2 };
+	const g = { ...createGoalState("obj", T0), armed: true, turnsStarted: 2 };
 	const usage = { tokens: 100_000, contextWindow: 1_000_000 };
 	assert.deepEqual(goalView(g, usage), {
 		goal: {
@@ -193,7 +177,6 @@ test("goalView shapes the get_goal tool-result contract for an active goal", () 
 			objective: "obj",
 			phase: "active",
 			turnsStarted: 2,
-			contextCap: null,
 			contextUsage: usage,
 		},
 		activation: "armed",
@@ -201,13 +184,13 @@ test("goalView shapes the get_goal tool-result contract for an active goal", () 
 });
 
 test("goalView omits blockedReason unless present, and reports null goal", () => {
-	const g = { ...createGoalState("obj", null, T0), armed: false, turnsStarted: 0, phase: "blocked" as const, blockedReason: { code: "stuck", message: "no path" } };
+	const g = { ...createGoalState("obj", T0), armed: false, turnsStarted: 0, phase: "blocked" as const, blockedReason: { code: "stuck", message: "no path" } };
 	const view = goalView(g, null);
 	assert.equal(view.goal!.blockedReason && (view.goal!.blockedReason as any).message, "no path");
 	assert.equal(view.activation, "disarmed");
 	assert.equal(view.goal!.contextUsage, null);
 
-	const clean = { ...createGoalState("obj", null, T0), armed: false, turnsStarted: 0 };
+	const clean = { ...createGoalState("obj", T0), armed: false, turnsStarted: 0 };
 	assert.equal("blockedReason" in goalView(clean, null).goal!, false);
 
 	assert.deepEqual(goalView(null, null), { goal: null });

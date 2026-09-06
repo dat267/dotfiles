@@ -5,7 +5,7 @@
  * Effects are plain data; the caller (index.ts) performs all I/O.
  */
 
-import { applyChange, budgetStopReason, createGoalState, foldGoal, goalRoundPrompt, toSnapshot, wrapupContext, type GoalChangeEntry, type GoalOperation, type GoalSnapshot, type GoalTurnEntry, type GoalView } from "./state.ts";
+import { applyChange, createGoalState, foldGoal, goalRoundPrompt, toSnapshot, wrapupContext, type GoalChangeEntry, type GoalOperation, type GoalSnapshot, type GoalTurnEntry, type GoalView } from "./state.ts";
 
 export const CUSTOM_TYPE = "pi-goal";
 export const TURN_TYPE = "pi-goal-turn";
@@ -19,7 +19,6 @@ export interface SessionStartEvent {
 export interface GoalCreateEvent {
 	type: "goal_create";
 	objective: string;
-	cap: number | null;
 }
 
 export interface GoalResumeEvent {
@@ -63,7 +62,6 @@ export interface BannerToggleEvent {
 export interface GoalSetEvent {
 	type: "goal_set";
 	objective: string;
-	cap: number | null;
 }
 
 export type GoalEvent = SessionStartEvent | GoalCreateEvent | GoalResumeEvent | AgentEndEvent | AgentSettledEvent | GoalUpdateEvent | GoalPauseEvent | GoalClearEvent | BannerToggleEvent | GoalSetEvent;
@@ -109,7 +107,7 @@ export class GoalMachine {
 			case "session_start":
 				return this.sessionStart(event.entries as { customType: string; data: unknown }[]);
 			case "goal_create":
-				return this.goalCreate(event.objective, event.cap);
+				return this.goalCreate(event.objective);
 			case "goal_resume":
 				return this.goalResume();
 			case "agent_end":
@@ -126,7 +124,7 @@ export class GoalMachine {
 				this.bannerEnabled = !this.bannerEnabled;
 				return { effects: [{ kind: "renderStatus" }] };
 			case "goal_set":
-				return this.goalSet(event.objective, event.cap);
+				return this.goalSet(event.objective);
 		}
 	}
 
@@ -229,11 +227,11 @@ export class GoalMachine {
 		return [{ kind: "appendEntry", entryType: CUSTOM_TYPE, data }, { kind: "renderStatus" }];
 	}
 
-	private goalCreate(objective: string, cap: number | null): DispatchResult {
+	private goalCreate(objective: string): DispatchResult {
 		if (this.view && this.view.phase !== "complete") {
 			return { effects: [], reply: "A goal already exists. Clear it first.", isError: true };
 		}
-		const next = createGoalState(objective, cap);
+		const next = createGoalState(objective);
 		this.armed = true;
 		this.createdThisRun = true;
 		const effects = this.commit("create", next);
@@ -254,15 +252,7 @@ export class GoalMachine {
 		};
 		this.armed = true;
 		this.pendingTurn = null;
-		let effects = this.commit("resume", next);
-		// Surface an immediate cap gate instead of silently idling.
-		if (this.view) {
-			const gate = budgetStopReason(this.view, this.lastUsage);
-			if (gate) {
-				effects = [...effects, { kind: "notify", message: `Resumed, but ${gate.message}`, level: "warning" }];
-				return { effects };
-			}
-		}
+		const effects = this.commit("resume", next);
 		return { effects: [...effects, ...this.queueRound()] };
 	}
 
@@ -335,21 +325,6 @@ export class GoalMachine {
 			return { effects: [{ kind: "renderStatus" }] };
 		}
 
-		// Cap gate — check context usage before queuing next round
-		const stop = budgetStopReason(this.view, usage);
-		if (stop) {
-			this.armed = false;
-			const effects = this.commit("pause", {
-				...this.view,
-				phase: "paused",
-				blockedReason: stop,
-				revision: this.view.revision + 1,
-				updatedAt: Date.now(),
-			});
-			effects.push({ kind: "notify", message: `Goal paused: ${stop.message} Resume with /goal resume.`, level: "warning" });
-			return { effects };
-		}
-
 		return { effects: this.queueRound() };
 	}
 
@@ -378,11 +353,11 @@ export class GoalMachine {
 		return { effects };
 	}
 
-	private goalSet(objective: string, cap: number | null): DispatchResult {
+	private goalSet(objective: string): DispatchResult {
 		if (this.view && this.view.phase !== "complete") {
 			return { effects: [], reply: "An unfinished goal exists. /goal clear first (or /goal edit once implemented).", isError: true };
 		}
-		const next = createGoalState(objective, cap);
+		const next = createGoalState(objective);
 		this.armed = true;
 		this.pendingTurn = null;
 		const effects = this.commit("create", next);
