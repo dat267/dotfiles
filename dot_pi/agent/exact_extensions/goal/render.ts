@@ -100,7 +100,9 @@ export function renderGoalEventMessage(
  *  stack with the next component's top spacer into 2 empty lines. */
 export function renderGoalTurnEntry(data: GoalTurnEntry, theme: Theme, expanded: boolean): Text {
 	const detail = expanded ? ` · goal ${data.goalId} rev ${data.revision}` : "";
-	return new Text(" " + theme.fg(PHASE_COLOR.active, `Goal round admitted #${data.turn}`) + theme.fg("dim", detail), 0, 0);
+	// Text's own padding: paddingX 1 (pi's card indent), paddingY 0 (vertical
+	// padding would stack with the next component's top spacer).
+	return new Text(theme.fg(PHASE_COLOR.active, `Goal round admitted #${data.turn}`) + theme.fg("dim", detail), 1, 0);
 }
 
 // ── Tool renderers ────────────────────────────────────────────────────────
