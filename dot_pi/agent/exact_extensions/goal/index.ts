@@ -106,10 +106,10 @@ export default function piGoal(pi: ExtensionAPI) {
 		promptSnippet: "Read the current goal objective and state",
 		promptGuidelines: ["Call get_goal before update_goal to copy the exact id and revision."],
 		parameters: { type: "object", properties: {}, additionalProperties: false } as any,
-		renderCall: (_args, theme) => renderGetGoalRenderCall(theme),
+		renderCall: (_args, theme) => withBottomMargin(renderGetGoalRenderCall(theme)),
 		renderResult: (result, _options, theme) => {
 			const details = (result.details as { goal?: GoalView | null })?.goal ?? null;
-			return renderGetGoalRenderResult(details, latestUsage, theme);
+			return withBottomMargin(renderGetGoalRenderResult(details, latestUsage, theme));
 		},
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			const usage = ctx.getContextUsage();
@@ -141,7 +141,7 @@ export default function piGoal(pi: ExtensionAPI) {
 			required: ["objective"],
 			additionalProperties: false,
 		} as any,
-		renderCall: (args, theme) => renderCreateGoalRenderCall(args as Record<string, unknown> | undefined, theme),
+		renderCall: (args, theme) => withBottomMargin(renderCreateGoalRenderCall(args as Record<string, unknown> | undefined, theme)),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
 			if (!objective) return { content: [{ type: "text", text: "objective is required." }], isError: true };
@@ -175,8 +175,8 @@ export default function piGoal(pi: ExtensionAPI) {
 			required: ["goal_id", "revision", "action"],
 			additionalProperties: false,
 		} as any,
-		renderCall: (args, theme) => renderUpdateGoalRenderCall(args as Record<string, unknown> | undefined, theme),
-		renderResult: (result, _options, theme) => renderUpdateGoalRenderResult(result as any, theme),
+		renderCall: (args, theme) => withBottomMargin(renderUpdateGoalRenderCall(args as Record<string, unknown> | undefined, theme)),
+		renderResult: (result, _options, theme) => withBottomMargin(renderUpdateGoalRenderResult(result as any, theme)),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			if (params.action !== "complete" && params.action !== "blocked") {
 				return {

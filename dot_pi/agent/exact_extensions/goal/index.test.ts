@@ -75,7 +75,7 @@ void describe("goal extension smoke", () => {
 		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
 		await tools.get_goal.execute("id", {}, {}, () => {}, ctx());
 		const rendered = tools.get_goal.renderResult({ details: { goal: { phase: "active", revision: 1, turnsStarted: 0 } } }, {}, { fg: (_c: string, t: string) => t } as any);
-		const text = rendered.text ?? String(rendered);
+		const text = rendered.render(80).join("");
 		assert.match(text, /\d+%/);
 		assert.doesNotMatch(text, /\?/);
 	});
@@ -130,6 +130,22 @@ void describe("goal extension smoke", () => {
 			const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
 			const out = lines(render({ data: { goalId: "g1", revision: 1, turn: 2, timestamp: 1 } }, { expanded: false }, theme));
 			assert.equal(out.at(-1), "", "missing trailing blank line");
+		});
+
+		void it("tool call and result cards end with one blank line", async () => {
+			const { tools } = boot();
+			const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
+			for (const name of ["get_goal", "create_goal", "update_goal"]) {
+				const tool = tools[name];
+				if (tool.renderCall) {
+					const out = lines(tool.renderCall({ action: "complete" }, theme));
+					assert.equal(out.at(-1), "", `${name} renderCall missing trailing blank`);
+				}
+				if (tool.renderResult) {
+					const out = lines(tool.renderResult({ content: [{ type: "text", text: "ok" }], details: { goal: null } }, {}, theme));
+					assert.equal(out.at(-1), "", `${name} renderResult missing trailing blank`);
+				}
+			}
 		});
 	});
 
