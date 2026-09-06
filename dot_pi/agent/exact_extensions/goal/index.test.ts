@@ -94,4 +94,37 @@ void describe("goal extension smoke", () => {
 		await events.agent_end({}, ctx());
 		assert.equal(calls.length, before);
 	});
+
+	void describe("deterministic 'goal:' prefix trigger", () => {
+		void it("creates the goal and injects a loop note", async () => {
+			const { events, calls } = boot();
+			await events.session_start({}, ctx());
+			calls.length = 0;
+			const result = await events.before_agent_start({ type: "before_agent_start", prompt: "goal: proofread chapter 1 and summarize", systemPrompt: "" }, ctx());
+			const entry = calls.find(c => c.kind === "appendEntry");
+			assert.ok(entry, "goal created durably");
+			assert.equal(entry.data.goal.objective, "proofread chapter 1 and summarize");
+			assert.ok(result?.message, "loop note injected");
+			assert.match(result.message.content, /goal/i);
+		});
+
+		void it("does not fire without the prefix", async () => {
+			const { events, calls } = boot();
+			await events.session_start({}, ctx());
+			calls.length = 0;
+			const result = await events.before_agent_start({ type: "before_agent_start", prompt: "please set a goal for proofreading", systemPrompt: "" }, ctx());
+			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined);
+			assert.equal(result, undefined);
+		});
+
+		void it("active goal: note only, no second create", async () => {
+			const { tools, events, calls } = boot();
+			await events.session_start({}, ctx());
+			await tools.create_goal.execute("id", { objective: "existing" }, {}, () => {}, ctx());
+			calls.length = 0;
+			const result = await events.before_agent_start({ type: "before_agent_start", prompt: "goal: another thing", systemPrompt: "" }, ctx());
+			assert.equal(calls.find(c => c.kind === "appendEntry"), undefined, "no second create");
+			assert.ok(result?.message, "note tells the model a goal is active");
+		});
+	});
 });

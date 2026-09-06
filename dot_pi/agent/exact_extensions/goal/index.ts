@@ -119,6 +119,7 @@ export default function piGoal(pi: ExtensionAPI) {
 		promptSnippet: "Create a goal for long-running objectives",
 		promptGuidelines: [
 			"Use create_goal when the user's request is a multi-step objective that should continue across rounds.",
+			"A user prompt starting with \"goal: \" is auto-created as a goal by the extension before you run — you will see a <goal_note> message; do not call create_goal again for it.",
 			"Do not create goals for trivial single-turn work.",
 			"Before creating, turn the request into a concrete objective with outcome, verification, constraints, and boundaries.",
 			"Ask a clarifying question instead of creating a vague goal.",
@@ -217,6 +218,35 @@ export default function piGoal(pi: ExtensionAPI) {
 				notify: (msg: string, level: any) => ctx.ui.notify(msg, level),
 			});
 		},
+	});
+
+	// Deterministic trigger: a user prompt starting with "goal: " always
+	// creates a goal. Model judgment alone missed these (session evidence:
+	// 'goal: proofread…' messages ran as untracked work).
+	pi.on("before_agent_start", (event, ctx) => {
+		const match = event.prompt.trim().match(/^goal:\s*(.+)/is);
+		if (!match) return;
+		const { goal } = machine.snapshot;
+		if (goal && goal.phase === "active") {
+			return {
+				message: {
+					customType: EVENT_TYPE,
+					content: `<goal_note>The user typed "goal: …" but a goal is already active: ${goal.objective}. Ask whether to clear it first or fold the new request into the active goal.</goal_note>`,
+					display: false,
+					details: { kind: "note" },
+				},
+			};
+		}
+		const { effects } = machine.dispatch({ type: "goal_create", objective: match[1].trim(), cap: null });
+		apply(effects, ctx);
+		return {
+			message: {
+				customType: EVENT_TYPE,
+				content: `<goal_note>Goal created from the user's "goal:" prefix (see the goal card above). The user's actual request is the user message in this turn — work on it now; the goal loop drives continuation in later rounds.</goal_note>`,
+				display: false,
+				details: { kind: "note" },
+			},
+		};
 	});
 
 	pi.on("session_start", (event, ctx) => {
