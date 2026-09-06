@@ -4,7 +4,7 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { cacheHitRate, formatTokens, footerLine, latestCacheHit, truncate } from "./format.ts";
+import { cacheHitRate, formatTokens, footerLine, latestCacheHit, truncate, withStatuses } from "./format.ts";
 
 void describe("cacheHitRate", () => {
 	void it("computes cacheRead share of total prompt tokens", () => {
@@ -87,5 +87,21 @@ void describe("truncate", () => {
 	void it("max <= 3 degrades gracefully", () => {
 		assert.equal(truncate("abcdef", 2), "..");
 		assert.equal(truncate("abcdef", 0), "");
+	});
+});
+
+void describe("withStatuses", () => {
+	void it("appends statuses separated like the rest of the line", () => {
+		const statuses = new Map([["hyper", "◆ 27 HC"]]);
+		assert.equal(withStatuses("CH97.4% · 3%/1M", statuses), "CH97.4% · 3%/1M · ◆ 27 HC");
+	});
+
+	void it("no statuses = unchanged", () => {
+		assert.equal(withStatuses("line", new Map()), "line");
+	});
+
+	void it("multiple statuses in map order", () => {
+		const statuses = new Map([["hyper", "A"], ["other", "B"]]);
+		assert.equal(withStatuses("x", statuses), "x · A · B");
 	});
 });

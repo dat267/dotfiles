@@ -83,3 +83,13 @@ export function footerLine(input: FooterInput, width: number): string {
 	parts.push(truncate(basename(input.cwd), 25));
 	return truncate(parts.join(" · "), Math.min(80, Math.max(0, width)));
 }
+
+/** Append extension statuses (ctx.ui.setStatus entries) to the footer line. */
+export function withStatuses(line: string, statuses: ReadonlyMap<string, string>): string {
+	let out = line;
+	for (const text of statuses.values()) {
+		if (!text) continue;
+		out += ` · ${text}`;
+	}
+	return out;
+}

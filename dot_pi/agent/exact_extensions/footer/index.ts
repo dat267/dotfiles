@@ -9,7 +9,7 @@
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { cacheHitRate, footerLine, latestCacheHit } from "./format.ts";
+import { cacheHitRate, footerLine, latestCacheHit, withStatuses } from "./format.ts";
 
 export default function (pi: ExtensionAPI) {
 	let latestCacheHitRate: number | undefined;
@@ -49,7 +49,7 @@ export default function (pi: ExtensionAPI) {
 						modelId: ctx.model?.id,
 						cwd: ctx.sessionManager.getCwd(),
 					}, width));
-					return [line];
+					return [theme.fg("dim", withStatuses(line, footerData.getExtensionStatuses()))];
 				},
 			};
 		});
