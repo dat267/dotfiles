@@ -140,13 +140,11 @@ void describe("renderGoalEventMessage", () => {
 });
 
 void describe("renderGoalTurnEntry", () => {
-	void it("renders a one-line turn entry (round # in label, no body when collapsed)", () => {
+	void it("renders a flat one-line turn entry (round # in label)", () => {
 		const data: GoalTurnEntry = { goalId: "g1", revision: 1, turn: 3, timestamp: Date.now() };
 		const card = renderGoalTurnEntry(data, stubTheme, false);
-		assert.ok(card instanceof Box);
-		const lines = card.children.map((c: any) => c.text ?? c.lines?.join("") ?? "").join("\n");
-		assert.ok(lines.includes("#3"), `label missing round number: ${lines}`);
-		assert.equal(lines.includes("round 3"), false, "body duplicated the round number");
+		assert.ok(card instanceof Text, "flat Text — no tinted box, no vertical padding");
+		assert.ok(card.text.includes("#3"), `label missing round number: ${card.text}`);
 	});
 });
 
