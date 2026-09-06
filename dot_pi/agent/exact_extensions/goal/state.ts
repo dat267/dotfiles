@@ -182,12 +182,6 @@ export function foldGoal(
 	return { ...current, armed: false, turnsStarted };
 }
 
-export function formatTokens(n: number): string {
-	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-	if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
-	return String(n);
-}
-
 export function truncateObjective(text: string, max = 60): string {
 	const flat = text.replace(/\s+/g, " ").trim();
 	return flat.length <= max ? flat : `${flat.slice(0, max - 1)}…`;
@@ -209,23 +203,16 @@ export function goalView(goal: GoalView | null): { goal: Record<string, unknown>
 	};
 }
 
-export function statusLine(goal: GoalView | null, contextUsage?: { tokens: number | null; contextWindow: number }): string {
+export function statusLine(goal: GoalView | null): string {
 	if (!goal) return "";
-	const usage = contextUsage && contextUsage.tokens !== null
-		? `${Math.round((contextUsage.tokens / contextUsage.contextWindow) * 100)}%/${formatTokens(contextUsage.contextWindow)}`
-		: `${goal.turnsStarted} round${goal.turnsStarted === 1 ? "" : "s"}`;
-	return `${goal.phase}${goal.armed ? " ▶" : ""} ${usage}`;
+	return `${goal.phase}${goal.armed ? " ▶" : ""} ${goal.turnsStarted} round${goal.turnsStarted === 1 ? "" : "s"}`;
 }
 
 /** Compose the /goal status notification (no goal → hint). */
-export function goalStatusMessage(
-	goal: GoalView | null,
-	contextUsage?: { tokens: number | null; contextWindow: number } | null,
-	bannerEnabled = false,
-): string {
+export function goalStatusMessage(goal: GoalView | null, bannerEnabled = false): string {
 	const banner = `Banner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`;
 	if (!goal) return `No goal set. Use /goal set <objective>\n${banner}`;
-	return `${statusLine(goal, contextUsage ?? undefined)}\n${truncateObjective(goal.objective, 120)}\n${banner}`;
+	return `${statusLine(goal)}\n${truncateObjective(goal.objective, 120)}\n${banner}`;
 }
 
 export function goalRoundPrompt(goal: GoalView, turn: number): string {

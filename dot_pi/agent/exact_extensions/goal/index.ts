@@ -49,7 +49,6 @@ export default function piGoal(pi: ExtensionAPI) {
 	function updateStatusBar(ctx: ExtensionContext) {
 		const theme = ctx.ui.theme;
 		const { goal, armed, bannerEnabled } = machine.snapshot;
-		const usage = ctx.getContextUsage();
 		if (!goal) {
 			ctx.ui.setStatus(CUSTOM_TYPE, undefined);
 			ctx.ui.setWidget(CUSTOM_TYPE, undefined);
@@ -62,7 +61,7 @@ export default function piGoal(pi: ExtensionAPI) {
 		}
 		ctx.ui.setWidget(CUSTOM_TYPE, [
 			`${theme.fg("customMessageLabel", theme.bold("goal"))} ${theme.fg("text", truncateObjective(goal.objective, 72))}`,
-			`${armed ? theme.fg("accent", "▶ ") : ""}${theme.fg("dim", statusLine(goal, usage))}`,
+			`${armed ? theme.fg("accent", "▶ ") : ""}${theme.fg("dim", statusLine(goal))}`,
 		]);
 	}
 
@@ -197,7 +196,7 @@ export default function piGoal(pi: ExtensionAPI) {
 					run({ type: "banner_toggle" }, `Goal banner ${machine.snapshot.bannerEnabled ? "shown" : "hidden"}.`);
 					break;
 				case "show_status":
-					ctx.ui.notify(goalStatusMessage(goal, usage, bannerEnabled), "info");
+					ctx.ui.notify(goalStatusMessage(goal, bannerEnabled), "info");
 					break;
 				case "clear":
 					if (!goal) {
