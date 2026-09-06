@@ -207,11 +207,30 @@ void describe("GoalMachine.goal_update", () => {
 
 	void it("stale ref: error, no mutation", () => {
 		const m = armedMachine();
-		const { reply, isError, effects } = m.dispatch({ type: "goal_update", goal_id: "wrong", revision: 999, action: "complete" });
+		const real = m.snapshot.goal!;
+		const { reply, isError, effects } = m.dispatch({ type: "goal_update", goal_id: real.id, revision: 999, action: "complete" });
 		assert.equal(isError, true);
-		assert.match(reply ?? "", /revision/);
+		assert.match(reply ?? "", /revision 999.*current is 1/s);
 		assert.ok(!effects.some((e) => e.kind === "appendEntry"));
 		assert.equal(m.snapshot.goal?.phase, "active");
+	});
+
+	void it("unknown id: error names the current id — one-step recovery", () => {
+		// Session evidence: the model hallucinated goal_9f5b6c48e33d and the
+		// combined 'stale ref' message sent it through a get_goal round trip.
+		const m = armedMachine();
+		const { reply, isError } = m.dispatch({ type: "goal_update", goal_id: "goal_9f5b6c48e33d", revision: 1, action: "complete" });
+		assert.equal(isError, true);
+		assert.match(reply ?? '', new RegExp(m.snapshot.goal!.id));
+		assert.match(reply ?? '', /rev 1/);
+	});
+
+	void it("create reply carries id and revision into model context", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		const { reply } = m.dispatch({ type: "goal_create", objective: "ship it", cap: null });
+		assert.match(reply ?? '', new RegExp(m.snapshot.goal!.id));
+		assert.match(reply ?? '', /revision 1/);
 	});
 
 	void it("blocked before 3 rounds: error, no mutation", () => {

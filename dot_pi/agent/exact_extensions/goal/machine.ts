@@ -141,8 +141,12 @@ export class GoalMachine {
 
 	private goalUpdate(goalId: string, revision: number, action: "complete" | "blocked", blockedReason?: string): DispatchResult {
 		if (!this.view) return { effects: [], reply: "No goal is set.", isError: true };
-		if (goalId !== this.view.id || revision !== this.view.revision) {
-			return { effects: [], reply: `Stale ref: current revision is ${this.view.revision}. Call get_goal.`, isError: true };
+		if (goalId !== this.view.id) {
+			// Name the current ref — the model can retry without a get_goal round trip.
+			return { effects: [], reply: `Unknown goal id "${goalId}". Current goal: ${this.view.id} rev ${this.view.revision}. Retry with these values.`, isError: true };
+		}
+		if (revision !== this.view.revision) {
+			return { effects: [], reply: `Stale ref: you sent revision ${revision}, current is ${this.view.revision} (id ${this.view.id}). Retry with these values.`, isError: true };
 		}
 
 		if (action === "complete") {
@@ -228,7 +232,9 @@ export class GoalMachine {
 		const next = createGoalState(objective, cap);
 		this.armed = true;
 		this.createdThisRun = true;
-		return { effects: this.commit("create", next) };
+		const effects = this.commit("create", next);
+		// The id must reach model context here — the completion call depends on it.
+		return { effects, reply: `Goal created (id ${next.id}, revision ${next.revision}).` };
 	}
 
 	private goalResume(): DispatchResult {
