@@ -86,7 +86,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	pi.registerMessageRenderer<Record<string, unknown>>(EVENT_TYPE, (message, { expanded }, theme) => {
 		const kind = (message.details as any)?.kind ?? "event";
 		const turn = (message.details as any)?.turn as number | undefined;
-		return renderGoalEventMessage(kind, message.content, turn, machine.snapshot.goal?.phase, theme, expanded);
+		return withBottomMargin(renderGoalEventMessage(kind, message.content, turn, machine.snapshot.goal?.phase, theme, expanded));
 	});
 
 	// Durable lifecycle mutations (appendEntry) render as transcript cards.
