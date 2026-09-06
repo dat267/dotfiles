@@ -32,9 +32,9 @@ void describe("fetchCredits", () => {
 
 void describe("statusText", () => {
 	void it("formats whole and fractional balances", () => {
-		assert.equal(statusText(42), "◆ 42 HC");
-		assert.equal(statusText(42.5), "◆ 42.5 HC");
-		assert.equal(statusText(1234.567), "◆ 1,234.57 HC");
+		assert.equal(statusText(42), "42 HC");
+		assert.equal(statusText(42.5), "42.5 HC");
+		assert.equal(statusText(1234.567), "1,234.57 HC");
 	});
 
 	void it("exposes the status key used with ui.setStatus", () => {

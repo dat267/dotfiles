@@ -34,5 +34,5 @@ export function formatCredits(balance: number): string {
 }
 
 export function statusText(balance: number): string {
-	return `◆ ${formatCredits(balance)} HC`;
+	return `${formatCredits(balance)} HC`;
 }
