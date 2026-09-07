@@ -33,9 +33,6 @@
                 "dark": "One Dark",
                 "light": "One Light"
             },
-            "font": {
-                "face": "FiraCode Nerd Font, Cascadia Code, Consolas, Lucida Console"
-            },
             "suppressApplicationTitle": false
         },
         "list": [
