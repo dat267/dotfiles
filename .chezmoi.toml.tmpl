@@ -4,7 +4,11 @@
 [interpreters.sh]
 command = "sh"
 
+{{ if lookPath "git" -}}
+# Only when a git binary exists — enables deploying from tarballs/zipballs
+# on machines without git (no [git] section = no auto-commit attempts).
 [git]
 autoAdd = true
 autoCommit = true
 autoPush = false
+{{ end -}}
