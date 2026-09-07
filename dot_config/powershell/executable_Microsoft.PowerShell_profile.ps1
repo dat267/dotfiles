@@ -72,12 +72,14 @@ $global:__dotfiles_profile_loaded = $true
                 }
             }
             if (-not $env:YAZI_FILE_ONE) {
-                $gitExec = git --exec-path 2>$null
-                if ($gitExec) {
-                    $gitRoot = Split-Path (Split-Path (Split-Path $gitExec))
-                    $fileExe = [System.IO.Path]::Combine($gitRoot, "usr\bin\file.exe")
-                    if ([System.IO.File]::Exists($fileExe)) {
-                        $env:YAZI_FILE_ONE = $fileExe
+                if (Get-Command git -ErrorAction SilentlyContinue) {
+                    $gitExec = git --exec-path 2>$null
+                    if ($gitExec) {
+                        $gitRoot = Split-Path (Split-Path (Split-Path $gitExec))
+                        $fileExe = [System.IO.Path]::Combine($gitRoot, "usr\bin\file.exe")
+                        if ([System.IO.File]::Exists($fileExe)) {
+                            $env:YAZI_FILE_ONE = $fileExe
+                        }
                     }
                 }
             }
