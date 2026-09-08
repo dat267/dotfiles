@@ -9,6 +9,6 @@
 {{- $_ := setValueAtPath "rebase.autosquash" true $config -}}
 {{- $_ := setValueAtPath "merge.allowUnrelatedHistories" true $config -}}
 {{- $_ := setValueAtPath "push.autoSetupRemote" true $config -}}
-{{- $_ := setValueAtPath "user.email" "dat267@outlook.com" $config -}}
+{{- $_ := setValueAtPath "user.email" "68469875+dat267@users.noreply.github.com" $config -}}
 {{- $_ := setValueAtPath "user.name" "Dat Do" $config -}}
 {{ toIni $config }}
