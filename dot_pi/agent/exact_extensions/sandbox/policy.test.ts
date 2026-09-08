@@ -34,4 +34,10 @@ void describe("policy", () => {
 			assert.ok(list.includes(required), `allowlist missing ${required}`);
 		}
 	});
+
+	void it("defaultAllowlist covers rust toolchains: RUSTUP_HOME and CARGO_HOME", () => {
+		const list = defaultAllowlist("/data/work");
+		assert.ok(list.includes(homedir() + "/.rustup"), "missing ~/.rustup (toolchains, rustup update)");
+		assert.ok(list.includes(homedir() + "/.cargo"), "missing ~/.cargo (registry, bins)");
+	});
 });

@@ -9,7 +9,7 @@
 
 import { homedir } from "node:os";
 
-/** Build the allowlist: workspace, /tmp, devices, caches, GOPATH. */
+/** Build the allowlist: workspace, /tmp, devices, caches, GOPATH, Rust toolchains. */
 export function defaultAllowlist(workspace: string): string[] {
 	return [
 		workspace,
@@ -19,9 +19,10 @@ export function defaultAllowlist(workspace: string): string[] {
 		"/sys",
 		"/var/tmp",
 		homedir() + "/go", // GOPATH: module cache + go install binaries
+		homedir() + "/.rustup", // RUSTUP_HOME: toolchains, rustup update
+		homedir() + "/.cargo", // CARGO_HOME: registry cache, cargo/rustc bins
 		homedir() + "/.cache",
 		homedir() + "/.npm",
-		homedir() + "/.cargo",
 	];
 }
 
