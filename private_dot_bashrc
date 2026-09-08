@@ -60,4 +60,10 @@ fi
 
 
 # ssh loopback tunnel: tl <port> <host>  →  localhost:<port> → host:127.0.0.1:<port>
-tl() { ssh -N -o ExitOnForwardFailure=yes -L "$1:127.0.0.1:$1" "$2"; }
+tl() {
+	if [ $# -lt 2 ] || ! [ "$1" -eq "$1" ] 2>/dev/null; then
+		echo "usage: tl <port> <host>   # localhost:<port> → <host>:127.0.0.1:<port>" >&2
+		return 2
+	fi
+	ssh -N -o ExitOnForwardFailure=yes -L "$1:127.0.0.1:$1" "$2"
+}
