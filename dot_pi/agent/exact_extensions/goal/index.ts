@@ -93,7 +93,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "get_goal",
 		label: "Get Goal",
-		description: "Read the current session goal, if one exists. Call this before update_goal to get the exact id and revision.",
+		description: "Read the current session goal. Call before update_goal for the exact id and revision.",
 		promptSnippet: "Read the current goal objective and state",
 		promptGuidelines: ["Call get_goal before update_goal to copy the exact id and revision."],
 		parameters: { type: "object", properties: {}, additionalProperties: false } as any,
@@ -112,7 +112,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "create_goal",
 		label: "Create Goal",
-		description: "Create a persisted session goal for a long-running objective. Do not use for trivial single-turn work.",
+		description: "Create a persisted session goal. Not for trivial single-turn work.",
 		promptSnippet: "Create a goal for long-running objectives",
 		promptGuidelines: [
 			"Use create_goal when the user's request is a multi-step objective that should continue across rounds.",
@@ -122,7 +122,7 @@ export default function piGoal(pi: ExtensionAPI) {
 		parameters: {
 			type: "object",
 			properties: {
-				objective: { type: "string", description: "The concrete completion objective." },
+				objective: { type: "string", description: "Concrete completion objective." },
 			},
 			required: ["objective"],
 			additionalProperties: false,
@@ -140,7 +140,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "update_goal",
 		label: "Update Goal",
-		description: "Complete or block the current goal. Requires the exact id and revision from get_goal. complete requires evidence the objective is achieved. blocked requires a concrete blocked_reason and is rejected before 3 consecutive goal rounds. edit, pause, and resume are human-only (user runs /goal).",
+		description: "Complete or block the session goal. Needs the exact id and revision from get_goal. complete: objective achieved with evidence. blocked: needs blocked_reason; rejected before 3 consecutive rounds. edit/pause/resume: human-only (/goal).",
 		promptSnippet: "Complete or block the current goal",
 		promptGuidelines: [
 			"Call get_goal first to get the exact id and revision, unless this turn already gave you both.",
@@ -153,7 +153,7 @@ export default function piGoal(pi: ExtensionAPI) {
 				goal_id: { type: "string", description: "Exact id from get_goal." },
 				revision: { type: "number", description: "Exact revision from get_goal." },
 				action: { type: "string", enum: ["complete", "blocked"], description: "Action to perform." },
-				blocked_reason: { type: "string", description: "Concrete blocking condition (blocked only)." },
+				blocked_reason: { type: "string", description: "Blocking condition (blocked only)." },
 			},
 			required: ["goal_id", "revision", "action"],
 			additionalProperties: false,

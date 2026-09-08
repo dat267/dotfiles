@@ -219,11 +219,11 @@ export function goalRoundPrompt(goal: GoalView, turn: number): string {
 	return [
 		`<goal_round>`,
 		`<objective>${goal.objective}</objective>`,
-		`Round ${turn}. The current workspace, tool results, and durable session state are authoritative.`,
-		`- Continue the objective. Require concrete evidence before claiming completion.`,
-		`- If work remains, leave the goal active and keep going.`,
-		`- If the same blocking condition has persisted for 3+ consecutive rounds, call update_goal with action "blocked" and a concrete blocked_reason.`,
-		`- If the objective is fully achieved with evidence, call update_goal with action "complete".`,
+		`Round ${turn}. Workspace, tool results, and durable session state are authoritative.`,
+		`- Continue the objective; concrete evidence before claiming completion.`,
+		`- Fully achieved: update_goal action "complete".`,
+		`- Same blocker 3+ consecutive rounds: action "blocked" with concrete blocked_reason.`,
+		`- Otherwise leave active and keep going.`,
 		`</goal_round>`,
 	].join("\n");
 }
@@ -232,8 +232,7 @@ export function wrapupContext(objective: string, blockedReason?: string): string
 	if (blockedReason) {
 		return [
 			`<goal_blocked>`,
-			`The goal is now blocked: ${blockedReason}`,
-			`Objective (for reference only, do not continue): ${objective}`,
+			`Goal blocked: ${blockedReason}. Objective (reference only, do not continue): ${objective}.`,
 			`Stop goal work. Summarize state and what a human must unblock.`,
 			`</goal_blocked>`,
 		].join("\n");
