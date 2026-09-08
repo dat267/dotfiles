@@ -15,12 +15,10 @@ powershell -c "& { iwr -useb get.chezmoi.io | iex }; chezmoi init --apply dat267
 ```
 
 ```powershell
-# Windows without git — private repo, needs a GitHub token with repo access
-# (bsdtar ships with Windows 10+; no git client required)
+# Windows without git (bsdtar ships with Windows 10+; no git client required)
 irm get.chezmoi.io | iex
 mkdir $HOME\.local\share\chezmoi -Force
-curl.exe -L -H "Authorization: Bearer <github-token>" -o dotfiles.tgz `
-  https://codeload.github.com/dat267/dotfiles/tar.gz/refs/heads/main
+curl.exe -L -o dotfiles.tgz https://codeload.github.com/dat267/dotfiles/tar.gz/refs/heads/main
 tar -xzf dotfiles.tgz -C $HOME\.local\share\chezmoi --strip-components 1
 chezmoi init   # renders config; auto-commit self-disables when git is absent
 chezmoi apply
