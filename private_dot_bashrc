@@ -58,3 +58,6 @@ if [[ ";$PROMPT_COMMAND;" != *";_auto_run_venv;"* ]]; then
 	PROMPT_COMMAND="_auto_run_venv${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 fi
 
+
+# ssh loopback tunnel: tl <port> <host>  →  localhost:<port> → host:127.0.0.1:<port>
+tl() { ssh -N -o ExitOnForwardFailure=yes -L "$1:127.0.0.1:$1" "$2"; }
