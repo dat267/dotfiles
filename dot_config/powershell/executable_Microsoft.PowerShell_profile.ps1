@@ -2,7 +2,31 @@ if ($global:__dotfiles_profile_loaded) { return }
 $global:__dotfiles_profile_loaded = $true
 
 & {
-    $env:EDITOR = if (Get-Command nvim -ErrorAction SilentlyContinue) { 'nvim' } elseif (Get-Command vim -ErrorAction SilentlyContinue) { 'vim' } elseif (Get-Command hx -ErrorAction SilentlyContinue) { 'hx' } elseif (Get-Command helix -ErrorAction SilentlyContinue) { 'helix' } else { 'vi' }
+    if (-not $IsWindows) {
+        $env:EDITOR = if (Get-Command nvim -ErrorAction SilentlyContinue) { 'nvim' } elseif (Get-Command vim -ErrorAction SilentlyContinue) { 'vim' } elseif (Get-Command hx -ErrorAction SilentlyContinue) { 'hx' } elseif (Get-Command helix -ErrorAction SilentlyContinue) { 'helix' } else { 'vi' }
+    }
+
+    if ($IsWindows) {
+        # Windows: Get-Command enumerates PATH x PATHEXT with per-file AV
+        # interception — seconds on a long dev PATH. Known install locations
+        # first (no enumeration), then native where.exe as bounded fallback.
+        $editor = $null
+        foreach ($p in @(
+                "$HOME\Apps\nvim-win64\bin\nvim.exe",
+                "$env:LOCALAPPDATA\nvim\bin\nvim.exe",
+                "$HOME\scoop\apps\nvim\current\nvim.exe",
+                "$env:ProgramFiles\Neovim\bin\nvim.exe"
+            )) {
+            if (Test-Path $p) { $editor = 'nvim'; break }
+        }
+        if (-not $editor) {
+            foreach ($name in @('nvim', 'vim', 'hx', 'helix')) {
+                if (where.exe $name 2>$null) { $editor = $name; break }
+                if (where.exe "$name.exe" 2>$null) { $editor = $name; break }
+            }
+        }
+        if ($editor) { $env:EDITOR = $editor }
+    }
 
     $paths = @(
         "$HOME/.config/powershell/scripts",
@@ -72,7 +96,9 @@ $global:__dotfiles_profile_loaded = $true
                 }
             }
             if (-not $env:YAZI_FILE_ONE) {
-                if (Get-Command git -ErrorAction SilentlyContinue) {
+                # git is PATH-installed on Windows; where.exe is one native call
+                # (Get-Command here would re-enumerate PATH x PATHEXT with AV).
+                if (where.exe git 2>$null) {
                     $gitExec = git --exec-path 2>$null
                     if ($gitExec) {
                         $gitRoot = Split-Path (Split-Path (Split-Path $gitExec))
