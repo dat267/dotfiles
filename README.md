@@ -5,14 +5,29 @@ Cross-platform dotfiles managed with [chezmoi](https://chezmoi.io), targeting **
 ## Quick Start
 
 ```sh
-# Linux / macOS
+# Linux / macOS (uses git)
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply dat267
 ```
 
 ```powershell
-# Windows
+# Windows with git installed
 powershell -c "& { iwr -useb get.chezmoi.io | iex }; chezmoi init --apply dat267"
 ```
+
+```powershell
+# Windows without git — private repo, needs a GitHub token with repo access
+# (bsdtar ships with Windows 10+; no git client required)
+irm get.chezmoi.io | iex
+mkdir $HOME\.local\share\chezmoi -Force
+curl.exe -L -H "Authorization: Bearer <github-token>" -o dotfiles.tgz `
+  https://codeload.github.com/dat267/dotfiles/tar.gz/refs/heads/main
+tar -xzf dotfiles.tgz -C $HOME\.local\share\chezmoi --strip-components 1
+chezmoi init   # renders config; auto-commit self-disables when git is absent
+chezmoi apply
+```
+
+Secrets (`auth.json`, credential-store entries) are untracked — copy them
+separately after the first apply.
 
 ## What's Included
 
