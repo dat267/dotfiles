@@ -319,6 +319,7 @@ class Progress:
             return
         self._last = t
         self.stream.write(f"Enumerating {entries} items\r")
+        self.stream.flush()
         self.visible = True
 
     def finish(self):
@@ -326,6 +327,7 @@ class Progress:
             return
         if self.visible:
             self.stream.write("\x1b[2K")
+            self.stream.flush()
             self.visible = False
 
 

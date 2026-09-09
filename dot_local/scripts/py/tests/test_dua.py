@@ -206,6 +206,26 @@ class TestProgress(unittest.TestCase):
         self.assertIn("Enumerating", err.getvalue())
         self.assertTrue(err.getvalue().endswith("\x1b[2K"))  # cleared before output
 
+    def test_flush_after_every_write(self):
+        # Python 3.14 stderr is line-buffered: without flush() the ESC[2K clear
+        # lands at interpreter exit, AFTER the output, leaving the progress
+        # line's tail ("items") visible on the final screen.
+        class FakeStream:
+            def __init__(self):
+                self.events = []
+            def write(self, s):
+                self.events.append(("w", s))
+            def flush(self):
+                self.events.append(("f",))
+        out = FakeStream()
+        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0)
+        p.update(1)
+        p.finish()
+        self.assertEqual(out.events, [
+            ("w", "Enumerating 1 items\r"), ("f",),
+            ("w", "\x1b[2K"), ("f",),
+        ])
+
     def test_disabled_when_not_tty(self):
         out = io.StringIO()  # not a tty
         p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0, tty=False)
