@@ -80,13 +80,28 @@ def aggregate_totals(raw, children, root):
 
 class WalkResult:
     def __init__(self):
-        self.raw = {}        # dir path -> direct file bytes
+        self.raw = {}        # dir path -> direct file bytes (+ own st_size when apparent)
         self.children = {}   # dir path -> [subdir paths]
         self.top = {}        # input root's direct files: name -> size (0 if hardlink-deduped)
-        self.largest = []    # [(size, path)] top-N, sorted desc
+        self.largest = []    # [(size, path)] top-N heap, sorted desc by walk()
         self.errors = 0
         self.files = 0
         self.errs = {}       # dir path -> direct IO-error count
+        self.seeds = []      # unvisited frontier after a budgeted scan
+
+    def merge_part(self, part):
+        """Fold a child worker's plain-dict result into this accumulator."""
+        self.raw.update(part["raw"])
+        self.children.update(part["children"])
+        self.errs.update(part["errs"])
+        self.files += part["files"]
+        self.errors += part["errors"]
+        self.largest.extend(part["largest"])
+
+    def to_payload(self):
+        """Plain-dict view for pickling across the worker pipe."""
+        return {"raw": self.raw, "children": self.children, "files": self.files,
+                "errors": self.errors, "largest": self.largest, "errs": self.errs}
 
 
 def _file_size(st, apparent):
@@ -108,74 +123,23 @@ def _dir_contribution(d, apparent):
         return 0
 
 
-def _scan_roots(roots, apparent, count_hard_links, top_n, progress=None, top=None, top_target=None):
-    """Iterative BFS scan of many root dirs. Returns
-    (raw, children, files, errors, largest_sorted_desc)."""
-    raw, children, errs = {}, {}, {}
-    files = errors = 0
-    largest = []
-    seen = set() if not count_hard_links else None
-    stack = list(roots)
-    while stack:
-        d = stack.pop()
-        direct = 0
-        subs = []
-        try:
-            with os.scandir(d) as it:
-                for e in it:
-                    try:
-                        if e.is_dir(follow_symlinks=False):
-                            subs.append(e.path)
-                            continue
-                        st = e.stat(follow_symlinks=False)
-                    except OSError:
-                        continue
-                    size = _file_size(st, apparent)
-                    deduped = False
-                    if st.st_nlink > 1 and seen is not None:
-                        key = (st.st_dev, st.st_ino)
-                        if key in seen:
-                            deduped = True
-                            size = 0
-                        else:
-                            seen.add(key)
-                    files += 1
-                    direct += size
-                    if top is not None and d == top_target and not e.is_symlink():
-                        top[e.name] = size
-                    if top_n and not deduped:
-                        if len(largest) < top_n:
-                            heapq.heappush(largest, (size, e.path))
-                        elif size > largest[0][0]:
-                            heapq.heapreplace(largest, (size, e.path))
-        except OSError:
-            errors += 1
-            errs[d] = errs.get(d, 0) + 1
-        raw[d] = direct + _dir_contribution(d, apparent)
-        children[d] = subs
-        errs[d] = errs.get(d, 0)
-        stack.extend(subs)
-        if progress:
-            progress(files + len(raw))
-    largest.sort(reverse=True)
-    return raw, children, files, errors, largest, errs
+def _scan(roots, acc, apparent, count_hard_links, top_n, progress=None,
+          top_target=None, dir_budget=0):
+    """Core traversal: iterative BFS over `roots`, mutating the accumulator.
 
-
-def _prescan(root, target, apparent, count_hard_links, top_n, progress=None, top=None):
-    """Breadth-first parent pass: scan dirs until `target` dirs are covered;
-    the unvisited frontier becomes the disjoint seed list for workers.
-    The input root's direct files are recorded into `top` (name -> size,
-    0 when hardlink-deduped; symlinks skipped).
-    Returns (raw, children, files, errors, largest, seeds, errs).
+    Records per-dir direct bytes (+ the dir's own st_size when apparent) into
+    acc.raw, subtree links into acc.children, IO errors into acc.errs, the
+    input root's direct files into acc.top (0 when hardlink-deduped, symlinks
+    skipped), and a top-N heap into acc.largest. With dir_budget > 0 the scan
+    stops after that many dirs and the unvisited frontier is parked in
+    acc.seeds (disjoint subtrees for forked workers).
     """
-    raw, children, errs = {}, {}, {}
-    files = errors = 0
-    largest = []
     seen = set() if not count_hard_links else None
-    frontier = collections.deque([root])
-    seeds = []
+    frontier = collections.deque(roots)
     scanned = 0
-    while frontier and scanned < target:
+    while frontier:
+        if dir_budget and scanned >= dir_budget:
+            break
         d = frontier.popleft()
         scanned += 1
         direct = 0
@@ -199,27 +163,25 @@ def _prescan(root, target, apparent, count_hard_links, top_n, progress=None, top
                             size = 0
                         else:
                             seen.add(key)
-                    files += 1
+                    acc.files += 1
                     direct += size
-                    if top is not None and d == root and not e.is_symlink():
-                        top[e.name] = size
+                    if top_target is not None and d == top_target and not e.is_symlink():
+                        acc.top[e.name] = size
                     if top_n and not deduped:
-                        if len(largest) < top_n:
-                            heapq.heappush(largest, (size, e.path))
-                        elif size > largest[0][0]:
-                            heapq.heapreplace(largest, (size, e.path))
+                        if len(acc.largest) < top_n:
+                            heapq.heappush(acc.largest, (size, e.path))
+                        elif size > acc.largest[0][0]:
+                            heapq.heapreplace(acc.largest, (size, e.path))
         except OSError:
-            errors += 1
-            errs[d] = errs.get(d, 0) + 1
-        raw[d] = direct + _dir_contribution(d, apparent)
-        children[d] = subs
-        errs[d] = errs.get(d, 0)
+            acc.errors += 1
+            acc.errs[d] = acc.errs.get(d, 0) + 1
+        acc.raw[d] = direct + _dir_contribution(d, apparent)
+        acc.children[d] = subs
+        acc.errs[d] = acc.errs.get(d, 0)
         frontier.extend(subs)
         if progress:
-            progress(files + len(raw))
-    seeds = list(frontier)  # every seed's parent is already in children[]
-    largest.sort(reverse=True)
-    return raw, children, files, errors, largest, seeds, errs
+            progress(acc.files + len(acc.raw))
+    acc.seeds = list(frontier)
 
 
 def _send_frame(fd, tag, payload):
@@ -252,6 +214,7 @@ def _parallel_scan(chunks, apparent, count_hard_links, top_n, progress=None, bas
         if pid == 0:
             os.close(r_fd)
             try:
+                acc = WalkResult()
                 if progress is not None:
                     last = [None]
                     def report(n):
@@ -260,10 +223,10 @@ def _parallel_scan(chunks, apparent, count_hard_links, top_n, progress=None, bas
                             return
                         last[0] = t
                         send(w_fd, "p", n)
-                    result = _scan_roots(chunk, apparent, count_hard_links, top_n, progress=report)
+                    _scan(chunk, acc, apparent, count_hard_links, top_n, progress=report)
                 else:
-                    result = _scan_roots(chunk, apparent, count_hard_links, top_n)
-                send(w_fd, "r", result)
+                    _scan(chunk, acc, apparent, count_hard_links, top_n)
+                send(w_fd, "r", acc.to_payload())
             except BaseException:  # noqa: BLE001 — child must always exit
                 os._exit(1)
             os._exit(0)
@@ -296,10 +259,12 @@ def _parallel_scan(chunks, apparent, count_hard_links, top_n, progress=None, bas
                         progress(base_files + sum(latest.values()))
                 else:
                     parts.append(frame[1])
-                    os.waitpid(pid, 0)
-                    os.close(fd)
                     done[fd] = True
                     break
+        for pid, fd in list(open_fds):
+            if done[fd]:
+                os.waitpid(pid, 0)
+                os.close(fd)
         open_fds = [(p, f) for p, f in open_fds if not done[f]]
     if len(parts) != len(chunks):
         raise RuntimeError("dua.py: child scan process failed")
@@ -318,9 +283,11 @@ def aggregate_errors(errs, children, root):
 def walk(root, threads=0, apparent=False, count_hard_links=False, top_n=0, progress=None):
     """Scan one input (dir or file), returning a WalkResult.
 
-    threads: 0 = all cores. >1 uses forked subprocess chunks (disjoint seed
-    subtrees) so CPython's GIL cannot serialize the walk. Falls back to a
-    plain single-threaded BFS when fork is unavailable.
+    threads: 0 = all cores. >1 scans a budgeted slice of the tree in the
+    parent, then forks disjoint seed subtrees as worker chunks (CPython's GIL
+    makes threads useless for metadata walks) whose plain-dict results are
+    merged via merge_part(). Falls back to the plain single-threaded scan
+    when fork is unavailable (Windows).
     """
     result = WalkResult()
     if not os.path.exists(root):
@@ -330,63 +297,37 @@ def walk(root, threads=0, apparent=False, count_hard_links=False, top_n=0, progr
     # Single-file input: report just that file.
     if os.path.isfile(root):
         st = os.stat(root)
-        size = st.st_size if apparent else st.st_blocks * 512
+        size = _file_size(st, apparent)
         result.raw[root] = size
         result.largest = [(size, root)]
         result.files = 1
         return result
 
     procs = max(1, threads if threads > 0 else (os.cpu_count() or 1))
+    can_fork = os.name == "posix" and hasattr(os, "fork")
 
-    if procs == 1:
-        top = {}
-        raw, children, files, errors, largest, errs = _scan_roots(
-            [root], apparent, count_hard_links, top_n, progress, top=top, top_target=root)
-        result.raw, result.children = raw, children
-        result.files, result.errors, result.largest, result.errs = files, errors, largest, errs
-        result.top = top
-        return result
-
-    try:
-        can_fork = os.name == "posix" and hasattr(os, "fork")
-    except AttributeError:
-        can_fork = False
-    if not can_fork:
-        top = {}
-        raw, children, files, errors, largest, errs = _scan_roots(
-            [root], apparent, count_hard_links, top_n, progress, top=top, top_target=root)
-        result.raw, result.children = raw, children
-        result.files, result.errors, result.largest, result.errs = files, errors, largest, errs
-        result.top = top
-        return result
-
-    top = {}
-    raw, children, files, errors, largest, seeds, errs = _prescan(
-        root, procs * 4, apparent, count_hard_links, top_n, progress, top=top)
-
-    if len(seeds) >= 2:  # enough work to justify forking
-        chunks = [c for c in (seeds[i::procs] for i in range(min(procs, len(seeds)))) if c]
-        for part_raw, part_children, part_files, part_errors, part_largest, part_errs in _parallel_scan(
-                chunks, apparent, count_hard_links, top_n,
-                progress=progress, base_files=files + len(raw)):
-            raw.update(part_raw)
-            children.update(part_children)
-            errs.update(part_errs)
-            files += part_files
-            errors += part_errors
-            largest.extend(part_largest)
+    if procs > 1 and can_fork:
+        # scan a bounded slice in-parent; the unvisited frontier seeds workers
+        _scan([root], result, apparent, count_hard_links, top_n,
+              progress=progress, top_target=root, dir_budget=procs * 4)
+        if result.seeds:
+            seeds = result.seeds
+            chunks = [c for c in (seeds[i::procs] for i in range(min(procs, len(seeds)))) if c]
+            base_entries = result.files + len(result.raw)
+            for part in _parallel_scan(chunks, apparent, count_hard_links, top_n,
+                                       progress=progress, base_files=base_entries):
+                result.merge_part(part)
             if progress:
-                progress(files + len(raw))
+                progress(result.files + len(result.raw))
+    else:
+        _scan([root], result, apparent, count_hard_links, top_n,
+              progress=progress, top_target=root)
 
     if top_n:
-        largest.sort(reverse=True)
-        largest = largest[:top_n]
-    elif largest:
-        largest = []
-
-    result.raw, result.children = raw, children
-    result.files, result.errors, result.largest, result.errs = files, errors, largest, errs
-    result.top = top
+        result.largest.sort(reverse=True)
+        result.largest = result.largest[:top_n]
+    else:
+        result.largest = []
     return result
 
 

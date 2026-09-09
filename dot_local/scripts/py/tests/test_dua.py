@@ -160,6 +160,50 @@ class TestWalk(unittest.TestCase):
         self.assertEqual(dua.aggregate_totals(r.raw, r.children, f), 8)
 
 
+class TestScanPipeline(unittest.TestCase):
+    """One traversal (_scan) mutating a WalkResult accumulator — _scan_roots
+    and _prescan were twins whose 6-tuple plumbing drifted apart."""
+
+    def test_scan_accumulates_into_walkresult(self):
+        root = make_tree({"a/f": b"x" * 10, "b/g": b"y"})
+        acc = dua.WalkResult()
+        dua._scan([os.path.abspath(root)], acc, apparent=True, count_hard_links=False,
+                  top_n=0, top_target=os.path.abspath(root))
+        self.assertEqual(acc.files, 2)
+        self.assertEqual(acc.seeds, [])  # unbudgeted: nothing left unvisited
+        self.assertEqual(dua.aggregate_totals(acc.raw, acc.children, os.path.abspath(root)),
+                         dua_apparent_size(root))
+        self.assertEqual(acc.top, {})  # root has no direct files; dirs live in children
+
+    def test_budget_parks_frontier_in_seeds(self):
+        root = os.path.abspath(make_tree({f"d{i}/f": b"x" for i in range(6)}))
+        acc = dua.WalkResult()
+        dua._scan([root], acc, apparent=False, count_hard_links=False,
+                  top_n=0, top_target=root, dir_budget=3)
+        self.assertLess(len(acc.raw), 7)          # stopped early
+        self.assertEqual(len(acc.seeds), 6 - 2)   # unvisited frontier parked
+
+    def test_merge_part_folds_child_result(self):
+        acc = dua.WalkResult()
+        acc.raw["/root"] = 5
+        acc.merge_part({"raw": {"/root/s": 7}, "children": {"/root/s": []},
+                        "files": 1, "errors": 2, "largest": [(7, "/root/s/f")],
+                        "errs": {"/root/s": 1}})
+        self.assertEqual(acc.raw["/root/s"], 7)
+        self.assertEqual(acc.files, 1)
+        self.assertEqual(acc.errors, 2)
+        self.assertEqual(acc.largest, [(7, "/root/s/f")])
+        self.assertEqual(acc.errs["/root/s"], 1)
+
+    def test_single_leftover_seed_not_dropped(self):
+        # regression: prescan's len(seeds) >= 2 guard silently dropped a
+        # single unvisited seed subtree from the totals
+        root = make_tree({f"d{i}/f.txt": b"x" * (i + 1) for i in range(8)})
+        r = dua.walk(root, threads=2, apparent=True)
+        self.assertEqual(dua.aggregate_totals(r.raw, r.children, os.path.abspath(root)),
+                         dua_apparent_size(root))  # all 8 seeds scanned, none dropped
+
+
 class TestPortability(unittest.TestCase):
     """Windows/POSIX fallbacks: no st_blocks on Windows, partial pipe writes."""
 
