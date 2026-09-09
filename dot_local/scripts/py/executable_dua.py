@@ -3,7 +3,6 @@
 
 Usage:
     dua.py [DIR...] [options]     aggregate: per-directory sizes, biggest first
-    dua.py -d 2 [DIR]             tree down to depth 2
     dua.py -f 20 [DIR]            top 20 largest files
 
 Semantics mirror dua: default counts disk usage (st_blocks), hardlinks are
@@ -22,10 +21,10 @@ Hardlink dedupe is exact single-threaded, best-effort per process in
 parallel mode.
 
 Pure stdlib; no dependencies. Output mirrors dua-cli: right-aligned human
-size column (binary 1024-based by default; --format metric/bytes), subtree
-IO-error suffixes ("<N IO Errors>"), box-glyph trees (├──/└──/├─┬), and a
-throttled "Enumerating N items" progress line on stderr while scanning
-(TTYs only). --files always lists largest first.
+size column (binary 1024-based by default; --format metric/bytes),
+subtree IO-error suffixes ("<N IO Errors>"), and a throttled "Enumerating
+N items" progress line on stderr while scanning (TTYs only). --files
+always lists largest first.
 """
 import argparse
 import collections
@@ -348,33 +347,6 @@ def render_line(size, label, fmt, errors=0, color=False, is_dir=False):
     return line
 
 
-def render_tree(raw, children, root, max_depth=None, fmt=None, desc=True, color=False):
-    """Indented dua-style tree with box glyphs (├──/└──, ├─┬ for dirs with
-    children), sorted by subtree size."""
-    out = []
-
-    def walk_level(path, depth, prefix):
-        entries = sorted(children.get(path, ()),
-                         key=lambda c: aggregate_totals(raw, children, c),
-                         reverse=desc)
-        for i, child in enumerate(entries):
-            last = i == len(entries) - 1
-            size = aggregate_totals(raw, children, child)
-            has_kids = bool(children.get(child))
-            if last:
-                connector = "└─┬ " if has_kids else "└── "
-            else:
-                connector = "├─┬ " if has_kids else "├── "
-            size_str = fmt or ByteFormat("bytes")
-            out.append(render_line(size, f"{prefix}{connector}{os.path.basename(child)}",
-                                   size_str, color=color, is_dir=True))
-            if max_depth is None or depth < max_depth:
-                walk_level(child, depth + 1, prefix + ("│ " if not last else "  "))
-
-    walk_level(root, 1, "")
-    return out
-
-
 def main(argv=None, progress=None, color=None, no_color=False):
     parser = argparse.ArgumentParser(prog="dua.py", description="Python disk usage analyzer (dua-style).")
     parser.add_argument("inputs", nargs="*", default=["."], help="dirs or files (default: .)")
@@ -386,7 +358,6 @@ def main(argv=None, progress=None, color=None, no_color=False):
                         help="size format: binary 1024-based (dua default), metric 1000-based, bytes raw")
     parser.add_argument("--asc", action="store_true", help="sort aggregate lines ascending (default: biggest first)")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("-d", "--depth", type=int, metavar="N", help="print an indented tree to depth N")
     group.add_argument("-f", "--files", type=int, metavar="N", help="list the N largest files instead")
     args = parser.parse_args(argv)
 
@@ -418,10 +389,6 @@ def main(argv=None, progress=None, color=None, no_color=False):
         print(f"dua.py: {file_count} files scanned, {fmt.format(listed)} in top listing", file=sys.stderr)
         return 0
 
-    if args.depth is not None and len(args.inputs) > 1:
-        print("dua.py: error: --depth works with a single input", file=sys.stderr)
-        return 1
-
     rc = 0
     all_total = 0
     all_errors = 0
@@ -440,13 +407,6 @@ def main(argv=None, progress=None, color=None, no_color=False):
         total = aggregate_totals(r.raw, r.children, root)
         all_total += total
         all_errors += aggregate_errors(r.errs, r.children, root)
-        if args.depth is not None:
-            print(render_line(total, inp, fmt, errors=aggregate_errors(r.errs, r.children, root),
-                              color=use_color, is_dir=True))
-            for line in render_tree(r.raw, r.children, root, max_depth=args.depth,
-                                    fmt=fmt, desc=not args.asc, color=use_color):
-                print(line)
-            continue
         entries = [(aggregate_totals(r.raw, r.children, c),
                     aggregate_errors(r.errs, r.children, c), c)
                    for c in r.children.get(root, ())]

@@ -284,33 +284,21 @@ class TestColor(unittest.TestCase):
         self.assertNotIn("\x1b[", buf.getvalue())
 
 
-class TestRenderTree(unittest.TestCase):
-    def test_glyphs_and_order(self):
-        root = "r"
-        raw = {"r": 1, "big": 100, "small": 2}
-        children = {"r": ["big", "small"], "big": [], "small": []}
-        lines = dua.render_tree(raw, children, root)
-        self.assertEqual(lines, ["       100 b ├── big", "         2 b └── small"])  # desc default
-
-    def test_glyphs_children_and_continuation(self):
-        raw = {"r": 0, "big": 100, "big/sub": 60, "small": 2}
-        children = {"r": ["big", "small"], "big": ["big/sub"], "big/sub": [], "small": []}
-        lines = dua.render_tree(raw, children, "r")
-        self.assertEqual(lines, [
-            "       160 b ├─┬ big",   # subtree: 100 direct + 60 sub
-            "        60 b │ └── sub",
-            "         2 b └── small",
-        ])
-
-    def test_depth_limit(self):
-        raw = {"r": 0, "a": 1, "a/b": 2}
-        children = {"r": ["a"], "a": ["a/b"]}
-        lines = dua.render_tree(raw, children, "r", max_depth=1)
-        self.assertEqual(lines, ["         3 b └─┬ a"])  # a's subtree = 1 + 2; has kids
-        self.assertNotIn("a/b", " ".join(lines))
-
-
 class TestMain(unittest.TestCase):
+    def test_depth_removed(self):
+        # tree mode was cut — only large-folder aggregate and -f files remain
+        root = make_tree({"a/f": b"x"})
+        with self.assertRaises(SystemExit):
+            dua.main(argv=["-d", "2", root])
+
+    def test_help_lists_files_not_depth(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            with self.assertRaises(SystemExit):
+                dua.main(argv=["--help"])
+        self.assertNotIn("--depth", buf.getvalue())
+        self.assertIn("--files", buf.getvalue())
+
     def test_aggregate_dua_format_and_total(self):
         root = make_tree({"big/f": b"b" * 200, "small/f": b"s"})
         buf = io.StringIO()
