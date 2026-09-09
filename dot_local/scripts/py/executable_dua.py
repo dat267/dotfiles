@@ -90,7 +90,12 @@ class WalkResult:
 
 
 def _file_size(st, apparent):
-    return st.st_size if apparent else st.st_blocks * 512
+    if apparent:
+        return st.st_size
+    # st_blocks is Unix-only (Windows stat results lack it): fall back to
+    # apparent size where allocation info is unavailable
+    blocks = getattr(st, "st_blocks", None)
+    return st.st_size if blocks is None else blocks * 512
 
 
 def _dir_contribution(d, apparent):
@@ -217,6 +222,15 @@ def _prescan(root, target, apparent, count_hard_links, top_n, progress=None, top
     return raw, children, files, errors, largest, seeds, errs
 
 
+def _send_frame(fd, tag, payload):
+    """Length-prefixed pickle frame over a raw pipe fd, tolerating partial
+    writes (pipes may accept less than the full buffer for large frames)."""
+    data = pickle.dumps((tag, payload), protocol=pickle.HIGHEST_PROTOCOL)
+    buf = len(data).to_bytes(4, "big") + data
+    while buf:
+        buf = buf[os.write(fd, buf):]
+
+
 def _parallel_scan(chunks, apparent, count_hard_links, top_n, progress=None, base_files=0):
     """Fork one child per chunk; children run _scan_roots and pipe back results.
 
@@ -229,8 +243,7 @@ def _parallel_scan(chunks, apparent, count_hard_links, top_n, progress=None, bas
     arbitrary cleanup.
     """
     def send(fd, tag, payload):
-        data = pickle.dumps((tag, payload), protocol=pickle.HIGHEST_PROTOCOL)
-        os.write(fd, len(data).to_bytes(4, "big") + data)
+        _send_frame(fd, tag, payload)
 
     pipes = []
     for chunk in chunks:

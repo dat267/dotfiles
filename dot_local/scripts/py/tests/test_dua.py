@@ -1,5 +1,6 @@
 import io
 import os
+import pickle
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -157,6 +158,30 @@ class TestWalk(unittest.TestCase):
         f = os.path.join(root, "single.bin")
         r = dua.walk(f, threads=1, apparent=True)
         self.assertEqual(dua.aggregate_totals(r.raw, r.children, f), 8)
+
+
+class TestPortability(unittest.TestCase):
+    """Windows/POSIX fallbacks: no st_blocks on Windows, partial pipe writes."""
+
+    def test_file_size_without_st_blocks(self):
+        # Windows stat results lack st_blocks — disk mode falls back to apparent
+        import types
+        st = types.SimpleNamespace(st_size=42)
+        self.assertEqual(dua._file_size(st, apparent=False), 42)
+        self.assertEqual(dua._file_size(st, apparent=True), 42)
+
+    def test_send_survives_partial_writes(self):
+        # pipes may accept writes partially (>PIPE_BUF); send() must loop
+        import unittest.mock
+        r_fd, w_fd = os.pipe()
+        real_write = os.write
+        with unittest.mock.patch("os.write", side_effect=lambda fd, buf: real_write(fd, buf[:3])):
+            dua._send_frame(w_fd, "r", {"k": b"x" * 100})
+        os.close(w_fd)
+        with os.fdopen(r_fd, "rb") as r:
+            n = int.from_bytes(r.read(4), "big")
+            frame = pickle.loads(r.read(n))
+        self.assertEqual(frame, ("r", {"k": b"x" * 100}))
 
 
 class TestByteFormat(unittest.TestCase):
