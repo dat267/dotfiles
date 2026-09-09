@@ -1,6 +1,8 @@
 import io
 import os
 import pickle
+import signal
+import unittest.mock
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -241,6 +243,69 @@ class TestBuildRows(unittest.TestCase):
         root = make_tree({})
         rows, rc = dua.build_rows([root])
         self.assertEqual((rows, rc), ([], 0))
+
+
+class TestFrameReader(unittest.TestCase):
+    """Length-prefixed frame reassembly — split reads, batched frames, EOF."""
+
+    @staticmethod
+    def _frame(tag, payload):
+        data = pickle.dumps((tag, payload), protocol=pickle.HIGHEST_PROTOCOL)
+        return len(data).to_bytes(4, "big") + data
+
+    def test_reassembles_split_and_batched_frames(self):
+        r_fd, w_fd = os.pipe()
+        reader = dua._FrameReader(r_fd)
+        f1, f2 = self._frame("p", 7), self._frame("r", {"files": 9})
+        os.write(w_fd, f1[:3])
+        self.assertIsNone(reader.next_frame())  # nothing buffered yet
+        reader.fill()
+        self.assertIsNone(reader.next_frame())  # header split mid-frame
+        os.write(w_fd, f1[3:5])
+        reader.fill()
+        self.assertIsNone(reader.next_frame())  # payload incomplete
+        os.write(w_fd, f1[5:] + f2)             # tail + whole next frame in one read
+        reader.fill()
+        self.assertEqual(reader.next_frame(), ("p", 7))
+        self.assertEqual(reader.next_frame(), ("r", {"files": 9}))
+        self.assertIsNone(reader.next_frame())
+        os.close(w_fd)
+        self.assertFalse(reader.fill())         # clean EOF
+        self.assertTrue(reader.eof)
+        os.close(r_fd)
+
+    def test_eof_mid_frame_never_fabricates(self):
+        r_fd, w_fd = os.pipe()
+        reader = dua._FrameReader(r_fd)
+        os.write(w_fd, self._frame("r", {"x": 1})[:4])  # header only, payload lost
+        os.close(w_fd)
+        self.assertTrue(reader.fill())   # the 4-byte header arrives
+        self.assertFalse(reader.fill())  # then EOF
+        self.assertTrue(reader.eof)
+        self.assertIsNone(reader.next_frame())
+        os.close(r_fd)
+
+    def test_child_crash_raises_instead_of_hanging(self):
+        # a child that dies without sending its result must surface as
+        # RuntimeError, not spin select forever on the EOF'd pipe
+        if not hasattr(signal, "alarm"):
+            self.skipTest("signal.alarm unavailable")
+        root = make_tree({"a/f": b"x"})
+
+        class Hang(Exception):
+            pass
+
+        def on_alarm(signum, frame):
+            raise Hang()
+
+        with unittest.mock.patch.object(dua, "_scan", side_effect=lambda *a, **k: os._exit(1)):
+            with self.assertRaises(RuntimeError):
+                signal.signal(signal.SIGALRM, on_alarm)
+                signal.alarm(10)
+                try:
+                    dua._parallel_scan([os.path.join(root, "a")], False, False, 0)
+                finally:
+                    signal.alarm(0)
 
 
 class TestPortability(unittest.TestCase):

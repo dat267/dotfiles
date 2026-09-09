@@ -193,6 +193,43 @@ def _send_frame(fd, tag, payload):
         buf = buf[os.write(fd, buf):]
 
 
+class _FrameReader:
+    """Reassembles length-prefixed pickle frames from a raw pipe fd.
+
+    fill() does one read (False at EOF, which is terminal); next_frame()
+    pops the next complete (tag, payload) frame, or None while more data
+    is needed. Frames may arrive split across reads or batched together.
+    """
+
+    def __init__(self, fd):
+        self.fd = fd
+        self.buf = bytearray()
+        self.eof = False
+
+    def fill(self):
+        if self.eof:
+            return False
+        try:
+            data = os.read(self.fd, 65536)
+        except OSError:
+            data = b""
+        if not data:
+            self.eof = True
+            return False
+        self.buf += data
+        return True
+
+    def next_frame(self):
+        while len(self.buf) >= 4:
+            n = int.from_bytes(self.buf[:4], "big")
+            if len(self.buf) < 4 + n:
+                break
+            frame = pickle.loads(bytes(self.buf[4:4 + n]))
+            del self.buf[:4 + n]
+            return frame
+        return None
+
+
 def _parallel_scan(chunks, apparent, count_hard_links, top_n, progress=None, base_files=0):
     """Fork one child per chunk; children run _scan_roots and pipe back results.
 
@@ -236,22 +273,17 @@ def _parallel_scan(chunks, apparent, count_hard_links, top_n, progress=None, bas
     parts = []
     latest = {}  # pid -> child's last reported count
     open_fds = [(pid, r_fd) for pid, r_fd in pipes]
-    buffers = {r_fd: bytearray() for _, r_fd in pipes}
-    done = {r_fd: False for _, r_fd in pipes}
+    readers = {r_fd: _FrameReader(r_fd) for _, r_fd in open_fds}
+    done = set()
     while open_fds:
         ready, _, _ = select.select([fd for _, fd in open_fds], [], [], 0.1)
         for fd in ready:
-            try:
-                buffers[fd] += os.read(fd, 65536)
-            except OSError:
-                pass
-            buf = buffers[fd]
-            while len(buf) >= 4:
-                n = int.from_bytes(buf[:4], "big")
-                if len(buf) < 4 + n:
+            reader = readers[fd]
+            reader.fill()
+            while True:
+                frame = reader.next_frame()
+                if frame is None:
                     break
-                frame = pickle.loads(bytes(buf[4:4 + n]))
-                del buf[:4 + n]
                 pid = next(p for p, f in open_fds if f == fd)
                 if frame[0] == "p":
                     latest[pid] = frame[1]
@@ -259,13 +291,16 @@ def _parallel_scan(chunks, apparent, count_hard_links, top_n, progress=None, bas
                         progress(base_files + sum(latest.values()))
                 else:
                     parts.append(frame[1])
-                    done[fd] = True
+                    done.add(fd)
                     break
+            if reader.eof and fd not in done:
+                # child died without delivering its result — terminal
+                done.add(fd)
         for pid, fd in list(open_fds):
-            if done[fd]:
+            if fd in done:
                 os.waitpid(pid, 0)
                 os.close(fd)
-        open_fds = [(p, f) for p, f in open_fds if not done[f]]
+        open_fds = [(p, f) for p, f in open_fds if f not in done]
     if len(parts) != len(chunks):
         raise RuntimeError("dua.py: child scan process failed")
     return parts
