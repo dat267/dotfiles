@@ -58,7 +58,7 @@ class TestCreateProxy(unittest.TestCase):
 
         with mock.patch.object(lsp, "BIN_DIR", tempfile.mkdtemp()):
             target = "/opt/tool/bin/serve"
-            lsp.create_proxy(target, "serve")
+            lsp.create_proxy(shared.Platform("linux", "x64"), target, "serve")
             proxy = os.path.join(lsp.BIN_DIR, "serve")
             try:
                 content = open(proxy).read()
@@ -102,6 +102,44 @@ class TestExtractArchive(unittest.TestCase):
 # covered in tests/test_shared.py (TestExtractArchive).
 
 
+class TestRecipesTakePlatform(unittest.TestCase):
+    """Recipes dispatch with a single Platform argument — main() calls
+    recipe(plat); a recipe with any other signature crashes at dispatch
+    time (install_powershell_es did)."""
+
+    def test_every_recipe_takes_one_platform(self):
+        import inspect
+
+        for name, recipe in lsp.INSTALL_RECIPES.items():
+            with self.subTest(recipe=name):
+                params = [p for p in inspect.signature(recipe).parameters.values()
+                          if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)]
+                self.assertEqual(len(params), 1, f"{name} must take exactly one Platform")
+
+
+class TestReleaseAssetTables(unittest.TestCase):
+    """Per-project release-asset naming as data, not if/elif chains."""
+
+    def test_rust_analyzer_vendor_triples(self):
+        self.assertEqual(lsp.RUST_ASSETS[("linux", "arm64")], "aarch64-unknown-linux-gnu.gz")
+        self.assertEqual(lsp.RUST_ASSETS[("linux", "x64")], "x86_64-unknown-linux-gnu.gz")
+        self.assertEqual(lsp.RUST_ASSETS[("darwin", "arm64")], "aarch64-apple-darwin.gz")
+        self.assertEqual(lsp.RUST_ASSETS[("windows", "x64")], "x86_64-pc-windows-msvc.zip")
+        self.assertEqual(lsp.RUST_ASSETS[("windows", "arm64")], "aarch64-pc-windows-msvc.zip")
+
+    def test_marksman_suffixes(self):
+        self.assertEqual(lsp.MARKSMAN_ASSETS[("linux", "x64")], "linux-x64")
+        self.assertEqual(lsp.MARKSMAN_ASSETS[("darwin", "arm64")], "macos-arm64")
+        self.assertEqual(lsp.MARKSMAN_ASSETS[("darwin", "x64")], "macos")
+        self.assertEqual(lsp.MARKSMAN_ASSETS[("windows", "x64")], "win.exe")
+
+    def test_node_and_lua_os_tokens(self):
+        self.assertEqual(lsp.NODE_OS_TOKEN["windows"], "win")
+        self.assertEqual(lsp.NODE_OS_TOKEN["darwin"], "darwin")
+        self.assertEqual(lsp.LUA_OS_TOKEN["windows"], "win32")
+        self.assertEqual(lsp.LUA_OS_TOKEN["darwin"], "darwin")
+
+
 class TestLspDeduplication(unittest.TestCase):
     """lsp.py must not carry copies of _shared helpers."""
 
@@ -114,7 +152,7 @@ class TestLspDeduplication(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d, mock.patch.object(
             lsp, "BIN_DIR", d
         ), mock.patch.object(lsp, "install_github_release_binary") as helper:
-            lsp.install_marksman("linux", "x64")
+            lsp.install_marksman(shared.Platform("linux", "x64"))
         helper.assert_called_once_with(
             "https://github.com/artempyanykh/marksman/releases/latest/download/marksman-linux-x64",
             "marksman",
@@ -127,7 +165,7 @@ class TestLspDeduplication(unittest.TestCase):
             with mock.patch.object(lsp, "BIN_DIR", d), mock.patch.object(
                 lsp, "install_github_release_binary"
             ) as helper:
-                lsp.install_marksman("linux", "x64")
+                lsp.install_marksman(shared.Platform("linux", "x64"))
         helper.assert_not_called()
 
 

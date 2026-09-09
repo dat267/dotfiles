@@ -11,7 +11,7 @@ import sys
 import tarfile
 import zipfile
 
-from _shared import download, extract_archive, fetch_json, github_latest_tag, install_github_release_binary, is_termux
+from _shared import Platform, download, extract_archive, fetch_json, github_latest_tag, install_github_release_binary, is_termux
 
 # Force IPv4 — Termux IPv6 lookups fail on some networks
 _orig_getaddrinfo = socket.getaddrinfo
@@ -34,16 +34,10 @@ def init_dirs():
 
 
 def get_platform():
-    """Detect os/arch. Returns (os_string, arch_string).
-
-    Android detection uses Termux markers. Arch normalized to arm64/x64.
-    """
-    sys_os = platform.system().lower()
-    arch = platform.machine().lower()
-    arch_str = "arm64" if "arm" in arch or "aarch64" in arch else "x64"
-    if sys_os == "linux" and is_termux():
-        sys_os = "android"
-    return sys_os, arch_str
+    """(os, arch) tuple form of Platform.detect() — Android detection uses
+    Termux markers. Arch normalized to arm64/x64."""
+    plat = Platform.detect()
+    return plat.os, plat.arch
 
 
 def download_file(url, dest, description="File"):
@@ -73,18 +67,16 @@ def get_latest_node_version():
         return data[0]["version"]
 
 
-def create_proxy(target_bin, bin_name):
+def create_proxy(plat, target_bin, bin_name):
     """Create a shell wrapper script for target_bin in BIN_DIR.
 
     Windows gets a .cmd batch file. Unix gets a sh script with exec.
     This keeps LSP binaries in ~/.local/share while exposing them on PATH.
     """
-    sys_os = platform.system().lower()
-    ext = ".cmd" if sys_os == "windows" else ""
-    dest = os.path.join(BIN_DIR, bin_name + ext)
+    dest = os.path.join(BIN_DIR, bin_name + plat.script_ext)
     if os.path.exists(dest):
         os.remove(dest)
-    if sys_os == "windows":
+    if plat.is_windows:
         with open(dest, "w") as f:
             f.write(f'@echo off\n"{target_bin}" %*')
     else:
@@ -93,63 +85,69 @@ def create_proxy(target_bin, bin_name):
         os.chmod(dest, 0o755)
 
 
-def install_marksman(sys_os, arch):
+# Release-asset naming per project, keyed by (os, arch) — data, not control
+# flow. Platform supplies the keys.
+MARKSMAN_ASSETS = {
+    ("windows", "x64"): "win.exe",
+    ("windows", "arm64"): "win.exe",
+    ("darwin", "x64"): "macos",
+    ("darwin", "arm64"): "macos-arm64",
+    ("linux", "x64"): "linux-x64",
+    ("linux", "arm64"): "linux-arm64",
+}
+NODE_OS_TOKEN = {"windows": "win", "darwin": "darwin", "linux": "linux"}
+LUA_OS_TOKEN = {"windows": "win32", "darwin": "darwin", "linux": "linux"}
+RUST_ASSETS = {
+    ("windows", "x64"): "x86_64-pc-windows-msvc.zip",
+    ("windows", "arm64"): "aarch64-pc-windows-msvc.zip",
+    ("darwin", "x64"): "x86_64-apple-darwin.gz",
+    ("darwin", "arm64"): "aarch64-apple-darwin.gz",
+    ("linux", "x64"): "x86_64-unknown-linux-gnu.gz",
+    ("linux", "arm64"): "aarch64-unknown-linux-gnu.gz",
+}
+
+
+def install_marksman(plat):
     """Install Marksman LSP. On Android uses pkg. On other platforms downloads binary."""
     print("\n=== Installing Marksman ===")
-    if sys_os == "android":
+    if plat.is_android:
         if shutil.which("pkg"):
             subprocess.run(["pkg", "install", "-y", "marksman"])
         return
 
-    ext = ".exe" if sys_os == "windows" else ""
-    if os.path.exists(os.path.join(BIN_DIR, "marksman" + ext)):
+    if os.path.exists(os.path.join(BIN_DIR, "marksman" + plat.exe_ext)):
         return
 
-    if sys_os == "windows":
-        suffix = "win.exe"
-    elif sys_os == "darwin":
-        suffix = "macos-arm64" if arch == "arm64" else "macos"
-    else:
-        suffix = "linux-arm64" if arch == "arm64" else "linux-x64"
-
-    url = f"https://github.com/artempyanykh/marksman/releases/latest/download/marksman-{suffix}"
+    url = f"https://github.com/artempyanykh/marksman/releases/latest/download/marksman-{MARKSMAN_ASSETS[(plat.os, plat.arch)]}"
     try:
-        install_github_release_binary(url, "marksman" + ext, BIN_DIR)
+        install_github_release_binary(url, "marksman" + plat.exe_ext, BIN_DIR)
     except Exception as e:
         print(f"\n[Error] Failed to install Marksman: {e}")
 
 
-def install_lua_lsp(sys_os, arch):
+def install_lua_lsp(plat):
     """Install Lua Language Server. Downloads archive, extracts, creates proxy."""
     print("\n=== Installing Lua Language Server ===")
-    if sys_os == "android":
+    if plat.is_android:
         if shutil.which("pkg"):
             subprocess.run(["pkg", "install", "-y", "lua-language-server"])
             create_proxy(
-                os.path.join(
-                    os.environ.get("PREFIX", "/data/data/com.termux/files/usr"),
-                    "bin",
-                    "lua-language-server",
-                ),
+                plat,
+                os.path.join(plat.termux_prefix, "bin", "lua-language-server"),
                 "lua-language-server",
             )
         return
 
     target_path = os.path.join(SHARE_DIR, "lua-language-server")
-    ext = ".exe" if sys_os == "windows" else ""
-    lua_bin = os.path.join(target_path, "bin", "lua-language-server" + ext)
+    lua_bin = os.path.join(target_path, "bin", "lua-language-server" + plat.exe_ext)
     if os.path.exists(lua_bin):
-        create_proxy(lua_bin, "lua-language-server")
+        create_proxy(plat, lua_bin, "lua-language-server")
         return
 
     version = github_latest_tag("LuaLS/lua-language-server") or "3.13.5"
-    os_str = (
-        "win32" if sys_os == "windows" else "darwin" if sys_os == "darwin" else "linux"
-    )
-    arch_str = "arm64" if arch == "arm64" else "x64"
-    archive_ext = ".zip" if sys_os == "windows" else ".tar.gz"
+    archive_ext = plat.archive_ext("tar.gz")
 
-    url = f"https://github.com/LuaLS/lua-language-server/releases/download/{version}/lua-language-server-{version}-{os_str}-{arch_str}{archive_ext}"
+    url = f"https://github.com/LuaLS/lua-language-server/releases/download/{version}/lua-language-server-{version}-{LUA_OS_TOKEN[plat.os]}-{plat.arch}{archive_ext}"
     archive_path = os.path.join(SHARE_DIR, f"lua-lsp{archive_ext}")
 
     if download_file(url, archive_path, "Lua LSP Archive"):
@@ -159,23 +157,21 @@ def install_lua_lsp(sys_os, arch):
             create_proxy(lua_bin, "lua-language-server")
 
 
-def install_node_tools(sys_os, arch):
+def install_node_tools(plat):
     """Install Node.js runtime and npm-based LSPs from NPM_PKGS/NPM_BINS."""
     print("\n=== Installing Node.js & npm Tools ===")
     node_target = os.path.join(SHARE_DIR, "node")
-    npm_ext = ".cmd" if sys_os == "windows" else ""
 
-    if sys_os == "android":
+    if plat.is_android:
         if shutil.which("pkg"):
             subprocess.run(["pkg", "install", "-y", "nodejs"])
         npm_bin = shutil.which("npm")
         if not npm_bin:
             return
     else:
-        node_ext = ".exe" if sys_os == "windows" else ""
         node_bin = (
-            os.path.join(node_target, "node" + node_ext)
-            if sys_os == "windows"
+            os.path.join(node_target, "node" + plat.exe_ext)
+            if plat.is_windows
             else os.path.join(node_target, "bin", "node")
         )
 
@@ -185,14 +181,8 @@ def install_node_tools(sys_os, arch):
                 print("\n[Error] Could not resolve Node.js version.")
                 return
 
-            os_str = (
-                "win"
-                if sys_os == "windows"
-                else "darwin" if sys_os == "darwin" else "linux"
-            )
-            arch_str = "x64" if arch == "x64" else "arm64"
-            archive_ext = ".zip" if sys_os == "windows" else ".tar.gz"
-            dir_name = f"node-{node_v}-{os_str}-{arch_str}"
+            archive_ext = plat.archive_ext("tar.gz")
+            dir_name = f"node-{node_v}-{NODE_OS_TOKEN[plat.os]}-{plat.arch}"
             url = f"https://nodejs.org/dist/{node_v}/{dir_name}{archive_ext}"
             archive_path = os.path.join(SHARE_DIR, f"node{archive_ext}")
 
@@ -204,29 +194,28 @@ def install_node_tools(sys_os, arch):
                 os.remove(archive_path)
 
         npm_bin = (
-            os.path.join(node_target, "npm" + npm_ext)
-            if sys_os == "windows"
+            os.path.join(node_target, "npm" + plat.script_ext)
+            if plat.is_windows
             else os.path.join(node_target, "bin", "npm")
         )
 
     if os.path.exists(npm_bin):
-        if sys_os == "android":
+        if plat.is_android:
             subprocess.run([npm_bin, "install", "-g"] + NPM_PKGS)
-            prefix_dir = os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
             for t in NPM_BINS:
-                src = os.path.join(prefix_dir, "bin", t)
+                src = os.path.join(plat.termux_prefix, "bin", t)
                 if os.path.exists(src):
-                    create_proxy(src, t)
+                    create_proxy(plat, src, t)
         else:
             subprocess.run([npm_bin, "install", "-g", "--prefix", node_target] + NPM_PKGS)
             for t in NPM_BINS:
                 src = (
-                    os.path.join(node_target, t + npm_ext)
-                    if sys_os == "windows"
+                    os.path.join(node_target, t + plat.script_ext)
+                    if plat.is_windows
                     else os.path.join(node_target, "bin", t)
                 )
                 if os.path.exists(src):
-                    create_proxy(src, t)
+                    create_proxy(plat, src, t)
 
 
 # npm packages and the binaries they produce — the node recipe installs all
@@ -253,27 +242,25 @@ NPM_BINS = [
 ]
 
 
-def install_black(sys_os):
+def install_black(plat):
     """Install Black formatter in a dedicated venv under ~/.local/share."""
     print("\n=== Installing Black Formatter ===")
     env_dir = os.path.join(SHARE_DIR, "black_env")
-    bin_sub = "Scripts" if sys_os == "windows" else "bin"
-    ext = ".exe" if sys_os == "windows" else ""
-    black_bin = os.path.join(env_dir, bin_sub, "black" + ext)
+    black_bin = os.path.join(env_dir, plat.venv_bin, "black" + plat.exe_ext)
 
     if os.path.exists(black_bin):
-        create_proxy(black_bin, "black")
+        create_proxy(plat, black_bin, "black")
         return
 
     subprocess.run([sys.executable, "-m", "venv", env_dir])
-    pip_bin = os.path.join(env_dir, bin_sub, "pip" + ext)
+    pip_bin = os.path.join(env_dir, plat.venv_bin, "pip" + plat.exe_ext)
     if os.path.exists(pip_bin):
         subprocess.run([pip_bin, "install", "-U", "black"])
         if os.path.exists(black_bin):
-            create_proxy(black_bin, "black")
+            create_proxy(plat, black_bin, "black")
 
 
-def install_gopls():
+def install_gopls(plat):
     """Install gopls via go install. Requires Go toolchain on PATH."""
     print("\n=== Installing Gopls ===")
     if shutil.which("go"):
@@ -282,7 +269,7 @@ def install_gopls():
         subprocess.run(["go", "install", "golang.org/x/tools/gopls@latest"], env=env)
 
 
-def install_powershell_es():
+def install_powershell_es(plat):
     """Install PowerShell Editor Services. Downloads zip, extracts to ~/.local/share."""
     print("\n=== Installing PowerShell Editor Services ===")
     target_dir = os.path.join(SHARE_DIR, "powershell_es")
@@ -300,42 +287,25 @@ def install_powershell_es():
         os.remove(zip_path)
 
 
-def install_rust_analyzer(sys_os, arch):
+def install_rust_analyzer(plat):
     """Install Rust Analyzer. On Android uses pkg. On other platforms downloads binary/gz."""
     print("\n=== Installing Rust Analyzer ===")
-    if sys_os == "android":
+    if plat.is_android:
         if shutil.which("pkg"):
             subprocess.run(["pkg", "install", "-y", "rust-analyzer"])
         return
 
-    ext = ".exe" if sys_os == "windows" else ""
-    dest_bin = os.path.join(BIN_DIR, "rust-analyzer" + ext)
+    dest_bin = os.path.join(BIN_DIR, "rust-analyzer" + plat.exe_ext)
     if os.path.exists(dest_bin):
         return
 
-    if sys_os == "windows":
-        suffix = (
-            "aarch64-pc-windows-msvc.zip"
-            if arch == "arm64"
-            else "x86_64-pc-windows-msvc.zip"
-        )
-    elif sys_os == "darwin":
-        suffix = (
-            "aarch64-apple-darwin.gz" if arch == "arm64" else "x86_64-apple-darwin.gz"
-        )
-    else:
-        suffix = (
-            "aarch64-unknown-linux-gnu.gz"
-            if arch == "arm64"
-            else "x86_64-unknown-linux-gnu.gz"
-        )
-
-    archive_ext = ".zip" if sys_os == "windows" else ".gz"
+    suffix = RUST_ASSETS[(plat.os, plat.arch)]
+    archive_ext = plat.archive_ext("gz")
     url = f"https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-{suffix}"
     archive_path = os.path.join(SHARE_DIR, f"rust-analyzer{archive_ext}")
 
     if download_file(url, archive_path, "Rust Analyzer Archive"):
-        if archive_ext == ".zip":
+        if suffix.endswith(".zip"):
             with zipfile.ZipFile(archive_path, "r") as z:
                 for member in z.namelist():
                     if member.endswith(".exe"):
@@ -350,7 +320,7 @@ def install_rust_analyzer(sys_os, arch):
         os.chmod(dest_bin, 0o755)
 
 
-def uninstall_all(sys_os):
+def uninstall_all(plat):
     """Remove all installed LSPs, runtimes, and their proxies."""
     print("\n=== Uninstalling All LSPs & Runtimes ===")
 
@@ -375,7 +345,7 @@ def uninstall_all(sys_os):
                 os.remove(path)
                 print(f"[Removed] {path}")
 
-    if sys_os == "android" and shutil.which("pkg"):
+    if plat.is_android and shutil.which("pkg"):
         print("\n[Running package manager cleanup]")
         subprocess.run(
             [
@@ -423,18 +393,18 @@ def main():
     parser.add_argument('action', choices=['install', 'uninstall'], help='Action to perform')
     args = parser.parse_args()
 
-    sys_os, arch = get_platform()
+    plat = Platform.detect()
     action = args.action
 
     if action == "uninstall":
-        uninstall_all(sys_os)
+        uninstall_all(plat)
     else:
         init_dirs()
         manifest = load_manifest()
         if not manifest:
             # No manifest (not yet deployed) — run every recipe, legacy order.
             for install in INSTALL_RECIPES:
-                INSTALL_RECIPES[install](sys_os, arch)
+                INSTALL_RECIPES[install](plat)
             return
         ran_node = False
         for name, entry in manifest.items():
@@ -446,7 +416,7 @@ def main():
                 if ran_node:
                     continue
                 ran_node = True
-            recipe(sys_os, arch)
+            recipe(plat)
 
 
 if __name__ == "__main__":

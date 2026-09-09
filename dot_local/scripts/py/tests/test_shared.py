@@ -104,6 +104,48 @@ class TestDownload(unittest.TestCase):
                 download("https://example.com/f", str(dest), opener=boom)
 
 
+class TestPlatform(unittest.TestCase):
+    """One Platform seam: detection plus the vocabulary install scripts keep
+    re-deriving — exe/launcher extensions, venv bin dir, archive extensions,
+    Termux prefix."""
+
+    def test_windows_vocabulary(self):
+        win = shared.Platform("windows", "arm64")
+        self.assertEqual(win.exe_ext, ".exe")
+        self.assertEqual(win.script_ext, ".cmd")
+        self.assertEqual(win.venv_bin, "Scripts")
+        self.assertTrue(win.is_windows)
+        self.assertFalse(win.is_android)
+        self.assertEqual(win.archive_ext("tar.gz"), ".zip")
+        self.assertEqual(win.archive_ext("gz"), ".zip")
+
+    def test_unix_vocabulary(self):
+        lin = shared.Platform("linux", "arm64")
+        self.assertEqual((lin.exe_ext, lin.script_ext, lin.venv_bin), ("", "", "bin"))
+        self.assertFalse(lin.is_windows)
+        self.assertEqual(lin.archive_ext("tar.gz"), ".tar.gz")
+        self.assertEqual(lin.archive_ext("gz"), ".gz")
+
+    def test_android_helpers(self):
+        android = shared.Platform("android", "arm64")
+        self.assertTrue(android.is_android)
+        self.assertTrue(android.termux_prefix.endswith("files/usr"))
+
+    def test_detect_remaps_termux_to_android(self):
+        with mock.patch("platform.system", return_value="Linux"), mock.patch(
+            "platform.machine", return_value="aarch64"
+        ), mock.patch.object(shared, "is_termux", return_value=True):
+            plat = shared.Platform.detect()
+        self.assertEqual((plat.os, plat.arch), ("android", "arm64"))
+
+    def test_detect_plain_linux(self):
+        with mock.patch("platform.system", return_value="Linux"), mock.patch(
+            "platform.machine", return_value="x86_64"
+        ), mock.patch.object(shared, "is_termux", return_value=False):
+            plat = shared.Platform.detect()
+        self.assertEqual((plat.os, plat.arch), ("linux", "x64"))
+
+
 class TestGetPlatformInfo(unittest.TestCase):
     def run_with(self, system, machine):
         with mock.patch("platform.system", return_value=system), mock.patch(

@@ -124,6 +124,56 @@ def log(message, color=None):
         print(message)
 
 
+class Platform:
+    """Detected platform plus the vocabulary install scripts keep re-deriving:
+    executable/launcher extensions, venv bin dir, archive extensions, Termux
+    prefix. Construct directly for tests; use detect() at runtime."""
+
+    def __init__(self, os_name, arch):
+        self.os = os_name      # linux | windows | darwin | android
+        self.arch = arch       # arm64 | x64
+
+    @classmethod
+    def detect(cls):
+        """Runtime detection: Termux marker remaps Linux to Android,
+        machine is normalized to arm64/x64."""
+        system = platform.system().lower()
+        machine = platform.machine().lower()
+        arch = "arm64" if ("arm" in machine or "aarch64" in machine) else "x64"
+        os_name = "android" if system == "linux" and is_termux() else system
+        return cls(os_name, arch)
+
+    @property
+    def is_windows(self):
+        return self.os == "windows"
+
+    @property
+    def is_android(self):
+        return self.os == "android"
+
+    @property
+    def exe_ext(self):
+        return ".exe" if self.is_windows else ""
+
+    @property
+    def script_ext(self):
+        return ".cmd" if self.is_windows else ""
+
+    @property
+    def venv_bin(self):
+        return "Scripts" if self.is_windows else "bin"
+
+    @property
+    def termux_prefix(self):
+        return os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
+
+    def archive_ext(self, kind):
+        """Extension for archive kind ("zip", "tar.gz", "gz") — Windows ships .zip."""
+        if self.is_windows:
+            return ".zip"
+        return {"zip": ".tar.gz", "tar.gz": ".tar.gz", "gz": ".gz"}[kind]
+
+
 def get_platform_info():
     system = platform.system().lower()
     machine = platform.machine().lower()
