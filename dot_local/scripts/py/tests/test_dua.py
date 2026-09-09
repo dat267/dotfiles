@@ -29,18 +29,6 @@ def size_of(root):
     return total
 
 
-class TestHuman(unittest.TestCase):
-    def test_bytes_under_1024(self):
-        self.assertEqual(dua.human(0), "0 B")
-        self.assertEqual(dua.human(1023), "1023 B")
-
-    def test_kib_mib_gib(self):
-        self.assertEqual(dua.human(1024), "1.0 KiB")
-        self.assertEqual(dua.human(1536), "1.5 KiB")
-        self.assertEqual(dua.human(10 * 1024**2), "10 MiB")
-        self.assertEqual(dua.human(1024**3), "1.0 GiB")
-
-
 class TestAggregateTotals(unittest.TestCase):
     def test_subtree_sums(self):
         raw = {"r": 10, "a": 20, "a/b": 30, "c": 40}
@@ -151,32 +139,133 @@ class TestWalk(unittest.TestCase):
         self.assertEqual(dua.aggregate_totals(r.raw, r.children, f), 8)
 
 
+class TestByteFormat(unittest.TestCase):
+    """dua-cli ByteFormat parity: binary default, 2 decimals, dua width() justification."""
+
+    def test_binary_units(self):
+        f = dua.ByteFormat("binary")
+        self.assertEqual(f.format(0), "0 B")
+        self.assertEqual(f.format(523), "523 B")
+        self.assertEqual(f.format(1023), "1023 B")
+        self.assertEqual(f.format(1024), "1.00 KiB")
+        self.assertEqual(f.format(1536), "1.50 KiB")
+        self.assertEqual(f.format(10 * 1024**2), "10.00 MiB")
+        self.assertEqual(f.format(1024**3), "1.00 GiB")
+
+    def test_binary_column_width_is_15(self):
+        f = dua.ByteFormat("binary")
+        self.assertEqual(f.width, 11)
+
+    def test_metric_units(self):
+        f = dua.ByteFormat("metric")
+        self.assertEqual(f.format(523), "523 B")
+        self.assertEqual(f.format(1000), "1.00 kB")
+        self.assertEqual(f.format(1500), "1.50 kB")
+        self.assertEqual(f.format(10 * 1000**2), "10.00 MB")
+        self.assertEqual(f.width, 10)
+
+    def test_bytes_raw(self):
+        f = dua.ByteFormat("bytes")
+        self.assertEqual(f.format(200), "200 b")
+        self.assertEqual(f.format(1024), "1024 b")
+
+
+class TestProgress(unittest.TestCase):
+    """dua-cli TraversalProgress: throttled "Enumerating N items\r" line on
+    stderr, cleared before final output."""
+
+    def test_throttled_updates_and_clear(self):
+        out = io.StringIO()
+        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0)
+        p.update(1)
+        self.assertEqual(out.getvalue(), "Enumerating 1 items\r")
+        p.update(2)  # inside throttle window: skipped
+        self.assertEqual(out.getvalue(), "Enumerating 1 items\r")
+        p.update(3, now=0.2)  # window passed: written
+        self.assertEqual(out.getvalue(), "Enumerating 1 items\rEnumerating 3 items\r")
+
+    def test_finish_clears_line(self):
+        out = io.StringIO()
+        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0)
+        p.update(1)
+        p.finish()
+        self.assertEqual(out.getvalue(), "Enumerating 1 items\r\x1b[2K")
+
+    def test_finish_without_update_writes_nothing(self):
+        out = io.StringIO()
+        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0)
+        p.finish()
+        self.assertEqual(out.getvalue(), "")
+
+    def test_main_renders_progress_when_tty(self):
+        root = make_tree({f"f{i}": b"x" * 10 for i in range(50)})
+        err = io.StringIO()
+        p = dua.Progress(err, throttle_ms=0, tty=True)
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            dua.main(argv=[root, "--apparent", "--threads", "1"], progress=p)
+        self.assertIn("Enumerating", err.getvalue())
+        self.assertTrue(err.getvalue().endswith("\x1b[2K"))  # cleared before output
+
+    def test_disabled_when_not_tty(self):
+        out = io.StringIO()  # not a tty
+        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0, tty=False)
+        p.update(1)
+        p.finish()
+        self.assertEqual(out.getvalue(), "")
+
+
+class TestRenderLine(unittest.TestCase):
+    """dua-cli line shape: right-aligned size column, space, path, IO-error suffix."""
+
+    def test_aligned_line(self):
+        f = dua.ByteFormat("binary")
+        line = dua.render_line(1024, "dir", f)
+        self.assertEqual(line, "   1.00 KiB dir")
+
+    def test_io_error_suffix(self):
+        f = dua.ByteFormat("binary")
+        self.assertEqual(dua.render_line(1024, "dir", f, errors=1),
+                         "   1.00 KiB dir  <1 IO Error>")
+        self.assertEqual(dua.render_line(1024, "dir", f, errors=3),
+                         "   1.00 KiB dir  <3 IO Errors>")
+
+
 class TestRenderTree(unittest.TestCase):
-    def test_indentation_and_order(self):
+    def test_glyphs_and_order(self):
         root = "r"
         raw = {"r": 1, "big": 100, "small": 2}
         children = {"r": ["big", "small"], "big": [], "small": []}
-        lines = dua.render_tree(raw, children, root, humanize=False)
-        self.assertEqual(lines, ["100 b  big", "2 b  small"])  # desc default
+        lines = dua.render_tree(raw, children, root)
+        self.assertEqual(lines, ["       100 b ├── big", "         2 b └── small"])  # desc default
+
+    def test_glyphs_children_and_continuation(self):
+        raw = {"r": 0, "big": 100, "big/sub": 60, "small": 2}
+        children = {"r": ["big", "small"], "big": ["big/sub"], "big/sub": [], "small": []}
+        lines = dua.render_tree(raw, children, "r")
+        self.assertEqual(lines, [
+            "       160 b ├─┬ big",   # subtree: 100 direct + 60 sub
+            "        60 b │ └── sub",
+            "         2 b └── small",
+        ])
 
     def test_depth_limit(self):
         raw = {"r": 0, "a": 1, "a/b": 2}
         children = {"r": ["a"], "a": ["a/b"]}
-        lines = dua.render_tree(raw, children, "r", max_depth=1, humanize=False)
-        self.assertEqual(lines, ["3 b  a"])  # a's subtree = 1 + 2
+        lines = dua.render_tree(raw, children, "r", max_depth=1)
+        self.assertEqual(lines, ["         3 b └─┬ a"])  # a's subtree = 1 + 2; has kids
         self.assertNotIn("a/b", " ".join(lines))
 
 
 class TestMain(unittest.TestCase):
-    def test_aggregate_prints_sorted_and_total(self):
+    def test_aggregate_dua_format_and_total(self):
         root = make_tree({"big/f": b"b" * 200, "small/f": b"s"})
         buf = io.StringIO()
         with redirect_stdout(buf):
             rc = dua.main(argv=[root, "--apparent"])
         self.assertEqual(rc, 0)
         lines = buf.getvalue().splitlines()
-        self.assertEqual(lines[0], "200 b  big")  # desc default
-        self.assertEqual(lines[-1], "201 b total")
+        self.assertEqual(lines[0], "      200 B big")  # binary default, dua-style column
+        self.assertEqual(lines[-1], "      201 B total")
 
     def test_asc_flag(self):
         root = make_tree({"big/f": b"b" * 200, "small/f": b"s"})
@@ -184,7 +273,39 @@ class TestMain(unittest.TestCase):
         with redirect_stdout(buf):
             dua.main(argv=[root, "--apparent", "--asc"])
         lines = buf.getvalue().splitlines()
-        self.assertEqual(lines[0], "1 b  small")
+        self.assertEqual(lines[0], "        1 B small")
+
+    def test_format_bytes_restores_raw(self):
+        root = make_tree({"big/f": b"b" * 200, "small/f": b"s"})
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            dua.main(argv=[root, "--apparent", "--format", "bytes"])
+        lines = buf.getvalue().splitlines()
+        self.assertEqual(lines[0], "       200 b big")
+        self.assertEqual(lines[-1], "       201 b total")
+
+    def test_format_metric(self):
+        root = make_tree({"big/f": b"b" * 1500})
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            dua.main(argv=[root, "--apparent", "--format", "metric"])
+        lines = buf.getvalue().splitlines()
+        self.assertEqual(lines[-1], "   1.50 kB total")
+
+    def test_io_error_suffix_on_lines(self):
+        root = make_tree({"ok.txt": b"fine"})
+        sub = os.path.join(root, "locked")
+        os.makedirs(sub, exist_ok=True)
+        os.chmod(sub, 0)
+        try:
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                dua.main(argv=[root, "--apparent", "--threads", "1"])
+            lines = buf.getvalue().splitlines()
+        finally:
+            os.chmod(sub, 0o700)
+        self.assertTrue(any("<1 IO Error>" in ln for ln in lines), lines)
+        self.assertTrue(lines[-1].startswith("        4 B total  <1 IO Error>"), lines)
 
     def test_files_mode_lists_top_n(self):
         root = make_tree({"big": b"b" * 200, "mid": b"m" * 100, "small": b"s", "sub/nested": b"n" * 300})
@@ -195,8 +316,8 @@ class TestMain(unittest.TestCase):
         self.assertEqual(rc, 0)
         lines = buf.getvalue().splitlines()
         self.assertEqual(len(lines), 2)
-        self.assertTrue(lines[0].startswith("300"))
-        self.assertTrue(lines[1].startswith("200"))
+        self.assertTrue(lines[0].startswith("      300 B"), lines)
+        self.assertTrue(lines[1].startswith("      200 B"), lines)
         self.assertIn("4 files", err.getvalue())
 
     def test_missing_input_errors(self):
