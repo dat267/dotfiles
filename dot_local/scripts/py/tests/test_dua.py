@@ -204,6 +204,45 @@ class TestScanPipeline(unittest.TestCase):
                          dua_apparent_size(root))  # all 8 seeds scanned, none dropped
 
 
+class TestBuildRows(unittest.TestCase):
+    """dua's aggregate row assembly as structured data — sort, mode selection,
+    and the total rule testable without parsing rendered output."""
+
+    def test_entries_mode_rows_mixed_files_and_dirs(self):
+        root = make_tree({"dir/f": b"d" * 50, "topfile.txt": b"t" * 5})
+        rows, rc = dua.build_rows([root], apparent=True)
+        self.assertEqual(rc, 0)
+        self.assertEqual(rows, [
+            (5, 0, "topfile.txt", False),
+            (dua_apparent_size(os.path.join(root, "dir")), 0, "dir", True),
+        ])  # ascending, files plain, dirs flagged
+
+    def test_paths_mode_one_row_per_input(self):
+        root = make_tree({"a/f": b"a" * 50, "b/g": b"b" * 5})
+        a, b = os.path.join(root, "a"), os.path.join(root, "b")
+        rows, rc = dua.build_rows([a, b], apparent=True)
+        self.assertEqual(rc, 0)
+        self.assertEqual(rows, [
+            (dua_apparent_size(b), 0, b, True),
+            (dua_apparent_size(a), 0, a, True),
+        ])  # labels are the inputs as given
+
+    def test_missing_input_sets_rc_keeps_rest(self):
+        root = make_tree({"a/f": b"x"})
+        err = io.StringIO()
+        with redirect_stderr(err):
+            rows, rc = dua.build_rows(["/nonexistent/xyz", root])
+        self.assertEqual(rc, 1)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][2], root)
+        self.assertIn("/nonexistent/xyz", err.getvalue())
+
+    def test_empty_dir_no_rows(self):
+        root = make_tree({})
+        rows, rc = dua.build_rows([root])
+        self.assertEqual((rows, rc), ([], 0))
+
+
 class TestPortability(unittest.TestCase):
     """Windows/POSIX fallbacks: no st_blocks on Windows, partial pipe writes."""
 

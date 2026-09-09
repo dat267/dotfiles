@@ -387,6 +387,59 @@ def render_line(size, label, fmt, errors=0, color=False, is_dir=False):
     return line
 
 
+def build_rows(inputs, threads=0, apparent=False, count_hard_links=False, prog=None):
+    """dua's aggregate rows as structured data.
+
+    One dir input (or none — cwd) lists that dir's top-level entries (files
+    AND dirs); several inputs list one row per input. Rows are
+    [(size, errors, label, is_dir)] sorted ascending (stable, dua's default).
+    Returns (rows, rc); rc = 1 when any input was missing (its error is
+    printed to stderr, the remaining inputs still produce rows).
+    """
+    inputs = list(inputs or ["."])
+    rows = []
+    rc = 0
+
+    def load(inp):
+        try:
+            return walk(inp, threads=threads, apparent=apparent,
+                        count_hard_links=count_hard_links,
+                        progress=prog.update if prog else None), None
+        except FileNotFoundError:
+            print(f"dua.py: error: no such file or directory: {inp}", file=sys.stderr)
+            return None, 1
+
+    if len(inputs) == 1 and os.path.isdir(inputs[0]):
+        inp = inputs[0]
+        r, err = load(inp)
+        if err:
+            return [], err
+        if prog:
+            prog.finish()
+        root = os.path.abspath(inp)
+        for c in r.children.get(root, ()):
+            rows.append((aggregate_totals(r.raw, r.children, c),
+                         aggregate_errors(r.errs, r.children, c),
+                         os.path.basename(c), True))
+        for name, size in r.top.items():
+            rows.append((size, 0, name, False))
+    else:
+        for inp in inputs:
+            r, err = load(inp)
+            if err:
+                rc = err
+                continue
+            if prog:
+                prog.finish()
+            root = os.path.abspath(inp)
+            rows.append((aggregate_totals(r.raw, r.children, root),
+                         aggregate_errors(r.errs, r.children, root),
+                         inp, os.path.isdir(inp)))
+
+    rows.sort(key=lambda e: e[0])  # ascending, stable
+    return rows, rc
+
+
 def main(argv=None, progress=None, color=None, no_color=False):
     parser = argparse.ArgumentParser(prog="dua.py", description="Python disk usage analyzer (dua-style).")
     parser.add_argument("inputs", nargs="*", default=["."], help="dirs or files (default: .)")
@@ -429,48 +482,10 @@ def main(argv=None, progress=None, color=None, no_color=False):
         return 0
 
     inputs = args.inputs or ["."]
-    entries_mode = len(inputs) == 1 and os.path.isdir(inputs[0])
-    # dua: no args or one dir input lists that dir's top-level entries
-    # (files AND dirs); several inputs list one row per input. Rows are
-    # sorted ascending (dua's default); the total row only appears when
-    # there is more than one row.
-
-    def load(inp):
-        try:
-            return walk(inp, threads=args.threads, apparent=args.apparent,
-                        count_hard_links=args.count_hard_links, progress=prog.update), None
-        except FileNotFoundError:
-            print(f"dua.py: error: no such file or directory: {inp}", file=sys.stderr)
-            return None, 1
-
-    rows = []
-    rc = 0
-    if entries_mode:
-        inp = inputs[0]
-        r, err = load(inp)
-        if err:
-            return err
-        prog.finish()
-        root = os.path.abspath(inp)
-        for c in r.children.get(root, ()):
-            rows.append((aggregate_totals(r.raw, r.children, c),
-                         aggregate_errors(r.errs, r.children, c),
-                         os.path.basename(c), True))
-        for name, size in r.top.items():
-            rows.append((size, 0, name, False))
-    else:
-        for inp in args.inputs:
-            r, err = load(inp)
-            if err:
-                rc = err
-                continue
-            prog.finish()
-            root = os.path.abspath(inp)
-            rows.append((aggregate_totals(r.raw, r.children, root),
-                         aggregate_errors(r.errs, r.children, root),
-                         inp, os.path.isdir(inp)))
-
-    rows.sort(key=lambda e: e[0])  # ascending, stable
+    rows, rc = build_rows(inputs, threads=args.threads, apparent=args.apparent,
+                          count_hard_links=args.count_hard_links, prog=prog)
+    # dua: rows ascending; the total row only appears when there is more
+    # than one row.
     for size, errs_n, label, is_dir in rows:
         print(render_line(size, label, fmt, errors=errs_n,
                           color=use_color, is_dir=is_dir))
