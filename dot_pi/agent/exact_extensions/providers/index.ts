@@ -9,10 +9,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { registerCharmHyper } from "./hyper/index.ts";
 import { registerClinePass } from "./cline-pass/index.ts";
-import { registerWindowsCopilot } from "./windows-copilot/index.ts";
 
 export default function (pi: ExtensionAPI) {
 	registerCharmHyper(pi);
 	registerClinePass(pi);
-	registerWindowsCopilot(pi);
 }
