@@ -250,6 +250,40 @@ class TestRenderLine(unittest.TestCase):
                          "   1.00 KiB dir  <3 IO Errors>")
 
 
+class TestColor(unittest.TestCase):
+    """dua-cli palette: green size column, cyan dir paths, auto TTY gating."""
+
+    def test_green_size_cyan_dir(self):
+        f = dua.ByteFormat("binary")
+        line = dua.render_line(1024, "dir", f, color=True, is_dir=True)
+        self.assertEqual(line, "\x1b[32m   1.00 KiB\x1b[0m \x1b[36mdir\x1b[0m")
+
+    def test_files_and_total_plain_label(self):
+        f = dua.ByteFormat("binary")
+        line = dua.render_line(1024, "f.txt", f, color=True)
+        self.assertEqual(line, "\x1b[32m   1.00 KiB\x1b[0m f.txt")
+
+    def test_no_color_codes_when_disabled(self):
+        f = dua.ByteFormat("binary")
+        self.assertEqual(dua.render_line(1024, "dir", f, color=False, is_dir=True),
+                         "   1.00 KiB dir")
+
+    def test_main_injects_color_when_tty(self):
+        root = make_tree({"big/f": b"b" * 200})
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            dua.main(argv=[root, "--apparent"], color=True)
+        self.assertIn("\x1b[32m", buf.getvalue())
+        self.assertIn("\x1b[36m", buf.getvalue())
+
+    def test_main_respects_no_color_env(self):
+        root = make_tree({"big/f": b"b" * 200})
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            dua.main(argv=[root, "--apparent"], color=True, no_color=True)
+        self.assertNotIn("\x1b[", buf.getvalue())
+
+
 class TestRenderTree(unittest.TestCase):
     def test_glyphs_and_order(self):
         root = "r"

@@ -331,15 +331,24 @@ class Progress:
             self.visible = False
 
 
-def render_line(size, label, fmt, errors=0):
-    """One dua-cli output row: right-aligned size, space, label, error suffix."""
-    line = f"{fmt.format(size):>{fmt.width}} {label}"
+def render_line(size, label, fmt, errors=0, color=False, is_dir=False):
+    """One dua-cli output row: right-aligned size, space, label, error suffix.
+
+    color: dua's palette — green size column, cyan for directory paths.
+    Padding happens before wrapping so the column stays aligned.
+    """
+    line = f"{fmt.format(size):>{fmt.width}}"
+    if color:
+        line = f"\x1b[32m{line}\x1b[0m"
+        if is_dir:
+            label = f"\x1b[36m{label}\x1b[0m"
+    line += f" {label}"
     if errors:
         line += f"  <{errors} IO Error{'s' if errors != 1 else ''}>"
     return line
 
 
-def render_tree(raw, children, root, max_depth=None, fmt=None, desc=True):
+def render_tree(raw, children, root, max_depth=None, fmt=None, desc=True, color=False):
     """Indented dua-style tree with box glyphs (├──/└──, ├─┬ for dirs with
     children), sorted by subtree size."""
     out = []
@@ -357,7 +366,8 @@ def render_tree(raw, children, root, max_depth=None, fmt=None, desc=True):
             else:
                 connector = "├─┬ " if has_kids else "├── "
             size_str = fmt or ByteFormat("bytes")
-            out.append(render_line(size, f"{prefix}{connector}{os.path.basename(child)}", size_str))
+            out.append(render_line(size, f"{prefix}{connector}{os.path.basename(child)}",
+                                   size_str, color=color, is_dir=True))
             if max_depth is None or depth < max_depth:
                 walk_level(child, depth + 1, prefix + ("│ " if not last else "  "))
 
@@ -365,7 +375,7 @@ def render_tree(raw, children, root, max_depth=None, fmt=None, desc=True):
     return out
 
 
-def main(argv=None, progress=None):
+def main(argv=None, progress=None, color=None, no_color=False):
     parser = argparse.ArgumentParser(prog="dua.py", description="Python disk usage analyzer (dua-style).")
     parser.add_argument("inputs", nargs="*", default=["."], help="dirs or files (default: .)")
     parser.add_argument("-t", "--threads", type=int, default=0, help="worker processes; 0 = all cores (default). 1 = single-threaded")
@@ -383,6 +393,8 @@ def main(argv=None, progress=None):
     fmt = ByteFormat("binary" if args.human else args.format)
 
     prog = progress if progress is not None else Progress(sys.stderr, tty=sys.stderr.isatty())
+    use_color = (not no_color and not os.environ.get("NO_COLOR")
+                 and (color if color is not None else sys.stdout.isatty()))
 
     if args.files is not None:
         if args.files < 1:
@@ -400,7 +412,7 @@ def main(argv=None, progress=None):
                 return 1
             prog.finish()
             for size, path in r.largest:
-                print(render_line(size, path, fmt))
+                print(render_line(size, path, fmt, color=use_color))
             listed += sum(s for s, _ in r.largest)
             file_count += r.files
         print(f"dua.py: {file_count} files scanned, {fmt.format(listed)} in top listing", file=sys.stderr)
@@ -429,9 +441,10 @@ def main(argv=None, progress=None):
         all_total += total
         all_errors += aggregate_errors(r.errs, r.children, root)
         if args.depth is not None:
-            print(render_line(total, inp, fmt, errors=aggregate_errors(r.errs, r.children, root)))
+            print(render_line(total, inp, fmt, errors=aggregate_errors(r.errs, r.children, root),
+                              color=use_color, is_dir=True))
             for line in render_tree(r.raw, r.children, root, max_depth=args.depth,
-                                    fmt=fmt, desc=not args.asc):
+                                    fmt=fmt, desc=not args.asc, color=use_color):
                 print(line)
             continue
         entries = [(aggregate_totals(r.raw, r.children, c),
@@ -439,13 +452,15 @@ def main(argv=None, progress=None):
                    for c in r.children.get(root, ())]
         if not entries:
             print(render_line(total, inp, fmt,
-                              errors=aggregate_errors(r.errs, r.children, root)))
+                              errors=aggregate_errors(r.errs, r.children, root),
+                              color=use_color, is_dir=True))
             continue
         entries.sort(key=lambda e: e[0], reverse=not args.asc)
         for size, errs_n, c in entries:
-            print(render_line(size, os.path.basename(c), fmt, errors=errs_n))
+            print(render_line(size, os.path.basename(c), fmt, errors=errs_n,
+                              color=use_color, is_dir=True))
     if seen_input:
-        print(render_line(all_total, "total", fmt, errors=all_errors))
+        print(render_line(all_total, "total", fmt, errors=all_errors, color=use_color))
     return rc
 
 
