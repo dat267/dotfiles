@@ -29,6 +29,16 @@ def size_of(root):
     return total
 
 
+def dua_apparent_size(root):
+    """dua apparent semantics: every dir adds its own st_size too."""
+    total = 0
+    for dp, _, fn in os.walk(root):
+        total += os.stat(dp).st_size
+        for name in fn:
+            total += os.path.getsize(os.path.join(dp, name))
+    return total
+
+
 class TestAggregateTotals(unittest.TestCase):
     def test_subtree_sums(self):
         raw = {"r": 10, "a": 20, "a/b": 30, "c": 40}
@@ -49,16 +59,23 @@ class TestWalk(unittest.TestCase):
     def test_totals_match_file_sizes(self):
         result = dua.walk(self.tree, threads=1, apparent=True)
         self.assertNotIn("x.txt", result.raw)  # only dirs are recorded
-        self.assertEqual(result.raw[self.tree], 5)
-        self.assertEqual(result.raw[os.path.join(self.tree, "deep")], 10)
-        self.assertEqual(result.raw[os.path.join(self.tree, "deep", "deeper")], 3)
+        # apparent: dir contributes its own st_size on top of direct files
+        self.assertEqual(result.raw[self.tree], 5 + os.stat(self.tree).st_size)
+        self.assertEqual(result.raw[os.path.join(self.tree, "deep")], 10 + os.stat(os.path.join(self.tree, "deep")).st_size)
         self.assertEqual(os.path.basename(result.children[self.tree][0]), "deep")
+
+    def test_disk_mode_ignores_dir_sizes(self):
+        # dua: dirs contribute 0 in disk-usage mode
+        result = dua.walk(self.tree, threads=1)
+        blocks = sum(os.stat(os.path.join(dp, name)).st_blocks
+                     for dp, _, fn in os.walk(self.tree) for name in fn)
+        self.assertEqual(dua.aggregate_totals(result.raw, result.children, self.tree), blocks * 512)
 
     def test_threaded_walk_same_total(self):
         for threads in (1, 2, 4):
             r = dua.walk(self.tree, threads=threads, apparent=True)
             self.assertEqual(dua.aggregate_totals(r.raw, r.children, self.tree),
-                             size_of(self.tree), f"threads={threads}")
+                             dua_apparent_size(self.tree), f"threads={threads}")
 
     def test_parallel_walk_exact_totals_and_largest(self):
         # 20 dirs -> _prescan stops at target=16 leaving seeds -> forked chunks really run
@@ -66,7 +83,7 @@ class TestWalk(unittest.TestCase):
         root = make_tree(files)
         r = dua.walk(root, threads=4, apparent=True, top_n=3)
         self.assertEqual(dua.aggregate_totals(r.raw, r.children, root),
-                         size_of(root), "parallel total must match single-thread")
+                         dua_apparent_size(root), "parallel total must match single-thread")
         self.assertEqual(r.files, 20)
         self.assertEqual([s for s, _ in r.largest], [20, 19, 18])  # d19=20B, d18=19B, d17=18B
 
@@ -99,7 +116,8 @@ class TestWalk(unittest.TestCase):
         os.symlink(os.path.join(root, "real"), os.path.join(root, "link"))
         r = dua.walk(root, threads=1, apparent=True)
         total = dua.aggregate_totals(r.raw, r.children, root)
-        self.assertEqual(total, 100 + len(os.readlink(os.path.join(root, "link"))))
+        # symlinked dir not followed: its target counted once, plus link bytes
+        self.assertEqual(total, dua_apparent_size(root) + len(os.readlink(os.path.join(root, "link"))))
 
     def test_relative_dot_input(self):
         # regression: walk(".") feeds raw/children with relative keys, but the
@@ -112,7 +130,7 @@ class TestWalk(unittest.TestCase):
             for threads in (1, 4):
                 r = dua.walk(".", threads=threads, apparent=True)
                 self.assertEqual(dua.aggregate_totals(r.raw, r.children, os.path.abspath(".")),
-                                 15, f"threads={threads}")
+                                 dua_apparent_size(tmp), f"threads={threads}")
                 self.assertEqual(r.files, 2)
         finally:
             os.chdir(cwd)
@@ -128,7 +146,9 @@ class TestWalk(unittest.TestCase):
             r = dua.walk(root, threads=1, apparent=True)
             self.assertGreaterEqual(r.errors, 1)
             total = dua.aggregate_totals(r.raw, r.children, root)
-            self.assertEqual(total, 4)  # only ok.txt
+            # apparent (dua): every dir adds its own st_size, even unreadable ones
+            expected = os.stat(root).st_size + 4 + os.stat(sub).st_size
+            self.assertEqual(total, expected)
         finally:
             os.chmod(sub, 0o700)
 
@@ -144,9 +164,9 @@ class TestByteFormat(unittest.TestCase):
 
     def test_binary_units(self):
         f = dua.ByteFormat("binary")
-        self.assertEqual(f.format(0), "0 B")
-        self.assertEqual(f.format(523), "523 B")
-        self.assertEqual(f.format(1023), "1023 B")
+        self.assertEqual(f.format(0), "0   B")   # unit:>3 like dua
+        self.assertEqual(f.format(523), "523   B")
+        self.assertEqual(f.format(1023), "1023   B")
         self.assertEqual(f.format(1024), "1.00 KiB")
         self.assertEqual(f.format(1536), "1.50 KiB")
         self.assertEqual(f.format(10 * 1024**2), "10.00 MiB")
@@ -158,9 +178,9 @@ class TestByteFormat(unittest.TestCase):
 
     def test_metric_units(self):
         f = dua.ByteFormat("metric")
-        self.assertEqual(f.format(523), "523 B")
-        self.assertEqual(f.format(1000), "1.00 kB")
-        self.assertEqual(f.format(1500), "1.50 kB")
+        self.assertEqual(f.format(523), "523  B")   # unit:>2 like dua
+        self.assertEqual(f.format(1000), "1.00 KB")
+        self.assertEqual(f.format(1500), "1.50 KB")
         self.assertEqual(f.format(10 * 1000**2), "10.00 MB")
         self.assertEqual(f.width, 10)
 
@@ -176,7 +196,7 @@ class TestProgress(unittest.TestCase):
 
     def test_throttled_updates_and_clear(self):
         out = io.StringIO()
-        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0)
+        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0, initial_delay_ms=0)
         p.update(1)
         self.assertEqual(out.getvalue(), "Enumerating 1 items\r")
         p.update(2)  # inside throttle window: skipped
@@ -186,21 +206,32 @@ class TestProgress(unittest.TestCase):
 
     def test_finish_clears_line(self):
         out = io.StringIO()
-        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0)
+        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0, initial_delay_ms=0)
         p.update(1)
         p.finish()
         self.assertEqual(out.getvalue(), "Enumerating 1 items\r\x1b[2K")
 
     def test_finish_without_update_writes_nothing(self):
         out = io.StringIO()
-        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0)
+        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0, initial_delay_ms=0)
         p.finish()
         self.assertEqual(out.getvalue(), "")
+
+    def test_initial_delay_suppresses_first_update(self):
+        # dua delays the first progress write by 1s: fast scans show nothing
+        out = io.StringIO()
+        t = [0.0]
+        p = dua.Progress(out, throttle_ms=100, now=lambda: t[0], initial_delay_ms=1000)
+        p.update(5)
+        self.assertEqual(out.getvalue(), "")
+        t[0] = 1.5
+        p.update(9)
+        self.assertEqual(out.getvalue(), "Enumerating 9 items\r")
 
     def test_main_renders_progress_when_tty(self):
         root = make_tree({f"f{i}": b"x" * 10 for i in range(50)})
         err = io.StringIO()
-        p = dua.Progress(err, throttle_ms=0, tty=True)
+        p = dua.Progress(err, throttle_ms=0, tty=True, initial_delay_ms=0)
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             dua.main(argv=[root, "--apparent", "--threads", "1"], progress=p)
         self.assertIn("Enumerating", err.getvalue())
@@ -218,7 +249,7 @@ class TestProgress(unittest.TestCase):
             def flush(self):
                 self.events.append(("f",))
         out = FakeStream()
-        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0)
+        p = dua.Progress(out, throttle_ms=100, now=lambda: 0.0, initial_delay_ms=0)
         p.update(1)
         p.finish()
         self.assertEqual(out.events, [
@@ -306,16 +337,92 @@ class TestMain(unittest.TestCase):
             rc = dua.main(argv=[root, "--apparent"])
         self.assertEqual(rc, 0)
         lines = buf.getvalue().splitlines()
-        self.assertEqual(lines[0], "      200 B big")  # binary default, dua-style column
-        self.assertEqual(lines[-1], "      201 B total")
+        # dua sorts ascending; dirs add their own st_size in apparent mode
+        f = dua.ByteFormat("binary")
+        small = dua_apparent_size(os.path.join(root, "small"))
+        big = dua_apparent_size(os.path.join(root, "big"))
+        self.assertEqual(lines[0], f"{f.format(small):>11} small")
+        self.assertEqual(lines[1], f"{f.format(big):>11} big")
+        self.assertEqual(lines[-1], f"{f.format(small + big):>11} total")
 
-    def test_asc_flag(self):
-        root = make_tree({"big/f": b"b" * 200, "small/f": b"s"})
+    def test_top_level_files_listed(self):
+        # dua lists top-level FILES too, not just subdirectories
+        root = make_tree({"dir/f": b"d" * 50, "topfile.txt": b"t" * 5})
         buf = io.StringIO()
         with redirect_stdout(buf):
-            dua.main(argv=[root, "--apparent", "--asc"])
+            dua.main(argv=[root, "--apparent"])
         lines = buf.getvalue().splitlines()
-        self.assertEqual(lines[0], "        1 B small")
+        f = dua.ByteFormat("binary")
+        d = dua_apparent_size(os.path.join(root, "dir"))
+        self.assertEqual(lines[0], f"{f.format(5):>11} topfile.txt")
+        self.assertEqual(lines[1], f"{f.format(d):>11} dir")
+        self.assertEqual(lines[2], f"{f.format(d + 5):>11} total")
+
+    def test_asc_flag_removed(self):
+        root = make_tree({"a/f": b"x"})
+        with self.assertRaises(SystemExit):
+            dua.main(argv=[root, "--apparent", "--asc"])
+
+    def test_single_file_input_no_total(self):
+        root = make_tree({"single.bin": b"abcdefgh"})
+        f = os.path.join(root, "single.bin")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = dua.main(argv=[f, "--apparent"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(buf.getvalue().splitlines(),
+                         [f"{dua.ByteFormat('binary').format(8):>11} " + f])
+
+    def test_empty_dir_no_output(self):
+        root = make_tree({})
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = dua.main(argv=[root, "--apparent", "--threads", "1"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(buf.getvalue(), "")
+
+    def test_multi_input_one_row_each(self):
+        # paths mode: each input is its own row, sorted ascending, total
+        root = make_tree({"a/f": b"a" * 50, "b/g": b"b" * 5})
+        a, b = os.path.join(root, "a"), os.path.join(root, "b")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            dua.main(argv=[a, b, "--apparent"])
+        lines = buf.getvalue().splitlines()
+        f = dua.ByteFormat("binary")
+        self.assertEqual(lines[0], f"{f.format(dua_apparent_size(b)):>11} " + b)
+        self.assertEqual(lines[1], f"{f.format(dua_apparent_size(a)):>11} " + a)
+        self.assertEqual(lines[2], f"{f.format(dua_apparent_size(a) + dua_apparent_size(b)):>11} total")
+
+    def test_hardlinked_top_file_zeroed(self):
+        if not hasattr(os, "link"):
+            self.skipTest("os.link unavailable on this platform (Termux-Android bionic)")
+        root = make_tree({"one.bin": b"o" * 100})
+        os.link(os.path.join(root, "one.bin"), os.path.join(root, "two.bin"))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            dua.main(argv=[root, "--apparent", "--threads", "1"])
+        lines = buf.getvalue().splitlines()
+        sizes = sorted(int(ln.split()[0]) for ln in lines[:2])  # readdir order picks the dedupe winner
+        self.assertEqual(sizes, [0, 100])  # deduped -> 0 B like dua
+        self.assertTrue(lines[2].startswith("    100   B total"))
+
+    def test_parallel_progress_updates_live(self):
+        # regression: forked children reported nothing, so the count only
+        # jumped at the end; children now stream counts to the parent
+        root = make_tree({f"d{i:03}/f.txt": b"x" * (i + 1) for i in range(150)})
+        seen = []
+        class Collect(dua.Progress):
+            def update(self, entries, now=None):
+                seen.append(entries)
+                super().update(entries, now=now)
+        p = Collect(io.StringIO(), throttle_ms=0, tty=True, initial_delay_ms=0)
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            dua.main(argv=[root, "--apparent", "--threads", "2"], progress=p)
+        self.assertGreaterEqual(len(seen), 2, f"expected live progress, got {seen}")
+        # entries = files (150) + dirs (150 + root) — dua counts both
+        self.assertEqual(seen[-1], 301)
+        self.assertEqual(sorted(seen), seen)  # monotonic like dua's shared counter
 
     def test_format_bytes_restores_raw(self):
         root = make_tree({"big/f": b"b" * 200, "small/f": b"s"})
@@ -323,8 +430,12 @@ class TestMain(unittest.TestCase):
         with redirect_stdout(buf):
             dua.main(argv=[root, "--apparent", "--format", "bytes"])
         lines = buf.getvalue().splitlines()
-        self.assertEqual(lines[0], "       200 b big")
-        self.assertEqual(lines[-1], "       201 b total")
+        fb = dua.ByteFormat("bytes")
+        small = dua_apparent_size(os.path.join(root, "small"))
+        big = dua_apparent_size(os.path.join(root, "big"))
+        self.assertEqual(lines[0], f"{fb.format(small):>12} small")
+        self.assertEqual(lines[1], f"{fb.format(big):>12} big")
+        self.assertEqual(lines[-1], f"{fb.format(small + big):>12} total")
 
     def test_format_metric(self):
         root = make_tree({"big/f": b"b" * 1500})
@@ -332,7 +443,9 @@ class TestMain(unittest.TestCase):
         with redirect_stdout(buf):
             dua.main(argv=[root, "--apparent", "--format", "metric"])
         lines = buf.getvalue().splitlines()
-        self.assertEqual(lines[-1], "   1.50 kB total")
+        fm = dua.ByteFormat("metric")
+        big = dua_apparent_size(os.path.join(root, "big"))
+        self.assertEqual(lines, [f"{fm.format(big):>10} big"])  # single entry -> no total
 
     def test_io_error_suffix_on_lines(self):
         root = make_tree({"ok.txt": b"fine"})
@@ -347,7 +460,9 @@ class TestMain(unittest.TestCase):
         finally:
             os.chmod(sub, 0o700)
         self.assertTrue(any("<1 IO Error>" in ln for ln in lines), lines)
-        self.assertTrue(lines[-1].startswith("        4 B total  <1 IO Error>"), lines)
+        fb = dua.ByteFormat("binary")
+        expected_total = 4 + os.stat(sub).st_size  # ok.txt + locked dir's own st_size; root itself is not a row
+        self.assertTrue(lines[-1].startswith(f"{fb.format(expected_total):>11} total  <1 IO Error>"), lines)
 
     def test_files_mode_lists_top_n(self):
         root = make_tree({"big": b"b" * 200, "mid": b"m" * 100, "small": b"s", "sub/nested": b"n" * 300})
@@ -358,8 +473,8 @@ class TestMain(unittest.TestCase):
         self.assertEqual(rc, 0)
         lines = buf.getvalue().splitlines()
         self.assertEqual(len(lines), 2)
-        self.assertTrue(lines[0].startswith("      300 B"), lines)
-        self.assertTrue(lines[1].startswith("      200 B"), lines)
+        self.assertTrue(lines[0].startswith("    300   B"), lines)
+        self.assertTrue(lines[1].startswith("    200   B"), lines)
         self.assertIn("4 files", err.getvalue())
 
     def test_missing_input_errors(self):
