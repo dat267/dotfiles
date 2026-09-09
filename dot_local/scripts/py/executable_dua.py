@@ -201,13 +201,14 @@ def walk(root, threads=0, apparent=False, count_hard_links=False, top_n=0):
     result = WalkResult()
     if not os.path.exists(root):
         raise FileNotFoundError(root)
+    root = os.path.abspath(root)  # absolute keys so aggregate_totals(abspath) hits
 
     # Single-file input: report just that file.
     if os.path.isfile(root):
         st = os.stat(root)
         size = st.st_size if apparent else st.st_blocks * 512
-        result.raw[os.path.abspath(root)] = size
-        result.largest = [(size, os.path.abspath(root))]
+        result.raw[root] = size
+        result.largest = [(size, root)]
         result.files = 1
         return result
 
