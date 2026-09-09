@@ -1,0 +1,195 @@
+import io
+import os
+import tempfile
+import unittest
+from contextlib import redirect_stderr, redirect_stdout
+
+import _loader
+
+dua = _loader.load("dua")
+
+
+def make_tree(files, root=None):
+    """files: {relative_path: bytes}. Returns root dir."""
+    root = root or tempfile.mkdtemp()
+    for rel, data in files.items():
+        path = os.path.join(root, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(data)
+    return root
+
+
+def size_of(root):
+    """Sum of st_size for all regular files under root (apparent)."""
+    total = 0
+    for dp, _, fn in os.walk(root):
+        for name in fn:
+            total += os.path.getsize(os.path.join(dp, name))
+    return total
+
+
+class TestHuman(unittest.TestCase):
+    def test_bytes_under_1024(self):
+        self.assertEqual(dua.human(0), "0 B")
+        self.assertEqual(dua.human(1023), "1023 B")
+
+    def test_kib_mib_gib(self):
+        self.assertEqual(dua.human(1024), "1.0 KiB")
+        self.assertEqual(dua.human(1536), "1.5 KiB")
+        self.assertEqual(dua.human(10 * 1024**2), "10 MiB")
+        self.assertEqual(dua.human(1024**3), "1.0 GiB")
+
+
+class TestAggregateTotals(unittest.TestCase):
+    def test_subtree_sums(self):
+        raw = {"r": 10, "a": 20, "a/b": 30, "c": 40}
+        children = {"r": ["a", "c"], "a": ["a/b"], "a/b": [], "c": []}
+        self.assertEqual(dua.aggregate_totals(raw, children, "r"), 100)
+        self.assertEqual(dua.aggregate_totals(raw, children, "a"), 50)
+        self.assertEqual(dua.aggregate_totals(raw, children, "c"), 40)
+
+
+class TestWalk(unittest.TestCase):
+    def setUp(self):
+        self.tree = make_tree({
+            "x.txt": b"hello",          # 5
+            "deep/y.txt": b"1234567890",  # 10
+            "deep/deeper/z.txt": b"123",  # 3
+        })
+
+    def test_totals_match_file_sizes(self):
+        result = dua.walk(self.tree, threads=1, apparent=True)
+        self.assertNotIn("x.txt", result.raw)  # only dirs are recorded
+        self.assertEqual(result.raw[self.tree], 5)
+        self.assertEqual(result.raw[os.path.join(self.tree, "deep")], 10)
+        self.assertEqual(result.raw[os.path.join(self.tree, "deep", "deeper")], 3)
+        self.assertEqual(os.path.basename(result.children[self.tree][0]), "deep")
+
+    def test_threaded_walk_same_total(self):
+        for threads in (1, 2, 4):
+            r = dua.walk(self.tree, threads=threads, apparent=True)
+            self.assertEqual(dua.aggregate_totals(r.raw, r.children, self.tree),
+                             size_of(self.tree), f"threads={threads}")
+
+    def test_parallel_walk_exact_totals_and_largest(self):
+        # 20 dirs -> _prescan stops at target=16 leaving seeds -> forked chunks really run
+        files = {f"d{i:02}/f.txt": bytes([65 + i]) * (i + 1) for i in range(20)}
+        root = make_tree(files)
+        r = dua.walk(root, threads=4, apparent=True, top_n=3)
+        self.assertEqual(dua.aggregate_totals(r.raw, r.children, root),
+                         size_of(root), "parallel total must match single-thread")
+        self.assertEqual(r.files, 20)
+        self.assertEqual([s for s, _ in r.largest], [20, 19, 18])  # d19=20B, d18=19B, d17=18B
+
+    def test_largest_files_top_n(self):
+        make_tree({"big1": b"x" * 100, "big2": b"y" * 90, "mid": b"z" * 50, "small": b"w"}, root=self.tree)
+        r = dua.walk(self.tree, threads=2, apparent=True, top_n=3)
+        sizes = [s for s, _ in r.largest]
+        self.assertEqual(sizes, [100, 90, 50])
+        names = [os.path.basename(p) for _, p in r.largest]
+        self.assertIn("big1", names)
+
+    def test_hardlinks_deduped_by_default(self):
+        if not hasattr(os, "link"):
+            self.skipTest("os.link unavailable on this platform (Termux-Android bionic)")
+        root = make_tree({"a/one": b"shared", "b/two": b"unique"})
+        os.link(os.path.join(root, "a/one"), os.path.join(root, "b/three"))
+        r = dua.walk(root, threads=1, apparent=True)
+        self.assertEqual(dua.aggregate_totals(r.raw, r.children, root), 6 + 6)  # shared counted once
+
+    def test_hardlinks_counted_with_flag(self):
+        if not hasattr(os, "link"):
+            self.skipTest("os.link unavailable on this platform (Termux-Android bionic)")
+        root = make_tree({"a/one": b"shared", "b/two": b"unique"})
+        os.link(os.path.join(root, "a/one"), os.path.join(root, "b/three"))
+        r = dua.walk(root, threads=1, apparent=True, count_hard_links=True)
+        self.assertEqual(dua.aggregate_totals(r.raw, r.children, root), 6 + 6 + 6)
+
+    def test_symlinked_dir_not_followed(self):
+        root = make_tree({"real/f.txt": b"x" * 100})
+        os.symlink(os.path.join(root, "real"), os.path.join(root, "link"))
+        r = dua.walk(root, threads=1, apparent=True)
+        total = dua.aggregate_totals(r.raw, r.children, root)
+        self.assertEqual(total, 100 + len(os.readlink(os.path.join(root, "link"))))
+
+    def test_unreadable_dir_is_skipped_not_fatal(self):
+        root = make_tree({"ok.txt": b"fine"})
+        sub = os.path.join(root, "locked")
+        os.makedirs(sub, exist_ok=True)
+        with open(os.path.join(sub, "secret"), "wb") as f:
+            f.write(b"x" * 500)
+        os.chmod(sub, 0)
+        try:
+            r = dua.walk(root, threads=1, apparent=True)
+            self.assertGreaterEqual(r.errors, 1)
+            total = dua.aggregate_totals(r.raw, r.children, root)
+            self.assertEqual(total, 4)  # only ok.txt
+        finally:
+            os.chmod(sub, 0o700)
+
+    def test_file_input(self):
+        root = make_tree({"single.bin": b"abcdefgh"})
+        f = os.path.join(root, "single.bin")
+        r = dua.walk(f, threads=1, apparent=True)
+        self.assertEqual(dua.aggregate_totals(r.raw, r.children, f), 8)
+
+
+class TestRenderTree(unittest.TestCase):
+    def test_indentation_and_order(self):
+        root = "r"
+        raw = {"r": 1, "big": 100, "small": 2}
+        children = {"r": ["big", "small"], "big": [], "small": []}
+        lines = dua.render_tree(raw, children, root, humanize=False)
+        self.assertEqual(lines, ["100 b  big", "2 b  small"])  # desc default
+
+    def test_depth_limit(self):
+        raw = {"r": 0, "a": 1, "a/b": 2}
+        children = {"r": ["a"], "a": ["a/b"]}
+        lines = dua.render_tree(raw, children, "r", max_depth=1, humanize=False)
+        self.assertEqual(lines, ["3 b  a"])  # a's subtree = 1 + 2
+        self.assertNotIn("a/b", " ".join(lines))
+
+
+class TestMain(unittest.TestCase):
+    def test_aggregate_prints_sorted_and_total(self):
+        root = make_tree({"big/f": b"b" * 200, "small/f": b"s"})
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = dua.main(argv=[root, "--apparent"])
+        self.assertEqual(rc, 0)
+        lines = buf.getvalue().splitlines()
+        self.assertEqual(lines[0], "200 b  big")  # desc default
+        self.assertEqual(lines[-1], "201 b total")
+
+    def test_asc_flag(self):
+        root = make_tree({"big/f": b"b" * 200, "small/f": b"s"})
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            dua.main(argv=[root, "--apparent", "--asc"])
+        lines = buf.getvalue().splitlines()
+        self.assertEqual(lines[0], "1 b  small")
+
+    def test_files_mode_lists_top_n(self):
+        root = make_tree({"big": b"b" * 200, "mid": b"m" * 100, "small": b"s", "sub/nested": b"n" * 300})
+        buf = io.StringIO()
+        err = io.StringIO()
+        with redirect_stdout(buf), redirect_stderr(err):
+            rc = dua.main(argv=[root, "--files", "2", "--apparent"])
+        self.assertEqual(rc, 0)
+        lines = buf.getvalue().splitlines()
+        self.assertEqual(len(lines), 2)
+        self.assertTrue(lines[0].startswith("300"))
+        self.assertTrue(lines[1].startswith("200"))
+        self.assertIn("4 files", err.getvalue())
+
+    def test_missing_input_errors(self):
+        err = io.StringIO()
+        with redirect_stderr(err):
+            rc = dua.main(argv=["/nonexistent/path/xyz"])
+        self.assertEqual(rc, 1)
+        self.assertIn("/nonexistent/path/xyz", err.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()

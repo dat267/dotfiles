@@ -17,6 +17,7 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 - `executable_cloudsh.py` — GCP Cloud Shell SSH tunnel
 - `executable_sysinfo.py`, `executable_url-decode-rename.py`, `executable_mpv`
 - Shell-friendly converters: `executable_jsonfmt.py` (pretty/minify/sort JSON), `executable_epoch.py` (epoch↔ISO), `executable_csvtable.py` (CSV→aligned table), `executable_dupfind.py` (duplicate files by size+hash)
+- `executable_dua.py` — dua-style disk usage analyzer (aggregate/tree/largest-files, fork-parallel via `-t`, hardlink dedupe)
 - `_shared.py` — shared module (platform detection, colored logging, helpers)
 
 ## Conventions
