@@ -8,8 +8,9 @@
   },
   "lsp": true,
   "agent": {
-    "explore": { "disable": false },
-    "general": { "disable": false }
+    "explore": { "disable": true },
+    "general": { "disable": true },
+    "scout": { "disable": true }
   },
   "tool_output": {
     "max_lines": 200,
