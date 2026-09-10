@@ -35,11 +35,34 @@ void describe("buildModels", () => {
 
 	void it("costs and windows survive the build", () => {
 		const flash = buildModels().find((m) => m.id === "cline-pass/deepseek-v4-flash")!;
-		assert.deepEqual(flash.cost, { input: 0.09, output: 0.18, cacheRead: 0.018, cacheWrite: 0 });
-		assert.equal(flash.contextWindow, 1_048_576);
+		assert.deepEqual(flash.cost, { input: 0.14, output: 0.28, cacheRead: 0.0028, cacheWrite: 0 });
+		assert.equal(flash.contextWindow, 1_000_000);
 
 		const glm = buildModels().find((m) => m.id === "cline-pass/glm-5.2")!;
-		assert.equal(glm.contextWindow, 1_048_576);
+		assert.equal(glm.contextWindow, 1_000_000);
 		assert.equal(glm.maxTokens, 131_072);
+	});
+
+	void it("covers the live clinePass recommendations", () => {
+		const ids = new Set(buildModels().map((m) => m.id));
+		for (const id of [
+			"cline-pass/glm-5.2",
+			"cline-pass/glm-5.3",
+			"cline-pass/glm-5.3-flash",
+			"cline-pass/kimi-k2.6",
+			"cline-pass/kimi-k2.7-code",
+			"cline-pass/kimi-k3",
+			"cline-pass/deepseek-v4-pro",
+			"cline-pass/deepseek-v4-flash",
+			"cline-pass/deepseek-v4.1-flash",
+			"cline-pass/mimo-v2.5",
+			"cline-pass/mimo-v2.5-pro",
+			"cline-pass/minimax-m3",
+			"cline-pass/qwen3.7-plus",
+			"cline-pass/qwen3.7-max",
+			"cline-pass/qwen3.8-max",
+		]) {
+			assert.ok(ids.has(id), `missing ${id}`);
+		}
 	});
 });
