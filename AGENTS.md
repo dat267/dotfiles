@@ -15,7 +15,7 @@ Edit source files (`dot_*` prefix), never deployed versions. Preserve `{{- ... -
 - Yazi: `dot_config/yazi/{yazi,keymap,init,theme}`
 - Chezmoi: `.chezmoi.toml.tmpl` (autoAdd/autoCommit, no autoPush), `.chezmoiignore`, `.chezmoiexternal.toml.tmpl` (zsh plugin tarballs)
 - AI: `dot_config/{opencode,crush}/`, `dot_pi/`
-- Python scripts: `dot_local/scripts/py/` — stdlib only, see its `AGENTS.md`
+- Python scripts: `exact_dot_local/scripts/py/` — stdlib only, see its `AGENTS.md`
 - Bootstrap: `run_once_before_bootstrap-local-configs.*`, `run_onchange_after_create-{symlinks,junctions}.*`
 
 ## Commands

@@ -66,7 +66,7 @@ dot_config/aria2/         aria2 download manager
 dot_config/Code/User/     VS Code settings + snippet files
 dot_config/systemd/user/  Linux systemd user services (dsh-web)
 dot_pi/                   Pi agent config + skills
-dot_local/scripts/py/     Python utility scripts (added to PATH)
+exact_dot_local/scripts/py/  Python utility scripts (added to PATH; exact — strays removed on apply)
 dot_local/scripts/sh/     Shell scripts
 dot_local/scripts/ps1/    PowerShell scripts
 dot_local/js/             JS tooling (playwright, install scripts)
