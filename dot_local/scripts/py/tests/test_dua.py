@@ -12,6 +12,37 @@ import _loader
 dua = _loader.load("dua")
 
 
+def dir_own_sizes(root, *subdirs):
+    """Apparent-mode dir contribution: each directory's own st_size
+    (filesystem-dependent — tmpfs and ext4 differ — so derive, don't hardcode)."""
+    return sum(os.stat(os.path.join(root, p)).st_size for p in (".",) + subdirs)
+
+
+def _cross_dir_link_ok():
+    """Cross-directory link() needs Landlock REFER, which sandboxes deny by
+    default (EXDEV). Probed once — skipped tests re-enable themselves once a
+    REFER-granting gate is deployed."""
+    if not hasattr(os, "link"):
+        return False
+    d = tempfile.mkdtemp()
+    try:
+        os.makedirs(os.path.join(d, "a"))
+        os.makedirs(os.path.join(d, "b"))
+        open(os.path.join(d, "a", "one"), "wb").close()
+        os.link(os.path.join(d, "a", "one"), os.path.join(d, "b", "two"))
+        return True
+    except OSError:
+        return False
+    finally:
+        import shutil
+        shutil.rmtree(d, ignore_errors=True)
+
+
+CROSS_DIR_LINK = _cross_dir_link_ok()
+SKIP_NO_LINK = "os.link unavailable on this platform (Termux-Android bionic)"
+SKIP_NO_REFER = "cross-directory link() denied by sandbox (Landlock REFER; deploy patched gate)"
+
+
 def make_tree(files, root=None):
     """files: {relative_path: bytes}. Returns root dir."""
     root = root or tempfile.mkdtemp()
@@ -100,19 +131,38 @@ class TestWalk(unittest.TestCase):
 
     def test_hardlinks_deduped_by_default(self):
         if not hasattr(os, "link"):
-            self.skipTest("os.link unavailable on this platform (Termux-Android bionic)")
+            self.skipTest(SKIP_NO_LINK)
+        if not CROSS_DIR_LINK:
+            self.skipTest(SKIP_NO_REFER)
         root = make_tree({"a/one": b"shared", "b/two": b"unique"})
         os.link(os.path.join(root, "a/one"), os.path.join(root, "b/three"))
         r = dua.walk(root, threads=1, apparent=True)
-        self.assertEqual(dua.aggregate_totals(r.raw, r.children, root), 6 + 6)  # shared counted once
+        # apparent mode counts every dir's own st_size; the deduped hardlink
+        # reports 0 B, so file bytes are shared(6) + unique(6)
+        own = dir_own_sizes(root, "a", "b")
+        self.assertEqual(dua.aggregate_totals(r.raw, r.children, root), own + 6 + 6)
+
+    def test_hardlinks_deduped_same_dir(self):
+        # Same-directory links never need REFER — runs everywhere, exercises
+        # the same (st_dev, st_ino) dedup path in the accumulator.
+        if not hasattr(os, "link"):
+            self.skipTest(SKIP_NO_LINK)
+        root = make_tree({"a/one": b"shared", "a/two": b"unique"})
+        os.link(os.path.join(root, "a/one"), os.path.join(root, "a/three"))
+        r = dua.walk(root, threads=1, apparent=True)
+        own = dir_own_sizes(root, "a")
+        self.assertEqual(dua.aggregate_totals(r.raw, r.children, root), own + 6 + 6)
 
     def test_hardlinks_counted_with_flag(self):
         if not hasattr(os, "link"):
-            self.skipTest("os.link unavailable on this platform (Termux-Android bionic)")
+            self.skipTest(SKIP_NO_LINK)
+        if not CROSS_DIR_LINK:
+            self.skipTest(SKIP_NO_REFER)
         root = make_tree({"a/one": b"shared", "b/two": b"unique"})
         os.link(os.path.join(root, "a/one"), os.path.join(root, "b/three"))
         r = dua.walk(root, threads=1, apparent=True, count_hard_links=True)
-        self.assertEqual(dua.aggregate_totals(r.raw, r.children, root), 6 + 6 + 6)
+        own = dir_own_sizes(root, "a", "b")
+        self.assertEqual(dua.aggregate_totals(r.raw, r.children, root), own + 6 + 6 + 6)
 
     def test_symlinked_dir_not_followed(self):
         root = make_tree({"real/f.txt": b"x" * 100})

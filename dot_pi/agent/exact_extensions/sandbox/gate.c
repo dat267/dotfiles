@@ -141,7 +141,13 @@ int main(int argc, char **argv) {
 	}
 
 	uint64_t handled = READ_BITS | WRITE_BITS;
-	if (abi >= 2) handled |= LANDLOCK_ACCESS_FS_TRUNCATE;
+	/* REFER (ABI 2): the only right denied by default by every ruleset, even
+	 * unhandled — once MAKE_* rights are handled, cross-directory link(2)/
+	 * rename(2) returns EXDEV unless REFER is explicitly handled and granted.
+	 * Granting it under the writable trees keeps hardlinks and renames working
+	 * inside already-writable directories — no new write surface (both
+	 * endpoints are writable either way). */
+	if (abi >= 2) handled |= LANDLOCK_ACCESS_FS_TRUNCATE | LANDLOCK_ACCESS_FS_REFER;
 
 	struct landlock_ruleset_attr attr = { .handled_access_fs = handled };
 	int rfd = (int)syscall(SYS_landlock_create_ruleset, &attr, sizeof attr, 0);
