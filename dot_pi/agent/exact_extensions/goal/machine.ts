@@ -34,6 +34,8 @@ export interface AgentEndEvent {
 export interface ProviderError {
 	status: number;
 	message: string;
+	/** Server-advertised retry delay (retry-after header), milliseconds. */
+	retryAfterMs?: number;
 }
 
 export interface AgentSettledEvent {
@@ -41,6 +43,10 @@ export interface AgentSettledEvent {
 	contextUsage: { tokens: number | null; contextWindow: number };
 	/** Set when the last provider response was an HTTP error — pauses the loop instead of queueing another round. */
 	providerError?: ProviderError;
+}
+
+export interface RetryDueEvent {
+	type: "retry_due";
 }
 
 export interface GoalUpdateEvent {
@@ -71,13 +77,19 @@ export interface GoalSetEvent {
 	objective: string;
 }
 
-export type GoalEvent = SessionStartEvent | GoalCreateEvent | GoalResumeEvent | AgentEndEvent | AgentSettledEvent | GoalUpdateEvent | GoalPauseEvent | GoalClearEvent | BannerToggleEvent | GoalSetEvent;
+export type GoalEvent = SessionStartEvent | GoalCreateEvent | GoalResumeEvent | AgentEndEvent | AgentSettledEvent | RetryDueEvent | GoalUpdateEvent | GoalPauseEvent | GoalClearEvent | BannerToggleEvent | GoalSetEvent;
 
 export type Effect =
 	| { kind: "appendEntry"; entryType: string; data: unknown }
 	| { kind: "sendMessage"; customType: string; content: string; display: boolean; details: Record<string, unknown>; triggerTurn: boolean }
 	| { kind: "notify"; message: string; level: "info" | "warning" }
+	| { kind: "scheduleRetry"; delayMs: number; attempt: number; maxRetries: number; error: string }
 	| { kind: "renderStatus" };
+
+/** Consecutive provider-error settles tolerated before the goal pauses. */
+export const MAX_ERROR_RETRIES = 3;
+/** Backoff schedule per retry attempt: 30s → 60s → 120s. */
+export const RETRY_BACKOFF_MS = [30_000, 60_000, 120_000];
 
 export interface DispatchResult {
 	effects: Effect[];
@@ -94,6 +106,7 @@ export class GoalMachine {
 	private armed = false;
 	private pendingTurn: number | null = null;
 	private createdThisRun = false;
+	private errorRetries = 0;
 	private bannerEnabled = false;
 
 	get snapshot() {
@@ -119,6 +132,8 @@ export class GoalMachine {
 				return this.agentEnd(event.contextUsage, event.aborted);
 			case "agent_settled":
 				return this.agentSettled(event.contextUsage, event.providerError);
+			case "retry_due":
+				return this.retryDue();
 			case "goal_update":
 				return this.goalUpdate(event.goal_id, event.revision, event.action, event.blocked_reason);
 			case "goal_pause":
@@ -327,21 +342,38 @@ export class GoalMachine {
 			return { effects: [{ kind: "renderStatus" }] };
 		}
 
-		// Provider failure (429 rate limit, 5xx, …): pausing beats queueing —
-		// retrying immediately just burns rounds against a dead endpoint.
+		// Provider failure (429 rate limit, 5xx, …): retry with exponential
+		// backoff up to MAX_ERROR_RETRIES, then pause — retrying forever just
+		// burns rounds against a dead endpoint.
 		if (providerError) {
-			this.armed = false;
-			const reason = { code: "api-error", message: `Provider error ${providerError.status}: ${providerError.message}` };
-			const effects = this.commit("pause", {
-				...this.view,
-				phase: "paused",
-				blockedReason: reason,
-				revision: this.view.revision + 1,
-				updatedAt: Date.now(),
-			});
-			return { effects };
+			const error = `Provider error ${providerError.status}: ${providerError.message}`;
+			if (this.errorRetries >= MAX_ERROR_RETRIES) {
+				this.armed = false;
+				const reason = { code: "api-error", message: error };
+				const effects = this.commit("pause", {
+					...this.view,
+					phase: "paused",
+					blockedReason: reason,
+					revision: this.view.revision + 1,
+					updatedAt: Date.now(),
+				});
+				return { effects };
+			}
+			const delayMs = Math.max(RETRY_BACKOFF_MS[this.errorRetries] ?? RETRY_BACKOFF_MS[RETRY_BACKOFF_MS.length - 1], providerError.retryAfterMs ?? 0);
+			const attempt = this.errorRetries + 1;
+			this.errorRetries = attempt;
+			return { effects: [{ kind: "scheduleRetry", delayMs, attempt, maxRetries: MAX_ERROR_RETRIES, error }] };
 		}
 
+		this.errorRetries = 0;
+		return { effects: this.queueRound() };
+	}
+
+	/** Backoff timer fired: queue the round unless the goal stopped meanwhile. */
+	private retryDue(): DispatchResult {
+		if (!this.view || this.view.phase !== "active" || !this.armed) {
+			return { effects: [{ kind: "renderStatus" }] };
+		}
 		return { effects: this.queueRound() };
 	}
 

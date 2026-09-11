@@ -25,23 +25,33 @@ export default function piGoal(pi: ExtensionAPI) {
 
 	/** Last failing provider HTTP response this run — cleared on success or new run. */
 	let providerError: { status: number; message: string } | undefined;
+	/** Pending backoff timer from a scheduleRetry effect. */
+	let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function clearRetryTimer() {
+		if (retryTimer !== undefined) {
+			clearTimeout(retryTimer);
+			retryTimer = undefined;
+		}
+	}
 
 	pi.on("agent_start", () => {
 		providerError = undefined;
+		clearRetryTimer();
 	});
 
 	pi.on("after_provider_response", (event) => {
 		if (event.status >= 400) {
-			const retryAfter = event.headers?.["retry-after"] ?? event.headers?.["Retry-After"];
-			const retryNote = retryAfter ? ` (retry after ${retryAfter}s)` : "";
-			providerError = { status: event.status, message: `HTTP ${event.status}${retryNote}` };
+			const retryAfter = Number(event.headers?.["retry-after"] ?? event.headers?.["Retry-After"] ?? NaN);
+			const retryAfterMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : undefined;
+			providerError = { status: event.status, message: `HTTP ${event.status}`, retryAfterMs };
 		} else {
 			providerError = undefined;
 		}
 	});
 
 	/** Execute the machine's effects against the host. */
-	function apply(effects: Effect[], ctx: ExtensionContext) {
+	function apply(effects: Effect[], ctx?: ExtensionContext) {
 		for (const effect of effects) {
 			switch (effect.kind) {
 				case "appendEntry":
@@ -54,10 +64,24 @@ export default function piGoal(pi: ExtensionAPI) {
 					);
 					break;
 				case "notify":
-					ctx.ui.notify(effect.message, effect.level);
+					ctx?.ui.notify(effect.message, effect.level);
 					break;
+				case "scheduleRetry": {
+					ctx?.ui.notify(
+						`${effect.error} — retrying in ${Math.round(effect.delayMs / 1000)}s (attempt ${effect.attempt}/${effect.maxRetries}).`,
+						"warning",
+					);
+					clearRetryTimer();
+					retryTimer = setTimeout(() => {
+						retryTimer = undefined;
+						// No ctx: timer callbacks outlive the settling context; retry_due
+						// effects only touch pi-level APIs (sendMessage, status entry).
+						apply(machine.dispatch({ type: "retry_due" }).effects);
+					}, effect.delayMs);
+					break;
+				}
 				case "renderStatus":
-					updateStatusBar(ctx);
+					if (ctx) updateStatusBar(ctx);
 					break;
 			}
 		}
@@ -242,6 +266,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	// Goal entry is model-driven (create_goal judgment) or human-driven (/goal set).
 
 	pi.on("session_start", (event, ctx) => {
+		clearRetryTimer();
 		try {
 			const entries = ctx.sessionManager.getBranch();
 			machine.dispatch({

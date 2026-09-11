@@ -159,22 +159,100 @@ void describe("GoalMachine.agent_settled", () => {
 		assert.equal(m.snapshot.pendingTurn, 2);
 	});
 
-	void it("provider error at settle: pauses goal with api-error reason, no round queued", () => {
+	void it("first provider error: schedules retry with 30s backoff, no pause, no round", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
 		m.dispatch({ type: "goal_resume" });
-		// admit the resumed round
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
 		const { effects } = m.dispatch({
 			type: "agent_settled",
 			contextUsage: USAGE,
+			providerError: { status: 429, message: "HTTP 429" },
+		});
+		const retry = effects.find((e) => e.kind === "scheduleRetry") as { delayMs: number } | undefined;
+		assert.ok(retry, "expected scheduleRetry effect");
+		assert.equal(retry.delayMs, 30_000);
+		assert.equal(m.snapshot.goal?.phase, "active");
+		assert.ok(!effects.some((e) => e.kind === "sendMessage"));
+	});
+
+	void it("retry limit exhausted: pauses goal with api-error reason, no round queued", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
+		m.dispatch({ type: "goal_resume" });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		const settle = () => m.dispatch({
+			type: "agent_settled",
+			contextUsage: USAGE,
 			providerError: { status: 429, message: "You have reached your 5-hour Clinepass limit." },
 		});
-		assert.ok(!effects.some((e) => e.kind === "sendMessage"), "no continuation round after provider error");
+		// 3 retries (30s/60s/120s backoff), then the 4th error pauses.
+		settle();
+		settle();
+		settle();
+		const { effects } = settle();
+		assert.ok(!effects.some((e) => e.kind === "sendMessage"), "no continuation round after retry limit");
+		assert.ok(!effects.some((e) => e.kind === "scheduleRetry"), "no retry past the limit");
 		assert.equal(m.snapshot.armed, false);
 		assert.equal(m.snapshot.goal?.phase, "paused");
 		assert.equal(m.snapshot.goal?.blockedReason?.code, "api-error");
 		assert.match(m.snapshot.goal?.blockedReason?.message ?? "", /429/);
+	});
+
+	void it("backoff escalates per attempt and honors larger retry-after", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
+		m.dispatch({ type: "goal_resume" });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		const settle = (retryAfterMs?: number) =>
+			m.dispatch({
+				type: "agent_settled",
+				contextUsage: USAGE,
+				providerError: { status: 429, message: "HTTP 429", retryAfterMs },
+			});
+		let retry = settle(300_000).effects.find((e) => e.kind === "scheduleRetry") as { delayMs: number; attempt: number };
+		// server asks for longer than the schedule → server wins
+		assert.equal(retry.delayMs, 300_000);
+		assert.equal(retry.attempt, 1);
+		retry = settle().effects.find((e) => e.kind === "scheduleRetry") as { delayMs: number; attempt: number };
+		assert.equal(retry.delayMs, 60_000);
+		assert.equal(retry.attempt, 2);
+		retry = settle().effects.find((e) => e.kind === "scheduleRetry") as { delayMs: number; attempt: number };
+		assert.equal(retry.delayMs, 120_000);
+		assert.equal(retry.attempt, 3);
+	});
+
+	void it("successful settle resets the retry counter", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
+		m.dispatch({ type: "goal_resume" });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		const settleErr = () =>
+			m.dispatch({ type: "agent_settled", contextUsage: USAGE, providerError: { status: 500, message: "HTTP 500" } });
+		settleErr();
+		settleErr();
+		// a clean round settles without error → counter resets
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		m.dispatch({ type: "agent_settled", contextUsage: USAGE });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		settleErr();
+		settleErr();
+		settleErr();
+		const { effects } = settleErr();
+		assert.ok(!effects.some((e) => e.kind === "scheduleRetry"), "counter was reset: limit not yet reached");
+		assert.equal(m.snapshot.goal?.phase, "paused");
+	});
+
+	void it("retry_due while armed and active: queues the round", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
+		m.dispatch({ type: "goal_resume" });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		m.dispatch({ type: "agent_settled", contextUsage: USAGE, providerError: { status: 429, message: "HTTP 429" } });
+		const { effects } = m.dispatch({ type: "retry_due" });
+		const msg = effects.find((e) => e.kind === "sendMessage");
+		assert.ok(msg, "expected round message on retry_due");
+		assert.equal(m.snapshot.pendingTurn, 2);
 	});
 
 	void it("disarmed: no round queued", () => {
