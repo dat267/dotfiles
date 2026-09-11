@@ -1,6 +1,8 @@
 typeset -U path cdpath fpath manpath
 
 [[ -f ~/.profile ]] && . ~/.profile
+# Out-of-repo secrets (mode 600, never committed; see ~/.secrets.env)
+[[ -f ~/.secrets.env ]] && . ~/.secrets.env
 
 zstyle ':completion:*' menu select
 zstyle ':completion:*' rehash true

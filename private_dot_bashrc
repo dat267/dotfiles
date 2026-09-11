@@ -1,5 +1,7 @@
 # shellcheck disable=SC1091
 [[ -f ~/.profile ]] && . ~/.profile
+# Out-of-repo secrets (mode 600, never committed; see ~/.secrets.env)
+[[ -f ~/.secrets.env ]] && . ~/.secrets.env
 [[ $- != *i* ]] && return
 
 HISTTIMEFORMAT="%F %T "
