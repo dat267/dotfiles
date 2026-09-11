@@ -20,22 +20,47 @@ import {
 } from "./catalog.ts";
 
 void describe("buildModels", () => {
+	void it("excludes benchmark-dominated models", () => {
+		// Independent source: AA free-tier benchmarks 2026-09-11; every drop is
+		// dominated by a kept model (worse or equal intelligence index at a
+		// higher or equal price).
+		const models = buildModels();
+		assert.equal(models.length, 33);
+		const ids = new Set(models.map((m) => m.id));
+		for (const id of [
+			"zai-org/GLM-5", "zai-org/GLM-5.1", "zai-org/GLM-5.2",
+			"gpt-5.6-sol",
+			"moonshotai/Kimi-K2.5", "moonshotai/Kimi-K2.7-Code", "moonshotai/Kimi-K2.7-Code-Highspeed",
+			"xiaomi/mimo-v2.5",
+			"thinkingmachines/inkling", "thinkingmachines/inkling-small", "thinkingmachines/tinker-70b",
+			"xai/grok-4.5",
+			"MiniMaxAI/MiniMax-M2.5",
+			"stepfun/Step-3.5-Flash",
+			"meta/muse-spark-1.2", "meta/muse-spark-1.2-contributor",
+		]) {
+			assert.ok(!ids.has(id), `${id} should be excluded`);
+		}
+		for (const id of ["z-ai/glm-5.3-flash", "zai-org/GLM-5.3", "gpt-5.6-luna", "moonshotai/Kimi-K3", "moonshotai/Kimi-K2.6", "xiaomi/mimo-v2.5-pro", "xai/grok-4.6", "MiniMaxAI/MiniMax-M3", "stepfun/Step-3.7-Flash", "meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor"]) {
+			assert.ok(ids.has(id), `${id} should stay`);
+		}
+	});
+
 	void it("excludes models verified unavailable on the caller's plan", () => {
 		// Independent source: live probe 2026-09-11 (MODEL_NOT_IN_PLAN / dead backends).
 		const models = buildModels();
-		assert.equal(models.length, 48);
+		assert.equal(models.length, 33);
 		const ids = new Set(models.map((m) => m.id));
 		for (const id of ["claude-sonnet-5", "claude-fable-5-1", "gpt-5.5", "gpt-5.3-codex", "google/gemini-3.5-flash", "zai-org/GLM-5.2-Fast", "MiniMaxAI/MiniMax-M2.7", "sakana/fugu-ultra", "meta/muse-spark-1.1"]) {
 			assert.ok(!ids.has(id), `${id} should be excluded`);
 		}
-		for (const id of ["gpt-5.6-sol", "gpt-5.6-luna", "deepseek/deepseek-v4-flash", "z-ai/glm-5.3-flash", "Qwen/Qwen3.8-Flash", "moonshotai/Kimi-K3", "xai/grok-4.6", "google/gemini-3.8-flash", "meituan/LongCat-2.0:free"]) {
+		for (const id of ["gpt-5.6-luna", "deepseek/deepseek-v4-flash", "z-ai/glm-5.3-flash", "Qwen/Qwen3.8-Flash", "moonshotai/Kimi-K3", "xai/grok-4.6", "google/gemini-3.8-flash", "meituan/LongCat-2.0:free"]) {
 			assert.ok(ids.has(id), `${id} should stay`);
 		}
 	});
 
 	void it("every model carries the provider invariants", () => {
 		const models = buildModels();
-		assert.ok(models.length > 40, `expected the pruned catalog, got ${models.length}`);
+		assert.ok(models.length > 30, `expected the pruned catalog, got ${models.length}`);
 		for (const m of models) {
 			assert.equal(m.provider, PROVIDER_ID, m.id);
 			assert.ok(m.id.length > 0);
@@ -62,7 +87,7 @@ void describe("buildModels", () => {
 		assert.equal(claude.api, API_ANTHROPIC);
 		assert.equal(claude.baseUrl, BASE_URL.replace(/\/v1$/, ""));
 
-		const openai = buildModels().find((m) => m.id === "gpt-5.6-sol")!;
+		const openai = buildModels().find((m) => m.id === "gpt-5.6-luna")!;
 		assert.equal(openai.api, API_OPENAI);
 		assert.equal(openai.baseUrl, BASE_URL);
 	});
@@ -70,7 +95,7 @@ void describe("buildModels", () => {
 	void it("covers the live provider catalog", () => {
 		const ids = new Set(buildModels().map((m) => m.id));
 		for (const id of [
-			"gpt-5.6-sol",
+			"gpt-5.6-luna",
 			"deepseek/deepseek-v4-pro",
 			"deepseek/deepseek-v4-flash",
 			"deepseek/deepseek-v4.1-flash",
@@ -98,7 +123,7 @@ void describe("buildModels", () => {
 			max: null,
 		});
 
-		const noEfforts = buildModels().find((m) => m.id === "moonshotai/Kimi-K2.7-Code")!;
+		const noEfforts = buildModels().find((m) => m.id === "moonshotai/Kimi-K2.6")!;
 		assert.equal(noEfforts.reasoning, true);
 		assert.equal(noEfforts.thinkingLevelMap?.high, null);
 	});
@@ -107,7 +132,7 @@ void describe("buildModels", () => {
 		const glm = buildModels().find((m) => m.id === "z-ai/glm-5.3-flash")!;
 		assert.deepEqual(glm.input, ["text", "image"]);
 
-		const textOnly = buildModels().find((m) => m.id === "zai-org/GLM-5")!;
+		const textOnly = buildModels().find((m) => m.id === "deepseek/deepseek-v4-flash")!;
 		assert.deepEqual(textOnly.input, ["text"]);
 	});
 
@@ -115,8 +140,8 @@ void describe("buildModels", () => {
 		const flash = buildModels().find((m) => m.id === "deepseek/deepseek-v4-flash")!;
 		assert.deepEqual(flash.cost, { input: 0.22, output: 0.66, cacheRead: 0.007, cacheWrite: 0 });
 
-		const sol = buildModels().find((m) => m.id === "gpt-5.6-sol")!;
-		assert.deepEqual(sol.cost, { input: 5, output: 30, cacheRead: 0.5, cacheWrite: 6.25 });
+		const luna = buildModels().find((m) => m.id === "gpt-5.6-luna")!;
+		assert.deepEqual(luna.cost, { input: 0.2, output: 1.2, cacheRead: 0.02, cacheWrite: 0.25 });
 
 		const free = buildModels().find((m) => m.id === "poolside/laguna-s-2.1-free")!;
 		assert.deepEqual(free.cost, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
@@ -130,8 +155,8 @@ void describe("buildModels", () => {
 		const laguna = buildModels().find((m) => m.id === "poolside/laguna-s-2.1-free")!;
 		assert.equal(laguna.maxTokens, 32_768);
 
-		const sol = buildModels().find((m) => m.id === "gpt-5.6-sol")!;
-		assert.equal(sol.maxTokens, 65_536);
+		const luna = buildModels().find((m) => m.id === "gpt-5.6-luna")!;
+		assert.equal(luna.maxTokens, 65_536);
 	});
 });
 
@@ -172,9 +197,22 @@ void describe("mapCatalogResponse", () => {
 			data: [
 				{ id: "claude-sonnet-5", name: "Claude Sonnet 5", context_length: 1_000_000 },
 				{ id: "gpt-5.5", name: "GPT-5.5", context_length: 400_000 },
+				{ id: "zai-org/GLM-5.2", name: "GLM-5.2", context_length: 200_000 },
 				{ id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash", context_length: 1_000_000 },
 			],
 		});
 		assert.deepEqual(models.map((m) => m.id), ["deepseek/deepseek-v4-flash"]);
+	});
+
+	void it("live refresh cannot resurrect benchmark-dominated models", () => {
+		const models = mapCatalogResponse({
+			object: "list",
+			data: [
+				{ id: "gpt-5.6-sol", name: "GPT-5.6 Sol", context_length: 1_050_000 },
+				{ id: "xai/grok-4.5", name: "Grok 4.5", context_length: 2_000_000 },
+				{ id: "xai/grok-4.6", name: "Grok 4.6", context_length: 2_000_000 },
+			],
+		});
+		assert.deepEqual(models.map((m) => m.id), ["xai/grok-4.6"]);
 	});
 });

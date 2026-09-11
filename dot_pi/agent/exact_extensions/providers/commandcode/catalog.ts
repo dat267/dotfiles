@@ -509,7 +509,7 @@ export function toModel(entry: CompactEntry): Model<Api> {
 
 /** The static seed catalog, with all invariants applied. */
 export function buildModels(): Model<Api>[] {
-	return CATALOG.filter((entry) => !UNAVAILABLE_IDS.has(entry.id)).map(toModel);
+	return CATALOG.filter((entry) => !EXCLUDED_IDS.has(entry.id)).map(toModel);
 }
 
 /** Live /provider/v1/models response body (subset we consume). */
@@ -546,15 +546,52 @@ export const UNAVAILABLE_IDS = new Set([
 	"google/gemini-3.1-flash-lite",
 	"sakana/fugu-ultra",
 	"meta/muse-spark-1.1",
+	"thinkingmachines/tinker-70b",
 	"zai-org/GLM-5.2-Fast",
 	"MiniMaxAI/MiniMax-M2.7",
 ]);
+
+/**
+ * Models that work but are dominated by a kept model (worse or equal
+ * intelligence/coding index at a higher or equal price — Artificial Analysis
+ * free-tier benchmarks, 2026-09-11). The live /models overlay would otherwise
+ * resurrect them on refresh.
+ */
+export const DOMINATED_IDS = new Set([
+	// GLM-5/5.1/5.2: ii 27.9 @ $3.20 — glm-5.3-flash beats them at $0.50
+	"zai-org/GLM-5",
+	"zai-org/GLM-5.1",
+	"zai-org/GLM-5.2",
+	// gpt-5.6-sol: ii 33.8 @ $20 — luna beats it at $1.20
+	"gpt-5.6-sol",
+	// old Kimi generations; kimi-k3 + K2.6 cover the family
+	"moonshotai/Kimi-K2.5",
+	"moonshotai/Kimi-K2.7-Code",
+	"moonshotai/Kimi-K2.7-Code-Highspeed",
+	// identical benchmarks to mimo-v2.5-pro
+	"xiaomi/mimo-v2.5",
+	// identical scores to each other; tinker-70b also dead on the endpoint
+	"thinkingmachines/inkling",
+	"thinkingmachines/inkling-small",
+	// grok-4.6 supersedes at the same price
+	"xai/grok-4.5",
+	// ii 22.8 dominated by M3 at the same price
+	"MiniMaxAI/MiniMax-M2.5",
+	// previous gen; Step-3.7-Flash is current
+	"stepfun/Step-3.5-Flash",
+	// 1.3 is the current generation
+	"meta/muse-spark-1.2",
+	"meta/muse-spark-1.2-contributor",
+]);
+
+/** Ids never surfaced to the user, for any reason. */
+const EXCLUDED_IDS = new Set([...UNAVAILABLE_IDS, ...DOMINATED_IDS]);
 
 /** Map the live catalog response through the same construction seam. */
 export function mapCatalogResponse(body: CommandCodeCatalogBody): Model<Api>[] {
 	return (body.data ?? [])
 		.filter((m): m is { id: string; name?: string; context_length?: number } =>
-			typeof m.id === "string" && m.id.length > 0 && !UNAVAILABLE_IDS.has(m.id),
+			typeof m.id === "string" && m.id.length > 0 && !EXCLUDED_IDS.has(m.id),
 		)
 		.map((m) => {
 			const known = BY_ID.get(m.id);
