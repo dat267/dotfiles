@@ -23,6 +23,23 @@ import {
 export default function piGoal(pi: ExtensionAPI) {
 	const machine = new GoalMachine();
 
+	/** Last failing provider HTTP response this run — cleared on success or new run. */
+	let providerError: { status: number; message: string } | undefined;
+
+	pi.on("agent_start", () => {
+		providerError = undefined;
+	});
+
+	pi.on("after_provider_response", (event) => {
+		if (event.status >= 400) {
+			const retryAfter = event.headers?.["retry-after"] ?? event.headers?.["Retry-After"];
+			const retryNote = retryAfter ? ` (retry after ${retryAfter}s)` : "";
+			providerError = { status: event.status, message: `HTTP ${event.status}${retryNote}` };
+		} else {
+			providerError = undefined;
+		}
+	});
+
 	/** Execute the machine's effects against the host. */
 	function apply(effects: Effect[], ctx: ExtensionContext) {
 		for (const effect of effects) {
@@ -257,12 +274,18 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	pi.on("agent_settled", (_event, ctx) => {
+		const err = providerError;
 		apply(
 			machine.dispatch({
 				type: "agent_settled",
 				contextUsage: ctx.getContextUsage(),
+				providerError: err,
 			}).effects,
 			ctx,
 		);
+		const goal = machine.snapshot.goal;
+		if (err && goal?.phase === "paused" && goal.blockedReason?.code === "api-error") {
+			ctx.ui.notify(`Goal paused: ${err.message} Resume with /goal resume once the limit resets.`, "warning");
+		}
 	});
 }

@@ -31,9 +31,16 @@ export interface AgentEndEvent {
 	aborted: boolean;
 }
 
+export interface ProviderError {
+	status: number;
+	message: string;
+}
+
 export interface AgentSettledEvent {
 	type: "agent_settled";
 	contextUsage: { tokens: number | null; contextWindow: number };
+	/** Set when the last provider response was an HTTP error — pauses the loop instead of queueing another round. */
+	providerError?: ProviderError;
 }
 
 export interface GoalUpdateEvent {
@@ -111,7 +118,7 @@ export class GoalMachine {
 			case "agent_end":
 				return this.agentEnd(event.contextUsage, event.aborted);
 			case "agent_settled":
-				return this.agentSettled(event.contextUsage);
+				return this.agentSettled(event.contextUsage, event.providerError);
 			case "goal_update":
 				return this.goalUpdate(event.goal_id, event.revision, event.action, event.blocked_reason);
 			case "goal_pause":
@@ -315,9 +322,24 @@ export class GoalMachine {
 		return { effects };
 	}
 
-	private agentSettled(usage: { tokens: number | null; contextWindow: number }): DispatchResult {
+	private agentSettled(usage: { tokens: number | null; contextWindow: number }, providerError?: ProviderError): DispatchResult {
 		if (!this.view || this.view.phase !== "active" || !this.armed) {
 			return { effects: [{ kind: "renderStatus" }] };
+		}
+
+		// Provider failure (429 rate limit, 5xx, …): pausing beats queueing —
+		// retrying immediately just burns rounds against a dead endpoint.
+		if (providerError) {
+			this.armed = false;
+			const reason = { code: "api-error", message: `Provider error ${providerError.status}: ${providerError.message}` };
+			const effects = this.commit("pause", {
+				...this.view,
+				phase: "paused",
+				blockedReason: reason,
+				revision: this.view.revision + 1,
+				updatedAt: Date.now(),
+			});
+			return { effects };
 		}
 
 		return { effects: this.queueRound() };

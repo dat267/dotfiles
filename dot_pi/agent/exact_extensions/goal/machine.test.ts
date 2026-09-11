@@ -159,6 +159,24 @@ void describe("GoalMachine.agent_settled", () => {
 		assert.equal(m.snapshot.pendingTurn, 2);
 	});
 
+	void it("provider error at settle: pauses goal with api-error reason, no round queued", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
+		m.dispatch({ type: "goal_resume" });
+		// admit the resumed round
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		const { effects } = m.dispatch({
+			type: "agent_settled",
+			contextUsage: USAGE,
+			providerError: { status: 429, message: "You have reached your 5-hour Clinepass limit." },
+		});
+		assert.ok(!effects.some((e) => e.kind === "sendMessage"), "no continuation round after provider error");
+		assert.equal(m.snapshot.armed, false);
+		assert.equal(m.snapshot.goal?.phase, "paused");
+		assert.equal(m.snapshot.goal?.blockedReason?.code, "api-error");
+		assert.match(m.snapshot.goal?.blockedReason?.message ?? "", /429/);
+	});
+
 	void it("disarmed: no round queued", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
