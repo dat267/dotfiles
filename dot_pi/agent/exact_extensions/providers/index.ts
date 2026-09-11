@@ -9,8 +9,10 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { registerCharmHyper } from "./hyper/index.ts";
 import { registerClinePass } from "./cline-pass/index.ts";
+import { registerCommandCode } from "./commandcode/index.ts";
 
 export default function (pi: ExtensionAPI) {
 	registerCharmHyper(pi);
 	registerClinePass(pi);
+	registerCommandCode(pi);
 }
