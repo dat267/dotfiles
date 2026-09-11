@@ -22,6 +22,24 @@ void describe("buildModels", () => {
 		}
 	});
 
+	void it("excludes benchmark-dominated models", () => {
+		// Independent source: AA free-tier benchmarks 2026-09-11. glm-5.2 (ii
+		// 27.9 @ $4.4/M out) and glm-5.3 (same ii as flash, 8.8x price) lose to
+		// glm-5.3-flash; mimo-v2.5-pro scores identically to mimo-v2.5 at 12x
+		// the price; kimi-k2.6 and the qwen3.7 pair are superseded generations
+		// at equal-or-worse prices.
+		const models = buildModels();
+		assert.equal(models.length, 9);
+		const ids = new Set(models.map((m) => m.id));
+		for (const id of [
+			"cline-pass/glm-5.2", "cline-pass/glm-5.3",
+			"cline-pass/mimo-v2.5-pro", "cline-pass/kimi-k2.6",
+			"cline-pass/qwen3.7-plus", "cline-pass/qwen3.7-max",
+		]) {
+			assert.ok(!ids.has(id), `${id} should be excluded`);
+		}
+	});
+
 	void it("Qwen models with cache pricing get anthropic cache control", () => {
 		for (const m of buildModels()) {
 			const compat = m.compat as { cacheControlFormat?: string };
@@ -38,28 +56,22 @@ void describe("buildModels", () => {
 		assert.deepEqual(flash.cost, { input: 0.14, output: 0.28, cacheRead: 0.0028, cacheWrite: 0 });
 		assert.equal(flash.contextWindow, 1_000_000);
 
-		const glm = buildModels().find((m) => m.id === "cline-pass/glm-5.2")!;
+		const glm = buildModels().find((m) => m.id === "cline-pass/glm-5.3-flash")!;
 		assert.equal(glm.contextWindow, 1_000_000);
 		assert.equal(glm.maxTokens, 131_072);
 	});
 
-	void it("covers the live clinePass recommendations", () => {
+	void it("covers the pruned baseline", () => {
 		const ids = new Set(buildModels().map((m) => m.id));
 		for (const id of [
-			"cline-pass/glm-5.2",
-			"cline-pass/glm-5.3",
 			"cline-pass/glm-5.3-flash",
-			"cline-pass/kimi-k2.6",
 			"cline-pass/kimi-k2.7-code",
 			"cline-pass/kimi-k3",
 			"cline-pass/deepseek-v4-pro",
 			"cline-pass/deepseek-v4-flash",
 			"cline-pass/deepseek-v4.1-flash",
 			"cline-pass/mimo-v2.5",
-			"cline-pass/mimo-v2.5-pro",
 			"cline-pass/minimax-m3",
-			"cline-pass/qwen3.7-plus",
-			"cline-pass/qwen3.7-max",
 			"cline-pass/qwen3.8-max",
 		]) {
 			assert.ok(ids.has(id), `missing ${id}`);

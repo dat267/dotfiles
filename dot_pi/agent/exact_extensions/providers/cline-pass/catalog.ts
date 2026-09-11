@@ -33,16 +33,6 @@ export interface CompactEntry {
 
 const CATALOG: CompactEntry[] = [
 	{
-		id: "cline-pass/glm-5.2", name: "GLM-5.2",
-		cost: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 0 },
-		contextWindow: 1_000_000, maxTokens: 131_072,
-	},
-	{
-		id: "cline-pass/glm-5.3", name: "GLM-5.3",
-		cost: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 0 },
-		contextWindow: 1_000_000, maxTokens: 131_072,
-	},
-	{
 		id: "cline-pass/glm-5.3-flash", name: "GLM-5.3 Flash", vision: true,
 		cost: { input: 0.15, output: 0.5, cacheRead: 0.03, cacheWrite: 0 },
 		contextWindow: 1_000_000, maxTokens: 131_072,
@@ -50,11 +40,6 @@ const CATALOG: CompactEntry[] = [
 	{
 		id: "cline-pass/kimi-k2.7-code", name: "Kimi K2.7 Code", vision: true,
 		cost: { input: 0.95, output: 4, cacheRead: 0.19, cacheWrite: 0 },
-		contextWindow: 262_144, maxTokens: 262_144,
-	},
-	{
-		id: "cline-pass/kimi-k2.6", name: "Kimi K2.6", vision: true,
-		cost: { input: 0.95, output: 4, cacheRead: 0.16, cacheWrite: 0 },
 		contextWindow: 262_144, maxTokens: 262_144,
 	},
 	{
@@ -80,11 +65,6 @@ const CATALOG: CompactEntry[] = [
 		contextWindow: 1_048_576, maxTokens: 384_000,
 	},
 	{
-		id: "cline-pass/mimo-v2.5-pro", name: "MiMo-V2.5-Pro",
-		cost: { input: 1.74, output: 3.48, cacheRead: 0.0145, cacheWrite: 0 },
-		contextWindow: 1_048_576, maxTokens: 131_072,
-	},
-	{
 		id: "cline-pass/mimo-v2.5", name: "MiMo-V2.5", vision: true,
 		cost: { input: 0.14, output: 0.28, cacheRead: 0.0028, cacheWrite: 0 },
 		contextWindow: 1_048_576, maxTokens: 131_072,
@@ -93,16 +73,6 @@ const CATALOG: CompactEntry[] = [
 		id: "cline-pass/minimax-m3", name: "MiniMax-M3", vision: true,
 		cost: { input: 0.3, output: 1.2, cacheRead: 0.06, cacheWrite: 0 },
 		contextWindow: 1_048_576, maxTokens: 512_000,
-	},
-	{
-		id: "cline-pass/qwen3.7-plus", name: "Qwen3.7 Plus", vision: true,
-		cost: { input: 0.4, output: 1.6, cacheRead: 0.04, cacheWrite: 0.5 },
-		contextWindow: 1_000_000, maxTokens: 64_000,
-	},
-	{
-		id: "cline-pass/qwen3.7-max", name: "Qwen3.7 Max",
-		cost: { input: 2.5, output: 7.5, cacheRead: 0.5, cacheWrite: 3.125 },
-		contextWindow: 1_000_000, maxTokens: 65_536,
 	},
 	{
 		id: "cline-pass/qwen3.8-max", name: "Qwen3.8 Max", vision: true,
