@@ -15,13 +15,27 @@ import {
 	PROVIDER_ID,
 	buildModels,
 	mapCatalogResponse,
+	toModel,
 	type CommandCodeCatalogBody,
 } from "./catalog.ts";
 
 void describe("buildModels", () => {
+	void it("excludes models verified unavailable on the caller's plan", () => {
+		// Independent source: live probe 2026-09-11 (MODEL_NOT_IN_PLAN / dead backends).
+		const models = buildModels();
+		assert.equal(models.length, 48);
+		const ids = new Set(models.map((m) => m.id));
+		for (const id of ["claude-sonnet-5", "claude-fable-5-1", "gpt-5.5", "gpt-5.3-codex", "google/gemini-3.5-flash", "zai-org/GLM-5.2-Fast", "MiniMaxAI/MiniMax-M2.7", "sakana/fugu-ultra", "meta/muse-spark-1.1"]) {
+			assert.ok(!ids.has(id), `${id} should be excluded`);
+		}
+		for (const id of ["gpt-5.6-sol", "gpt-5.6-luna", "deepseek/deepseek-v4-flash", "z-ai/glm-5.3-flash", "Qwen/Qwen3.8-Flash", "moonshotai/Kimi-K3", "xai/grok-4.6", "google/gemini-3.8-flash", "meituan/LongCat-2.0:free"]) {
+			assert.ok(ids.has(id), `${id} should stay`);
+		}
+	});
+
 	void it("every model carries the provider invariants", () => {
 		const models = buildModels();
-		assert.ok(models.length > 60, `expected the full catalog, got ${models.length}`);
+		assert.ok(models.length > 40, `expected the pruned catalog, got ${models.length}`);
 		for (const m of models) {
 			assert.equal(m.provider, PROVIDER_ID, m.id);
 			assert.ok(m.id.length > 0);
@@ -35,12 +49,20 @@ void describe("buildModels", () => {
 		}
 	});
 
-	void it("Claude models use the anthropic messages api on the stripped base url", () => {
-		const claude = buildModels().find((m) => m.id === "claude-sonnet-5")!;
+	void it("routes claude models over anthropic messages (construction seam)", () => {
+		// claude-* is currently plan-gated (UNAVAILABLE_IDS), so the static seed
+		// carries none — test the routing contract through toModel directly so
+		// it survives for when the plan regains claude.
+		const claude = toModel({
+			id: "claude-sonnet-5", name: "Claude Sonnet 5", reasoning: true, vision: true,
+			efforts: ["low", "medium", "high"],
+			cost: { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+			contextWindow: 1_000_000, maxTokens: 65_536,
+		});
 		assert.equal(claude.api, API_ANTHROPIC);
 		assert.equal(claude.baseUrl, BASE_URL.replace(/\/v1$/, ""));
 
-		const openai = buildModels().find((m) => m.id === "gpt-5.4")!;
+		const openai = buildModels().find((m) => m.id === "gpt-5.6-sol")!;
 		assert.equal(openai.api, API_OPENAI);
 		assert.equal(openai.baseUrl, BASE_URL);
 	});
@@ -48,7 +70,6 @@ void describe("buildModels", () => {
 	void it("covers the live provider catalog", () => {
 		const ids = new Set(buildModels().map((m) => m.id));
 		for (const id of [
-			"claude-opus-5",
 			"gpt-5.6-sol",
 			"deepseek/deepseek-v4-pro",
 			"deepseek/deepseek-v4-flash",
@@ -86,7 +107,7 @@ void describe("buildModels", () => {
 		const glm = buildModels().find((m) => m.id === "z-ai/glm-5.3-flash")!;
 		assert.deepEqual(glm.input, ["text", "image"]);
 
-		const textOnly = buildModels().find((m) => m.id === "zai-org/GLM-5.2-Fast")!;
+		const textOnly = buildModels().find((m) => m.id === "zai-org/GLM-5")!;
 		assert.deepEqual(textOnly.input, ["text"]);
 	});
 
@@ -94,8 +115,8 @@ void describe("buildModels", () => {
 		const flash = buildModels().find((m) => m.id === "deepseek/deepseek-v4-flash")!;
 		assert.deepEqual(flash.cost, { input: 0.22, output: 0.66, cacheRead: 0.007, cacheWrite: 0 });
 
-		const sonnet = buildModels().find((m) => m.id === "claude-sonnet-5")!;
-		assert.deepEqual(sonnet.cost, { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 });
+		const sol = buildModels().find((m) => m.id === "gpt-5.6-sol")!;
+		assert.deepEqual(sol.cost, { input: 5, output: 30, cacheRead: 0.5, cacheWrite: 6.25 });
 
 		const free = buildModels().find((m) => m.id === "poolside/laguna-s-2.1-free")!;
 		assert.deepEqual(free.cost, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
@@ -109,8 +130,8 @@ void describe("buildModels", () => {
 		const laguna = buildModels().find((m) => m.id === "poolside/laguna-s-2.1-free")!;
 		assert.equal(laguna.maxTokens, 32_768);
 
-		const sonnet = buildModels().find((m) => m.id === "claude-sonnet-5")!;
-		assert.equal(sonnet.maxTokens, 65_536);
+		const sol = buildModels().find((m) => m.id === "gpt-5.6-sol")!;
+		assert.equal(sol.maxTokens, 65_536);
 	});
 });
 
@@ -141,5 +162,19 @@ void describe("mapCatalogResponse", () => {
 	void it("ignores entries without an id", () => {
 		const models = mapCatalogResponse({ data: [{ name: "no id" }, { id: "ok", context_length: 1 }] });
 		assert.deepEqual(models.map((m) => m.id), ["ok"]);
+	});
+
+	void it("drops models verified unavailable on the caller's plan", () => {
+		// Independent source: live probe 2026-09-11 returned MODEL_NOT_IN_PLAN
+		// for every claude-* id and 5.x GPTs on this plan.
+		const models = mapCatalogResponse({
+			object: "list",
+			data: [
+				{ id: "claude-sonnet-5", name: "Claude Sonnet 5", context_length: 1_000_000 },
+				{ id: "gpt-5.5", name: "GPT-5.5", context_length: 400_000 },
+				{ id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash", context_length: 1_000_000 },
+			],
+		});
+		assert.deepEqual(models.map((m) => m.id), ["deepseek/deepseek-v4-flash"]);
 	});
 });

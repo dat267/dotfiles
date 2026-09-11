@@ -485,7 +485,8 @@ function thinkingLevelMap(efforts: readonly Effort[]): Model<Api>["thinkingLevel
 	};
 }
 
-function toModel(entry: CompactEntry): Model<Api> {
+/** Construction seam for one catalog entry (exported for the routing test). */
+export function toModel(entry: CompactEntry): Model<Api> {
 	const api = apiForId(entry.id);
 	const compat = api === API_ANTHROPIC
 		? (entry.reasoning ? COMPAT_ANTHROPIC_BASE : COMPAT_ANTHROPIC_PLAIN)
@@ -508,7 +509,7 @@ function toModel(entry: CompactEntry): Model<Api> {
 
 /** The static seed catalog, with all invariants applied. */
 export function buildModels(): Model<Api>[] {
-	return CATALOG.map(toModel);
+	return CATALOG.filter((entry) => !UNAVAILABLE_IDS.has(entry.id)).map(toModel);
 }
 
 /** Live /provider/v1/models response body (subset we consume). */
@@ -517,11 +518,43 @@ export interface CommandCodeCatalogBody {
 	data?: { id?: string; name?: string; context_length?: number }[];
 }
 
+/**
+ * Models verified unreachable on the caller's plan (live probe 2026-09-11):
+ * every claude-* and most 5.x GPTs return MODEL_NOT_IN_PLAN (Pro+ or extra
+ * on-demand usage), older Gemini flash models and sakana/fugu-ultra are
+ * gated the same way, and zai-org/GLM-5.2-Fast + MiniMaxAI/MiniMax-M2.7 fail
+ * with "No available providers match" on all backends. Refresh this set
+ * whenever the plan changes.
+ */
+export const UNAVAILABLE_IDS = new Set([
+	"claude-sonnet-5",
+	"claude-sonnet-4-6",
+	"claude-fable-5-1",
+	"claude-fable-5",
+	"claude-opus-5",
+	"claude-opus-4-8",
+	"claude-opus-4-7",
+	"claude-haiku-4-5-20251001",
+	"gpt-5.6-terra",
+	"gpt-5.5",
+	"gpt-5.4",
+	"gpt-5.3-codex",
+	"gpt-5.4-mini",
+	"google/gemini-3.6-flash",
+	"google/gemini-3.5-flash",
+	"google/gemini-3.5-flash-lite",
+	"google/gemini-3.1-flash-lite",
+	"sakana/fugu-ultra",
+	"meta/muse-spark-1.1",
+	"zai-org/GLM-5.2-Fast",
+	"MiniMaxAI/MiniMax-M2.7",
+]);
+
 /** Map the live catalog response through the same construction seam. */
 export function mapCatalogResponse(body: CommandCodeCatalogBody): Model<Api>[] {
 	return (body.data ?? [])
 		.filter((m): m is { id: string; name?: string; context_length?: number } =>
-			typeof m.id === "string" && m.id.length > 0,
+			typeof m.id === "string" && m.id.length > 0 && !UNAVAILABLE_IDS.has(m.id),
 		)
 		.map((m) => {
 			const known = BY_ID.get(m.id);
