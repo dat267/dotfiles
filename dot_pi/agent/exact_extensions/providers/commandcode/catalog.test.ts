@@ -157,8 +157,14 @@ void describe("buildModels", () => {
 	});
 
 	void it("uses the published rates", () => {
-		const flash = buildModels().find((m) => m.id === "deepseek/deepseek-v4-flash")!;
-		assert.deepEqual(flash.cost, { input: 0.22, output: 0.66, cacheRead: 0.007, cacheWrite: 0 });
+		// Source: command-code@1.53.1 bundled reference/models.md (provider table).
+		// Every deepseek flash variant is advertised at 0.15/0.6 with cache 0.003;
+		// a previous catalog revision carried stale 0.22/0.66/0.007 rates and left
+		// v4.1-flash unpriced, which made pi report $0 spend for it.
+		for (const id of ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-flash-vision-exp", "deepseek/deepseek-v4.1-flash"]) {
+			const model = buildModels().find((m) => m.id === id)!;
+			assert.deepEqual(model.cost, { input: 0.15, output: 0.6, cacheRead: 0.003, cacheWrite: 0 }, id);
+		}
 
 		const luna = buildModels().find((m) => m.id === "gpt-5.6-luna")!;
 		assert.deepEqual(luna.cost, { input: 0.2, output: 1.2, cacheRead: 0.02, cacheWrite: 0.25 });

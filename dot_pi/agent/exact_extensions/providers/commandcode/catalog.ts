@@ -175,13 +175,13 @@ const CATALOG: CompactEntry[] = [
 	{
 		id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash (latest)", reasoning: true,
 		efforts: ["high", "max"],
-		cost: { input: 0.22, output: 0.66, cacheRead: 0.007, cacheWrite: 0 },
+		cost: { input: 0.15, output: 0.6, cacheRead: 0.003, cacheWrite: 0 },
 		contextWindow: 1_000_000, maxTokens: 65_536,
 	},
 	{
 		id: "deepseek/deepseek-v4-flash-vision-exp", name: "DeepSeek V4 Flash Vision (exp)", reasoning: true, vision: true,
 		efforts: ["high", "max"],
-		cost: { input: 0.22, output: 0.66, cacheRead: 0.007, cacheWrite: 0 },
+		cost: { input: 0.15, output: 0.6, cacheRead: 0.003, cacheWrite: 0 },
 		contextWindow: 1_000_000, maxTokens: 65_536,
 	},
 	{
@@ -193,7 +193,7 @@ const CATALOG: CompactEntry[] = [
 	{
 		id: "deepseek/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", reasoning: true, vision: true,
 		efforts: ["high", "max"],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+		cost: { input: 0.15, output: 0.6, cacheRead: 0.003, cacheWrite: 0 },
 		contextWindow: 1_000_000, maxTokens: 65_536,
 	},
 	{
