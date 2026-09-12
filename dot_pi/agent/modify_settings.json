@@ -14,6 +14,9 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "fullscreenScrollbar" "auto" $current }}
 {{- $_ := setValueAtPath "outputPad" 1 $current }}
 {{- $_ := setValueAtPath "editorPaddingX" 1 $current }}
+{{- /* Compaction uses pi's defaults (reserveTokens 16384, keepRecentTokens 20000).
+     Strip any block pi or a manual edit may have persisted into the deployed file. */}}
+{{- $_ := unset $current "compaction" }}
 {{- /* Native Windows: pi's bash fallback finds %SystemRoot%\System32\bash.exe (the WSL shim)
      whenever WSL is installed, so drop the bash tool and use the native powershell tool. */}}
 {{- if eq .chezmoi.os "windows" }}
