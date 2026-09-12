@@ -6,8 +6,8 @@
  * inherits the session's reasoning level, so reasoning models burn the budget
  * on thinking and pi aborts with stopReason "length". This extension takes
  * over the summarization call via session_before_compact with:
- *   - a dedicated cheap summarizer model (configurable, no reasoning)
- *   - a 32k text budget instead of ~13k
+ *   - the current session model (or PI_COMPACT_MODEL=provider/model-id)
+ *   - reasoning never enabled, 32k text budget instead of ~13k
  *   - pi-better-compact's structured summary prompts
  *   - split-turn prefix handling and file-ops formatting like stock compaction
  * On any failure it returns undefined and pi falls back to default compaction.
@@ -23,15 +23,9 @@ import {
 	SUMMARIZER_SYSTEM_PROMPT,
 } from "./summary.ts";
 
-/** Summarizer candidates in priority order: [provider, modelId]. */
-const SUMMARIZER_MODELS: readonly (readonly [string, string])[] = [
-	["commandcode", "z-ai/glm-5.3-flash"],
-	["cline-pass", "glm-5.3-flash"],
-];
-
 /**
- * Optional override: PI_COMPACT_MODEL="provider/model-id" replaces the
- * candidate list entirely. Malformed or unknown values fall back to the list.
+ * Optional override: PI_COMPACT_MODEL="provider/model-id". Malformed values
+ * are ignored.
  */
 function parseOverride(
 	envValue: string | undefined,
@@ -58,9 +52,8 @@ type CtxLike = {
 };
 
 /**
- * Summarizer selection: PI_COMPACT_MODEL="provider/model-id" wins, then the
- * current session model, then the cheap candidate list (for contexts without
- * a session model). Falls through on missing auth or unknown ids.
+ * Summarizer selection: PI_COMPACT_MODEL="provider/model-id" wins, otherwise
+ * the current session model. No other fallbacks.
  */
 export function pickSummarizer(
 	ctx: CtxLike,
@@ -71,12 +64,7 @@ export function pickSummarizer(
 		const model = ctx.modelRegistry.find(override[0], override[1]);
 		if (model && ctx.modelRegistry.hasConfiguredAuth(model)) return model;
 	}
-	if (ctx.model) return ctx.model;
-	for (const [provider, modelId] of SUMMARIZER_MODELS) {
-		const model = ctx.modelRegistry.find(provider, modelId);
-		if (model && ctx.modelRegistry.hasConfiguredAuth(model)) return model;
-	}
-	return undefined;
+	return ctx.model;
 }
 
 async function summarize(
