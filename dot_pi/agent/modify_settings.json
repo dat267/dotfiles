@@ -14,5 +14,10 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "fullscreenScrollbar" "auto" $current }}
 {{- $_ := setValueAtPath "outputPad" 1 $current }}
 {{- $_ := setValueAtPath "editorPaddingX" 1 $current }}
+{{- /* Native Windows: pi's bash fallback finds %SystemRoot%\System32\bash.exe (the WSL shim)
+     whenever WSL is installed, so drop the bash tool and use the native powershell tool. */}}
+{{- if eq .chezmoi.os "windows" }}
+{{- $_ := setValueAtPath "defaultTools" (list "read" "powershell" "edit" "write") $current }}
+{{- end }}
 {{ toPrettyJson $current }}
 
