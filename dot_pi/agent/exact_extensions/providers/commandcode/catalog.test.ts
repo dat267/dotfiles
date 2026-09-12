@@ -25,7 +25,7 @@ void describe("buildModels", () => {
 		// dominated by a kept model (worse or equal intelligence index at a
 		// higher or equal price).
 		const models = buildModels();
-		assert.equal(models.length, 33);
+		assert.equal(models.length, 25);
 		const ids = new Set(models.map((m) => m.id));
 		for (const id of [
 			"zai-org/GLM-5", "zai-org/GLM-5.1", "zai-org/GLM-5.2",
@@ -40,7 +40,7 @@ void describe("buildModels", () => {
 		]) {
 			assert.ok(!ids.has(id), `${id} should be excluded`);
 		}
-		for (const id of ["z-ai/glm-5.3-flash", "zai-org/GLM-5.3", "gpt-5.6-luna", "moonshotai/Kimi-K3", "moonshotai/Kimi-K2.6", "xiaomi/mimo-v2.5-pro", "xai/grok-4.6", "MiniMaxAI/MiniMax-M3", "stepfun/Step-3.7-Flash", "meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor"]) {
+		for (const id of ["z-ai/glm-5.3-flash", "zai-org/GLM-5.3", "gpt-5.6-luna", "moonshotai/Kimi-K3", "xiaomi/mimo-v2.5-pro", "xai/grok-4.6", "MiniMaxAI/MiniMax-M3", "stepfun/Step-3.7-Flash", "meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor"]) {
 			assert.ok(ids.has(id), `${id} should stay`);
 		}
 	});
@@ -48,7 +48,7 @@ void describe("buildModels", () => {
 	void it("excludes models verified unavailable on the caller's plan", () => {
 		// Independent source: live probe 2026-09-11 (MODEL_NOT_IN_PLAN / dead backends).
 		const models = buildModels();
-		assert.equal(models.length, 33);
+		assert.equal(models.length, 25);
 		const ids = new Set(models.map((m) => m.id));
 		for (const id of ["claude-sonnet-5", "claude-fable-5-1", "gpt-5.5", "gpt-5.3-codex", "google/gemini-3.5-flash", "zai-org/GLM-5.2-Fast", "MiniMaxAI/MiniMax-M2.7", "sakana/fugu-ultra", "meta/muse-spark-1.1"]) {
 			assert.ok(!ids.has(id), `${id} should be excluded`);
@@ -58,9 +58,31 @@ void describe("buildModels", () => {
 		}
 	});
 
+	void it("excludes superseded-generation models", () => {
+		// Older generations replaced outright by a kept newer-gen model:
+		// Qwen 3.6/3.7 lose to the 3.8 family, Kimi-K2.6 to K3, hy3-paid to
+		// hy4-preview, and Qwen3.8-Max-0902 is a pinned snapshot behind the
+		// undated alias.
+		const models = buildModels();
+		assert.equal(models.length, 25);
+		const ids = new Set(models.map((m) => m.id));
+		for (const id of [
+			"Qwen/Qwen3.6-Max-Preview", "Qwen/Qwen3.6-Plus",
+			"Qwen/Qwen3.7-Max", "Qwen/Qwen3.7-Plus", "Qwen/Qwen3.7-Flash",
+			"Qwen/Qwen3.8-Max-0902",
+			"moonshotai/Kimi-K2.6",
+			"tencent/hy3-paid",
+		]) {
+			assert.ok(!ids.has(id), `${id} should be excluded`);
+		}
+		for (const id of ["Qwen/Qwen3.8-Max", "Qwen/Qwen3.8-Flash", "Qwen/Qwen3.8-27B", "moonshotai/Kimi-K3", "meta/muse-spark-1.3-contributor", "tencent/hy4-preview"]) {
+			assert.ok(ids.has(id), `${id} should stay`);
+		}
+	});
+
 	void it("every model carries the provider invariants", () => {
 		const models = buildModels();
-		assert.ok(models.length > 30, `expected the pruned catalog, got ${models.length}`);
+		assert.ok(models.length > 20, `expected the pruned catalog, got ${models.length}`);
 		for (const m of models) {
 			assert.equal(m.provider, PROVIDER_ID, m.id);
 			assert.ok(m.id.length > 0);
@@ -123,7 +145,7 @@ void describe("buildModels", () => {
 			max: null,
 		});
 
-		const noEfforts = buildModels().find((m) => m.id === "moonshotai/Kimi-K2.6")!;
+		const noEfforts = buildModels().find((m) => m.id === "MiniMaxAI/MiniMax-M3")!;
 		assert.equal(noEfforts.reasoning, true);
 		assert.equal(noEfforts.thinkingLevelMap?.high, null);
 	});
@@ -187,6 +209,17 @@ void describe("mapCatalogResponse", () => {
 	void it("ignores entries without an id", () => {
 		const models = mapCatalogResponse({ data: [{ name: "no id" }, { id: "ok", context_length: 1 }] });
 		assert.deepEqual(models.map((m) => m.id), ["ok"]);
+	});
+
+	void it("live refresh cannot resurrect superseded-generation models", () => {
+		const models = mapCatalogResponse({
+			object: "list",
+			data: [
+				{ id: "Qwen/Qwen3.7-Flash", name: "Qwen3.7 Flash", context_length: 1_000_000 },
+				{ id: "Qwen/Qwen3.8-Flash", name: "Qwen3.8 Flash", context_length: 1_000_000 },
+			],
+		});
+		assert.deepEqual(models.map((m) => m.id), ["Qwen/Qwen3.8-Flash"]);
 	});
 
 	void it("drops models verified unavailable on the caller's plan", () => {

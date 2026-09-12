@@ -582,6 +582,22 @@ export const DOMINATED_IDS = new Set([
 	// 1.3 is the current generation
 	"meta/muse-spark-1.2",
 	"meta/muse-spark-1.2-contributor",
+
+	// Superseded generations: an older generation replaced outright by a kept
+	// newer-gen model from the same family.
+	// Qwen 3.6/3.7 → the 3.8 family
+	"Qwen/Qwen3.6-Max-Preview",
+	"Qwen/Qwen3.6-Plus",
+	"Qwen/Qwen3.7-Max",
+	"Qwen/Qwen3.7-Plus",
+	"Qwen/Qwen3.7-Flash",
+	// pinned snapshot behind the undated Qwen3.8-Max alias
+	"Qwen/Qwen3.8-Max-0902",
+	// Kimi-K2.6 → Kimi-K3
+	"moonshotai/Kimi-K2.6",
+	// muse-spark 1.2 → 1.3 (1.2-contributor already excluded above)
+	// hy3 → hy4-preview (preview caveat: hy3 was the last stable)
+	"tencent/hy3-paid",
 ]);
 
 /** Ids never surfaced to the user, for any reason. */
