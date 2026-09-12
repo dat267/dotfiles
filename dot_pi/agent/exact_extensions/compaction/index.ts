@@ -8,7 +8,9 @@
  * over the summarization call via session_before_compact with:
  *   - the current session model (or PI_COMPACT_MODEL=provider/model-id)
  *   - reasoning never enabled, 32k text budget instead of ~13k
- *   - pi-better-compact's structured summary prompts
+ *   - pi-better-compact's structured summary prompts, with a hard token budget
+ *     and regenerated file lists so repeated compaction stays bounded instead of
+ *     accumulating a summary that eventually cannot be re-emitted
  *   - split-turn prefix handling and file-ops formatting like stock compaction
  * On any failure it returns undefined and pi falls back to default compaction.
  */
@@ -155,8 +157,8 @@ export default function (pi: ExtensionAPI) {
 			}
 			if (!isUsableSummary(summary)) return;
 
-			const { readFiles, modifiedFiles } = computeFileLists(fileOps);
-			summary += formatFileOperations(readFiles, modifiedFiles);
+			const lists = computeFileLists(fileOps);
+			summary += formatFileOperations(lists);
 
 			return {
 				compaction: {
@@ -164,7 +166,7 @@ export default function (pi: ExtensionAPI) {
 					firstKeptEntryId,
 					tokensBefore,
 					usage: historyResult?.usage ?? prefixResult?.usage,
-					details: { readFiles, modifiedFiles },
+					details: { readFiles: lists.readFiles, modifiedFiles: lists.modifiedFiles },
 				},
 			};
 		} catch (error) {
