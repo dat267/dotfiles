@@ -2,8 +2,11 @@
  * Charm Hyper provider extension for pi
  *
  * Registers the Charm Hyper provider (https://hyper.charm.land) with the
- * static catalog from catalog.ts; fetchModels overlays the live /v1/models
- * catalog so "refresh models" keeps the dynamic set current.
+ * hand-maintained static catalog from catalog.ts. No fetchModels overlay:
+ * pi refreshes at startup with allowNetwork=false and would restore stale
+ * entries from ~/.pi/agent/models.json over the static list anyway (dynamic
+ * copies replace baseline entries by id), so the catalog is updated by
+ * editing catalog.ts, not from the live API.
  *
  * Auth: ~/.pi/agent/auth.json (provider id "hyper") or HYPER_API_KEY env var.
  *
@@ -15,7 +18,7 @@
 import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
 import { createProvider, envApiKeyAuth } from "@earendil-works/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { API, BASE_URL, PROVIDER_ID, buildModels, mapCatalogResponse, type HyperCatalogBody } from "./catalog.ts";
+import { API, BASE_URL, PROVIDER_ID, buildModels } from "./catalog.ts";
 import { STATUS_KEY, fetchCredits, statusText } from "./credits.ts";
 import { parseStatusArgs, readStatusItems, settingsPath, writeStatusItems, type StatusItems } from "./status-settings.ts";
 
@@ -28,18 +31,6 @@ export function registerCharmHyper(pi: ExtensionAPI) {
 		baseUrl: BASE_URL,
 		auth: { apiKey: envApiKeyAuth("Hyper API key", ["HYPER_API_KEY"]) },
 		models: buildModels(),
-		fetchModels: async (context) => {
-			const key = context.credential?.type === "api_key" ? context.credential.key : undefined;
-			if (!key || !context.allowNetwork) return [];
-			const res = await fetch(`${BASE_URL}/models`, {
-				headers: { Authorization: `Bearer ${key}` },
-				signal: context.signal,
-			});
-			if (!res.ok) {
-				throw new Error(`hyper /models HTTP ${res.status}`);
-			}
-			return mapCatalogResponse((await res.json()) as HyperCatalogBody);
-		},
 		api: openAICompletionsApi(),
 	});
 

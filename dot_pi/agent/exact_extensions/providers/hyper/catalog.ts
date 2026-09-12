@@ -3,8 +3,8 @@
  *
  * CATALOG holds compact records (only fields that vary between models);
  * buildModels() fills the invariants (api, provider, baseUrl, input, compat).
- * mapCatalogResponse() reuses the same seam for the live /v1/models fetch,
- * so static and dynamic catalogs cannot drift.
+ * This static catalog is the only source of models: update it by editing
+ * CATALOG, not by fetching /v1/models (see index.ts).
  */
 
 import type { Api, Model } from "@earendil-works/pi-ai";
@@ -131,43 +131,4 @@ function toModel(entry: CompactEntry): Model<typeof API> {
 /** The static catalog, with all invariants applied. */
 export function buildModels(): Model<typeof API>[] {
 	return CATALOG.map(toModel);
-}
-
-/** Live /v1/models response body (subset we consume). */
-export interface HyperCatalogBody {
-	data?: {
-		id?: string;
-		display_name?: string;
-		context_window?: number;
-		max_output_tokens?: number;
-		reasoning?: { effort_levels?: { value?: string }[] } | null;
-		capabilities?: { vision?: boolean } | null;
-		pricing?: { input?: number; output?: number; cache_create?: number; cache_hit?: number } | null;
-	}[];
-}
-
-/** Map the live catalog response through the same construction seam. */
-export function mapCatalogResponse(body: HyperCatalogBody): Model<typeof API>[] {
-	return (body.data ?? [])
-		.filter((m) => m.id)
-		.map((m): Model<typeof API> => {
-			const levels = (m.reasoning?.effort_levels ?? [])
-				.map((l) => l.value)
-				.filter((v): v is "high" | "xhigh" | "max" => v === "high" || v === "xhigh" || v === "max");
-			return toModel({
-				id: m.id!,
-				name: m.display_name ?? m.id!,
-				reasoning: levels.length > 0,
-				efforts: levels,
-				vision: m.capabilities?.vision === true,
-				cost: {
-					input: m.pricing?.input ?? 0,
-					output: m.pricing?.output ?? 0,
-					cacheRead: m.pricing?.cache_hit ?? 0,
-					cacheWrite: m.pricing?.cache_create ?? 0,
-				},
-				contextWindow: m.context_window ?? 1_000_000,
-				maxTokens: m.max_output_tokens ?? 128_000,
-			});
-		});
 }
