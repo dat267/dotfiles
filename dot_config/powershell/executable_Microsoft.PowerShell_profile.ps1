@@ -57,6 +57,35 @@ $global:__dotfiles_profile_loaded = $true
     }
     $env:PATH = $set -join [IO.Path]::PathSeparator
 
+    # Shared lookup for the command hooks below: resolves a bare script name to
+    # a file path, honouring the `get-` prefix convention and searching the
+    # current location first, then PATH. Lives outside the Windows branch so it
+    # can be exercised by tests.
+    function global:Get-ScriptCandidate {
+        param(
+            [Parameter(Mandatory = $true)][string]$CommandName,
+            [string]$BasePath = $PWD.Path,
+            [string[]]$PathDirs
+        )
+        if ($null -eq $PathDirs) { $PathDirs = $env:PATH -split [IO.Path]::PathSeparator }
+        $candidates = @($CommandName)
+        if ($CommandName -match '^get-(.+)$') { $candidates += $Matches[1] }
+        foreach ($candidate in $candidates) {
+            if ($candidate -match '[/\\]') {
+                if ([System.IO.File]::Exists($candidate)) { return [System.IO.Path]::GetFullPath($candidate) }
+                continue
+            }
+            $testPath = [System.IO.Path]::Combine($BasePath, $candidate)
+            if ([System.IO.File]::Exists($testPath)) { return $testPath }
+            foreach ($dir in $PathDirs) {
+                if (-not [System.IO.Directory]::Exists($dir)) { continue }
+                $testPath = [System.IO.Path]::Combine($dir, $candidate)
+                if ([System.IO.File]::Exists($testPath)) { return $testPath }
+            }
+        }
+        return $null
+    }
+
     if ($IsWindows) {
         $env:GOPROXY = "https://proxy.golang.org,direct"
         $env:GOSUMDB = "off"
@@ -166,50 +195,7 @@ $global:__dotfiles_profile_loaded = $true
             try {
                 $regex = Get-ScriptRegex
                 if ($commandName -notmatch $regex) { return }
-                $path = $null
-                if ($commandName -match '[/\\]') {
-                    $cleanName = $commandName
-                    if ($commandName -match '^get-(.+)$') {
-                        $cleanName = $Matches[1]
-                    }
-                    if ([System.IO.File]::Exists($cleanName)) {
-                        $path = [System.IO.Path]::GetFullPath($cleanName)
-                    }
-                }
-                else {
-                    $testPath = [System.IO.Path]::Combine($PWD.Path, $commandName)
-                    if ([System.IO.File]::Exists($testPath)) {
-                        $path = $testPath
-                    }
-                    else {
-                        if ($commandName -match '^get-(.+)$') {
-                            $stripped = $Matches[1]
-                            $testPath = [System.IO.Path]::Combine($PWD.Path, $stripped)
-                            if ([System.IO.File]::Exists($testPath)) {
-                                $path = $testPath
-                            }
-                        }
-                    }
-                    if (-not $path) {
-                        $pathDirs = $env:PATH -split [IO.Path]::PathSeparator
-                        foreach ($dir in $pathDirs) {
-                            if (-not [System.IO.Directory]::Exists($dir)) { continue }
-                            $testPath = [System.IO.Path]::Combine($dir, $commandName)
-                            if ([System.IO.File]::Exists($testPath)) {
-                                $path = $testPath
-                                break
-                            }
-                            if ($commandName -match '^get-(.+)$') {
-                                $stripped = $Matches[1]
-                                $testPath = [System.IO.Path]::Combine($dir, $stripped)
-                                if ([System.IO.File]::Exists($testPath)) {
-                                    $path = $testPath
-                                    break
-                                }
-                            }
-                        }
-                    }
-                }
+                $path = Get-ScriptCandidate -CommandName $commandName
                 if ($path) {
                     Resolve-ScriptCommand $path $LookupArgs
                 }
@@ -220,10 +206,14 @@ $global:__dotfiles_profile_loaded = $true
         }
     }
 
-    $mod = "$HOME/.config/powershell/modules"
-    if ([System.IO.Directory]::Exists($mod)) {
-        foreach ($f in [System.IO.Directory]::GetFiles($mod, "*.psm1")) {
-            Import-Module $f -ErrorAction SilentlyContinue
+    # Utils.psm1 is a set of bash-equivalents (cat/head/wc/cp/rm/diff/ports/...)
+    # that shadow working native tools elsewhere, so load it on Windows only.
+    if ($IsWindows) {
+        $mod = "$HOME/.config/powershell/modules"
+        if ([System.IO.Directory]::Exists($mod)) {
+            foreach ($f in [System.IO.Directory]::GetFiles($mod, "*.psm1")) {
+                Import-Module $f -ErrorAction SilentlyContinue
+            }
         }
     }
 
@@ -368,24 +358,6 @@ function global:codeat {
 Set-Alias vim nvim
 Set-Alias hx helix
 
-function global:Expand-CustomArchive {
-    param([string]$Path)
-    if (-not (Test-Path $Path)) {
-        Write-Error "'$Path' is not a valid file"
-        return
-    }
-    $ext = [System.IO.Path]::GetExtension($Path).ToLower()
-    switch ($ext) {
-        '.zip' { Expand-Archive -Path $Path -DestinationPath . }
-        '.7z' { if (Get-Command 7z -ErrorAction SilentlyContinue) { & 7z x $Path } else { Write-Error "7z not found" } }
-        '.rar' { if (Get-Command unrar -ErrorAction SilentlyContinue) { & unrar x $Path } else { Write-Error "unrar not found" } }
-        '.gz' { & tar -xzf $Path }
-        '.tar' { & tar -xf $Path }
-        default { Write-Host "Unsupported file extension '$ext'" }
-    }
-}
-Set-Alias extract Expand-CustomArchive
-
 function global:Invoke-Up {
     param($LevelOrName)
     if (-not $LevelOrName) {
@@ -416,79 +388,86 @@ Set-Alias up Invoke-Up
 function global:..  { Set-Location .. }
 function global:... { Set-Location ../.. }
 
-function global:Invoke-Which {
-    param(
-        [Parameter(ValueFromPipeline = $true, Position = 0)]
-        [string]$Name,
-        [switch]$All
-    )
-    process {
-        if (-not $Name) {
-            Write-Host "Usage: which <command-name>"
-            return
-        }
-        $cmds = Get-Command -Name $Name -All -ErrorAction SilentlyContinue
-        if (-not $All) { $cmds = $cmds | Select-Object -First 1 }
-        if ($cmds) {
-            foreach ($cmd in $cmds) {
-                if ($cmd.Path) { $cmd.Path }
-                elseif ($cmd.Source) { $cmd.Source }
-                else { $cmd.Definition }
+if ($IsWindows) {
+    function global:Invoke-Which {
+        param(
+            [Parameter(ValueFromPipeline = $true, Position = 0)]
+            [string]$Name,
+            [switch]$All
+        )
+        process {
+            if (-not $Name) {
+                Write-Host "Usage: which <command-name>"
+                return
             }
-        }
-        else {
-            Write-Error "Command '$Name' not found."
-        }
-    }
-}
-Set-Alias which Invoke-Which
-
-function global:touch {
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true, Position = 0)]
-        [string[]]$Path
-    )
-    process {
-        foreach ($p in $Path) {
-            if (Test-Path $p) {
-                (Get-Item $p).LastWriteTime = Get-Date
+            $cmds = Get-Command -Name $Name -All -ErrorAction SilentlyContinue
+            if (-not $All) { $cmds = $cmds | Select-Object -First 1 }
+            if ($cmds) {
+                foreach ($cmd in $cmds) {
+                    if ($cmd.Path) { $cmd.Path }
+                    elseif ($cmd.Source) { $cmd.Source }
+                    else { $cmd.Definition }
+                }
             }
             else {
-                New-Item -ItemType File -Path $p -Force | Out-Null
+                Write-Error "Command '$Name' not found."
+            }
+        }
+    }
+    Set-Alias which Invoke-Which
+}
+if ($IsWindows) {
+    function global:touch {
+        param(
+            [Parameter(Mandatory = $true, ValueFromPipeline = $true, Position = 0)]
+            [string[]]$Path
+        )
+        process {
+            foreach ($p in $Path) {
+                if (Test-Path $p) {
+                    (Get-Item $p).LastWriteTime = Get-Date
+                }
+                else {
+                    New-Item -ItemType File -Path $p -Force | Out-Null
+                }
             }
         }
     }
 }
 
-function global:sudo {
-    param(
-        [Parameter(ValueFromRemainingArguments = $true)]
-        [string[]]$Arguments
-    )
-    if (-not $Arguments) {
-        $currentShell = (Get-Process -Id $PID).Path
-        Start-Process $currentShell -ArgumentList "-NoProfile -WorkingDirectory `"$PWD`"" -Verb RunAs
-        return
-    }
-    $command = $Arguments[0]
-    $rest = if ($Arguments.Length -gt 1) { $Arguments[1..($Arguments.Length - 1)] } else { @() }
-    $resolved = Get-Command $command -ErrorAction SilentlyContinue
-    if ($resolved) {
-        $execPath = $resolved.Path
-        if (-not $execPath) { $execPath = $resolved.Source }
-        if ($execPath) {
-            Start-Process $execPath -ArgumentList $rest -Verb RunAs -WorkingDirectory $PWD -Wait
+
+if ($IsWindows) {
+    function global:sudo {
+        param(
+            [Parameter(ValueFromRemainingArguments = $true)]
+            [string[]]$Arguments
+        )
+        if (-not $Arguments) {
+            $currentShell = (Get-Process -Id $PID).Path
+            Start-Process $currentShell -ArgumentList "-NoProfile -WorkingDirectory `"$PWD`"" -Verb RunAs
+            return
+        }
+        $command = $Arguments[0]
+        $rest = if ($Arguments.Length -gt 1) { $Arguments[1..($Arguments.Length - 1)] } else { @() }
+        $resolved = Get-Command $command -ErrorAction SilentlyContinue
+        if ($resolved) {
+            $execPath = $resolved.Path
+            if (-not $execPath) { $execPath = $resolved.Source }
+            if ($execPath) {
+                Start-Process $execPath -ArgumentList $rest -Verb RunAs -WorkingDirectory $PWD -Wait
+            }
+            else {
+                $scriptBlock = $Arguments -join ' '
+                $currentShell = (Get-Process -Id $PID).Path
+                Start-Process $currentShell -ArgumentList "-NoProfile -Command `"$scriptBlock`"" -Verb RunAs -WorkingDirectory $PWD -Wait
+            }
         }
         else {
-            $scriptBlock = $Arguments -join ' '
-            $currentShell = (Get-Process -Id $PID).Path
-            Start-Process $currentShell -ArgumentList "-NoProfile -Command `"$scriptBlock`"" -Verb RunAs -WorkingDirectory $PWD -Wait
+            Start-Process $command -ArgumentList $rest -Verb RunAs -WorkingDirectory $PWD -Wait
         }
     }
-    else {
-        Start-Process $command -ArgumentList $rest -Verb RunAs -WorkingDirectory $PWD -Wait
-    }
 }
+
 
 if (-not (Get-Command grep -ErrorAction SilentlyContinue)) {
     Set-Alias grep Select-String -ErrorAction SilentlyContinue
@@ -509,35 +488,19 @@ function global:mkcd {
     Set-Location $Path
 }
 
-function global:gacp {
-    param(
-        [Parameter(Mandatory = $true, Position = 0, ValueFromRemainingArguments = $true)]
-        [string[]]$Message
-    )
-    process {
-        $branch = (git rev-parse --abbrev-ref HEAD 2>$null)
-        if (-not $branch) {
-            Write-Error "Not a git repository."
-            return
-        }
-        git pull origin $branch
-        if ($LASTEXITCODE -eq 0) {
-            git add -A
-            git commit -m ($Message -join ' ')
-            if ($LASTEXITCODE -eq 0) {
-                git push origin $branch
-            }
-        }
-    }
-}
-
 # ---------------------------------------------------------------------------
 # Bash-equivalent utilities — loaded from Utils.psm1
 # ---------------------------------------------------------------------------
 
-Set-Alias ls  Get-ChildItem
-Set-Alias -Name clear -Value Clear-Host -Force -ErrorAction SilentlyContinue
-Set-Alias -Name '.' -Value source -Force -Option AllScope -ErrorAction SilentlyContinue
+# ls and `.` are Windows-only: elsewhere the native ls is better and `source`
+# (which `.` aliases) comes from Utils.psm1, which is not loaded off-Windows.
+if ($IsWindows) {
+    Set-Alias ls Get-ChildItem
+    Set-Alias -Name '.' -Value source -Force -Option AllScope -ErrorAction SilentlyContinue
+}
+if (-not (Get-Command clear -ErrorAction SilentlyContinue)) {
+    Set-Alias -Name clear -Value Clear-Host -Force -ErrorAction SilentlyContinue
+}
 
 function prompt {
     $lastExit = $global:LASTEXITCODE
@@ -553,21 +516,6 @@ function cm {
     } else {
         chezmoi @args
     }
-}
-
-# Download the URL currently in the clipboard with aria2c (Windows PowerShell).
-function global:dlc {
-    $raw = Get-Clipboard -Raw
-    $url = if ($null -eq $raw) { '' } else { $raw.Trim() }
-    if (-not $url) {
-        Write-Error "dlc: clipboard is empty"
-        return
-    }
-    if ($url -notmatch '^(https?|ftp)://|magnet:') {
-        Write-Error "dlc: clipboard is not a URL: $url"
-        return
-    }
-    aria2c $url
 }
 
 if (Get-Command Set-PSReadLineOption -ErrorAction SilentlyContinue) {

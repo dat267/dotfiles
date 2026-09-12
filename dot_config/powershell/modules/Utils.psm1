@@ -1,43 +1,3 @@
-function Get-Selection {
-    <#
-    .SYNOPSIS
-        Provides an interactive terminal-based selection menu for objects.
-    #>
-    param(
-        [Parameter(Mandatory, ValueFromPipeline)]
-        [psobject[]]$Data,
-        [Alias("Cols")]
-        [string[]]$Columns
-    )
-    begin { $collectedData = [System.Collections.Generic.List[psobject]]::new() }
-    process { foreach ($item in $Data) { $collectedData.Add($item) } }
-    end {
-        if ($collectedData.Count -eq 0) { return @() }
-        $displayCols = if ($Columns) { $Columns } else {
-            $collectedData[0].PSObject.Properties.Name | Where-Object { $_ -notmatch "json|payload|query" } | Select-Object -First 5
-        }
-        $lookupTable = @{}; $index = 1
-        $formattedRows = foreach ($item in $collectedData) {
-            $lookupTable[$index] = $item
-            $row = [ordered]@{ "#" = $index++ }
-            foreach ($col in $displayCols) { $row[$col] = $item.$col }
-            [PSCustomObject]$row
-        }
-        $formattedRows | Format-Table -AutoSize | Out-String | Write-Host -ForegroundColor Cyan
-        $selection = Read-Host "Select numbers (e.g. 1,3,5), a range (1-5), or 'all'"
-        if ([string]::IsNullOrWhiteSpace($selection)) { return @() }
-        $indices = if ($selection -eq 'all') { $lookupTable.Keys } else {
-            $selection -split ',' | ForEach-Object {
-                $part = $_.Trim()
-                if ($part -match '^(\d+)-(\d+)$') { $matches[1]..$matches[2] } else { $part }
-            }
-        }
-        foreach ($id in $indices) {
-            if ([int]::TryParse($id, [ref]0) -and $lookupTable.ContainsKey([int]$id)) { $lookupTable[[int]$id] }
-        }
-    }
-}
-
 # --- Bash-equivalent utilities (extracted from user profile) ---
 
 # ls variants
@@ -121,8 +81,7 @@ function global:ports {
     else { netstat -an | Select-String 'LISTEN' }
 }
 
-# du / df
-function global:du { param([string]$Path = '.') Get-ChildItem $Path -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum | ForEach-Object { "{0:N2} MB  {1}" -f ($_.Sum / 1MB), (Resolve-Path $Path) } }
+# df
 function global:df { Get-PSDrive -PSProvider FileSystem | Select-Object Name,@{N='Used(GB)';E={[math]::Round(($_.Used/1GB),2)}},@{N='Free(GB)';E={[math]::Round(($_.Free/1GB),2)}},@{N='Total(GB)';E={[math]::Round((($_.Used+$_.Free)/1GB),2)}} | Format-Table -AutoSize }
 
 # chmod / chown stubs
