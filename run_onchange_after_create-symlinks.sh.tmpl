@@ -22,6 +22,32 @@ do
     fi
 done
 
+# VS Code CLI and remote sessions (code tunnel / serve-web / Remote-SSH) read
+# their own user-data directory, which starts empty. Application-scoped
+# settings such as security.workspace.trust.* are not inherited from the
+# desktop profile, so without this link those sessions fall back to defaults
+# and show the Restricted Mode banner and trust prompts. Only links when the
+# server's User directory already exists and no settings file is present.
+for pair in \
+    "$HOME/.vscode-server/data/User/settings.json|{{ .chezmoi.homeDir }}/.config/Code/User/settings.json"
+do
+    link="${pair%%|*}"
+    source="${pair#*|}"
+
+    [ -d "$(dirname "$link")" ] || continue
+    [ -f "$source" ] || continue
+    if [ -L "$link" ]; then
+        continue
+    fi
+    if [ -e "$link" ]; then
+        echo "Keeping existing settings file: $link"
+        continue
+    fi
+
+    echo "Linking: $link -> $source"
+    ln -s "$source" "$link"
+done
+
 # Ensure hx executable symlink exists for helix if needed
 if command -v helix >/dev/null 2>&1 && ! command -v hx >/dev/null 2>&1; then
     helix_path="$(command -v helix)"
