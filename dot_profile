@@ -239,11 +239,6 @@ alias which='which -a'
 alias tree='tree --dirsfirst -F'
 alias uctl='systemctl --user'
 alias sctl='sudo systemctl'
-if command -v ss >/dev/null 2>&1; then
-	alias ports='ss -tuln'
-else
-	alias ports='netstat -tuln'
-fi
 alias now='date +"%Y-%m-%d %H:%M:%S"'
 alias mtmp='cd "$(mktemp -d)"'
 alias ll='ls -Alh'
@@ -251,7 +246,6 @@ alias lr='ls -Alrth'
 alias ls='ls --color=auto'
 alias grep='grep --color=auto'
 alias la='ls -A'
-alias epoch='date +%s'
 # Note: no `alias exit=...` here — default `exit` preserves the last command's
 # exit status. Forcing `exit 0` masks failures, so it is intentionally removed.
 cm() {
