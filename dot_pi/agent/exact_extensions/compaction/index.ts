@@ -29,6 +29,19 @@ const SUMMARIZER_MODELS: readonly (readonly [string, string])[] = [
 	["cline-pass", "glm-5.3-flash"],
 ];
 
+/**
+ * Optional override: PI_COMPACT_MODEL="provider/model-id" replaces the
+ * candidate list entirely. Malformed or unknown values fall back to the list.
+ */
+function parseOverride(
+	envValue: string | undefined,
+): readonly [string, string] | undefined {
+	if (!envValue) return undefined;
+	const slash = envValue.indexOf("/");
+	if (slash <= 0 || slash === envValue.length - 1) return undefined;
+	return [envValue.slice(0, slash), envValue.slice(slash + 1)];
+}
+
 /** Text budget for the summary — well above stock's ~13k, no reasoning tokens. */
 const SUMMARY_MAX_TOKENS = 32_768;
 
@@ -44,13 +57,26 @@ type CtxLike = {
 	hasUI?: boolean;
 };
 
-/** First configured summarizer candidate, falling back to the session model. */
-export function pickSummarizer(ctx: CtxLike): Model<any> | undefined {
+/**
+ * Summarizer selection: PI_COMPACT_MODEL="provider/model-id" wins, then the
+ * current session model, then the cheap candidate list (for contexts without
+ * a session model). Falls through on missing auth or unknown ids.
+ */
+export function pickSummarizer(
+	ctx: CtxLike,
+	envModel?: string,
+): Model<any> | undefined {
+	const override = parseOverride(envModel);
+	if (override) {
+		const model = ctx.modelRegistry.find(override[0], override[1]);
+		if (model && ctx.modelRegistry.hasConfiguredAuth(model)) return model;
+	}
+	if (ctx.model) return ctx.model;
 	for (const [provider, modelId] of SUMMARIZER_MODELS) {
 		const model = ctx.modelRegistry.find(provider, modelId);
 		if (model && ctx.modelRegistry.hasConfiguredAuth(model)) return model;
 	}
-	return ctx.model;
+	return undefined;
 }
 
 async function summarize(
@@ -95,7 +121,10 @@ export default function (pi: ExtensionAPI) {
 			fileOps,
 		} = preparation;
 
-		const model = pickSummarizer(ctx as unknown as CtxLike);
+		const model = pickSummarizer(
+			ctx as unknown as CtxLike,
+			process.env.PI_COMPACT_MODEL,
+		);
 		if (!model) return; // fall back to default compaction
 
 		try {
