@@ -192,7 +192,7 @@ const CATALOG: CompactEntry[] = [
 	},
 	{
 		id: "deepseek/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", reasoning: true, vision: true,
-		efforts: ["high", "max"],
+		efforts: ["low", "high", "max"],
 		cost: { input: 0.15, output: 0.6, cacheRead: 0.003, cacheWrite: 0 },
 		contextWindow: 1_000_000, maxTokens: 65_536,
 	},
@@ -257,6 +257,7 @@ const CATALOG: CompactEntry[] = [
 	},
 	{
 		id: "MiniMaxAI/MiniMax-M3", name: "MiniMax M3", reasoning: true, vision: true,
+		efforts: ["low", "medium", "high"],
 		cost: { input: 0.3, output: 1.2, cacheRead: 0.06, cacheWrite: 0 },
 		contextWindow: 1_000_000, maxTokens: 65_536,
 	},
@@ -439,11 +440,13 @@ const CATALOG: CompactEntry[] = [
 	},
 	{
 		id: "meta/muse-spark-1.3", name: "Muse Spark 1.3", reasoning: true, vision: true,
+		efforts: ["low", "medium", "high", "xhigh", "max"],
 		cost: { input: 1.25, output: 4.25, cacheRead: 0.15, cacheWrite: 0 },
 		contextWindow: 1_048_576, maxTokens: 65_536,
 	},
 	{
 		id: "meta/muse-spark-1.3-contributor", name: "Muse Spark 1.3 Contributor", reasoning: true, vision: true,
+		efforts: ["low", "medium", "high", "xhigh"],
 		cost: { input: 0.1, output: 0.2, cacheRead: 0.002, cacheWrite: 0 },
 		contextWindow: 1_048_576, maxTokens: 65_536,
 	},

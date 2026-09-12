@@ -112,6 +112,24 @@ void describe("buildModels", () => {
 		assert.equal(openai.baseUrl, BASE_URL);
 	});
 
+	void it("carries the published effort levels", () => {
+		// Source: command-code@1.53.1 bundled reference/models.md.
+		// deepseek-v4.1-flash was published with low/high/max but carried only
+		// high/max, and MiniMax-M3 plus the muse-spark-1.3 pair were published
+		// with effort levels but carried none at all, so pi could not select
+		// those reasoning levels for them.
+		const enabled = (id: string) => {
+			const map = buildModels().find((m) => m.id === id)!.thinkingLevelMap!;
+			return Object.entries(map).filter(([, v]) => v !== null).map(([k]) => k);
+		};
+		assert.deepEqual(enabled("deepseek/deepseek-v4.1-flash"), ["low", "high", "max"]);
+		assert.deepEqual(enabled("deepseek/deepseek-v4-flash-fast"), ["low", "high", "max"]);
+		assert.deepEqual(enabled("deepseek/deepseek-v4-flash"), ["high", "max"]);
+		assert.deepEqual(enabled("MiniMaxAI/MiniMax-M3"), ["low", "medium", "high"]);
+		assert.deepEqual(enabled("meta/muse-spark-1.3"), ["low", "medium", "high", "xhigh", "max"]);
+		assert.deepEqual(enabled("meta/muse-spark-1.3-contributor"), ["low", "medium", "high", "xhigh"]);
+	});
+
 	void it("covers the live provider catalog", () => {
 		const ids = new Set(buildModels().map((m) => m.id));
 		for (const id of [
@@ -143,9 +161,14 @@ void describe("buildModels", () => {
 			max: null,
 		});
 
-		const noEfforts = buildModels().find((m) => m.id === "MiniMaxAI/MiniMax-M3")!;
-		assert.equal(noEfforts.reasoning, true);
-		assert.equal(noEfforts.thinkingLevelMap?.high, null);
+		// MiniMax-M3 was published with low/medium/high; the catalog previously
+		// omitted them, so this test asserting an empty map encoded the bug.
+		const minimax = buildModels().find((m) => m.id === "MiniMaxAI/MiniMax-M3")!;
+		assert.equal(minimax.reasoning, true);
+		assert.equal(minimax.thinkingLevelMap?.low, "low");
+		assert.equal(minimax.thinkingLevelMap?.medium, "medium");
+		assert.equal(minimax.thinkingLevelMap?.high, "high");
+		assert.equal(minimax.thinkingLevelMap?.xhigh, null);
 	});
 
 	void it("advertises image input only for vision models", () => {
