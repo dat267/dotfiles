@@ -10,19 +10,15 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply dat267
 ```
 
 ```powershell
-# Windows with git installed
-powershell -c "& { iwr -useb get.chezmoi.io | iex }; chezmoi init --apply dat267"
+# Windows (PowerShell 5.1+) — installs chezmoi, then applies the dotfiles
+iex "&{$(irm 'https://get.chezmoi.io/ps1')} -- init --apply dat267"
 ```
 
-```powershell
-# Windows without git (bsdtar ships with Windows 10+; no git client required)
-irm get.chezmoi.io | iex
-mkdir $HOME\.local\share\chezmoi -Force
-curl.exe -L -o dotfiles.tgz https://codeload.github.com/dat267/dotfiles/tar.gz/refs/heads/main
-tar -xzf dotfiles.tgz -C $HOME\.local\share\chezmoi --strip-components 1
-chezmoi init   # renders config; auto-commit self-disables when git is absent
-chezmoi apply
-```
+The PowerShell installer places the binary in `.\bin` (it does not touch
+`PATH`), so add that directory to `PATH` — or `winget install
+twpayne.chezmoi` — before running further `chezmoi` commands. No system git
+is required: chezmoi falls back to its built-in git when `git` is not on
+`PATH`.
 
 Secrets (`auth.json`, credential-store entries) are untracked — copy them
 separately after the first apply.
