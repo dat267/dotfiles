@@ -20,6 +20,7 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 - `executable_dua.py` — dua-style disk usage analyzer (aggregate/tree/largest-files, fork-parallel via `-t`, hardlink dedupe)
 - `executable_crypt.py` — pure Python ChaCha20-Poly1305 + scrypt authenticated file encryption
 - `executable_serve.py` — LAN file share: serves a dir or single file with URLs + ASCII QR, optional `--token`, `--upload`, `--once`, port auto-increment; QR needs `qrencode` and degrades to URLs only
+- `executable_extract.py` — archive extractor: zip/tar via stdlib, .7z/.rar via `7z`/`unrar`; refuses absolute or `..` member paths, refuses a non-empty destination without `--force`, `-C`/`-l`/`-f`/`-q` flags
 - `executable_ports.py` — listening sockets via `ss -tlnp`, classified exposed/bound/local
 - `_shared.py` — shared module (platform detection, colored logging, helpers)
 
