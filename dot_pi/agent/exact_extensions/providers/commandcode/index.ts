@@ -1,9 +1,12 @@
 /**
  * Command Code provider extension for pi
  *
- * Registers Command Code (https://commandcode.ai/provider/v1) with the seed
- * catalog from catalog.ts; fetchModels overlays the public /v1/models response
- * so a model refresh keeps names, context windows and new models current.
+ * Registers Command Code (https://commandcode.ai/provider/v1) with the
+ * hand-maintained seed catalog from catalog.ts. No fetchModels overlay:
+ * pi refreshes at startup with allowNetwork=false and would restore stale
+ * entries from ~/.pi/agent/models-store.json over the static list anyway
+ * (dynamic copies replace baseline entries by id), so the catalog is updated
+ * by editing catalog.ts, not from the live API.
  *
  * API-key auth only: ~/.pi/agent/auth.json (provider id "commandcode") or the
  * COMMAND_CODE_API_KEY env var. Claude models are served over
@@ -22,8 +25,6 @@ import {
 	BASE_URL,
 	PROVIDER_ID,
 	buildModels,
-	mapCatalogResponse,
-	type CommandCodeCatalogBody,
 } from "./catalog.ts";
 
 export function registerCommandCode(pi: ExtensionAPI) {
@@ -33,18 +34,6 @@ export function registerCommandCode(pi: ExtensionAPI) {
 		baseUrl: BASE_URL,
 		auth: { apiKey: envApiKeyAuth("Command Code API key", ["COMMAND_CODE_API_KEY"]) },
 		models: buildModels(),
-		fetchModels: async (context) => {
-			if (!context.allowNetwork) return [];
-			// The catalog endpoint is public; only chat needs the API key.
-			const res = await fetch(`${BASE_URL}/models`, {
-				headers: { accept: "application/json" },
-				signal: context.signal,
-			});
-			if (!res.ok) {
-				throw new Error(`commandcode /models HTTP ${res.status}`);
-			}
-			return mapCatalogResponse((await res.json()) as CommandCodeCatalogBody);
-		},
 		api: {
 			[API_OPENAI]: openAICompletionsApi(),
 			[API_ANTHROPIC]: anthropicMessagesApi(),

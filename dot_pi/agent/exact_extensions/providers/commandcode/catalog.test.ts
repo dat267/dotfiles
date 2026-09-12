@@ -14,9 +14,7 @@ import {
 	BASE_URL,
 	PROVIDER_ID,
 	buildModels,
-	mapCatalogResponse,
 	toModel,
-	type CommandCodeCatalogBody,
 } from "./catalog.ts";
 
 void describe("buildModels", () => {
@@ -182,70 +180,3 @@ void describe("buildModels", () => {
 	});
 });
 
-void describe("mapCatalogResponse", () => {
-	void it("builds models from the live provider response", () => {
-		const body: CommandCodeCatalogBody = {
-			object: "list",
-			data: [
-				{ id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash", context_length: 1_000_000 },
-				{ id: "brand/new-model", name: "Brand New", context_length: 128_000 },
-			],
-		};
-		const models = mapCatalogResponse(body);
-		assert.equal(models.length, 2);
-
-		const flash = models[0]!;
-		assert.equal(flash.provider, PROVIDER_ID);
-		assert.equal(flash.name, "DeepSeek V4 Flash");
-		assert.equal(flash.contextWindow, 1_000_000);
-		assert.equal(flash.cost.input, 0.22);
-
-		const unknown = models[1]!;
-		assert.equal(unknown.id, "brand/new-model");
-		assert.deepEqual(unknown.cost, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
-		assert.equal(unknown.maxTokens, 65_536);
-	});
-
-	void it("ignores entries without an id", () => {
-		const models = mapCatalogResponse({ data: [{ name: "no id" }, { id: "ok", context_length: 1 }] });
-		assert.deepEqual(models.map((m) => m.id), ["ok"]);
-	});
-
-	void it("live refresh cannot resurrect superseded-generation models", () => {
-		const models = mapCatalogResponse({
-			object: "list",
-			data: [
-				{ id: "Qwen/Qwen3.7-Flash", name: "Qwen3.7 Flash", context_length: 1_000_000 },
-				{ id: "Qwen/Qwen3.8-Flash", name: "Qwen3.8 Flash", context_length: 1_000_000 },
-			],
-		});
-		assert.deepEqual(models.map((m) => m.id), ["Qwen/Qwen3.8-Flash"]);
-	});
-
-	void it("drops models verified unavailable on the caller's plan", () => {
-		// Independent source: live probe 2026-09-11 returned MODEL_NOT_IN_PLAN
-		// for every claude-* id and 5.x GPTs on this plan.
-		const models = mapCatalogResponse({
-			object: "list",
-			data: [
-				{ id: "claude-sonnet-5", name: "Claude Sonnet 5", context_length: 1_000_000 },
-				{ id: "gpt-5.5", name: "GPT-5.5", context_length: 400_000 },
-				{ id: "zai-org/GLM-5.2", name: "GLM-5.2", context_length: 200_000 },
-				{ id: "deepseek/deepseek-v4-flash", name: "DeepSeek V4 Flash", context_length: 1_000_000 },
-			],
-		});
-		assert.deepEqual(models.map((m) => m.id), ["deepseek/deepseek-v4-flash"]);
-	});
-
-	void it("live refresh cannot resurrect benchmark-dominated models", () => {
-		const models = mapCatalogResponse({
-			object: "list",
-			data: [
-				{ id: "gpt-5.6-sol", name: "GPT-5.6 Sol", context_length: 1_050_000 },
-				{ id: "xai/grok-4.5", name: "Grok 4.5", context_length: 2_000_000 },
-				{ id: "xai/grok-4.6", name: "Grok 4.6", context_length: 2_000_000 },
-			],
-		});
-		assert.deepEqual(models.map((m) => m.id), ["xai/grok-4.6"]);
-	});
-});

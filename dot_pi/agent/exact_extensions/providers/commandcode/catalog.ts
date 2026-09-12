@@ -3,8 +3,8 @@
  *
  * CATALOG holds compact records (only the fields that vary between models);
  * buildModels() fills the invariants (provider, api, baseUrl, compat, input).
- * mapCatalogResponse() runs the live /provider/v1/models response through the
- * same seam, so the static seed and the refreshed catalog cannot drift.
+ * This static catalog is the only source of models: update it by editing
+ * CATALOG, not by fetching /provider/v1/models (see index.ts).
  *
  * Data: the Command Code CLI catalog (command-code@1.44.0 models.md) for rates
  * and effort levels, the public /provider/v1/models response for names and
@@ -512,12 +512,6 @@ export function buildModels(): Model<Api>[] {
 	return CATALOG.filter((entry) => !EXCLUDED_IDS.has(entry.id)).map(toModel);
 }
 
-/** Live /provider/v1/models response body (subset we consume). */
-export interface CommandCodeCatalogBody {
-	object?: string;
-	data?: { id?: string; name?: string; context_length?: number }[];
-}
-
 /**
  * Models verified unreachable on the caller's plan (live probe 2026-09-11):
  * every claude-* and most 5.x GPTs return MODEL_NOT_IN_PLAN (Pro+ or extra
@@ -602,27 +596,3 @@ export const DOMINATED_IDS = new Set([
 
 /** Ids never surfaced to the user, for any reason. */
 const EXCLUDED_IDS = new Set([...UNAVAILABLE_IDS, ...DOMINATED_IDS]);
-
-/** Map the live catalog response through the same construction seam. */
-export function mapCatalogResponse(body: CommandCodeCatalogBody): Model<Api>[] {
-	return (body.data ?? [])
-		.filter((m): m is { id: string; name?: string; context_length?: number } =>
-			typeof m.id === "string" && m.id.length > 0 && !EXCLUDED_IDS.has(m.id),
-		)
-		.map((m) => {
-			const known = BY_ID.get(m.id);
-			const contextWindow = m.context_length && m.context_length > 0
-				? m.context_length
-				: known?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
-			return toModel({
-				id: m.id,
-				name: m.name ?? known?.name ?? m.id,
-				reasoning: known?.reasoning ?? false,
-				efforts: known?.efforts,
-				vision: known?.vision,
-				cost: known?.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-				contextWindow,
-				maxTokens: Math.min(contextWindow, MAX_OUTPUT_TOKENS[m.id] ?? DEFAULT_MAX_OUTPUT_TOKENS),
-			});
-		});
-}
