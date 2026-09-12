@@ -93,10 +93,8 @@
     "watcherExclude": {
       "**/.git/objects/**": true,
       "**/.git/subtree-cache/**": true,
-      "**/.git/**": true,
       "**/node_modules/*/**": true,
       "**/.hg/store/**": true,
-      "**/.hg/**": true,
       "**/dist/**": true,
       "**/build/**": true,
       "**/.cache/**": true,
@@ -112,6 +110,7 @@
   },
   "git": {
     "autofetch": false,
+    "autorefresh": true,
     "confirmSync": false,
     "enableSmartCommit": true,
     "openRepositoryInParentFolders": "always",
