@@ -45,4 +45,14 @@ void describe("buildModels", () => {
 		assert.deepEqual(glmFlash.cost, { input: 0.16, output: 0.54, cacheRead: 0.03, cacheWrite: 0 });
 		assert.deepEqual(glmFlash.input, ["text", "image"], "glm-5.3-flash is vision-capable");
 	});
+
+	void it("deepseek-v4.1-flash entry is present with correct pricing and vision", () => {
+		const m = buildModels().find((m) => m.id === "deepseek-v4.1-flash");
+		assert.ok(m, "deepseek-v4.1-flash must be in the catalog");
+		assert.equal(m.reasoning, true);
+		assert.equal(m.contextWindow, 1_048_576);
+		assert.equal(m.maxTokens, 26_214);
+		assert.deepEqual(m.cost, { input: 0.3, output: 1.2, cacheRead: 0.03, cacheWrite: 0 });
+		assert.deepEqual(m.input, ["text", "image"], "deepseek-v4.1-flash is vision-capable");
+	});
 });
