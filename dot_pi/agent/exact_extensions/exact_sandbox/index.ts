@@ -28,7 +28,7 @@ import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { interceptToolCall, promptNote, blocked, type ShellSpec, type ToolType } from "./interceptor.ts";
 import { resolveModuleDir } from "./module-dir.ts";
-import { defaultMode, modeDetail, switchMode, type ActiveMode } from "./modes.ts";
+import { defaultMode, modeDetail, statusLine, switchMode, type ActiveMode } from "./modes.ts";
 import { defaultAllowlist } from "./policy.ts";
 import { COMPILER_CANDIDATES, bashCandidates, compileArgv, labelArgv, powershellHosts, powershellShell, probeArgv } from "./windows.ts";
 
@@ -207,6 +207,9 @@ function resolveMode(): SandboxMode {
 
 const MUTATOR_TOOLS = ["bash", "write", "edit", "powershell"] as const;
 
+/** Status-line key for the persistent mode indicator. */
+const STATUS_KEY = "sandbox";
+
 /** Workspaces whose tree has already been labelled Low. */
 const labeledWorkspaces = new Set<string>();
 
@@ -235,10 +238,15 @@ export default function (pi: ExtensionAPI) {
 
 	if (sandbox.mode === "none") {
 		pi.on("session_start", async (_event, ctx) => {
+			// A fresh session shows the notify fine, but pi drops a notify issued from
+			// session_start while it restores a resumed session's transcript in
+			// fullscreen mode (`pi -c`), so the warning vanished exactly where the
+			// unenforced mode mattered. The status line is redrawn every frame.
 			ctx.ui.notify(
 				`[sandbox] ${sandbox.detail} — no kernel sandbox available; defaulting to yolo (all writes unrestricted). /readonly switches to read-only.`,
 				"warning",
 			);
+			ctx.ui.setStatus(STATUS_KEY, statusLine(active, sandbox.mode));
 		});
 	}
 
@@ -309,6 +317,9 @@ export default function (pi: ExtensionAPI) {
 	function applyMode(requested: ActiveMode, ctx: ExtensionContext) {
 		const { mode, warning } = switchMode(requested, sandbox.mode);
 		active = mode;
+		// Keep the persistent indicator in step; undefined when a kernel backend
+		// enforces the mode, which also clears a stale line.
+		ctx.ui.setStatus(STATUS_KEY, statusLine(mode, sandbox.mode));
 		if (warning) ctx.ui.notify(`[sandbox] ${warning}`, "warning");
 		else ctx.ui.notify(`[sandbox] Mode: ${modeDetail(mode, sandbox.mode)}`, "info");
 	}

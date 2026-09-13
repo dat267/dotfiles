@@ -8,7 +8,7 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { defaultMode, modeDetail, switchMode } from "./modes.ts";
+import { defaultMode, modeDetail, statusLine, switchMode } from "./modes.ts";
 
 void describe("defaultMode", () => {
 	void it("prefers the kernel sandbox when Landlock is available", () => {
@@ -73,5 +73,22 @@ void describe("modeDetail", () => {
 				assert.doesNotMatch(modeDetail(active, backend), /supervised|ask before|approval/i);
 			}
 		}
+	});
+});
+
+void describe("statusLine", () => {
+	void it("marks every unenforced mode as having no kernel backend", () => {
+		for (const mode of ["read", "workspace", "yolo"] as const) {
+			const line = statusLine(mode, "none");
+			assert.ok(line, `${mode} needs a status line`);
+			assert.match(line, /no kernel backend/);
+			assert.match(line, new RegExp(mode === "read" ? "read-only" : mode));
+		}
+	});
+
+	void it("is silent while a kernel backend enforces the workspace", () => {
+		assert.equal(statusLine("workspace", "landlock"), undefined);
+		assert.equal(statusLine("workspace", "lowil"), undefined);
+		assert.equal(statusLine("yolo", "landlock"), undefined);
 	});
 });
