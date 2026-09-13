@@ -77,6 +77,47 @@ export const POWERSHELL_ARGS: readonly string[] = [
 /** Where pi looks for a PowerShell host, in the same order. */
 export const POWERSHELL_CANDIDATES: readonly string[] = ["pwsh.exe", "powershell.exe"];
 
+/**
+ * PATH lookup, mirroring pi's findExecutableOnPath. Pure: existence is
+ * injected so the search can be described without touching a filesystem.
+ */
+export function findOnPath(
+	name: string,
+	env: EnvLike,
+	exists: (path: string) => boolean,
+): string | null {
+	const key = Object.keys(env).find((k) => k.toLowerCase() === "path");
+	const raw = key ? env[key] : undefined;
+	if (!raw) return null;
+	for (const dir of raw.split(win32.delimiter)) {
+		if (!dir) continue;
+		const candidate = win32.join(dir, name);
+		if (exists(candidate)) return candidate;
+	}
+	return null;
+}
+
+/**
+ * Absolute PowerShell hosts, best first: PowerShell 7 if it is installed, then
+ * the Windows PowerShell 5.1 that ships with every Windows, then the System32
+ * copy in case PATH has been trimmed. Absolute paths keep the gate from having
+ * to search, and 5.1 is the one you can rely on being there — pwsh is an
+ * optional install, so it is a preference and never an assumption.
+ */
+export function powershellHosts(env: EnvLike, exists: (path: string) => boolean): string[] {
+	const found: string[] = [];
+	for (const name of POWERSHELL_CANDIDATES) {
+		const onPath = findOnPath(name, env, exists);
+		if (onPath && !found.includes(onPath)) found.push(onPath);
+	}
+	const systemRoot = env.SystemRoot ?? env.windir;
+	if (systemRoot) {
+		const builtin = win32.join(systemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+		if (exists(builtin) && !found.includes(builtin)) found.push(builtin);
+	}
+	return found;
+}
+
 /** The launcher spec for the powershell tool, given a resolved host path. */
 export function powershellShell(path: string): ShellSpec {
 	return { path, args: POWERSHELL_ARGS };

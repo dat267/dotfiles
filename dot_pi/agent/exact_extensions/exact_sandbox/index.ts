@@ -29,7 +29,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { interceptToolCall, promptNote, blocked, type ShellSpec, type ToolType } from "./interceptor.ts";
 import { defaultMode, modeDetail, switchMode, type ActiveMode } from "./modes.ts";
 import { defaultAllowlist } from "./policy.ts";
-import { COMPILER_CANDIDATES, POWERSHELL_CANDIDATES, bashCandidates, compileArgv, labelArgv, powershellShell, probeArgv } from "./windows.ts";
+import { COMPILER_CANDIDATES, bashCandidates, compileArgv, labelArgv, powershellHosts, powershellShell, probeArgv } from "./windows.ts";
 
 const MODULE_DIR = (import.meta as unknown as { dirname?: string }).dirname
 	?? fileURLToPath(new URL(".", import.meta.url));
@@ -43,7 +43,7 @@ const WIN_SCRATCH = join(CACHE_DIR, "tmp");
 
 type SandboxMode =
 	| { mode: "landlock"; bin: string }
-	| { mode: "lowil"; bin: string; scratch: string }
+	| { mode: "lowil"; bin: string; scratch: string; powershell?: ShellSpec }
 	| { mode: "none"; detail: string };
 
 interface RunResult {
@@ -97,24 +97,32 @@ function findBash(): string | null {
 	return run("bash.exe", ["--version"]).ok ? "bash.exe" : null;
 }
 
-/** Locate a PowerShell host the way pi's powershell tool does. Windows only. */
-function findPowershell(): string | null {
-	if (process.platform !== "win32") return null;
-	for (const candidate of POWERSHELL_CANDIDATES) {
-		if (run(candidate, ["-NoProfile", "-Command", "exit 0"]).ok) return candidate;
-	}
-	return null;
+/**
+ * Shells to try through the gate, best first. On Windows the powershell tool
+ * is what actually runs commands, so the PowerShell hosts lead, and bash is
+ * only a fallback for installations that still enable the bash tool.
+ */
+function shellCandidates(): { shell: ShellSpec; powershell: boolean }[] {
+	const candidates = powershellHosts(process.env, existsSync)
+		.map((host) => ({ shell: powershellShell(host), powershell: true }));
+	const bash = findBash();
+	if (bash) candidates.push({ shell: { path: bash, args: ["-c"] }, powershell: false });
+	return candidates;
 }
 
-/**
- * Pick the shell to probe with. On Windows the powershell tool is the one that
- * actually runs commands, so probe that first; bash is only a fallback for
- * installations that still enable the bash tool.
- */
-function probeShell(powershellHost: string | null): ShellSpec | null {
-	if (powershellHost) return powershellShell(powershellHost);
-	const bash = findBash();
-	return bash ? { path: bash, args: ["-c"] } : null;
+/** Run a command through the gate and report whether the nonce came back. */
+function probeThrough(shell: ShellSpec): { ok: boolean; why: string } {
+	const nonce = Math.random().toString(36).slice(2);
+	const argv = probeArgv({
+		bin: WIN_BIN,
+		workspace: process.cwd(),
+		scratch: WIN_SCRATCH,
+		shell,
+		nonce,
+	});
+	const r = run(argv[0], argv.slice(1));
+	if (r.ok && r.stdout.includes(nonce)) return { ok: true, why: "" };
+	return { ok: false, why: r.stderr.trim() || `exit ${r.status}` };
 }
 
 /**
@@ -124,7 +132,7 @@ function probeShell(powershellHost: string | null): ShellSpec | null {
  * a command does not survive a round trip through the gate, we report no
  * backend rather than hand back a gate that silently runs unconfined.
  */
-function resolveWindows(powershellHost: string | null): SandboxMode {
+function resolveWindows(): SandboxMode {
 	try {
 		mkdirSync(CACHE_DIR, { recursive: true });
 		mkdirSync(WIN_SCRATCH, { recursive: true });
@@ -156,33 +164,32 @@ function resolveWindows(powershellHost: string | null): SandboxMode {
 			return recordFailure(`icacls could not label the scratch directory: ${scratchLabel.stderr.trim()}`);
 		}
 
-		// A level check cannot tell whether the shell survives below Medium, so run
-		// a real command through the gate and require the nonce back.
-		const shell = probeShell(powershellHost);
-		if (!shell) return { mode: "none", detail: "no PowerShell or bash host found to probe with" };
-		const nonce = Math.random().toString(36).slice(2);
-		const argv = probeArgv({
-			bin: WIN_BIN,
-			workspace: process.cwd(),
-			scratch: WIN_SCRATCH,
-			shell,
-			nonce,
-		});
-		const probe = run(argv[0], argv.slice(1));
-		if (!probe.ok || !probe.stdout.includes(nonce)) {
-			const why = probe.stderr.trim() || `exit ${probe.status}`;
-			return { mode: "none", detail: `gate.exe probe failed (${why})` };
+		// A level check cannot tell whether the shell survives below Medium, so
+		// probe each candidate for real and keep the first that round-trips.
+		// Trying them in order means a present-but-unusable pwsh does not sink
+		// the backend when the built-in powershell.exe would have worked.
+		const failures: string[] = [];
+		for (const candidate of shellCandidates()) {
+			const probe = probeThrough(candidate.shell);
+			if (probe.ok) {
+				return {
+					mode: "lowil",
+					bin: WIN_BIN,
+					scratch: WIN_SCRATCH,
+					powershell: candidate.powershell ? candidate.shell : undefined,
+				};
+			}
+			failures.push(`${candidate.shell.path}: ${probe.why}`);
 		}
-
-		return { mode: "lowil", bin: WIN_BIN, scratch: WIN_SCRATCH };
+		return { mode: "none", detail: `no shell survived the low-integrity gate (${failures.join("; ")})` };
 	} catch (err) {
 		return recordFailure(String((err as Error).message));
 	}
 }
 
-function resolveMode(powershellHost: string | null): SandboxMode {
+function resolveMode(): SandboxMode {
 	if (process.platform === "linux") return resolveLinux();
-	if (process.platform === "win32") return resolveWindows(powershellHost);
+	if (process.platform === "win32") return resolveWindows();
 	return { mode: "none", detail: "no kernel sandbox backend for this platform" };
 }
 
@@ -207,11 +214,10 @@ function ensureWorkspaceLabeled(dir: string): string | null {
 }
 
 export default function (pi: ExtensionAPI) {
-	// Resolved once: it costs a process spawn, and both the setup probe and the
-	// per-call wrapper need the same answer.
-	const powershellHost = findPowershell();
-	const powershell = powershellHost ? powershellShell(powershellHost) : undefined;
-	const sandbox = resolveMode(powershellHost);
+	const sandbox = resolveMode();
+	// Which PowerShell the probe proved runnable under confinement; undefined
+	// means the gate cannot cover that tool on this machine.
+	const powershell = sandbox.mode === "lowil" ? sandbox.powershell : undefined;
 	// Preferred: kernel mode. Where it is unavailable, yolo — with a warning.
 	let active: ActiveMode = defaultMode(sandbox.mode);
 

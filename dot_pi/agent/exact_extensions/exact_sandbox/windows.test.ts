@@ -15,7 +15,9 @@ import {
 	POWERSHELL_CANDIDATES,
 	bashCandidates,
 	compileArgv,
+	findOnPath,
 	labelArgv,
+	powershellHosts,
 	powershellShell,
 	probeArgv,
 } from "./windows.ts";
@@ -88,6 +90,58 @@ void describe("powershell", () => {
 
 	void it("bundles the host path with those flags", () => {
 		assert.deepEqual(powershellShell("pwsh.exe"), { path: "pwsh.exe", args: POWERSHELL_ARGS });
+	});
+});
+
+void describe("findOnPath", () => {
+	const present = (...paths: string[]) => (p: string) => paths.includes(p);
+
+	void it("finds an executable in PATH", () => {
+		const env = { Path: "C:\\a;C:\\b" };
+		assert.equal(findOnPath("pwsh.exe", env, present("C:\\b\\pwsh.exe")), "C:\\b\\pwsh.exe");
+	});
+
+	void it("treats the PATH key case-insensitively, as Windows does", () => {
+		const got = findOnPath("pwsh.exe", { PATH: "C:\\a" }, present("C:\\a\\pwsh.exe"));
+		assert.equal(got, "C:\\a\\pwsh.exe");
+	});
+
+	void it("returns null when the executable or the PATH is missing", () => {
+		assert.equal(findOnPath("pwsh.exe", { PATH: "C:\\a" }, present()), null);
+		assert.equal(findOnPath("pwsh.exe", {}, present("C:\\a\\pwsh.exe")), null);
+	});
+});
+
+void describe("powershellHosts", () => {
+	const BUILTIN = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+
+	void it("prefers pwsh but always carries the built-in 5.1", () => {
+		const env = {
+			PATH: "C:\\Python;C:\\Windows\\System32\\WindowsPowerShell\\v1.0",
+			SystemRoot: "C:\\Windows",
+		};
+		const present = (p: string) => p === "C:\\Python\\pwsh.exe" || p === BUILTIN;
+		assert.deepEqual(powershellHosts(env, present), ["C:\\Python\\pwsh.exe", BUILTIN]);
+	});
+
+	void it("still finds 5.1 when PATH is trimmed and pwsh was never installed", () => {
+		const env = { PATH: "C:\\nope", SystemRoot: "C:\\Windows" };
+		assert.deepEqual(powershellHosts(env, (p) => p === BUILTIN), [BUILTIN]);
+	});
+
+	void it("honours a lowercase windir as well as SystemRoot", () => {
+		const env = { windir: "D:\\Windows" };
+		const builtin = "D:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+		assert.deepEqual(powershellHosts(env, (p) => p === builtin), [builtin]);
+	});
+
+	void it("does not list the same host twice", () => {
+		const env = { PATH: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0", SystemRoot: "C:\\Windows" };
+		assert.deepEqual(powershellHosts(env, (p) => p === BUILTIN), [BUILTIN]);
+	});
+
+	void it("returns nothing on a machine with neither", () => {
+		assert.deepEqual(powershellHosts({}, () => false), []);
 	});
 });
 
