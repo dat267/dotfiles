@@ -10,8 +10,8 @@
  *
  * Auth: ~/.pi/agent/auth.json (provider id "hyper") or HYPER_API_KEY env var.
  *
- * Status line: shows the remaining Hypercredit balance while a hyper model
- * is active (ported, simplified, from charmbracelet/pi-hyper-provider).
+ * Status line: shows the remaining dollar allowance while a hyper model is
+ * active (ported, simplified, from charmbracelet/pi-hyper-provider).
  * /hyper-status toggles it; settings persist in <agentDir>/hyper-provider/.
  */
 
@@ -36,7 +36,7 @@ export function registerCharmHyper(pi: ExtensionAPI) {
 
 	pi.registerProvider(provider);
 
-	// --- Hypercredit status line -------------------------------------------
+	// --- Allowance status line ---------------------------------------------
 	let cachedBalance: number | undefined;
 	let lastFetchAt = 0;
 	let inFlight: Promise<void> | undefined;
@@ -61,7 +61,7 @@ export function registerCharmHyper(pi: ExtensionAPI) {
 				});
 			await inFlight;
 		} catch (error) {
-			if (force) ctx.ui.notify(`Unable to refresh Hypercredit balance: ${String(error)}`, "warning");
+			if (force) ctx.ui.notify(`Unable to refresh Hyper allowance: ${String(error)}`, "warning");
 			return;
 		}
 		if (cachedBalance !== undefined) ctx.ui.setStatus(STATUS_KEY, statusText(cachedBalance));

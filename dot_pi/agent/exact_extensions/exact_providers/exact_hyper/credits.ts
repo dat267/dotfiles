@@ -1,17 +1,27 @@
 /**
- * hyper/credits.ts — Hypercredit balance fetch + status text.
+ * hyper/credits.ts — remaining-allowance fetch + status text.
  *
  * Ported (simplified) from charmbracelet/pi-hyper-provider credits.ts:
  * GET /v1/credits with the API key, formatted into a one-line status.
+ *
+ * The API reports hypercredits (`balance`), which Charm prices at 5¢ each. The
+ * status line shows dollars, so the conversion happens here, at the wire
+ * boundary: everything above this file deals in USD only.
  */
 
 import { BASE_URL } from "./catalog.ts";
 
 export const STATUS_KEY = "hyper";
 
+/**
+ * Charm's published rate — "1 Hypercredit is currently 5¢" (hyper.charm.land
+ * FAQ); the prepaid bundles agree ($5/100, $10/200, $20/400).
+ */
+const USD_PER_HYPERCREDIT = 0.05;
+
 type CreditsBody = { balance?: unknown; balance_usd?: unknown };
 
-/** Fetch the remaining Hypercredit balance. Undefined when absent from the payload. */
+/** Fetch the remaining balance in USD. Undefined when absent from the payload. */
 export async function fetchCredits(
 	apiKey: string,
 	fetchImpl: typeof fetch = fetch,
@@ -23,16 +33,10 @@ export async function fetchCredits(
 		throw new Error(`hyper /credits HTTP ${res.status}`);
 	}
 	const body = (await res.json()) as CreditsBody;
-	const balance = typeof body.balance === "number" ? body.balance : undefined;
-	if (balance !== undefined) return balance;
+	if (typeof body.balance === "number") return body.balance * USD_PER_HYPERCREDIT;
 	return typeof body.balance_usd === "number" ? body.balance_usd : undefined;
 }
 
-export function formatCredits(balance: number): string {
-	if (Number.isInteger(balance)) return balance.toLocaleString("en-US");
-	return balance.toLocaleString("en-US", { maximumFractionDigits: 2 });
-}
-
-export function statusText(balance: number): string {
-	return `${formatCredits(balance)} HC`;
+export function statusText(amount: number): string {
+	return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
