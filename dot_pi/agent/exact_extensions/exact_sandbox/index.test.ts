@@ -59,8 +59,7 @@ void describe("sandbox extension smoke", () => {
 		assert.equal(notes.length, 1, "one warning");
 		assert.match(notes[0], /no kernel sandbox/);
 		assert.equal(status.length, 1, "status line set exactly once");
-		assert.match(status[0] ?? "", /yolo/);
-		assert.match(status[0] ?? "", /no kernel backend/);
+		assert.equal(status[0], "yolo", "bare mode name — the statusline is shared and narrow");
 	});
 
 	void it("keeps the status line in step with live mode switches", async () => {
@@ -68,9 +67,9 @@ void describe("sandbox extension smoke", () => {
 		const { ctx, status } = makeCtx();
 		await events.session_start({}, ctx);
 		await commands.readonly.handler("", ctx);
-		assert.match(status.at(-1) ?? "", /read-only/);
+		assert.equal(status.at(-1), "read-only");
 		await commands.yolo.handler("", ctx);
-		assert.match(status.at(-1) ?? "", /yolo/);
+		assert.equal(status.at(-1), "yolo");
 	});
 
 	void it("workspace without a backend stays yolo and says so", async () => {
@@ -79,6 +78,6 @@ void describe("sandbox extension smoke", () => {
 		await events.session_start({}, ctx);
 		await commands.sandbox.handler("on", ctx);
 		assert.match(notes.at(-1) ?? "", /unavailable/);
-		assert.match(status.at(-1) ?? "", /yolo/);
+		assert.equal(status.at(-1), "yolo", "workspace cannot be enforced, so yolo stays");
 	});
 });

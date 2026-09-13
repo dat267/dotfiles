@@ -77,13 +77,12 @@ void describe("modeDetail", () => {
 });
 
 void describe("statusLine", () => {
-	void it("marks every unenforced mode as having no kernel backend", () => {
-		for (const mode of ["read", "workspace", "yolo"] as const) {
-			const line = statusLine(mode, "none");
-			assert.ok(line, `${mode} needs a status line`);
-			assert.match(line, /no kernel backend/);
-			assert.match(line, new RegExp(mode === "read" ? "read-only" : mode));
-		}
+	// The statusline is shared with the context percentage, model and project, and
+	// truncates on a narrow terminal, so the mode is one bare word.
+	void it("names the mode and nothing else when no backend enforces it", () => {
+		assert.equal(statusLine("yolo", "none"), "yolo");
+		assert.equal(statusLine("read", "none"), "read-only");
+		assert.equal(statusLine("workspace", "none"), "workspace");
 	});
 
 	void it("is silent while a kernel backend enforces the workspace", () => {
