@@ -87,7 +87,10 @@ class TestCleanDirectory(unittest.TestCase):
 
     def test_noop_when_missing(self):
         vsx = _loader.load("install-vscode")
-        vsx.clean_directory("/nonexistent/path/xyz")  # must not raise
+        with mock.patch.object(vsx.shutil, "rmtree") as rmtree, mock.patch.object(vsx.os, "remove") as remove:
+            self.assertIsNone(vsx.clean_directory("/nonexistent/path/xyz"))  # must not raise
+        rmtree.assert_not_called()
+        remove.assert_not_called()
 
 
 if __name__ == "__main__":

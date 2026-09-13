@@ -5,7 +5,7 @@ import signal
 import unittest.mock
 import tempfile
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import nullcontext, redirect_stderr, redirect_stdout
 
 import _loader
 
@@ -210,6 +210,65 @@ class TestWalk(unittest.TestCase):
         f = os.path.join(root, "single.bin")
         r = dua.walk(f, threads=1, apparent=True)
         self.assertEqual(dua.aggregate_totals(r.raw, r.children, f), 8)
+
+
+class _FakeStat:
+    """Minimal stat_result stand-in carrying the (st_dev, st_ino) dedupe key."""
+
+    def __init__(self, size, nlink=1, dev=1, ino=1):
+        self.st_size = size
+        self.st_blocks = (size + 511) // 512
+        self.st_nlink = nlink
+        self.st_dev = dev
+        self.st_ino = ino
+
+
+class _FakeEntry:
+    def __init__(self, path, stat):
+        self.path = path
+        self.name = os.path.basename(path)
+        self._stat = stat
+
+    def is_dir(self, follow_symlinks=True):
+        return False
+
+    def is_symlink(self):
+        return False
+
+    def stat(self, follow_symlinks=True):
+        return self._stat
+
+
+class TestHardlinkDedupeSeam(unittest.TestCase):
+    """The dedupe branch (st_nlink > 1 keyed on (st_dev, st_ino)) only runs on
+    filesystems that can expose linked files, so the os.link-based tests skip on
+    Termux bionic. Driving _scan's scandir seam keeps it covered everywhere."""
+
+    def _run(self, count_hard_links):
+        shared = _FakeStat(size=10, nlink=2, dev=7, ino=42)
+        other = _FakeStat(size=5, nlink=1, dev=7, ino=43)
+        entries = [
+            _FakeEntry("/fake/one", shared),
+            _FakeEntry("/fake/two", shared),  # same inode: second link
+            _FakeEntry("/fake/three", other),
+        ]
+        acc = dua.WalkResult()
+        with unittest.mock.patch.object(dua.os, "scandir",
+                                        lambda path: nullcontext(iter(entries))):
+            dua._scan(["/fake"], acc, apparent=True,
+                      count_hard_links=count_hard_links, top_n=0, top_target="/fake")
+        return acc
+
+    def test_second_link_counts_zero_bytes(self):
+        acc = self._run(count_hard_links=False)
+        self.assertEqual(acc.files, 3)
+        self.assertEqual(acc.raw["/fake"], 10 + 0 + 5)
+        self.assertEqual(acc.top, {"one": 10, "two": 0, "three": 5})
+
+    def test_count_hard_links_counts_every_link(self):
+        acc = self._run(count_hard_links=True)
+        self.assertEqual(acc.raw["/fake"], 10 + 10 + 5)
+        self.assertEqual(acc.top, {"one": 10, "two": 10, "three": 5})
 
 
 class TestScanPipeline(unittest.TestCase):
