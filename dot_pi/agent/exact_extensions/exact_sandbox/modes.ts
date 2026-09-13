@@ -39,15 +39,15 @@ const NONE_STATUS: Record<ActiveMode, string> = {
 };
 
 /**
- * Status-line text for the active mode, or undefined when a kernel backend
- * enforces it and needs no reminder. Only the no-backend case needs one: pi
- * drops a transient notify issued from session_start while it restores a
- * resumed session's transcript in fullscreen mode, while the status line is
- * redrawn every frame. One bare word on purpose — the statusline is shared with
- * the context percentage, model and project, and truncates on narrow terminals.
+ * Status-line text for the active mode, or undefined while a kernel backend
+ * enforces the workspace — the normal, silent default. Every other state pins
+ * one bare word: a deliberate /yolo is the dangerous one, and after `pi -c`
+ * resumes a session the toast is gone, so the word is the only reminder left.
+ * One bare word on purpose — the statusline is shared with the context
+ * percentage, model and project, and truncates on narrow terminals.
  */
 export function statusLine(active: ActiveMode, sandbox: SandboxBackend): string | undefined {
-	if (sandbox !== "none") return undefined;
+	if (active === "workspace" && sandbox !== "none") return undefined;
 	return NONE_STATUS[active];
 }
 

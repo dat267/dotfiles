@@ -85,9 +85,21 @@ void describe("statusLine", () => {
 		assert.equal(statusLine("workspace", "none"), "workspace");
 	});
 
-	void it("is silent while a kernel backend enforces the workspace", () => {
+	void it("pins yolo and read-only even when a backend exists", () => {
+		// Contract change: a deliberate /yolo is the dangerous state, and after a
+		// `pi -c` resume the toast is gone — the pinned word is the only reminder
+		// left. Suppressing it whenever a backend merely exists left the footer
+		// blank exactly when it mattered. read-only is unusual enough to name too.
+		assert.equal(statusLine("yolo", "landlock"), "yolo");
+		assert.equal(statusLine("yolo", "lowil"), "yolo");
+		assert.equal(statusLine("read", "landlock"), "read-only");
+		assert.equal(statusLine("read", "lowil"), "read-only");
+	});
+
+	void it("is silent only while a kernel backend enforces the workspace", () => {
+		// The enforced default is the no-news-is-good-news state; the footer
+		// stays clear for it.
 		assert.equal(statusLine("workspace", "landlock"), undefined);
 		assert.equal(statusLine("workspace", "lowil"), undefined);
-		assert.equal(statusLine("yolo", "landlock"), undefined);
 	});
 });
