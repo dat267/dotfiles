@@ -12,7 +12,7 @@ This skill takes the current conversation context and codebase understanding and
 
 2. Sketch the **seams** at which the feature will be tested. Prefer existing seams to new ones; use the highest seam possible; if new seams are needed, propose them at the highest point. The fewer seams across the codebase, the better — the ideal is one. Confirm the seams with the user before writing.
 
-3. Write the spec using the template below to `specs/<YYYY-MM-DD>-<slug>.md` in the repo root (create `specs/` if missing). Show the path when done. If the user asks for a GitHub issue instead and `gh` is authenticated, publish it there with `gh issue create --title ... --body-file -`.
+3. Choose the location. Use the repo's existing spec convention if it has one — an existing `specs/`, `docs/specs/`, or `doc/specs/` directory, or an established spec-file naming pattern. Otherwise create `specs/` at the repo root. Name the file `<YYYY-MM-DD>-<slug>.md` and show the path when done. If the user asks for a GitHub issue instead and `gh` is authenticated, publish it there with `gh issue create --title ... --body-file -`.
 
 <spec-template>
 
