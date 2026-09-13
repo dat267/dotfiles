@@ -5,7 +5,7 @@
     "centerOnLaunch": false,
     "copyFormatting": "none",
     "copyOnSelect": false,
-    "defaultProfile": "{fd6f7640-6605-41e4-a877-6d6e5686ad07}",
+    "defaultProfile": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
     "keybindings": [
         {
             "id": "Terminal.CopyToClipboard",
@@ -50,7 +50,7 @@
             },
             {
                 "commandline": "pwsh",
-                "guid": "{fd6f7640-6605-41e4-a877-6d6e5686ad07}",
+                "guid": "{574e775e-4f2a-5b96-ac1e-a2962a402336}",
                 "hidden": false,
                 "icon": "ms-appx:///ProfileIcons/pwsh.png",
                 "name": "PowerShell",
@@ -78,7 +78,7 @@
             "name": "One Dark",
             "purple": "#A626A4",
             "red": "#E45649",
-            "selectionBackground": "#FDF6E3",
+            "selectionBackground": "#3E4451",
             "white": "#C0C0C0",
             "yellow": "#C18301"
         },
@@ -101,7 +101,7 @@
             "name": "One Light",
             "purple": "#C577DD",
             "red": "#DF6C75",
-            "selectionBackground": "#FDF6E3",
+            "selectionBackground": "#B6D6F2",
             "white": "#808080",
             "yellow": "#E4C07A"
         }
