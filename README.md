@@ -29,10 +29,10 @@ separately after the first apply.
 |---|---|
 | **Shell** | Bash (`~/.bashrc`), Zsh (`~/.zshrc`), `~/.profile` |
 | **Editors** | Neovim (minimal, zero-plugin), Vim (vim-plug, ALE, molokai), Helix, Zed, VS Code |
-| **Terminal** | WezTerm, Windows Terminal |
+| **Terminal** | WezTerm, Windows Terminal, tmux, Konsole |
 | **File Managers** | Yazi (Linux + Windows) |
 | **Media** | mpv, aria2 |
-| **Git** | `~/.gitconfig` (autosquash, aliases, per-directory identity) |
+| **Git** | `~/.gitconfig` (autosquash, auto-setup-remote, global identity) |
 | **PowerShell** | Profile + custom `Utils.psm1` module |
 | **VS Code** | Settings + snippet files across languages |
 | **SSH** | Client config (Tailscale/CGNAT hosts) |
@@ -63,7 +63,7 @@ dot_config/systemd/user/  Linux systemd user services (dsh-web)
 dot_pi/                   Pi agent config + skills
 dot_local/scripts/         Python/shell/PowerShell scripts (added to PATH)
 dot_local/scripts/exact_py/  Python scripts — exact: strays removed on apply
-dot_local/js/             JS tooling (playwright, install scripts)
+dot_local/share/          Konsole profile (Linux)
 AppData/Local/            Windows-only configs (Windows Terminal)
 private_dot_ssh/          SSH client config
 ```

@@ -12,12 +12,13 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 
 - `executable_yazi-*.py` — Yazi media/translate helpers, invoked via `keymap.toml` bindings
 - `executable_install-*.py` — Tool installers, each downloads latest GitHub release to `~/.local/bin/`
+- `executable_gim.py` — install private Go binaries over SSH (`gim <repo[@version]>`)
 - `executable_dotfiles.py` — rclone + git sync (`dotfiles up`/`dotfiles down`)
 - `executable_lsp.py` — LSP server installer (gopls, pyright, etc.)
 - `executable_cloudsh.py` — GCP Cloud Shell SSH tunnel
 - `executable_sysinfo.py`, `executable_url-decode-rename.py`, `executable_mpv`
-- Shell-friendly converters: `executable_jsonfmt.py` (pretty/minify/sort JSON), `executable_epoch.py` (epoch↔ISO), `executable_csvtable.py` (CSV→aligned table), `executable_dupfind.py` (duplicate files by size+hash)
-- `executable_dua.py` — dua-style disk usage analyzer (aggregate/tree/largest-files, fork-parallel via `-t`, hardlink dedupe)
+- Shell-friendly converters: `executable_jsonfmt.py` (pretty/minify/sort JSON), `executable_epoch.py` (epoch↔ISO), `executable_csvtable.py` (CSV→aligned table), `executable_dupfind.py` (duplicate files by size+hash), `executable_b64.py` (base64 encode/decode for binary blobs)
+- `executable_dua.py` — dua-style disk usage analyzer (aggregate/largest-files, fork-parallel via `-t`, hardlink dedupe)
 - `executable_crypt.py` — pure Python ChaCha20-Poly1305 + scrypt authenticated file encryption
 - `executable_serve.py` — LAN file share: serves a dir or single file with URLs + ASCII QR, optional `--token`, `--upload`, `--once`, port auto-increment; QR needs `qrencode` and degrades to URLs only
 - `executable_extract.py` — archive extractor: zip/tar via stdlib, .7z/.rar via `7z`/`unrar`; refuses absolute or `..` member paths, refuses a non-empty destination without `--force`, `-C`/`-l`/`-f`/`-q` flags
