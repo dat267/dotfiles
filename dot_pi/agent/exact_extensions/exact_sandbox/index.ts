@@ -236,19 +236,19 @@ export default function (pi: ExtensionAPI) {
 	// Preferred: kernel mode. Where it is unavailable, yolo — with a warning.
 	let active: ActiveMode = defaultMode(sandbox.mode);
 
-	if (sandbox.mode === "none") {
-		pi.on("session_start", async (_event, ctx) => {
-			// A fresh session shows the notify fine, but pi drops a notify issued from
-			// session_start while it restores a resumed session's transcript in
-			// fullscreen mode (`pi -c`), so the warning vanished exactly where the
-			// unenforced mode mattered. The status line is redrawn every frame.
+	// Registered on every backend: the footer word is the one surface that
+	// survives a `pi -c` resume — pi drops a notify issued from session_start
+	// while it restores the transcript, but the status line is redrawn every
+	// frame. The warning toast itself stays conditional on the no-backend case.
+	pi.on("session_start", async (_event, ctx) => {
+		if (sandbox.mode === "none") {
 			ctx.ui.notify(
 				`[sandbox] ${sandbox.detail} — no kernel sandbox available; defaulting to yolo (all writes unrestricted). /readonly switches to read-only.`,
 				"warning",
 			);
-			ctx.ui.setStatus(STATUS_KEY, statusLine(active, sandbox.mode));
-		});
-	}
+		}
+		ctx.ui.setStatus(STATUS_KEY, statusLine(active));
+	});
 
 	pi.on("before_agent_start", async (event, ctx) => {
 		if (active === "read") {
@@ -317,9 +317,8 @@ export default function (pi: ExtensionAPI) {
 	function applyMode(requested: ActiveMode, ctx: ExtensionContext) {
 		const { mode, warning } = switchMode(requested, sandbox.mode);
 		active = mode;
-		// Keep the persistent indicator in step; undefined when a kernel backend
-		// enforces the mode, which also clears a stale line.
-		ctx.ui.setStatus(STATUS_KEY, statusLine(mode, sandbox.mode));
+		// Keep the persistent indicator in step with the live mode.
+		ctx.ui.setStatus(STATUS_KEY, statusLine(mode));
 		if (warning) ctx.ui.notify(`[sandbox] ${warning}`, "warning");
 		else ctx.ui.notify(`[sandbox] Mode: ${modeDetail(mode, sandbox.mode)}`, "info");
 	}

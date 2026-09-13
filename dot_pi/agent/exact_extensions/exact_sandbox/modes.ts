@@ -31,24 +31,23 @@ export function modeDetail(active: ActiveMode, sandbox: SandboxBackend): string 
 	return DETAILS[active];
 }
 
-/** Bare mode name for the status line — the detail lives in the warning toast. */
-const NONE_STATUS: Record<ActiveMode, string> = {
+/** The mode as one bare word for the status line — the detail lives in toasts. */
+const STATUS_WORD: Record<ActiveMode, string> = {
 	read: "read-only",
 	workspace: "workspace",
 	yolo: "yolo",
 };
 
 /**
- * Status-line text for the active mode, or undefined while a kernel backend
- * enforces the workspace — the normal, silent default. Every other state pins
- * one bare word: a deliberate /yolo is the dangerous one, and after `pi -c`
- * resumes a session the toast is gone, so the word is the only reminder left.
- * One bare word on purpose — the statusline is shared with the context
- * percentage, model and project, and truncates on narrow terminals.
+ * The mode as one bare word for the status line — always shown, whatever the
+ * backend. The footer is the only surface that survives a `pi -c` resume
+ * (toasts are dropped while the transcript is restored), so the current mode
+ * must never depend on remembering a toast — including the ordinary enforced
+ * default. One bare word on purpose — the statusline is shared with the
+ * context percentage, model and project, and truncates on narrow terminals.
  */
-export function statusLine(active: ActiveMode, sandbox: SandboxBackend): string | undefined {
-	if (active === "workspace" && sandbox !== "none") return undefined;
-	return NONE_STATUS[active];
+export function statusLine(active: ActiveMode): string {
+	return STATUS_WORD[active];
 }
 
 /** Default mode: the kernel sandbox when any backend can enforce it, else yolo. */

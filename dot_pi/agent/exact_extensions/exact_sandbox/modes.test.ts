@@ -79,27 +79,14 @@ void describe("modeDetail", () => {
 void describe("statusLine", () => {
 	// The statusline is shared with the context percentage, model and project, and
 	// truncates on a narrow terminal, so the mode is one bare word.
-	void it("names the mode and nothing else when no backend enforces it", () => {
-		assert.equal(statusLine("yolo", "none"), "yolo");
-		assert.equal(statusLine("read", "none"), "read-only");
-		assert.equal(statusLine("workspace", "none"), "workspace");
-	});
-
-	void it("pins yolo and read-only even when a backend exists", () => {
-		// Contract change: a deliberate /yolo is the dangerous state, and after a
-		// `pi -c` resume the toast is gone — the pinned word is the only reminder
-		// left. Suppressing it whenever a backend merely exists left the footer
-		// blank exactly when it mattered. read-only is unusual enough to name too.
-		assert.equal(statusLine("yolo", "landlock"), "yolo");
-		assert.equal(statusLine("yolo", "lowil"), "yolo");
-		assert.equal(statusLine("read", "landlock"), "read-only");
-		assert.equal(statusLine("read", "lowil"), "read-only");
-	});
-
-	void it("is silent only while a kernel backend enforces the workspace", () => {
-		// The enforced default is the no-news-is-good-news state; the footer
-		// stays clear for it.
-		assert.equal(statusLine("workspace", "landlock"), undefined);
-		assert.equal(statusLine("workspace", "lowil"), undefined);
+	void it("always names the mode, whatever the backend", () => {
+		// Contract change: the word used to be suppressed while a backend enforced
+		// workspace, and suppressed for every mode while one merely existed — so
+		// /yolo cleared the footer on a healthy machine. The footer is the only
+		// surface that survives a `pi -c` resume (toasts are dropped while the
+		// transcript is restored), so the current mode is always visible.
+		assert.equal(statusLine("yolo"), "yolo");
+		assert.equal(statusLine("read"), "read-only");
+		assert.equal(statusLine("workspace"), "workspace");
 	});
 });
