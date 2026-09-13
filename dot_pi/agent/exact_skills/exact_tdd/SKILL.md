@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Test-driven development workflow. Write a failing test first, then the minimal implementation, then refactor. Use when implementing a new feature, fixing a bug, changing behavior, or adding test coverage in any codebase.
+description: Test-driven development. Required for any feature, bug fix, behavior change, or test change in any repo — no production code without a failing test that demands it. Config, docs, and renames with no testable behavior are exempt.
 ---
 
 # Test-Driven Development
