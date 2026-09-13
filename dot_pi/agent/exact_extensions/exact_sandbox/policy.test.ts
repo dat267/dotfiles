@@ -1,6 +1,10 @@
 /**
  * Tests for sandbox/policy.ts — single source of truth for the
  * writable-path policy: enforcement list and prompt prose.
+ *
+ * The list is platform-aware. On Windows the writable set is exactly the
+ * paths the extension has labelled Low integrity, so it is deliberately
+ * smaller than the POSIX list: anything else is read-only by construction.
  */
 
 import { describe, it } from "node:test";
@@ -8,7 +12,7 @@ import * as assert from "node:assert/strict";
 import { homedir } from "node:os";
 import { defaultAllowlist, writablePathsNote } from "./policy.ts";
 
-void describe("policy", () => {
+void describe("policy (posix)", () => {
 	void it("every allowlist entry (except workspace) appears in the note", () => {
 		const workspace = "/data/work";
 		const note = writablePathsNote(workspace);
@@ -39,5 +43,33 @@ void describe("policy", () => {
 		const list = defaultAllowlist("/data/work");
 		assert.ok(list.includes(homedir() + "/.rustup"), "missing ~/.rustup (toolchains, rustup update)");
 		assert.ok(list.includes(homedir() + "/.cargo"), "missing ~/.cargo (registry, bins)");
+	});
+});
+
+void describe("policy (windows)", () => {
+	const win = { platform: "win32" as const };
+
+	void it("allows exactly the workspace and the labelled scratch directory", () => {
+		const list = defaultAllowlist("C:\\work", { ...win, scratch: "C:\\cache\\tmp" });
+		assert.deepEqual(list, ["C:\\work", "C:\\cache\\tmp"]);
+	});
+
+	void it("allows only the workspace when no scratch directory is configured", () => {
+		assert.deepEqual(defaultAllowlist("C:\\work", win), ["C:\\work"]);
+	});
+
+	void it("does not carry POSIX-only entries onto Windows", () => {
+		const list = defaultAllowlist("C:\\work", { ...win, scratch: "C:\\cache\\tmp" });
+		for (const posix of ["/tmp", "/dev", "/proc", "/sys", "/var/tmp"]) {
+			assert.ok(!list.includes(posix), `POSIX path ${posix} leaked into the Windows allowlist`);
+		}
+		assert.ok(!list.some((p) => p.startsWith(homedir())), "POSIX home paths leaked");
+	});
+
+	void it("the note advertises the scratch directory, not /tmp", () => {
+		const note = writablePathsNote("C:\\work", { ...win, scratch: "C:\\cache\\tmp" });
+		assert.ok(note.includes("C:\\work"), "note missing the workspace");
+		assert.ok(note.includes("C:\\cache\\tmp"), "note missing the scratch directory");
+		assert.ok(!note.includes("/tmp"), "note advertises /tmp on Windows");
 	});
 });

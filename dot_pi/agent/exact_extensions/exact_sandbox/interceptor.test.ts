@@ -1,12 +1,21 @@
 /**
  * Tests for sandbox/interceptor.ts — pure dispatch logic.
  *
- * There is no approval path: every decision is block, pass, or wrap.
+ * There is no approval path: every decision is block, pass, or wrap. The
+ * workspace mode is enforced by either backend (Landlock on Linux, low
+ * integrity on Windows) and only blocked when neither is available.
  */
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { interceptToolCall, promptNote, type ActiveMode, type InterceptorInput, type ToolType } from "./interceptor.ts";
+import {
+	interceptToolCall,
+	promptNote,
+	type ActiveMode,
+	type InterceptorInput,
+	type SandboxBackend,
+	type ToolType,
+} from "./interceptor.ts";
 
 function makeInput(overrides: Partial<InterceptorInput> = {}): InterceptorInput {
 	return {
@@ -23,12 +32,14 @@ function makeInput(overrides: Partial<InterceptorInput> = {}): InterceptorInput 
 
 const ALL_MODES: readonly ActiveMode[] = ["read", "workspace", "yolo"];
 const ALL_TOOLS: readonly ToolType[] = ["bash", "powershell", "write", "edit", "other"];
+const ALL_BACKENDS: readonly SandboxBackend[] = ["landlock", "lowil", "none"];
+const ENFORCED: readonly SandboxBackend[] = ["landlock", "lowil"];
 
 void describe("interceptToolCall never asks", () => {
 	void it("no mode/tool/backend combination produces an ask", () => {
 		for (const active of ALL_MODES) {
 			for (const toolType of ALL_TOOLS) {
-				for (const sandboxMode of ["landlock", "none"] as const) {
+				for (const sandboxMode of ALL_BACKENDS) {
 					const r = interceptToolCall(makeInput({
 						active,
 						toolType,
@@ -75,37 +86,41 @@ void describe("interceptToolCall", () => {
 		assert.equal(r.action, "pass");
 	});
 
-	void it("workspace mode with landlock wraps bash in gate", () => {
-		const r = interceptToolCall(makeInput({
-			active: "workspace",
-			sandboxMode: "landlock",
-			toolType: "bash",
-			command: "echo hello",
-			workspace: "/home/user/project",
-		}));
-		assert.equal(r.action, "wrap");
-		assert.match(r.command, /\/path\/to\/gate.*--ws.*\/home\/user\/project.*--allow/);
-		assert.match(r.command, /--.*bash.*-c.*echo hello'$/);
+	void it("workspace mode wraps bash under either enforced backend", () => {
+		for (const sandboxMode of ENFORCED) {
+			const r = interceptToolCall(makeInput({
+				active: "workspace",
+				sandboxMode,
+				toolType: "bash",
+				command: "echo hello",
+				workspace: "/home/user/project",
+			}));
+			assert.equal(r.action, "wrap", `backend ${sandboxMode} did not wrap`);
+			assert.match(r.command, /\/path\/to\/gate.*--ws.*\/home\/user\/project.*--allow/);
+			assert.match(r.command, /--.*bash.*-c.*echo hello'$/);
+		}
 	});
 
-	void it("workspace mode without landlock fails closed", () => {
+	void it("workspace mode with no backend fails closed", () => {
 		const r = interceptToolCall(makeInput({
 			active: "workspace",
 			sandboxMode: "none",
 			toolType: "bash",
 		}));
 		assert.equal(r.action, "block");
-		assert.match(r.reason, /Landlock/);
+		assert.match(r.reason, /workspace mode needs/);
 	});
 
 	void it("workspace mode blocks powershell, which the gate cannot cover", () => {
-		const r = interceptToolCall(makeInput({
-			active: "workspace",
-			sandboxMode: "landlock",
-			toolType: "powershell",
-		}));
-		assert.equal(r.action, "block");
-		assert.match(r.reason, /powershell/i);
+		for (const sandboxMode of ENFORCED) {
+			const r = interceptToolCall(makeInput({
+				active: "workspace",
+				sandboxMode,
+				toolType: "powershell",
+			}));
+			assert.equal(r.action, "block");
+			assert.match(r.reason, /powershell/i);
+		}
 	});
 
 	void it("workspace mode blocks write outside allowlist", () => {
@@ -151,6 +166,48 @@ void describe("interceptToolCall", () => {
 	});
 });
 
+void describe("interceptToolCall (windows low-integrity backend)", () => {
+	const windows = {
+		active: "workspace" as const,
+		sandboxMode: "lowil" as const,
+		platform: "win32" as const,
+		sandboxBin: "C:\\cache\\gate.exe",
+		workspace: "C:\\work",
+		scratch: "C:\\cache\\tmp",
+		toolType: "bash" as const,
+		command: "echo hi",
+	};
+
+	void it("emits --tmp so the gate can point TMP/TEMP at a labelled directory", () => {
+		const r = interceptToolCall(makeInput(windows));
+		assert.equal(r.action, "wrap");
+		assert.ok(r.command.includes("--tmp"), "missing --tmp");
+		assert.ok(r.command.includes("'C:/cache/tmp'"), "scratch path not passed to the gate");
+	});
+
+	void it("omits --tmp when no scratch directory is configured", () => {
+		const r = interceptToolCall(makeInput({ ...windows, scratch: undefined }));
+		assert.equal(r.action, "wrap");
+		assert.ok(!r.command.includes("--tmp"));
+	});
+
+	void it("normalises tool paths to forward slashes but leaves the command verbatim", () => {
+		const r = interceptToolCall(makeInput({ ...windows, command: "echo C:\\windows\\path" }));
+		assert.equal(r.action, "wrap");
+		assert.ok(r.command.includes("'C:/cache/gate.exe'"), "gate path not normalised");
+		assert.ok(r.command.includes("'C:/work'"), "workspace not normalised");
+		assert.ok(!r.command.includes("C:\\cache"), "backslashes left in a tool path");
+		assert.ok(r.command.includes("'echo C:\\windows\\path'"), "the user command was rewritten");
+	});
+
+	void it("checks write targets against the windows allowlist", () => {
+		const outside = interceptToolCall(makeInput({ ...windows, toolType: "write", path: "C:\\Windows\\System32\\drivers\\etc\\hosts" }));
+		assert.equal(outside.action, "block");
+		const scratch = interceptToolCall(makeInput({ ...windows, toolType: "write", path: "C:\\cache\\tmp\\scratch.txt" }));
+		assert.equal(scratch.action, "pass");
+	});
+});
+
 void describe("promptNote", () => {
 	void it("read mode includes mode name and final warning", () => {
 		const note = promptNote("read", "landlock", "/home/user/project");
@@ -159,11 +216,9 @@ void describe("promptNote", () => {
 		assert.match(note, /cannot modify/);
 	});
 
-	void it("workspace mode mentions Landlock enforcement", () => {
-		const note = promptNote("workspace", "landlock", "/home/user/project");
-		assert.match(note, /mode: workspace/);
-		assert.match(note, /Landlock/);
-		assert.match(note, /kernel-level/);
+	void it("workspace mode names the backend in force", () => {
+		assert.match(promptNote("workspace", "landlock", "/home/user/project"), /Landlock/);
+		assert.match(promptNote("workspace", "lowil", "C:\\work"), /low integrity/);
 	});
 
 	void it("yolo mode warns sandbox is disabled", () => {
@@ -173,10 +228,10 @@ void describe("promptNote", () => {
 		assert.match(note, /re-enable/);
 	});
 
-	void it("yolo fallback explains that Landlock is unavailable", () => {
+	void it("yolo fallback explains that no backend is available", () => {
 		const note = promptNote("yolo", "none", "/home/user/project");
 		assert.match(note, /DISABLED/);
-		assert.match(note, /Landlock is unavailable/);
+		assert.match(note, /no kernel sandbox backend is available/);
 	});
 
 	void it("no mode note mentions a removed approval mode", () => {
@@ -191,6 +246,15 @@ void describe("promptNote", () => {
 		assert.match(note, /Workspace filesystem policy/);
 		assert.match(note, /Use \/tmp for scratch/);
 		assert.match(note, /Permission denied/);
+	});
+
+	void it("points scratch at the labelled directory on windows", () => {
+		const note = promptNote("workspace", "lowil", "C:\\work", {
+			platform: "win32",
+			scratch: "C:\\cache\\tmp",
+		});
+		assert.ok(note.includes("C:\\cache\\tmp"), "note does not name the scratch directory");
+		assert.doesNotMatch(note, /Use \/tmp/);
 	});
 
 	void it("yolo mode omits shared boilerplate", () => {
