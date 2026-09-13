@@ -14,7 +14,7 @@ Edit source files (`dot_*` prefix), never deployed versions. Preserve `{{- ... -
 - Editors: `dot_config/{helix,nvim,Code,zed}/`, `dot_vimrc` (nvim = zero-plugin Lua modules)
 - Yazi: `dot_config/yazi/{yazi,keymap,init,theme}`
 - Chezmoi: `.chezmoi.toml.tmpl` (autoAdd/autoCommit, no autoPush), `.chezmoiignore`, `.chezmoiexternal.toml.tmpl` (zsh plugin tarballs)
-- AI: `dot_config/{opencode,crush}/`, `dot_pi/`
+- AI: `dot_config/opencode/`, `dot_pi/`
 - Python scripts: `dot_local/scripts/exact_py/` — stdlib only, see its `AGENTS.md`
 - Bootstrap: `run_once_before_bootstrap-local-configs.*`, `run_onchange_after_create-{symlinks,junctions}.*`
 
@@ -38,4 +38,4 @@ Chezmoi source is the authoritative reference — clone and grep it (`internal/c
 - **Modes** (via `/sandbox`): `workspace` (Landlock, default), `supervised` (every call confirmed), `read` (mutators removed), `yolo` (off). No Landlock (e.g. Termux) → defaults to supervised, never bricks the session.
 - Tests: pure logic in `node --test` files beside sources; gate behavior via the extension's smoke test.
 
-`.crush/` and `.omo/` are runtime dirs, not managed. `README.md`, `AGENTS.md`, `LICENSE` are in `.chezmoiignore` — never deployed.
+`.omo/` is a runtime dir, not managed. `README.md`, `AGENTS.md`, `LICENSE` are in `.chezmoiignore` — never deployed.

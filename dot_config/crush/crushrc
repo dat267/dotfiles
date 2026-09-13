@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-# Global Crush configuration — managed by chezmoi.
-
-# ── Global context ─────────────────────────────────────────────────────
-# Injected into every prompt to remind the model of available skills.
-option global-context-path "$HOME/.config/crush/context.md"
-
-# ── Skills ─────────────────────────────────────────────────────────────
-option skill-path ~/.config/crush/skills

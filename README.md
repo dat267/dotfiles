@@ -36,7 +36,7 @@ separately after the first apply.
 | **PowerShell** | Profile + custom `Utils.psm1` module |
 | **VS Code** | Settings + snippet files across languages |
 | **SSH** | Client config (Tailscale/CGNAT hosts) |
-| **AI** | opencode (bare config, managed skills), Crush (sandboxed, secret-blocking, skills), Pi (agent config, extensions, skills — including `sandbox`: kernel-enforced read-only outside the workspace via Landlock) |
+| **AI** | opencode (bare config, managed skills), Pi (agent config, extensions, skills — including `sandbox`: kernel-enforced read-only outside the workspace via Landlock) |
 
 ## Platform Support
 
@@ -55,7 +55,6 @@ dot_config/zed/           Zed editor settings
 dot_config/wezterm/       WezTerm terminal config
 dot_config/yazi/          Yazi file manager
 dot_config/powershell/    PowerShell profile + module
-dot_config/crush/         Crush config (JSON + crushrc + skills)
 dot_config/opencode/      opencode config (JSON + TUI + managed skills)
 dot_config/mpv/           mpv media player
 dot_config/aria2/         aria2 download manager
