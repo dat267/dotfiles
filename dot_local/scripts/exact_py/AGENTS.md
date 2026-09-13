@@ -36,8 +36,8 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 
 ## Tests
 
-- `tests/` — stdlib `unittest`, one module per script, run with `python3 -m unittest discover -s tests`
-- `tests/_loader.py` imports scripts by path (handles `executable_` prefix, hyphens/underscores, extensionless `mpv`)
+- `exact_tests/` — stdlib `unittest`, one module per script, run with `python3 -m unittest discover -s exact_tests` (deployed as `tests/`)
+- `exact_tests/_loader.py` imports scripts by path (handles `executable_` prefix, hyphens/underscores, extensionless `mpv`)
 - Network and install side effects are mocked; only pure logic and main()-driven command construction are tested
 - `@unittest.expectedFailure` marks verified script bugs (see class docstrings in `test_cloudsh.py`, `test_install_android_nerdfont.py`)
 
