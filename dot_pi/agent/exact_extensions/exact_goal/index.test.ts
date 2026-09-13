@@ -135,4 +135,49 @@ void describe("goal extension smoke", () => {
 		});
 	});
 
+	void describe("/goal banner toggle", () => {
+		const GOAL_ENTRY = {
+			type: "custom",
+			customType: "pi-goal",
+			data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", createdAt: 1, updatedAt: 1 } },
+		};
+
+		/** Boot with an active goal and capture what the command says and renders. */
+		function harness() {
+			const { calls, events } = boot();
+			const notifies: string[] = [];
+			const widgets: unknown[] = [];
+			const context: any = ctx([GOAL_ENTRY]);
+			context.ui.notify = (m: string) => notifies.push(m);
+			context.ui.setWidget = (_k: string, w: unknown) => widgets.push(w);
+			const command = calls.find((c) => c.kind === "command" && c.name === "goal")!.command;
+			return { events, command, notifies, widgets, context };
+		}
+
+		void it("reports the state it switched to, not the one it left", async () => {
+			const h = harness();
+			await h.events.session_start({}, h.context);
+			h.notifies.length = 0;
+			h.widgets.length = 0;
+
+			// Banner starts off; first toggle turns it on.
+			await h.command.handler("", h.context);
+			assert.equal(h.notifies.at(-1), "Goal banner shown.");
+			assert.ok(Array.isArray(h.widgets.at(-1)), "banner widget rendered when enabled");
+
+			// Second toggle turns it back off.
+			await h.command.handler("", h.context);
+			assert.equal(h.notifies.at(-1), "Goal banner hidden.");
+			assert.equal(h.widgets.at(-1), undefined, "banner widget cleared when disabled");
+		});
+
+		void it("/goal banner behaves the same as bare /goal", async () => {
+			const h = harness();
+			await h.events.session_start({}, h.context);
+			h.notifies.length = 0;
+			await h.command.handler("banner", h.context);
+			assert.equal(h.notifies.at(-1), "Goal banner shown.");
+		});
+	});
+
 });

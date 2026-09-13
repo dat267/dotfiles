@@ -224,17 +224,23 @@ export default function piGoal(pi: ExtensionAPI) {
 			const { goal, bannerEnabled } = machine.snapshot;
 			const usage = ctx.getContextUsage();
 
-			const run = (event: Parameters<typeof machine.dispatch>[0], fallback: string) => {
+			// `fallback` is a thunk, not a string. Several of these messages read state
+			// the dispatch has just changed, and a pre-rendered string reports the
+			// state the command left rather than the one it entered.
+			const run = (event: Parameters<typeof machine.dispatch>[0], fallback: () => string) => {
 				const { effects, reply, isError } = machine.dispatch(event);
 				apply(effects, ctx);
 				if (reply) ctx.ui.notify(reply, isError ? "warning" : "info");
-				else if (!isError && fallback) ctx.ui.notify(fallback, "info");
+				else if (!isError) {
+					const text = fallback();
+					if (text) ctx.ui.notify(text, "info");
+				}
 			};
 
 			const cmd = parseGoalCommand(args);
 			switch (cmd.kind) {
 				case "toggle_banner":
-					run({ type: "banner_toggle" }, `Goal banner ${machine.snapshot.bannerEnabled ? "shown" : "hidden"}.`);
+					run({ type: "banner_toggle" }, () => `Goal banner ${machine.snapshot.bannerEnabled ? "shown" : "hidden"}.`);
 					break;
 				case "show_status":
 					ctx.ui.notify(goalStatusMessage(goal, bannerEnabled), "info");
@@ -244,16 +250,16 @@ export default function piGoal(pi: ExtensionAPI) {
 						ctx.ui.notify("No goal is set.", "info");
 						return;
 					}
-					run({ type: "goal_clear", id: goal.id, revision: goal.revision }, "Goal cleared.");
+					run({ type: "goal_clear", id: goal.id, revision: goal.revision }, () => "Goal cleared.");
 					break;
 				case "pause":
-					run({ type: "goal_pause" }, "Goal paused.");
+					run({ type: "goal_pause" }, () => "Goal paused.");
 					break;
 				case "resume":
-					run({ type: "goal_resume" }, "Goal resumed.");
+					run({ type: "goal_resume" }, () => "Goal resumed.");
 					break;
 				case "set":
-					run({ type: "goal_set", objective: cmd.objective }, "Goal set.");
+					run({ type: "goal_set", objective: cmd.objective }, () => "Goal set.");
 					break;
 				case "error":
 					ctx.ui.notify(cmd.message, "warning");
