@@ -27,13 +27,16 @@ const COMPAT_NOREASON = {
 	maxTokensField: "max_tokens" as const,
 };
 
+/** Provider-side reasoning-effort vocabulary the hyper API accepts. */
+export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+
 /** Compact per-model record: only what varies between models. */
 export interface CompactEntry {
 	id: string;
 	name: string;
 	reasoning: boolean;
 	/** Effort levels the model actually supports; drives thinkingLevelMap. */
-	efforts: ("high" | "xhigh" | "max")[];
+	efforts: Effort[];
 	cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
 	contextWindow: number;
 	maxTokens: number;
@@ -113,7 +116,9 @@ const CATALOG: CompactEntry[] = [
 /** Build one full Model from a compact record. */
 function toModel(entry: CompactEntry): Model<typeof API> {
 	const levelMap = {
-		off: null, minimal: null, low: null, medium: null,
+		off: null, minimal: null,
+		low: entry.efforts.includes("low") ? "low" : null,
+		medium: entry.efforts.includes("medium") ? "medium" : null,
 		high: entry.efforts.includes("high") ? "high" : null,
 		xhigh: entry.efforts.includes("xhigh") ? "xhigh" : null,
 		max: entry.efforts.includes("max") ? "max" : null,

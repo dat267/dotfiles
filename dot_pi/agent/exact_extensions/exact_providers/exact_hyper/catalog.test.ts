@@ -55,4 +55,20 @@ void describe("buildModels", () => {
 		assert.deepEqual(m.cost, { input: 0.3, output: 1.2, cacheRead: 0.03, cacheWrite: 0 });
 		assert.deepEqual(m.input, ["text", "image"], "deepseek-v4.1-flash is vision-capable");
 	});
+
+	void it("efforts drive the thinking level map, low included", () => {
+		const glmFlash = buildModels().find((m) => m.id === "glm-5.3-flash")!;
+		const map = glmFlash.thinkingLevelMap as Record<string, unknown>;
+		assert.equal(map.low, "low", "glm-5.3-flash lists low effort, so pi low must map");
+		assert.equal(map.high, "high");
+		assert.equal(map.max, "max");
+		assert.equal(map.medium, null);
+
+		const deepseek = buildModels().find((m) => m.id === "deepseek-v4-flash")!;
+		assert.equal(
+			(deepseek.thinkingLevelMap as Record<string, unknown>).low,
+			null,
+			"a model without low effort leaves pi low unmapped",
+		);
+	});
 });
