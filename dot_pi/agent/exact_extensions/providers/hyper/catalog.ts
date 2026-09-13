@@ -58,7 +58,7 @@ const CATALOG: CompactEntry[] = [
 		id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", reasoning: true, vision: true,
 		efforts: ["low", "high", "xhigh"],
 		cost: { input: 0.3, output: 1.2, cacheRead: 0.03, cacheWrite: 0 },
-		contextWindow: 1_048_576, maxTokens: 26_214,
+		contextWindow: 1_048_576, maxTokens: 384_000,
 	},
 	{
 		id: "glm-5.3", name: "GLM-5.3", reasoning: true,

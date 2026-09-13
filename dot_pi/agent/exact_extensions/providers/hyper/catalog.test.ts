@@ -51,7 +51,7 @@ void describe("buildModels", () => {
 		assert.ok(m, "deepseek-v4.1-flash must be in the catalog");
 		assert.equal(m.reasoning, true);
 		assert.equal(m.contextWindow, 1_048_576);
-		assert.equal(m.maxTokens, 26_214);
+		assert.equal(m.maxTokens, 384_000);
 		assert.deepEqual(m.cost, { input: 0.3, output: 1.2, cacheRead: 0.03, cacheWrite: 0 });
 		assert.deepEqual(m.input, ["text", "image"], "deepseek-v4.1-flash is vision-capable");
 	});
