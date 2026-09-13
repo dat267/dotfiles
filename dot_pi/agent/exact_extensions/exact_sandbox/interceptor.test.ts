@@ -111,16 +111,51 @@ void describe("interceptToolCall", () => {
 		assert.match(r.reason, /workspace mode needs/);
 	});
 
-	void it("workspace mode blocks powershell, which the gate cannot cover", () => {
+	void it("workspace mode wraps powershell when a launcher is known", () => {
+		const ps = { path: "pwsh.exe", args: ["-NoProfile", "-Command"] };
 		for (const sandboxMode of ENFORCED) {
 			const r = interceptToolCall(makeInput({
 				active: "workspace",
 				sandboxMode,
 				toolType: "powershell",
+				command: "Get-ChildItem",
+				powershell: ps,
 			}));
-			assert.equal(r.action, "block");
-			assert.match(r.reason, /powershell/i);
+			assert.equal(r.action, "wrap", `backend ${sandboxMode} did not wrap powershell`);
+			assert.match(r.command, /--.*pwsh\.exe.*-Command.*Get-ChildItem'$/);
 		}
+	});
+
+	void it("workspace mode blocks powershell only when it cannot be gated", () => {
+		const r = interceptToolCall(makeInput({
+			active: "workspace",
+			sandboxMode: "landlock",
+			toolType: "powershell",
+		}));
+		assert.equal(r.action, "block");
+		assert.match(r.reason, /powershell/i);
+	});
+
+	void it("strips powershell's call operator path so a block cannot be used to unblock", () => {
+		// Guards the regression that motivated wrapping: on Windows the bash tool
+		// is absent and powershell is the only way to run anything, so blocking it
+		// left those sessions with no runnable tool at all.
+		const ps = { path: "C:\\Program Files\\PowerShell\\7\\pwsh.exe", args: ["-Command"] };
+		const r = interceptToolCall(makeInput({
+			active: "workspace",
+			sandboxMode: "lowil",
+			platform: "win32",
+			sandboxBin: "C:\\cache\\gate.exe",
+			workspace: "C:\\work",
+			scratch: "C:\\cache\\tmp",
+			toolType: "powershell",
+			command: "Get-ChildItem",
+			powershell: ps,
+		}));
+		assert.equal(r.action, "wrap");
+		assert.ok(r.command.includes("'C:/Program Files/PowerShell/7/pwsh.exe'"), "host path not normalised");
+		assert.ok(r.command.includes("--tmp"), "scratch not wired for the powershell path");
+		assert.ok(r.command.includes("'Get-ChildItem'"), "command was rewritten");
 	});
 
 	void it("workspace mode blocks write outside allowlist", () => {

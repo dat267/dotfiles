@@ -14,6 +14,17 @@ export type { ActiveMode, SandboxBackend };
 
 export type ToolType = "bash" | "powershell" | "write" | "edit" | "other";
 
+/** How a tool's command text is launched. The gate takes any argv. */
+export interface ShellSpec {
+	/** Executable to spawn. */
+	path: string;
+	/** Arguments placed before the command text, e.g. ["-c"]. */
+	args: readonly string[];
+}
+
+/** What pi's bash tool uses when no shellPath is configured. */
+export const BASH_SHELL: ShellSpec = { path: "bash", args: ["-c"] };
+
 export interface InterceptorInput {
 	active: ActiveMode;
 	sandboxMode: SandboxBackend;
@@ -23,6 +34,12 @@ export interface InterceptorInput {
 	platform?: NodeJS.Platform;
 	/** Windows low-integrity backend: the Low-labelled scratch directory. */
 	scratch?: string;
+	/**
+	 * Launcher for the powershell tool. On Windows that tool replaces bash
+	 * entirely, so leaving it out would strand those sessions with nothing
+	 * they are allowed to run. Absent means the gate cannot cover it.
+	 */
+	powershell?: ShellSpec;
 	toolType: ToolType;
 	command: string;
 	path: string;
@@ -60,8 +77,8 @@ export function promptNote(
 			return shared + `\n- Read-only mode: bash, write, edit, and powershell calls are always blocked. You cannot modify anything.`;
 		case "workspace":
 			return shared + (sandbox === "lowil"
-				? `\n- Enforcement: bash runs under a kernel-level low integrity gate (writes outside the labelled trees are denied by the OS); write and edit targets are checked in-process; powershell is blocked because the gate cannot cover it.`
-				: `\n- Enforcement: bash runs under a kernel-level Landlock gate (blocked writes return Permission denied from the OS); write and edit targets are checked in-process with symlink resolution; powershell is blocked because the gate cannot cover it.`);
+				? `\n- Enforcement: shell commands run under a kernel-level low integrity gate (writes outside the labelled trees are denied by the OS); write and edit targets are checked in-process.`
+				: `\n- Enforcement: shell commands run under a kernel-level Landlock gate (blocked writes return Permission denied from the OS); write and edit targets are checked in-process with symlink resolution.`);
 		case "yolo":
 			return sandbox === "none"
 				? `Workspace filesystem sandbox is DISABLED (yolo mode) — no kernel sandbox backend is available on this platform, so the workspace sandbox cannot be enforced and all filesystem writes are unrestricted.`
@@ -103,28 +120,32 @@ export function interceptToolCall(input: InterceptorInput): InterceptorResult {
 					reason: "sandbox: workspace mode needs a kernel backend, and none is available",
 				};
 			}
-			if (isPowerShell) {
-				return {
-					action: "block",
-					reason: "sandbox: powershell is not covered by the gate — use bash, or /yolo to lift the sandbox",
-				};
-			}
-			if (isBash) {
-				const allowlist = defaultAllowlist(workspace, policy);
-				// bash executes the gate, so on Windows the tool paths must be given
-				// forward slashes or the shell reads the backslashes as escapes.
-				// The user's command is passed through verbatim.
-				const norm = (p: string) => platform === "win32" ? p.replace(/\\/g, "/") : p;
+			const allowlist = defaultAllowlist(workspace, policy);
+			// bash executes the gate, so on Windows the tool paths must be given
+			// forward slashes or the shell reads the backslashes as escapes.
+			// Neither the shell's own flags nor the user's command are rewritten.
+			const norm = (p: string) => platform === "win32" ? p.replace(/\\/g, "/") : p;
+			const wrap = (shell: ShellSpec, text: string): InterceptorResult => {
 				const parts = [norm(sandboxBin), "--ws", norm(workspace)];
 				for (const allow of allowlist) {
 					if (allow !== workspace) parts.push("--allow", norm(allow));
 				}
 				if (input.scratch) parts.push("--tmp", norm(input.scratch));
-				parts.push("--", "bash", "-c", command);
+				parts.push("--", norm(shell.path), ...shell.args, text);
 				return { action: "wrap", command: parts.map(shq).join(" ") };
+			};
+			if (isBash) return wrap(BASH_SHELL, command);
+			if (isPowerShell) {
+				if (!input.powershell) {
+					return {
+						action: "block",
+						reason: "sandbox: powershell cannot be gated on this platform — use bash, or /yolo to lift the sandbox",
+					};
+				}
+				return wrap(input.powershell, command);
 			}
 			if (isWrite || isEdit) {
-				const reason = inspectPath(path, workspace, defaultAllowlist(workspace, policy), platform);
+				const reason = inspectPath(path, workspace, allowlist, platform);
 				if (reason) return { action: "block", reason };
 				return { action: "pass" };
 			}

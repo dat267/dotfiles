@@ -15,6 +15,7 @@
  */
 
 import { win32 } from "node:path";
+import type { ShellSpec } from "./interceptor.ts";
 
 export type EnvLike = Record<string, string | undefined>;
 
@@ -61,16 +62,37 @@ export function labelArgv(path: string, kind: "file" | "dir", recurse = false): 
 }
 
 /**
+ * Exactly the flags pi's powershell tool launches with. On Windows that tool
+ * replaces bash outright, so the gate has to speak it or those sessions have
+ * nothing they are permitted to run.
+ */
+export const POWERSHELL_ARGS: readonly string[] = [
+	"-NoProfile",
+	"-NonInteractive",
+	"-ExecutionPolicy",
+	"Bypass",
+	"-Command",
+];
+
+/** Where pi looks for a PowerShell host, in the same order. */
+export const POWERSHELL_CANDIDATES: readonly string[] = ["pwsh.exe", "powershell.exe"];
+
+/** The launcher spec for the powershell tool, given a resolved host path. */
+export function powershellShell(path: string): ShellSpec {
+	return { path, args: POWERSHELL_ARGS };
+}
+
+/**
  * argv for the functional probe: run a real command through the gate and
  * echo a nonce. Checking that the gate reports Low integrity proves the token
- * is downgraded; checking that bash still runs through it proves the drop did
- * not break the MSYS2 runtime, which a level check alone cannot tell us.
+ * is downgraded; running an actual command through it proves the drop did not
+ * break the shell runtime, which a level check alone cannot tell us.
  */
 export function probeArgv(opts: {
 	bin: string;
 	workspace: string;
 	scratch: string;
-	bash: string;
+	shell: ShellSpec;
 	nonce: string;
 }): string[] {
 	return [
@@ -78,6 +100,6 @@ export function probeArgv(opts: {
 		"--ws", opts.workspace,
 		"--allow", opts.workspace,
 		"--tmp", opts.scratch,
-		"--", opts.bash, "-c", `echo ${opts.nonce}`,
+		"--", opts.shell.path, ...opts.shell.args, `echo ${opts.nonce}`,
 	];
 }

@@ -11,9 +11,12 @@ import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 import {
 	COMPILER_CANDIDATES,
+	POWERSHELL_ARGS,
+	POWERSHELL_CANDIDATES,
 	bashCandidates,
 	compileArgv,
 	labelArgv,
+	powershellShell,
 	probeArgv,
 } from "./windows.ts";
 
@@ -68,24 +71,54 @@ void describe("compileArgv", () => {
 	});
 });
 
+void describe("powershell", () => {
+	void it("uses exactly the flags pi's powershell tool launches with", () => {
+		assert.deepEqual(POWERSHELL_ARGS, [
+			"-NoProfile",
+			"-NonInteractive",
+			"-ExecutionPolicy",
+			"Bypass",
+			"-Command",
+		]);
+	});
+
+	void it("prefers pwsh over the bundled powershell.exe, as pi does", () => {
+		assert.deepEqual(POWERSHELL_CANDIDATES, ["pwsh.exe", "powershell.exe"]);
+	});
+
+	void it("bundles the host path with those flags", () => {
+		assert.deepEqual(powershellShell("pwsh.exe"), { path: "pwsh.exe", args: POWERSHELL_ARGS });
+	});
+});
+
 void describe("probeArgv", () => {
 	void it("runs a real command through the gate so the whole chain is exercised", () => {
 		const args = probeArgv({
 			bin: "C:\\cache\\gate.exe",
 			workspace: "C:\\work",
 			scratch: "C:\\cache\\tmp",
-			bash: "C:\\Program Files\\Git\\bin\\bash.exe",
+			shell: powershellShell("pwsh.exe"),
 			nonce: "abc123",
 		});
-		assert.deepEqual(args.slice(0, 1), ["C:\\cache\\gate.exe"]);
+		assert.equal(args[0], "C:\\cache\\gate.exe");
 		assert.ok(args.includes("--tmp"), "probe must exercise the scratch wiring");
-		assert.deepEqual(args.slice(-3), ["C:\\Program Files\\Git\\bin\\bash.exe", "-c", "echo abc123"]);
+		assert.deepEqual(args.slice(-7), ["pwsh.exe", ...POWERSHELL_ARGS, "echo abc123"]);
+	});
+
+	void it("probes whatever shell the installation actually uses", () => {
+		const args = probeArgv({
+			bin: "g",
+			workspace: "w",
+			scratch: "t",
+			shell: { path: "bash.exe", args: ["-c"] },
+			nonce: "n",
+		});
+		assert.deepEqual(args.slice(-3), ["bash.exe", "-c", "echo n"]);
 	});
 
 	void it("uses a nonce so a stale or empty result cannot pass the probe", () => {
-		const a = probeArgv({ bin: "g", workspace: "w", scratch: "t", bash: "b", nonce: "N1" });
-		const b = probeArgv({ bin: "g", workspace: "w", scratch: "t", bash: "b", nonce: "N2" });
-		assert.notDeepEqual(a, b);
+		const mk = (nonce) => probeArgv({ bin: "g", workspace: "w", scratch: "t", shell: powershellShell("pwsh.exe"), nonce });
+		assert.notDeepEqual(mk("N1"), mk("N2"));
 	});
 });
 
