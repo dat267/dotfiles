@@ -8,7 +8,7 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { defaultMode, modeDetail, statusLine, switchMode } from "./modes.ts";
+import { defaultMode, modeDetail, modeFromCode, statusLine, switchMode } from "./modes.ts";
 
 void describe("defaultMode", () => {
 	void it("prefers the kernel sandbox when Landlock is available", () => {
@@ -90,5 +90,23 @@ void describe("statusLine", () => {
 		assert.equal(statusLine("yolo"), "RW");
 		assert.equal(statusLine("read"), "RO");
 		assert.equal(statusLine("workspace"), "WS");
+	});
+});
+
+void describe("modeFromCode", () => {
+	void it("parses each code, case-insensitively, ignoring surrounding whitespace", () => {
+		assert.equal(modeFromCode("RO"), "read");
+		assert.equal(modeFromCode("WS"), "workspace");
+		assert.equal(modeFromCode("RW"), "yolo");
+		assert.equal(modeFromCode("rw"), "yolo");
+		assert.equal(modeFromCode(" ro "), "read");
+	});
+
+	void it("rejects anything that is not a mode code", () => {
+		assert.equal(modeFromCode(""), undefined);
+		assert.equal(modeFromCode("on"), undefined);
+		assert.equal(modeFromCode("yolo"), undefined);
+		assert.equal(modeFromCode("workspace"), undefined);
+		assert.equal(modeFromCode("status"), undefined);
 	});
 });

@@ -82,7 +82,7 @@ export function promptNote(
 		case "yolo":
 			return sandbox === "none"
 				? `Workspace filesystem sandbox is DISABLED (yolo mode) — no kernel sandbox backend is available on this platform, so the workspace sandbox cannot be enforced and all filesystem writes are unrestricted.`
-				: `Workspace filesystem sandbox is DISABLED (yolo mode, /sandbox to re-enable). All filesystem writes are unrestricted.`;
+				: `Workspace filesystem sandbox is DISABLED (yolo mode, /sandbox WS to re-enable). All filesystem writes are unrestricted.`;
 	}
 }
 
@@ -151,7 +151,7 @@ export function interceptToolCall(input: InterceptorInput): InterceptorResult {
 				if (!input.powershell) {
 					return {
 						action: "block",
-						reason: "sandbox: powershell cannot be gated on this platform — use bash, or /yolo to lift the sandbox",
+						reason: "sandbox: powershell cannot be gated on this platform — use bash, or /sandbox RW to lift the sandbox",
 					};
 				}
 				// See powerShellEnvPrelude: the command travels base64-encoded so no

@@ -62,43 +62,48 @@ void describe("sandbox extension smoke", () => {
 		assert.equal(status[0], "RW", "two-letter mode code — the statusline is shared and narrow");
 	});
 
+	void it("registers exactly one mode command; /readonly and /yolo are gone", () => {
+		const { commands } = boot();
+		assert.deepEqual(Object.keys(commands).sort(), ["sandbox"], "switches are explicit: /sandbox <code>");
+	});
+
 	void it("keeps the status line in step with live mode switches", async () => {
 		const { events, commands } = boot();
 		const { ctx, status } = makeCtx();
 		await events.session_start({}, ctx);
-		await commands.readonly.handler("", ctx);
+		await commands.sandbox.handler("RO", ctx);
 		assert.equal(status.at(-1), "RO");
-		await commands.yolo.handler("", ctx);
-		assert.equal(status.at(-1), "RW");
+		await commands.sandbox.handler("rw", ctx);
+		assert.equal(status.at(-1), "RW", "codes are case-insensitive");
 	});
 
-	void it("bare /sandbox switches to workspace mode, it is not a status query", async () => {
-		// A bare /sandbox that only echoes the current mode is indistinguishable
-		// from the switch toast: "/sandbox" and "/yolo" both print "Mode:
-		// unrestricted", and the session stays yolo. Bare must switch, like
-		// /readonly and /yolo do.
+	void it("bare /sandbox reports the current mode without switching", async () => {
+		// Bare was once a silent status echo that read as a switch which did
+		// nothing, and was made to switch. With explicit codes the contract
+		// reverses deliberately: every switch now carries a code, so a bare
+		// invocation is unambiguous as a query — and the query names the code.
 		const { events, commands } = boot();
 		const { ctx, status, notes } = makeCtx();
 		await events.session_start({}, ctx);
 		await commands.sandbox.handler("", ctx);
-		assert.match(notes.at(-1) ?? "", /unavailable/, "bare /sandbox must apply workspace, not echo the mode");
-		assert.equal(status.at(-1), "RW", "workspace cannot be enforced, so yolo stays");
-	});
-
-	void it("/sandbox status queries the mode without switching", async () => {
-		const { events, commands } = boot();
-		const { ctx, status, notes } = makeCtx();
-		await events.session_start({}, ctx);
-		await commands.sandbox.handler("status", ctx);
-		assert.match(notes.at(-1) ?? "", /Current mode: unrestricted/, "a query must say which mode is current");
+		assert.match(notes.at(-1) ?? "", /Current mode: RW — unrestricted/, "a query names the code and the detail");
 		assert.equal(status.length, 1, "no switch happened, the pinned word is untouched");
 	});
 
-	void it("workspace without a backend stays yolo and says so", async () => {
+	void it("an unknown argument is rejected with the valid codes", async () => {
 		const { events, commands } = boot();
 		const { ctx, status, notes } = makeCtx();
 		await events.session_start({}, ctx);
 		await commands.sandbox.handler("on", ctx);
+		assert.match(notes.at(-1) ?? "", /unknown mode "on".*\/sandbox RO\|WS\|RW/);
+		assert.equal(status.length, 1, "no switch happened");
+	});
+
+	void it("/sandbox WS without a backend stays yolo and says so", async () => {
+		const { events, commands } = boot();
+		const { ctx, status, notes } = makeCtx();
+		await events.session_start({}, ctx);
+		await commands.sandbox.handler("WS", ctx);
 		assert.match(notes.at(-1) ?? "", /unavailable/);
 		assert.equal(status.at(-1), "RW", "workspace cannot be enforced, so yolo stays");
 	});

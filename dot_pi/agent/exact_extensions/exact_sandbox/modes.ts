@@ -31,9 +31,9 @@ export function modeDetail(active: ActiveMode, sandbox: SandboxBackend): string 
 	return DETAILS[active];
 }
 
-/** The mode as a two-letter code for the status line — the detail lives in
- * toasts. RO read-only, WS workspace (kernel-enforced), RW read-write (yolo). */
-const STATUS_WORD: Record<ActiveMode, string> = {
+/** Two-letter mode codes, shared by the footer and `/sandbox <code>`.
+ * RO read-only, WS workspace (kernel-enforced), RW read-write (yolo). */
+const MODE_CODE: Record<ActiveMode, string> = {
 	read: "RO",
 	workspace: "WS",
 	yolo: "RW",
@@ -46,10 +46,16 @@ const STATUS_WORD: Record<ActiveMode, string> = {
  * must never depend on remembering a toast — including the ordinary enforced
  * default. Two letters on purpose — the statusline is shared with the context
  * percentage, model and project, and truncates on narrow terminals; the full
- * name stays available in the switch toasts and `/sandbox status`.
+ * name stays available in the switch toasts and a bare /sandbox.
  */
 export function statusLine(active: ActiveMode): string {
-	return STATUS_WORD[active];
+	return MODE_CODE[active];
+}
+
+/** Parse a `/sandbox <code>` argument into a mode; undefined when not a code. */
+export function modeFromCode(arg: string): ActiveMode | undefined {
+	const code = arg.trim().toUpperCase();
+	return (Object.keys(MODE_CODE) as ActiveMode[]).find((mode) => MODE_CODE[mode] === code);
 }
 
 /** Default mode: the kernel sandbox when any backend can enforce it, else yolo. */

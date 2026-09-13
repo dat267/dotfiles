@@ -15,8 +15,9 @@
  * yolo, announced with a warning — there is no approval mode and the agent
  * is never asked to confirm a command.
  *
- * Modes switch live via /sandbox; the system prompt note (injected each
- * turn) always states the active mode.
+ * Modes switch live via `/sandbox <code>` (RO read-only, WS workspace,
+ * RW read-write); the system prompt note (injected each turn) always states
+ * the active mode.
  */
 
 import { spawnSync } from "node:child_process";
@@ -28,7 +29,7 @@ import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { interceptToolCall, promptNote, blocked, type ShellSpec, type ToolType } from "./interceptor.ts";
 import { resolveModuleDir } from "./module-dir.ts";
-import { defaultMode, modeDetail, statusLine, switchMode, type ActiveMode } from "./modes.ts";
+import { defaultMode, modeDetail, modeFromCode, statusLine, switchMode, type ActiveMode } from "./modes.ts";
 import { defaultAllowlist } from "./policy.ts";
 import { COMPILER_CANDIDATES, bashCandidates, compileArgv, labelArgv, powershellHosts, powershellShell, probeArgv } from "./windows.ts";
 
@@ -243,7 +244,7 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		if (sandbox.mode === "none") {
 			ctx.ui.notify(
-				`[sandbox] ${sandbox.detail} — no kernel sandbox available; defaulting to yolo (all writes unrestricted). /readonly switches to read-only.`,
+				`[sandbox] ${sandbox.detail} — no kernel sandbox available; defaulting to yolo (all writes unrestricted). /sandbox RO switches to read-only.`,
 				"warning",
 			);
 		}
@@ -323,28 +324,23 @@ export default function (pi: ExtensionAPI) {
 		else ctx.ui.notify(`[sandbox] Mode: ${modeDetail(mode, sandbox.mode)}`, "info");
 	}
 
-	pi.registerCommand("readonly", {
-		description: "Switch to read-only mode (bash/write/edit disabled)",
-		handler: async (_args, ctx) => applyMode("read", ctx),
-	});
-
-	// Bare must switch, like /readonly and /yolo do: a bare command that only
-	// echoes the current mode prints the same toast as the switch ("Mode:
-	// unrestricted") and leaves the mode unchanged, which reads as a switch that
-	// did nothing. The explicit query moved to `/sandbox status`.
+	// One command, the footer's codes as its verbs. The old /readonly and /yolo
+	// are gone — a switch is always explicit, so a bare invocation is free to
+	// mean "tell me the mode", and the query names the code it would set.
 	pi.registerCommand("sandbox", {
-		description: "Switch to workspace mode (kernel enforcement); `/sandbox status` shows the current mode",
+		description: "Set the mode: /sandbox RO|WS|RW — bare shows the current mode",
 		handler: async (args, ctx) => {
-			if (args.trim() === "status") {
-				ctx.ui.notify(`[sandbox] Current mode: ${modeDetail(active, sandbox.mode)}`, "info");
-			} else {
-				applyMode("workspace", ctx);
+			const arg = args.trim();
+			if (arg === "" || arg === "status") {
+				ctx.ui.notify(`[sandbox] Current mode: ${statusLine(active)} — ${modeDetail(active, sandbox.mode)}`, "info");
+				return;
 			}
+			const requested = modeFromCode(arg);
+			if (!requested) {
+				ctx.ui.notify(`[sandbox] unknown mode "${arg}" — /sandbox RO|WS|RW`, "warning");
+				return;
+			}
+			applyMode(requested, ctx);
 		},
-	});
-
-	pi.registerCommand("yolo", {
-		description: "Switch to unrestricted mode (all writes allowed)",
-		handler: async (_args, ctx) => applyMode("yolo", ctx),
 	});
 }
