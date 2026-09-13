@@ -171,7 +171,7 @@ void describe("probeArgv", () => {
 	});
 
 	void it("uses a nonce so a stale or empty result cannot pass the probe", () => {
-		const mk = (nonce) => probeArgv({ bin: "g", workspace: "w", scratch: "t", shell: powershellShell("pwsh.exe"), nonce });
+		const mk = (nonce: string) => probeArgv({ bin: "g", workspace: "w", scratch: "t", shell: powershellShell("pwsh.exe"), nonce });
 		assert.notDeepEqual(mk("N1"), mk("N2"));
 	});
 });
