@@ -1,14 +1,15 @@
 /**
- * Sandbox — four human-chosen modes, default chosen at load.
+ * Sandbox — three human-chosen modes, default chosen at load.
  *
  *   read        — read-only: bash/write/edit are removed from the prompt
  *                 AND blocked in-process. Like a read-only Termux.
- *   supervised  — all tools present; every bash/write/edit call prompts
- *                 the user (ui.confirm) first. Non-interactive refuses.
  *   workspace   — Landlock kernel enforcement scoped to the current
- *                 workspace + allowlist (needs Linux >= 5.13 with LSM;
- *                 without it, falls back to supervised with a warning).
+ *                 workspace + allowlist (needs Linux >= 5.13 with LSM).
  *   yolo        — everything unrestricted.
+ *
+ * workspace is preferred. Where the kernel cannot enforce it the default is
+ * yolo, announced with a warning — there is no approval mode and the agent
+ * is never asked to confirm a command.
  *
  * Modes switch live via /sandbox; the system prompt note (injected each
  * turn) always states the active mode.
@@ -22,8 +23,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { interceptToolCall, promptNote, checkNonInteractive, blocked } from "./interceptor.ts";
-import { modeDetail, switchMode, type ActiveMode } from "./modes.ts";
+import { interceptToolCall, promptNote, blocked } from "./interceptor.ts";
+import { defaultMode, modeDetail, switchMode, type ActiveMode } from "./modes.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -36,12 +37,12 @@ const BUILD_LOG = join(CACHE_DIR, "build.log");
 
 type SandboxMode =
 	| { mode: "landlock"; bin: string }
-	| { mode: "approval"; detail: string };
+	| { mode: "none"; detail: string };
 
 /** Compile the Landlock gate once, then probe the kernel. */
 function resolveMode(): SandboxMode {
 	if (process.platform !== "linux") {
-		return { mode: "approval", detail: "Landlock is Linux-only; using supervised" };
+		return { mode: "none", detail: "Landlock is Linux-only" };
 	}
 	try {
 		mkdirSync(CACHE_DIR, { recursive: true });
@@ -51,46 +52,33 @@ function resolveMode(): SandboxMode {
 				try {
 					writeFileSync(BUILD_LOG, `${r.stderr ?? ""}${r.error?.message ?? ""}`);
 				} catch { /* best effort */ }
-				return { mode: "approval", detail: `gate compile failed (see ${BUILD_LOG})` };
+				return { mode: "none", detail: `gate compile failed (see ${BUILD_LOG})` };
 			}
 		}
 		const probe = spawnSync(GATE_BIN, ["--probe"], { encoding: "utf-8" });
 		if (probe.status !== 0) {
-			return { mode: "approval", detail: probe.stderr?.trim() || `probe exit ${probe.status}` };
+			return { mode: "none", detail: probe.stderr?.trim() || `probe exit ${probe.status}` };
 		}
 		return { mode: "landlock", bin: GATE_BIN };
 	} catch (err) {
 		try {
 			writeFileSync(BUILD_LOG, String((err as Error).message));
 		} catch { /* best effort */ }
-		return { mode: "approval", detail: (err as Error).message };
+		return { mode: "none", detail: (err as Error).message };
 	}
 }
 
 const MUTATOR_TOOLS = ["bash", "write", "edit", "powershell"] as const;
 
-/** Ask the user to allow a mutating call (supervised mode). */
-async function ask(
-	ctx: ExtensionContext,
-	label: string,
-	detail: string,
-): Promise<{ block: true; reason: string; terminate: false } | null> {
-	const b = checkNonInteractive(ctx.mode);
-	if (b) return b;
-	const allow = await ctx.ui.confirm("sandbox (supervised)", `${label}\n\n${detail}`);
-	if (allow === true) return null;
-	return { block: true, reason: "sandbox: declined by user", terminate: false };
-}
-
 export default function (pi: ExtensionAPI) {
 	const sandbox = resolveMode();
-	// Default: kernel mode if Landlock is available, otherwise supervised.
-	let active: ActiveMode = sandbox.mode === "landlock" ? "workspace" : "supervised";
+	// Preferred: kernel mode. Where it is unavailable, yolo — with a warning.
+	let active: ActiveMode = defaultMode(sandbox.mode);
 
-	if (sandbox.mode === "approval") {
+	if (sandbox.mode === "none") {
 		pi.on("session_start", async (_event, ctx) => {
 			ctx.ui.notify(
-				`[sandbox] ${sandbox.detail} — defaulting to supervised mode (every bash/write/edit call will ask first)`,
+				`[sandbox] ${sandbox.detail} — no kernel sandbox available; defaulting to yolo (all writes unrestricted). /readonly switches to read-only.`,
 				"warning",
 			);
 		});
@@ -117,7 +105,7 @@ export default function (pi: ExtensionAPI) {
 
 		const result = interceptToolCall({
 			active,
-			sandboxMode: sandbox.mode === "landlock" ? "landlock" : "approval",
+			sandboxMode: sandbox.mode === "landlock" ? "landlock" : "none",
 			sandboxBin: sandbox.mode === "landlock" ? sandbox.bin : "",
 			workspace: ctx.cwd,
 			toolType,
@@ -133,12 +121,6 @@ export default function (pi: ExtensionAPI) {
 			case "wrap":
 				event.input.command = result.command;
 				return;
-			case "ask": {
-				const detail = toolType === "bash" || toolType === "powershell" ? event.input.command : event.input.path;
-				const denied = await ask(ctx, result.prompt, detail);
-				if (denied) return denied;
-				return;
-			}
 		}
 	});
 
@@ -148,7 +130,7 @@ export default function (pi: ExtensionAPI) {
 		const { mode, warning } = switchMode(requested, sandbox.mode);
 		active = mode;
 		if (warning) ctx.ui.notify(`[sandbox] ${warning}`, "warning");
-		else ctx.ui.notify(`[sandbox] Mode: ${modeDetail(mode, sandbox.mode)}`, "info");
+		else ctx.ui.notify(`[sandbox] Mode: ${modeDetail(mode)}`, "info");
 	}
 
 	pi.registerCommand("readonly", {
@@ -156,16 +138,11 @@ export default function (pi: ExtensionAPI) {
 		handler: async (_args, ctx) => applyMode("read", ctx),
 	});
 
-	pi.registerCommand("ask", {
-		description: "Switch to supervised mode (every bash/write/edit asks approval)",
-		handler: async (_args, ctx) => applyMode("supervised", ctx),
-	});
-
 	pi.registerCommand("sandbox", {
 		description: "Switch to workspace mode (Landlock kernel enforcement) or show status",
 		handler: async (args, ctx) => {
 			if (args.trim() === "") {
-				ctx.ui.notify(`[sandbox] Mode: ${modeDetail(active, sandbox.mode)}`, "info");
+				ctx.ui.notify(`[sandbox] Mode: ${modeDetail(active)}`, "info");
 			} else {
 				applyMode("workspace", ctx);
 			}

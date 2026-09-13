@@ -2,14 +2,15 @@
  * sandbox/interceptor.ts — pure function for tool-call interceptor logic.
  *
  * Extracted from index.ts to make the security-critical dispatch testable.
- * Decides: block, wrap in gate, ask user, or pass through.
+ * Decides: block, wrap in gate, or pass through. There is no approval path —
+ * the agent is never asked to confirm a command.
  */
 
 import { inspectPath } from "./guard.ts";
 import { defaultAllowlist, writablePathsNote } from "./policy.ts";
 
-export type ActiveMode = "read" | "supervised" | "workspace" | "yolo";
-export type SandboxMode = "landlock" | "approval";
+export type ActiveMode = "read" | "workspace" | "yolo";
+export type SandboxMode = "landlock" | "none";
 
 export type ToolType = "bash" | "powershell" | "write" | "edit" | "other";
 
@@ -26,7 +27,6 @@ export interface InterceptorInput {
 export type InterceptorResult =
 	| { action: "block"; reason: string }
 	| { action: "pass" }
-	| { action: "ask"; prompt: string }
 	| { action: "wrap"; command: string };
 
 /**
@@ -44,28 +44,13 @@ export function promptNote(active: ActiveMode, sandbox: SandboxMode, workspace: 
 	switch (active) {
 		case "read":
 			return shared + `\n- Read-only mode: bash, write, edit, and powershell calls are always blocked. You cannot modify anything.`;
-		case "supervised":
-			return shared + `\n- Supervised mode: every bash, write, and edit call prompts the user for approval before running.`;
 		case "workspace":
-			return shared + `\n- Enforcement: bash runs under a kernel-level Landlock gate (blocked writes return Permission denied from the OS); write and edit targets are checked in-process with symlink resolution.`;
+			return shared + `\n- Enforcement: bash runs under a kernel-level Landlock gate (blocked writes return Permission denied from the OS); write and edit targets are checked in-process with symlink resolution; powershell is blocked because the gate cannot cover it.`;
 		case "yolo":
-			return `Workspace filesystem sandbox is DISABLED (yolo mode, /sandbox to re-enable). All filesystem writes are unrestricted.`;
+			return sandbox === "landlock"
+				? `Workspace filesystem sandbox is DISABLED (yolo mode, /sandbox to re-enable). All filesystem writes are unrestricted.`
+				: `Workspace filesystem sandbox is DISABLED (yolo mode). Landlock is unavailable on this platform, so the workspace sandbox cannot be enforced and all filesystem writes are unrestricted.`;
 	}
-}
-
-/**
- * Check if the session mode is non-interactive (headless/rpc).
- * Returns a block result if the user can't approve, or null if interactive.
- */
-export function checkNonInteractive(mode: string): { block: true; reason: string; terminate: false } | null {
-	if (mode !== "tui") {
-		return {
-			block: true,
-			reason: "sandbox: approval required, but this session is non-interactive",
-			terminate: false,
-		};
-	}
-	return null;
 }
 
 /** Build a block result for a given reason. */
@@ -91,26 +76,19 @@ export function interceptToolCall(input: InterceptorInput): InterceptorResult {
 			}
 			return { action: "pass" };
 
-		case "supervised":
-			if (isBash || isPowerShell) {
-				return { action: "ask", prompt: "run this command?" };
-			}
-			if (isWrite || isEdit) {
-				return { action: "ask", prompt: isWrite ? "write to this path?" : "edit this path?" };
-			}
-			return { action: "pass" };
-
 		case "workspace":
+			// Invariant: workspace is only ever active with Landlock — defaultMode and
+			// switchMode both guarantee it. Fail closed if that is ever violated.
 			if (sandboxMode !== "landlock") {
 				return {
-					action: "ask",
-					prompt: "run this command? (workspace needs Landlock; supervised fallback)",
+					action: "block",
+					reason: "sandbox: workspace mode needs Landlock, which is unavailable",
 				};
 			}
 			if (isPowerShell) {
 				return {
-					action: "ask",
-					prompt: "run this command? (powershell not gated by Landlock on Linux)",
+					action: "block",
+					reason: "sandbox: powershell is not covered by the Landlock gate — use bash, or /yolo to lift the sandbox",
 				};
 			}
 			if (isBash) {

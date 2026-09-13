@@ -1,32 +1,38 @@
 /**
  * sandbox/modes.ts — pure mode-switching rules and human-facing detail
  * strings, so index.ts commands stay thin and the rules stay testable.
+ *
+ * workspace (kernel-enforced) is preferred. Where the kernel cannot enforce
+ * it, the fallback is yolo, announced with a warning — there is no approval
+ * mode and the agent is never asked to confirm a command.
  */
 
-export type ActiveMode = "read" | "supervised" | "workspace" | "yolo";
-export type SandboxMode = "landlock" | "approval";
+export type ActiveMode = "read" | "workspace" | "yolo";
+export type SandboxMode = "landlock" | "none";
 
-/** Modes whose detail is a fixed string; `workspace` is resolved at runtime. */
-type DetailMode = Exclude<ActiveMode, "workspace">;
-
-const DETAILS: Record<DetailMode, string> = {
+const DETAILS: Record<ActiveMode, string> = {
 	read: "read-only (bash/write/edit disabled)",
-	supervised: "ask before every bash/write/edit",
+	workspace: "Landlock (kernel-enforced)",
 	yolo: "unrestricted (all writes allowed)",
 };
 
-/** Detail for the current mode; workspace depends on kernel availability. */
-export function modeDetail(active: ActiveMode, sandboxMode: SandboxMode): string {
-	if (active === "workspace") {
-		return sandboxMode === "landlock" ? "Landlock (kernel-enforced)" : DETAILS.supervised;
-	}
+/** Detail for the current mode. */
+export function modeDetail(active: ActiveMode): string {
 	return DETAILS[active];
 }
 
-/** Apply a mode switch. Workspace without Landlock falls back to supervised. */
+/** Default mode: the kernel sandbox when it is available, else yolo. */
+export function defaultMode(sandboxMode: SandboxMode): ActiveMode {
+	return sandboxMode === "landlock" ? "workspace" : "yolo";
+}
+
+/** Apply a mode switch. Workspace without Landlock falls back to yolo. */
 export function switchMode(requested: ActiveMode, sandboxMode: SandboxMode): { mode: ActiveMode; warning?: string } {
 	if (requested === "workspace" && sandboxMode !== "landlock") {
-		return { mode: "supervised", warning: "Landlock unavailable — using supervised instead" };
+		return {
+			mode: "yolo",
+			warning: "Landlock unavailable — cannot enforce the workspace sandbox; using yolo (unrestricted)",
+		};
 	}
 	return { mode: requested };
 }

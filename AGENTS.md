@@ -35,7 +35,7 @@ Chezmoi source is the authoritative reference — clone and grep it (`internal/c
 
 - **Writable**: workspace (chezmoi source dir), `/tmp`, `/var/tmp`, `/dev`, `/proc`, `/sys`, `~/.cache`, `~/.npm`, `~/.cargo`, `~/go`. Everything else read-only.
 - **Blocked**: `chezmoi apply` (writes boltdb + `~/.profile`/`~/.ssh/`/`~/.config/` outside allowlist — stage in workspace, give the user the exact `apply --force <path>` command); `sudo`; writes to `~/.ssh/`, `~/.config/`, `~/.local/bin/`, `~/.gnupg/`.
-- **Modes** (via `/sandbox`): `workspace` (Landlock, default), `supervised` (every call confirmed), `read` (mutators removed), `yolo` (off). No Landlock (e.g. Termux) → defaults to supervised, never bricks the session.
+- **Modes** (via `/sandbox`): `workspace` (Landlock, preferred default), `read` (mutators removed), `yolo` (off). There is no approval mode — the agent is never asked to confirm a command. With no Landlock (Windows, Termux, gate compile failure) the default is `yolo`, announced with a startup warning rather than silently.
 - Tests: pure logic in `node --test` files beside sources; gate behavior via the extension's smoke test.
 
 `README.md`, `AGENTS.md`, `LICENSE` are in `.chezmoiignore` — never deployed.

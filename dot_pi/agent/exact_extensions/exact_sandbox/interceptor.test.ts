@@ -1,10 +1,12 @@
 /**
  * Tests for sandbox/interceptor.ts — pure dispatch logic.
+ *
+ * There is no approval path: every decision is block, pass, or wrap.
  */
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { interceptToolCall, checkNonInteractive, promptNote, type InterceptorInput } from "./interceptor.ts";
+import { interceptToolCall, promptNote, type ActiveMode, type InterceptorInput, type ToolType } from "./interceptor.ts";
 
 function makeInput(overrides: Partial<InterceptorInput> = {}): InterceptorInput {
 	return {
@@ -19,15 +21,37 @@ function makeInput(overrides: Partial<InterceptorInput> = {}): InterceptorInput 
 	};
 }
 
+const ALL_MODES: readonly ActiveMode[] = ["read", "workspace", "yolo"];
+const ALL_TOOLS: readonly ToolType[] = ["bash", "powershell", "write", "edit", "other"];
+
+void describe("interceptToolCall never asks", () => {
+	void it("no mode/tool/backend combination produces an ask", () => {
+		for (const active of ALL_MODES) {
+			for (const toolType of ALL_TOOLS) {
+				for (const sandboxMode of ["landlock", "none"] as const) {
+					const r = interceptToolCall(makeInput({
+						active,
+						toolType,
+						sandboxMode,
+						path: "/tmp/scratch.txt",
+					}));
+					assert.notEqual(
+						r.action,
+						"ask",
+						`${active}/${toolType}/${sandboxMode} produced an ask`,
+					);
+				}
+			}
+		}
+	});
+});
+
 void describe("interceptToolCall", () => {
 	void it("yolo mode passes everything through", () => {
-		const r = interceptToolCall(makeInput({ active: "yolo", toolType: "bash" }));
-		assert.equal(r.action, "pass");
-	});
-
-	void it("yolo mode passes write through", () => {
-		const r = interceptToolCall(makeInput({ active: "yolo", toolType: "write" }));
-		assert.equal(r.action, "pass");
+		for (const toolType of ALL_TOOLS) {
+			const r = interceptToolCall(makeInput({ active: "yolo", toolType, path: "/etc/passwd" }));
+			assert.equal(r.action, "pass");
+		}
 	});
 
 	void it("read mode blocks bash", () => {
@@ -51,33 +75,6 @@ void describe("interceptToolCall", () => {
 		assert.equal(r.action, "pass");
 	});
 
-	void it("supervised mode asks for bash", () => {
-		const r = interceptToolCall(makeInput({ active: "supervised", toolType: "bash" }));
-		assert.equal(r.action, "ask");
-	});
-
-	void it("supervised mode asks for powershell", () => {
-		const r = interceptToolCall(makeInput({ active: "supervised", toolType: "powershell" }));
-		assert.equal(r.action, "ask");
-	});
-
-	void it("supervised mode asks for write", () => {
-		const r = interceptToolCall(makeInput({ active: "supervised", toolType: "write", path: "/tmp/test.txt" }));
-		assert.equal(r.action, "ask");
-		assert.match(r.prompt, /write/);
-	});
-
-	void it("supervised mode asks for edit", () => {
-		const r = interceptToolCall(makeInput({ active: "supervised", toolType: "edit", path: "/tmp/test.txt" }));
-		assert.equal(r.action, "ask");
-		assert.match(r.prompt, /edit/);
-	});
-
-	void it("supervised mode passes non-mutator", () => {
-		const r = interceptToolCall(makeInput({ active: "supervised", toolType: "other" }));
-		assert.equal(r.action, "pass");
-	});
-
 	void it("workspace mode with landlock wraps bash in gate", () => {
 		const r = interceptToolCall(makeInput({
 			active: "workspace",
@@ -91,23 +88,24 @@ void describe("interceptToolCall", () => {
 		assert.match(r.command, /--.*bash.*-c.*echo hello'$/);
 	});
 
-	void it("workspace mode without landlock falls back to ask", () => {
+	void it("workspace mode without landlock fails closed", () => {
 		const r = interceptToolCall(makeInput({
 			active: "workspace",
-			sandboxMode: "approval",
+			sandboxMode: "none",
 			toolType: "bash",
 		}));
-		assert.equal(r.action, "ask");
-		assert.match(r.prompt, /Landlock/);
+		assert.equal(r.action, "block");
+		assert.match(r.reason, /Landlock/);
 	});
 
-	void it("workspace mode asks for powershell", () => {
+	void it("workspace mode blocks powershell, which the gate cannot cover", () => {
 		const r = interceptToolCall(makeInput({
 			active: "workspace",
 			sandboxMode: "landlock",
 			toolType: "powershell",
 		}));
-		assert.equal(r.action, "ask");
+		assert.equal(r.action, "block");
+		assert.match(r.reason, /powershell/i);
 	});
 
 	void it("workspace mode blocks write outside allowlist", () => {
@@ -161,13 +159,6 @@ void describe("promptNote", () => {
 		assert.match(note, /cannot modify/);
 	});
 
-	void it("supervised mode includes the workspace path", () => {
-		const note = promptNote("supervised", "approval", "/home/user/project");
-		assert.match(note, /mode: supervised/);
-		assert.match(note, /\/home\/user\/project/);
-		assert.match(note, /prompts the user/);
-	});
-
 	void it("workspace mode mentions Landlock enforcement", () => {
 		const note = promptNote("workspace", "landlock", "/home/user/project");
 		assert.match(note, /mode: workspace/);
@@ -176,41 +167,34 @@ void describe("promptNote", () => {
 	});
 
 	void it("yolo mode warns sandbox is disabled", () => {
-		const note = promptNote("yolo", "approval", "/home/user/project");
+		const note = promptNote("yolo", "landlock", "/home/user/project");
 		assert.match(note, /DISABLED/);
 		assert.match(note, /yolo/);
 		assert.match(note, /re-enable/);
 	});
 
+	void it("yolo fallback explains that Landlock is unavailable", () => {
+		const note = promptNote("yolo", "none", "/home/user/project");
+		assert.match(note, /DISABLED/);
+		assert.match(note, /Landlock is unavailable/);
+	});
+
+	void it("no mode note mentions a removed approval mode", () => {
+		for (const active of ALL_MODES) {
+			const note = promptNote(active, "landlock", "/home/user/project");
+			assert.doesNotMatch(note, /supervised|prompts the user for approval/i, `${active} note`);
+		}
+	});
+
 	void it("includes shared boilerplate in non-yolo modes", () => {
-		const note = promptNote("supervised", "approval", "/home/user/project");
+		const note = promptNote("read", "landlock", "/home/user/project");
 		assert.match(note, /Workspace filesystem policy/);
 		assert.match(note, /Use \/tmp for scratch/);
 		assert.match(note, /Permission denied/);
 	});
 
 	void it("yolo mode omits shared boilerplate", () => {
-		const note = promptNote("yolo", "approval", "/home/user/project");
+		const note = promptNote("yolo", "none", "/home/user/project");
 		assert.doesNotMatch(note, /Workspace filesystem policy/);
-	});
-});
-
-void describe("checkNonInteractive", () => {
-	void it("returns null for tui mode", () => {
-		const r = checkNonInteractive("tui");
-		assert.equal(r, null);
-	});
-
-	void it("blocks for non-tui mode", () => {
-		const r = checkNonInteractive("headless");
-		assert.notEqual(r, null);
-		assert.equal(r!.block, true);
-		assert.match(r!.reason, /non-interactive/);
-	});
-
-	void it("blocks for rpc mode", () => {
-		const r = checkNonInteractive("rpc");
-		assert.notEqual(r, null);
-		assert.equal(r!.block, true);
 	});
 });
