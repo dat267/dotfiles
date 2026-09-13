@@ -31,10 +31,10 @@ void describe("fetchCredits", () => {
 });
 
 void describe("statusText", () => {
-	void it("renders a dollar amount with cents", () => {
-		assert.equal(statusText(7.9), "$7.90");
-		assert.equal(statusText(5), "$5.00");
-		assert.equal(statusText(1234.567), "$1,234.57");
+	void it("renders the remaining amount in dollars with cents", () => {
+		assert.equal(statusText(7.9), "$7.90 remaining");
+		assert.equal(statusText(5), "$5.00 remaining");
+		assert.equal(statusText(1234.567), "$1,234.57 remaining");
 	});
 
 	void it("exposes the status key used with ui.setStatus", () => {

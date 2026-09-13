@@ -38,5 +38,6 @@ export async function fetchCredits(
 }
 
 export function statusText(amount: number): string {
-	return `$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+	const usd = amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	return `$${usd} remaining`;
 }
