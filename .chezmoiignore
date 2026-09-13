@@ -48,4 +48,3 @@ run_onchange_after_systemd-user-reload.sh.tmpl
 **/*.zcompdump*
 **/*.log
 **/node_modules
-.omo

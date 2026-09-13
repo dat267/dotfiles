@@ -19,9 +19,6 @@ __pycache__/
 .config/opencode/
 .superpowers/
 
-# oh-my-openagent runtime
-.omo/
-
 # git worktrees
 .worktrees/
 

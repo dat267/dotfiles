@@ -38,4 +38,4 @@ Chezmoi source is the authoritative reference — clone and grep it (`internal/c
 - **Modes** (via `/sandbox`): `workspace` (Landlock, default), `supervised` (every call confirmed), `read` (mutators removed), `yolo` (off). No Landlock (e.g. Termux) → defaults to supervised, never bricks the session.
 - Tests: pure logic in `node --test` files beside sources; gate behavior via the extension's smoke test.
 
-`.omo/` is a runtime dir, not managed. `README.md`, `AGENTS.md`, `LICENSE` are in `.chezmoiignore` — never deployed.
+`README.md`, `AGENTS.md`, `LICENSE` are in `.chezmoiignore` — never deployed.
