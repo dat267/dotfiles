@@ -59,7 +59,7 @@ void describe("sandbox extension smoke", () => {
 		assert.equal(notes.length, 1, "one warning");
 		assert.match(notes[0], /no kernel sandbox/);
 		assert.equal(status.length, 1, "status line set exactly once");
-		assert.equal(status[0], "yolo", "bare mode name — the statusline is shared and narrow");
+		assert.equal(status[0], "RW", "two-letter mode code — the statusline is shared and narrow");
 	});
 
 	void it("keeps the status line in step with live mode switches", async () => {
@@ -67,9 +67,9 @@ void describe("sandbox extension smoke", () => {
 		const { ctx, status } = makeCtx();
 		await events.session_start({}, ctx);
 		await commands.readonly.handler("", ctx);
-		assert.equal(status.at(-1), "read-only");
+		assert.equal(status.at(-1), "RO");
 		await commands.yolo.handler("", ctx);
-		assert.equal(status.at(-1), "yolo");
+		assert.equal(status.at(-1), "RW");
 	});
 
 	void it("bare /sandbox switches to workspace mode, it is not a status query", async () => {
@@ -82,7 +82,7 @@ void describe("sandbox extension smoke", () => {
 		await events.session_start({}, ctx);
 		await commands.sandbox.handler("", ctx);
 		assert.match(notes.at(-1) ?? "", /unavailable/, "bare /sandbox must apply workspace, not echo the mode");
-		assert.equal(status.at(-1), "yolo", "workspace cannot be enforced, so yolo stays");
+		assert.equal(status.at(-1), "RW", "workspace cannot be enforced, so yolo stays");
 	});
 
 	void it("/sandbox status queries the mode without switching", async () => {
@@ -100,6 +100,6 @@ void describe("sandbox extension smoke", () => {
 		await events.session_start({}, ctx);
 		await commands.sandbox.handler("on", ctx);
 		assert.match(notes.at(-1) ?? "", /unavailable/);
-		assert.equal(status.at(-1), "yolo", "workspace cannot be enforced, so yolo stays");
+		assert.equal(status.at(-1), "RW", "workspace cannot be enforced, so yolo stays");
 	});
 });

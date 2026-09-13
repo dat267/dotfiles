@@ -84,9 +84,11 @@ void describe("statusLine", () => {
 		// workspace, and suppressed for every mode while one merely existed — so
 		// /yolo cleared the footer on a healthy machine. The footer is the only
 		// surface that survives a `pi -c` resume (toasts are dropped while the
-		// transcript is restored), so the current mode is always visible.
-		assert.equal(statusLine("yolo"), "yolo");
-		assert.equal(statusLine("read"), "read-only");
-		assert.equal(statusLine("workspace"), "workspace");
+		// transcript is restored), so the current mode is always visible. Two
+		// letters keep it narrow: the full name stays in the switch toasts and
+		// /sandbox status.
+		assert.equal(statusLine("yolo"), "RW");
+		assert.equal(statusLine("read"), "RO");
+		assert.equal(statusLine("workspace"), "WS");
 	});
 });

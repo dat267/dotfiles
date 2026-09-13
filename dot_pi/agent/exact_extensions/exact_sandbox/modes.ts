@@ -31,20 +31,22 @@ export function modeDetail(active: ActiveMode, sandbox: SandboxBackend): string 
 	return DETAILS[active];
 }
 
-/** The mode as one bare word for the status line — the detail lives in toasts. */
+/** The mode as a two-letter code for the status line — the detail lives in
+ * toasts. RO read-only, WS workspace (kernel-enforced), RW read-write (yolo). */
 const STATUS_WORD: Record<ActiveMode, string> = {
-	read: "read-only",
-	workspace: "workspace",
-	yolo: "yolo",
+	read: "RO",
+	workspace: "WS",
+	yolo: "RW",
 };
 
 /**
- * The mode as one bare word for the status line — always shown, whatever the
- * backend. The footer is the only surface that survives a `pi -c` resume
+ * The mode as a two-letter code for the status line — always shown, whatever
+ * the backend. The footer is the only surface that survives a `pi -c` resume
  * (toasts are dropped while the transcript is restored), so the current mode
  * must never depend on remembering a toast — including the ordinary enforced
- * default. One bare word on purpose — the statusline is shared with the
- * context percentage, model and project, and truncates on narrow terminals.
+ * default. Two letters on purpose — the statusline is shared with the context
+ * percentage, model and project, and truncates on narrow terminals; the full
+ * name stays available in the switch toasts and `/sandbox status`.
  */
 export function statusLine(active: ActiveMode): string {
 	return STATUS_WORD[active];
