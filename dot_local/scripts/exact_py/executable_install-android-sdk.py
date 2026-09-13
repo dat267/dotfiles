@@ -154,6 +154,7 @@ def find_latest_platform(raw):
 
 
 def find_latest_build_tools(raw, api_level, fallback=True):
+    api_level = int(api_level)  # callers pass str or int; the fallback path does arithmetic
     root = ET.fromstring(raw)
     prefix = f"build-tools;{api_level}."
     latest, latest_parts = None, (-1,)

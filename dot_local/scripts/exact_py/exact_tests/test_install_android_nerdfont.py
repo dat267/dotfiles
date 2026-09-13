@@ -47,7 +47,6 @@ class TestAndroidRepoParsing(unittest.TestCase):
             sdk.find_latest_build_tools(XML, "35"), "build-tools;35.0.1"
         )
 
-    @unittest.expectedFailure  # BUG: 'api_level > 1' compares str to int in the fallback path
     def test_build_tools_fallback_to_lower_api(self):
         xml = XML.replace(b"build-tools;35.0.0", b"other;pkg").replace(
             b"build-tools;35.0.1", b"other;pkg2"
