@@ -265,5 +265,6 @@
     "reduceMotion": "on",
     "settings.editor": "json",
     "iconTheme": "material-icon-theme"
-  }
+  },
+  "security.workspace.trust.enabled": false
 }
