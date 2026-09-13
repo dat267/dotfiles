@@ -6,7 +6,10 @@
 export type ActiveMode = "read" | "supervised" | "workspace" | "yolo";
 export type SandboxMode = "landlock" | "approval";
 
-const DETAILS: Record<ActiveMode, string> = {
+/** Modes whose detail is a fixed string; `workspace` is resolved at runtime. */
+type DetailMode = Exclude<ActiveMode, "workspace">;
+
+const DETAILS: Record<DetailMode, string> = {
 	read: "read-only (bash/write/edit disabled)",
 	supervised: "ask before every bash/write/edit",
 	yolo: "unrestricted (all writes allowed)",
