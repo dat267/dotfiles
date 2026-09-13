@@ -31,7 +31,7 @@ Chezmoi source is the authoritative reference — clone and grep it (`internal/c
 
 ## Sandbox Policy (pi)
 
-`~/.pi/agent/extensions/sandbox` wraps every `bash` call in a kernel Landlock ruleset, inherited by the whole child process tree; `write`/`edit` tools are path-checked in-process. **Extension code must spawn processes via `bash -c …` or `gate --ws … -- <cmd>`, never raw `child_process.spawn`.**
+`~/.pi/agent/extensions/sandbox` wraps every `bash` call in a kernel Landlock ruleset, inherited by the whole child process tree; `write`/`edit` tools are path-checked in-process. **Extension code must spawn processes via `bash -c …` or `gate --ws … -- <cmd>`, never raw `child_process.spawn`.** Because of that wrapping, `tool_call`/`tool_result` handlers see `event.input.command` as the gate invocation (`… '--' 'bash' '-c' '<cmd>'`), never the user's command — unwrap before matching on it, or every prefix matcher silently never fires.
 
 - **Writable**: workspace (chezmoi source dir), `/tmp`, `/var/tmp`, `/dev`, `/proc`, `/sys`, `~/.cache`, `~/.npm`, `~/.cargo`, `~/go`. Everything else read-only.
 - **Blocked**: `chezmoi apply` (writes boltdb + `~/.profile`/`~/.ssh/`/`~/.config/` outside allowlist — stage in workspace, give the user the exact `apply --force <path>` command); `sudo`; writes to `~/.ssh/`, `~/.config/`, `~/.local/bin/`, `~/.gnupg/`.
