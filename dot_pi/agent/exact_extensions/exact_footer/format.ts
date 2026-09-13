@@ -47,9 +47,11 @@ export interface FooterInput {
 	modelWindow?: number;
 	modelId?: string;
 	cwd: string;
+	/** Status items (ctx.ui.setStatus texts), shown right after the context count. */
+	statuses?: Iterable<string>;
 }
 
-/** Compose the full footer line: "3%/1M · model · cwd". */
+/** Compose the full footer line: "3%/1M · <statuses> · model · cwd". */
 export function footerLine(input: FooterInput, width: number): string {
 	const window = input.contextUsage?.contextWindow ?? input.modelWindow ?? 0;
 	const percent = input.contextUsage?.percent;
@@ -58,17 +60,11 @@ export function footerLine(input: FooterInput, width: number): string {
 		: `${percent.toFixed(1)}%/${formatTokens(window)}`;
 
 	const parts: string[] = [contextDisplay];
+	for (const text of input.statuses ?? []) {
+		if (!text) continue;
+		parts.push(text);
+	}
 	if (input.modelId) parts.push(truncateLeft(input.modelId, 25));
 	parts.push(truncate(basename(input.cwd), 25));
 	return truncate(parts.join(" · "), Math.min(80, Math.max(0, width)));
-}
-
-/** Append extension statuses (ctx.ui.setStatus entries) to the footer line. */
-export function withStatuses(line: string, statuses: ReadonlyMap<string, string>): string {
-	let out = line;
-	for (const text of statuses.values()) {
-		if (!text) continue;
-		out += ` · ${text}`;
-	}
-	return out;
 }
