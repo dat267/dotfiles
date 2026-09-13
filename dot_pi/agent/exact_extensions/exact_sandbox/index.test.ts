@@ -72,6 +72,28 @@ void describe("sandbox extension smoke", () => {
 		assert.equal(status.at(-1), "yolo");
 	});
 
+	void it("bare /sandbox switches to workspace mode, it is not a status query", async () => {
+		// A bare /sandbox that only echoes the current mode is indistinguishable
+		// from the switch toast: "/sandbox" and "/yolo" both print "Mode:
+		// unrestricted", and the session stays yolo. Bare must switch, like
+		// /readonly and /yolo do.
+		const { events, commands } = boot();
+		const { ctx, status, notes } = makeCtx();
+		await events.session_start({}, ctx);
+		await commands.sandbox.handler("", ctx);
+		assert.match(notes.at(-1) ?? "", /unavailable/, "bare /sandbox must apply workspace, not echo the mode");
+		assert.equal(status.at(-1), "yolo", "workspace cannot be enforced, so yolo stays");
+	});
+
+	void it("/sandbox status queries the mode without switching", async () => {
+		const { events, commands } = boot();
+		const { ctx, status, notes } = makeCtx();
+		await events.session_start({}, ctx);
+		await commands.sandbox.handler("status", ctx);
+		assert.match(notes.at(-1) ?? "", /Current mode: unrestricted/, "a query must say which mode is current");
+		assert.equal(status.length, 1, "no switch happened, the pinned word is untouched");
+	});
+
 	void it("workspace without a backend stays yolo and says so", async () => {
 		const { events, commands } = boot();
 		const { ctx, status, notes } = makeCtx();

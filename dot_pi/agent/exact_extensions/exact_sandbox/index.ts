@@ -329,11 +329,15 @@ export default function (pi: ExtensionAPI) {
 		handler: async (_args, ctx) => applyMode("read", ctx),
 	});
 
+	// Bare must switch, like /readonly and /yolo do: a bare command that only
+	// echoes the current mode prints the same toast as the switch ("Mode:
+	// unrestricted") and leaves the mode unchanged, which reads as a switch that
+	// did nothing. The explicit query moved to `/sandbox status`.
 	pi.registerCommand("sandbox", {
-		description: "Switch to workspace mode (kernel enforcement) or show status",
+		description: "Switch to workspace mode (kernel enforcement); `/sandbox status` shows the current mode",
 		handler: async (args, ctx) => {
-			if (args.trim() === "") {
-				ctx.ui.notify(`[sandbox] Mode: ${modeDetail(active, sandbox.mode)}`, "info");
+			if (args.trim() === "status") {
+				ctx.ui.notify(`[sandbox] Current mode: ${modeDetail(active, sandbox.mode)}`, "info");
 			} else {
 				applyMode("workspace", ctx);
 			}
