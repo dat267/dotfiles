@@ -30,6 +30,13 @@ function makeInput(overrides: Partial<InterceptorInput> = {}): InterceptorInput 
 	};
 }
 
+/** Pull the base64 command back out of a wrapped powershell invocation. */
+function decodePowershellCommand(wrapped: string): string {
+	const match = wrapped.match(/\$env:PI_SANDBOX_CMD = '([A-Za-z0-9+/=]+)'/);
+	assert.ok(match, `no base64 command payload in: ${wrapped}`);
+	return Buffer.from(match[1], "base64").toString("utf8");
+}
+
 const ALL_MODES: readonly ActiveMode[] = ["read", "workspace", "yolo"];
 const ALL_TOOLS: readonly ToolType[] = ["bash", "powershell", "write", "edit", "other"];
 const ALL_BACKENDS: readonly SandboxBackend[] = ["landlock", "lowil", "none"];
@@ -92,6 +99,9 @@ void describe("interceptToolCall", () => {
 				active: "workspace",
 				sandboxMode,
 				toolType: "bash",
+				// Pin the platform: the default wildcard allowlist differs on
+				// Windows, where there are no extra --allow roots to assert.
+				platform: "linux",
 				command: "echo hello",
 				workspace: "/home/user/project",
 			}));
@@ -122,7 +132,8 @@ void describe("interceptToolCall", () => {
 				powershell: ps,
 			}));
 			assert.equal(r.action, "wrap", `backend ${sandboxMode} did not wrap powershell`);
-			assert.match(r.command, /--.*pwsh\.exe.*-Command.*Get-ChildItem'$/);
+			assert.match(r.command, /--.*pwsh\.exe.*-Command/);
+			assert.equal(decodePowershellCommand(r.command), "Get-ChildItem");
 		}
 	});
 
@@ -155,7 +166,40 @@ void describe("interceptToolCall", () => {
 		assert.equal(r.action, "wrap");
 		assert.ok(r.command.includes("'C:/Program Files/PowerShell/7/pwsh.exe'"), "host path not normalised");
 		assert.ok(r.command.includes("--tmp"), "scratch not wired for the powershell path");
-		assert.ok(r.command.includes("'Get-ChildItem'"), "command was rewritten");
+		assert.equal(decodePowershellCommand(r.command), "Get-ChildItem", "command was rewritten");
+	});
+
+	void it("wraps powershell without double quotes so a verbatim spawn cannot eat them", () => {
+		// pi hands the outer shell a verbatim Windows command line, so any `"` in
+		// the wrapper is consumed by CommandLineToArgvW and the command is
+		// corrupted. The wrapper therefore carries the command base64-encoded and
+		// lets the inner shell decode it.
+		const ps = {
+			path: "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+			args: ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command"],
+		};
+		const windows = {
+			active: "workspace" as const,
+			sandboxMode: "lowil" as const,
+			platform: "win32" as const,
+			sandboxBin: "C:\\cache\\gate.exe",
+			workspace: "C:\\work",
+			scratch: "C:\\cache\\tmp",
+			toolType: "powershell" as const,
+			powershell: ps,
+		};
+
+		const command = `$s="A B"; Write-Output $s.Length`;
+		const plain = interceptToolCall(makeInput({ ...windows, command }));
+		assert.equal(plain.action, "wrap");
+		assert.ok(!plain.command.includes('"'), "wrapper must contain no double quotes");
+		assert.ok(plain.command.includes("& '"), "gate must still be invoked with the call operator");
+		assert.equal(decodePowershellCommand(plain.command), command);
+
+		const quoted = interceptToolCall(makeInput({ ...windows, command: "echo it's fine" }));
+		assert.equal(quoted.action, "wrap");
+		assert.ok(!quoted.command.includes('"'), "wrapper must contain no double quotes");
+		assert.equal(decodePowershellCommand(quoted.command), "echo it's fine");
 	});
 
 	void it("workspace mode blocks write outside allowlist", () => {

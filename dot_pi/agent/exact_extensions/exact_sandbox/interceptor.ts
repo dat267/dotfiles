@@ -124,17 +124,29 @@ export function interceptToolCall(input: InterceptorInput): InterceptorResult {
 			// bash executes the gate, so on Windows the tool paths must be given
 			// forward slashes or the shell reads the backslashes as escapes.
 			// Neither the shell's own flags nor the user's command are rewritten.
+			//
+			// The gate argv is identical for both tools, but the outer quoting is
+			// not: bash runs a POSIX shell command, powershell runs a PowerShell
+			// script. `'gate' '--ws' …` is a valid POSIX command line and invalid
+			// PowerShell (adjacent string literals), so the powershell path leads
+			// with the call operator and uses PowerShell escaping.
 			const norm = (p: string) => platform === "win32" ? p.replace(/\\/g, "/") : p;
-			const wrap = (shell: ShellSpec, text: string): InterceptorResult => {
+			const wrap = (
+				shell: ShellSpec,
+				text: string,
+				quote: (s: string) => string,
+				prefix: string,
+				prelude = "",
+			): InterceptorResult => {
 				const parts = [norm(sandboxBin), "--ws", norm(workspace)];
 				for (const allow of allowlist) {
 					if (allow !== workspace) parts.push("--allow", norm(allow));
 				}
 				if (input.scratch) parts.push("--tmp", norm(input.scratch));
 				parts.push("--", norm(shell.path), ...shell.args, text);
-				return { action: "wrap", command: parts.map(shq).join(" ") };
+				return { action: "wrap", command: prelude + prefix + parts.map(quote).join(" ") };
 			};
-			if (isBash) return wrap(BASH_SHELL, command);
+			if (isBash) return wrap(BASH_SHELL, command, shq, "");
 			if (isPowerShell) {
 				if (!input.powershell) {
 					return {
@@ -142,7 +154,16 @@ export function interceptToolCall(input: InterceptorInput): InterceptorResult {
 						reason: "sandbox: powershell cannot be gated on this platform — use bash, or /yolo to lift the sandbox",
 					};
 				}
-				return wrap(input.powershell, command);
+				// See powerShellEnvPrelude: the command travels base64-encoded so no
+				// double quote reaches the verbatim Windows spawn, and the inner shell
+				// decodes and runs it.
+				return wrap(
+					input.powershell,
+					powerShellDecodeExpr(),
+					psq,
+					"& ",
+					powerShellEnvPrelude(command),
+				);
 			}
 			if (isWrite || isEdit) {
 				const reason = inspectPath(path, workspace, allowlist, platform);
@@ -154,7 +175,39 @@ export function interceptToolCall(input: InterceptorInput): InterceptorResult {
 	}
 }
 
-/** Shell-quote a single argument for safe concatenation. */
+/** Shell-quote a single argument for POSIX sh (the bash tool). */
 function shq(s: string): string {
 	return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
+/**
+ * Quote a single argument for PowerShell (the powershell tool). Inside a
+ * single-quoted PowerShell string only the quote itself is special — `$` and
+ * backtick stay literal — so doubling it is the whole rule. The POSIX form
+ * (`'\''`) is not valid PowerShell and breaks every wrapped command.
+ */
+function psq(s: string): string {
+	return `'${s.replace(/'/g, "''")}'`;
+}
+
+/** Environment variable the wrapped powershell command is carried in. */
+const SANDBOX_CMD_ENV = "PI_SANDBOX_CMD";
+
+/**
+ * PowerShell prelude that stashes the user command in an environment variable.
+ *
+ * pi spawns the outer shell with verbatim Windows quoting, so CommandLineToArgvW
+ * consumes every `"` in the wrapped command before the shell ever sees it — a
+ * command like `$x="C:\a b"` arrives as `$x=C:\a b` and fails to parse. Base64
+ * has no quotes, so encoding the command into an env var survives that hop; the
+ * gate inherits the environment, so it needs no change.
+ */
+function powerShellEnvPrelude(command: string): string {
+	const base64 = Buffer.from(command, "utf8").toString("base64");
+	return `$env:${SANDBOX_CMD_ENV} = '${base64}'; `;
+}
+
+/** Inner-shell command that decodes and runs what the prelude stashed. */
+function powerShellDecodeExpr(): string {
+	return `iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:${SANDBOX_CMD_ENV})))`;
 }

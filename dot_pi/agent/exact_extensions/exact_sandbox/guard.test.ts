@@ -14,6 +14,9 @@ import { defaultAllowlist } from "./policy.ts";
 const WS = "/home/dat/proj";
 const PI = "/home/dat/.local/lib/node_modules/@earendil-works/pi-coding-agent";
 const ALLOW = defaultAllowlist(WS);
+// The POSIX policy is pinned rather than inherited from the host, so this file
+// exercises the same rules on a Windows developer machine as on Linux.
+const POSIX = { platform: "linux" as const, home: "/home/dat" };
 
 test("workspace targets pass", () => {
 	assert.equal(inspectPath("src/main.ts", WS, ALLOW), null);
@@ -22,9 +25,10 @@ test("workspace targets pass", () => {
 });
 
 test("allowlist targets pass", () => {
-	assert.equal(inspectPath("/tmp/out.txt", WS, ALLOW), null);
-	assert.equal(inspectPath("/dev/null", WS, ALLOW), null);
-	assert.equal(inspectPath(homedir() + "/go/bin/x", WS, ALLOW), null);
+	const allow = defaultAllowlist(WS, POSIX);
+	assert.equal(inspectPath("/tmp/out.txt", WS, allow, "linux"), null);
+	assert.equal(inspectPath("/dev/null", WS, allow, "linux"), null);
+	assert.equal(inspectPath("/home/dat/go/bin/x", WS, allow, "linux"), null);
 });
 
 test("pi module path and run dir are blocked (write escapes removed)", () => {
@@ -39,11 +43,18 @@ test("outside targets are blocked", () => {
 	assert.ok(inspectPath("../other", WS, ALLOW));
 });
 
-test("symlinks inside the workspace cannot escape", () => {
+test("symlinks inside the workspace cannot escape", (t) => {
 	const outside = mkdtempSync(join(tmpdir(), "guard-out-"));
 	const ws = mkdtempSync(join(tmpdir(), "guard-ws-"));
 	try {
-		symlinkSync(outside, join(ws, "escape"));
+		// Windows needs "junction" (a plain symlink requires Developer Mode or
+		// admin); POSIX uses "dir". Skip rather than fail where neither is allowed.
+		try {
+			symlinkSync(outside, join(ws, "escape"), process.platform === "win32" ? "junction" : "dir");
+		} catch {
+			t.skip("host does not permit creating links");
+			return;
+		}
 		writeFileSync(join(outside, "canary"), "");
 		// /tmp is allowlisted by default; drop it so the only allowed root is ws.
 		const allow = defaultAllowlist(ws).filter((p) => p !== "/tmp");

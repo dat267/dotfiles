@@ -76,6 +76,50 @@ static int set_scratch(const wchar_t *dir) {
 	    && SetEnvironmentVariableW(L"TMPDIR", dir);
 }
 
+/*
+ * Append `arg` to `out`, quoted the way CommandLineToArgvW parses it back, and
+ * return the number of characters written. Mirrors the algorithm from
+ * Microsoft's "Everyone quotes command line arguments the wrong way".
+ *
+ * This exists because the CRT's _wspawnvp joins argv with spaces and adds no
+ * quoting of its own, so any argument containing spaces or quotes — the
+ * shell's -Command payload — was split by the child's own CommandLineToArgvW.
+ * That silently dropped every double quote (e.g. `$s="A B"` arrived as
+ * `$s=A B`), breaking ordinary commands the moment they needed one.
+ */
+static size_t quote_arg(wchar_t *out, const wchar_t *arg) {
+	size_t n = 0;
+	int needs_quotes = (*arg == L'\0');
+	for (const wchar_t *p = arg; *p; ++p) {
+		if (*p == L' ' || *p == L'\t' || *p == L'"') { needs_quotes = 1; break; }
+	}
+	if (!needs_quotes) {
+		for (const wchar_t *p = arg; *p; ++p) out[n++] = *p;
+		return n;
+	}
+
+	out[n++] = L'"';
+	size_t backslashes = 0;
+	for (const wchar_t *p = arg;; ++p) {
+		if (*p == L'\\') { backslashes++; continue; }
+		if (*p == L'\0') {
+			/* Double trailing backslashes so they cannot escape the closing quote. */
+			for (size_t b = 0; b < backslashes * 2; ++b) out[n++] = L'\\';
+			break;
+		}
+		if (*p == L'"') {
+			/* 2n+1 backslashes: n escaped, n+1 so the quote stays literal. */
+			for (size_t b = 0; b < backslashes * 2 + 1; ++b) out[n++] = L'\\';
+		} else {
+			for (size_t b = 0; b < backslashes; ++b) out[n++] = L'\\';
+		}
+		out[n++] = *p;
+		backslashes = 0;
+	}
+	out[n++] = L'"';
+	return n;
+}
+
 int main(void) {
 	int argc = 0;
 	wchar_t **argv = CommandLineToArgvW(GetCommandLineW(), &argc);
@@ -136,11 +180,39 @@ int main(void) {
 		return EXIT_NOT_CONFINED;
 	}
 
-	/* The child inherits this Low token, so the whole tree stays confined. */
-	intptr_t status = _wspawnvp(_P_WAIT, argv[i], (const wchar_t *const *)&argv[i]);
-	if (status == -1) {
-		fprintf(stderr, "sandbox: cannot run the requested command\n");
+	/* The child inherits this Low token, so the whole tree stays confined.
+	 * Build the command line ourselves: CreateProcessW takes a single string,
+	 * and only a correctly quoted one keeps the shell's command intact. */
+	size_t cap = 256;
+	for (int k = i; k < argc; ++k) cap += wcslen(argv[k]) * 2 + 4;
+	wchar_t *cmdline = (wchar_t *)malloc(cap * sizeof(wchar_t));
+	if (!cmdline) {
+		fprintf(stderr, "sandbox: cannot allocate the child command line\n");
 		return 127;
 	}
+	size_t len = 0;
+	for (int k = i; k < argc; ++k) {
+		if (k > i) cmdline[len++] = L' ';
+		len += quote_arg(cmdline + len, argv[k]);
+	}
+	cmdline[len] = L'\0';
+
+	STARTUPINFOW si;
+	PROCESS_INFORMATION pi;
+	ZeroMemory(&si, sizeof(si));
+	si.cb = sizeof(si);
+	ZeroMemory(&pi, sizeof(pi));
+	if (!CreateProcessW(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+		fprintf(stderr, "sandbox: cannot run the requested command\n");
+		free(cmdline);
+		return 127;
+	}
+	free(cmdline);
+
+	WaitForSingleObject(pi.hProcess, INFINITE);
+	DWORD status = 1;
+	GetExitCodeProcess(pi.hProcess, &status);
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
 	return (int)status;
 }

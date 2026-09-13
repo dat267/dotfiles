@@ -33,16 +33,21 @@ function resolveArg(arg: string, base: string, api: PathApi): string {
 }
 
 /** Real path with symlinks resolved. For not-yet-existing targets, resolves
- * the deepest existing ancestor and rejoins the missing leaves. */
+ * the deepest existing ancestor and rejoins the missing leaves.
+ *
+ * Uses the native realpath deliberately: the JS `realpathSync` does not follow
+ * Windows junctions (lstat reports them as directories, not symlinks), so a
+ * junction placed inside the workspace could otherwise smuggle a write out of
+ * it. The native call resolves every reparse point on every platform. */
 function realResolve(path: string, api: PathApi): string {
 	try {
-		return realpathSync(path);
+		return realpathSync.native(path);
 	} catch {
 		let dir = api.dirname(path);
 		const leaves: string[] = [api.basename(path)];
 		for (let i = 0; i < 40; i++) {
 			try {
-				return api.join(realpathSync(dir), ...leaves.reverse());
+				return api.join(realpathSync.native(dir), ...leaves.reverse());
 			} catch {
 				const parent = api.dirname(dir);
 				if (parent === dir) return path;

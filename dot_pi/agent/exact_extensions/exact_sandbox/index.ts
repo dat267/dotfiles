@@ -27,12 +27,24 @@ import { fileURLToPath } from "node:url";
 import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { interceptToolCall, promptNote, blocked, type ShellSpec, type ToolType } from "./interceptor.ts";
+import { resolveModuleDir } from "./module-dir.ts";
 import { defaultMode, modeDetail, switchMode, type ActiveMode } from "./modes.ts";
 import { defaultAllowlist } from "./policy.ts";
 import { COMPILER_CANDIDATES, bashCandidates, compileArgv, labelArgv, powershellHosts, powershellShell, probeArgv } from "./windows.ts";
 
-const MODULE_DIR = (import.meta as unknown as { dirname?: string }).dirname
-	?? fileURLToPath(new URL(".", import.meta.url));
+// pi's module wrapper injects a real `__dirname`; it is absent only if the
+// module is imported some other way, which the resolver below handles.
+declare const __dirname: string | undefined;
+
+const MODULE_DIR = resolveModuleDir({
+	// pi's Bun loader hands extensions data-URL modules, so import.meta.dirname
+	// is the encoded source. __dirname is the real directory; import.meta is a
+	// last resort for a loader that provides a genuine file URL.
+	loaderDirname: typeof __dirname === "string" ? __dirname : undefined,
+	metaDirname: (import.meta as unknown as { dirname?: string }).dirname,
+	metaUrl: (import.meta as unknown as { url?: string }).url,
+	fileURLToPath,
+});
 const CACHE_DIR = join(homedir(), ".cache", "pi", "sandbox");
 const BUILD_LOG = join(CACHE_DIR, "build.log");
 
@@ -256,7 +268,9 @@ export default function (pi: ExtensionAPI) {
 		const scratch = sandbox.mode === "lowil" ? sandbox.scratch : undefined;
 
 		// The Windows backend needs the workspace labelled before anything runs.
-		if (active === "workspace" && sandbox.mode === "lowil" && toolType === "bash") {
+		// On Windows the powershell tool replaces bash, so it needs the label too —
+		// otherwise a Low process cannot write to the Medium workspace tree.
+		if (active === "workspace" && sandbox.mode === "lowil" && (toolType === "bash" || toolType === "powershell")) {
 			const reason = ensureWorkspaceLabeled(ctx.cwd);
 			if (reason) return blocked(reason);
 		}
