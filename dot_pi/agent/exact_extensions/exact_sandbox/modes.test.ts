@@ -8,7 +8,7 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { defaultMode, modeDetail, modeFromCode, statusLine, switchMode } from "./modes.ts";
+import { defaultMode, modeCompletions, modeDetail, modeFromCode, statusLine, switchMode } from "./modes.ts";
 
 void describe("defaultMode", () => {
 	void it("prefers the kernel sandbox when Landlock is available", () => {
@@ -108,5 +108,26 @@ void describe("modeFromCode", () => {
 		assert.equal(modeFromCode("yolo"), undefined);
 		assert.equal(modeFromCode("workspace"), undefined);
 		assert.equal(modeFromCode("status"), undefined);
+	});
+});
+
+void describe("modeCompletions", () => {
+	void it("offers every code with what it means", () => {
+		const items = modeCompletions("");
+		assert.deepEqual(items.map((i) => i.value), ["RO", "WS", "RW"]);
+		assert.equal(items[0].label, "RO", "the label is the code itself");
+		assert.match(items[0].description, /read-only/);
+		assert.match(items[1].description, /workspace/);
+		assert.match(items[2].description, /unrestricted/);
+	});
+
+	void it("filters by prefix, case-insensitively, like the parser does", () => {
+		assert.deepEqual(modeCompletions("R").map((i) => i.value), ["RO", "RW"]);
+		assert.deepEqual(modeCompletions("w").map((i) => i.value), ["WS"]);
+		assert.deepEqual(modeCompletions(" rw ").map((i) => i.value), ["RW"]);
+	});
+
+	void it("offers nothing for a prefix that matches no code", () => {
+		assert.deepEqual(modeCompletions("zz"), []);
 	});
 });

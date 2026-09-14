@@ -67,6 +67,15 @@ void describe("sandbox extension smoke", () => {
 		assert.deepEqual(Object.keys(commands).sort(), ["sandbox"], "switches are explicit: /sandbox <code>");
 	});
 
+	void it("completes the mode codes as the /sandbox argument", () => {
+		const { commands } = boot();
+		const all = commands.sandbox.getArgumentCompletions("");
+		assert.deepEqual(all.map((i: any) => i.value), ["RO", "WS", "RW"], "typing /sandbox <TAB> lists the codes");
+		assert.match(all[0].description, /read-only/, "completion explains the code");
+		assert.deepEqual(commands.sandbox.getArgumentCompletions("r").map((i: any) => i.value), ["RO", "RW"]);
+		assert.equal(commands.sandbox.getArgumentCompletions("zz"), null, "pi's contract: null when nothing matches");
+	});
+
 	void it("keeps the status line in step with live mode switches", async () => {
 		const { events, commands } = boot();
 		const { ctx, status } = makeCtx();

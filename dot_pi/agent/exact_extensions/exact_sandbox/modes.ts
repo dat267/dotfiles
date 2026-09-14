@@ -58,6 +58,31 @@ export function modeFromCode(arg: string): ActiveMode | undefined {
 	return (Object.keys(MODE_CODE) as ActiveMode[]).find((mode) => MODE_CODE[mode] === code);
 }
 
+/** A `/sandbox` argument completion: the code, and what it means. */
+export interface ModeCompletion {
+	value: string;
+	label: string;
+	description: string;
+}
+
+/**
+ * `/sandbox <code>` arguments matching `prefix`, for argument autocomplete.
+ * Derived from the same tables as the parser and the footer, so the three
+ * cannot drift; the prefixes are matched the way the parser reads them
+ * (trimmed, case-insensitive). An empty result means "nothing to offer" —
+ * the caller decides what pi wants for that.
+ */
+export function modeCompletions(prefix: string): ModeCompletion[] {
+	const wanted = prefix.trim().toUpperCase();
+	return (Object.keys(MODE_CODE) as ActiveMode[])
+		.filter((mode) => MODE_CODE[mode].startsWith(wanted))
+		.map((mode) => ({
+			value: MODE_CODE[mode],
+			label: MODE_CODE[mode],
+			description: DETAILS[mode],
+		}));
+}
+
 /** Default mode: the kernel sandbox when any backend can enforce it, else yolo. */
 export function defaultMode(sandbox: SandboxBackend): ActiveMode {
 	return sandbox === "none" ? "yolo" : "workspace";

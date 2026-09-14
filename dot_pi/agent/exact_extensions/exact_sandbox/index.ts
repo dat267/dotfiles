@@ -29,7 +29,7 @@ import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { interceptToolCall, promptNote, blocked, type ShellSpec, type ToolType } from "./interceptor.ts";
 import { resolveModuleDir } from "./module-dir.ts";
-import { defaultMode, modeDetail, modeFromCode, statusLine, switchMode, type ActiveMode } from "./modes.ts";
+import { defaultMode, modeCompletions, modeDetail, modeFromCode, statusLine, switchMode, type ActiveMode } from "./modes.ts";
 import { defaultAllowlist } from "./policy.ts";
 import { COMPILER_CANDIDATES, bashCandidates, compileArgv, labelArgv, powershellHosts, powershellShell, probeArgv } from "./windows.ts";
 
@@ -329,6 +329,12 @@ export default function (pi: ExtensionAPI) {
 	// mean "tell me the mode", and the query names the code it would set.
 	pi.registerCommand("sandbox", {
 		description: "Set the mode: /sandbox RO|WS|RW — bare shows the current mode",
+		getArgumentCompletions: (prefix: string) => {
+			// pi's contract is `null` for "nothing to offer", an empty list is not
+			// the same thing. The codes come from the same table as the parser.
+			const items = modeCompletions(prefix);
+			return items.length > 0 ? items : null;
+		},
 		handler: async (args, ctx) => {
 			const arg = args.trim();
 			if (arg === "" || arg === "status") {
