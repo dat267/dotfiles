@@ -105,6 +105,69 @@ $global:__dotfiles_profile_loaded = $true
         }
         $env:NODE_USE_SYSTEM_CA = $nodeCa
 
+        # Python has no NODE_USE_SYSTEM_CA equivalent. certifi-based tools
+        # (requests, pip, httpx) ship their own CA bundle and ignore the Windows
+        # store, so a corp MITM root that GPO put in ROOT is invisible to them —
+        # python's own ssl reads the store, but PyPI traffic goes through
+        # certifi. Those tools only accept a *file*, so export the store to one.
+        #
+        # This is the one place where an env var REPLACES trust instead of
+        # extending it (proved here with a throwaway CA: an unrelated cafile
+        # makes the public registry unreachable). A partial export would
+        # therefore break PyPI, which is worse than not setting this at all —
+        # so the file is only installed once it is verifiably complete.
+        $caPem = "$env:LOCALAPPDATA\dotfiles\windows-roots.pem"
+        $caStale = -not (Test-Path $caPem)
+        if (-not $caStale) { $caStale = (Get-Item $caPem).LastWriteTime -lt (Get-Date).AddDays(-30) }
+        if ($caStale) {
+            $sb = [System.Text.StringBuilder]::new()
+            foreach ($spec in @(@('Root', 'LocalMachine'), @('CA', 'LocalMachine'), @('Root', 'CurrentUser'))) {
+                $store = [System.Security.Cryptography.X509Certificates.X509Store]::new($spec[0], $spec[1])
+                try {
+                    $store.Open('ReadOnly')
+                    foreach ($cert in $store.Certificates) {
+                        [void]$sb.AppendLine("# $($cert.Subject)")
+                        [void]$sb.AppendLine('-----BEGIN CERTIFICATE-----')
+                        [void]$sb.AppendLine([System.Convert]::ToBase64String($cert.RawData, 'InsertLineBreaks'))
+                        [void]$sb.AppendLine('-----END CERTIFICATE-----')
+                    }
+                } catch {
+                    Write-Warning "cert export: $($spec[1])\$($spec[0]) unavailable — $($_.Exception.Message)"
+                } finally {
+                    $store.Close()
+                }
+            }
+            $pem = $sb.ToString()
+            # The Windows ROOT store carries the public roots alongside any corp
+            # ones, so a short export means it failed.
+            $certCount = ([regex]::Matches($pem, '-----BEGIN CERTIFICATE-----')).Count
+            if ($certCount -ge 50 -and $pem -match 'DigiCert|ISRG Root|Baltimore') {
+                New-Item -ItemType Directory -Path (Split-Path $caPem) -Force | Out-Null
+                Set-Content -Path $caPem -Value $pem -Encoding ascii
+            } else {
+                Write-Warning "cert export produced $certCount certificates; leaving SSL_CERT_FILE alone"
+                $caPem = $null
+            }
+        }
+        if ($caPem) {
+            foreach ($name in @('SSL_CERT_FILE', 'REQUESTS_CA_BUNDLE', 'PIP_CERT')) {
+                $value = [Environment]::GetEnvironmentVariable($name, 'User')
+                if (-not $value) {
+                    [Environment]::SetEnvironmentVariable($name, $caPem, 'User')
+                    $value = $caPem
+                }
+                Set-Item -Path "Env:$name" -Value $value
+            }
+        }
+        # uv reads the platform store itself; no file needed. Its own switch
+        # (UV_NATIVE_TLS is deprecated in favour of this as of uv 0.11).
+        $uvCerts = [Environment]::GetEnvironmentVariable('UV_SYSTEM_CERTS', 'User')
+        if (-not $uvCerts) {
+            [Environment]::SetEnvironmentVariable('UV_SYSTEM_CERTS', '1', 'User')
+            $uvCerts = '1'
+        }
+        $env:UV_SYSTEM_CERTS = $uvCerts
+
         Set-ItemProperty -Path "HKCU:\Console" -Name "VirtualTerminalLevel" -Value 1 -Type DWord -ErrorAction SilentlyContinue
 
         $scriptResolvers = [ordered]@{

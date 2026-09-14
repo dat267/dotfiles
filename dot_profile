@@ -82,6 +82,23 @@ export NODE_COMPILE_CACHE="$HOME/.cache/node-compile-cache"
 # This is the switch that fixes them without NODE_EXTRA_CA_CERTS, which would
 # have to be set per-tool and per-machine. 121 bundled -> 847 on this box.
 export NODE_USE_SYSTEM_CA=1
+# Python has no NODE_USE_SYSTEM_CA equivalent: certifi-based tools (requests,
+# pip, httpx) ship their own CA bundle and ignore the OS store, so a locally
+# added — or corporate — CA is invisible to them while curl, openssl and
+# python's own ssl trust it. Point the certifi consumers at the system bundle
+# (the default cafile path is distro-specific; first one that exists wins).
+# uv does have a real switch — UV_NATIVE_TLS is deprecated in its favour as of
+# 0.11, and uv otherwise uses its own baked-in roots.
+for _ca in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt; do
+	if [ -f "$_ca" ]; then
+		export SSL_CERT_FILE="$_ca"
+		export REQUESTS_CA_BUNDLE="$_ca"
+		export PIP_CERT="$_ca"
+		break
+	fi
+done
+unset _ca
+export UV_SYSTEM_CERTS=1
 export LIBVIRT_DEFAULT_URI="qemu:///system"
 if command -v podman >/dev/null 2>&1 && [ -S "$XDG_RUNTIME_DIR/podman/podman.sock" ]; then
 	export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
