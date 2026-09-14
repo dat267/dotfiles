@@ -75,6 +75,13 @@ export COLORTERM=truecolor
 # V8 compile cache for Node ESM/TS (Node 22+). Skipping recompilation of
 # every node CLI's modules on each launch saves ~100ms per pi start.
 export NODE_COMPILE_CACHE="$HOME/.cache/node-compile-cache"
+# Trust the OS certificate store *in addition to* Node's bundled Mozilla set
+# (Node 24.6+, backported to 22.19). Node ignores the system store by default,
+# so anything that intercepts TLS — a corporate MITM proxy, or a local CA added
+# with `trust anchor` — fails every request in pi, npm, opencode and friends.
+# This is the switch that fixes them without NODE_EXTRA_CA_CERTS, which would
+# have to be set per-tool and per-machine. 121 bundled -> 847 on this box.
+export NODE_USE_SYSTEM_CA=1
 export LIBVIRT_DEFAULT_URI="qemu:///system"
 if command -v podman >/dev/null 2>&1 && [ -S "$XDG_RUNTIME_DIR/podman/podman.sock" ]; then
 	export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
