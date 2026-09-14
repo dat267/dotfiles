@@ -90,6 +90,21 @@ $global:__dotfiles_profile_loaded = $true
         $env:GOPROXY = "https://proxy.golang.org,direct"
         $env:GOSUMDB = "off"
 
+        # Node ignores the Windows certificate store by default, so a corporate
+        # TLS-intercepting proxy breaks every Node CLI at once — npm, pi,
+        # opencode, esbuild, anything that fetches over https. NODE_USE_SYSTEM_CA
+        # (Node 24.6+) makes Node read the ROOT store, which is where the corp
+        # CA already lands via GPO; no cafile, no bundle to keep in sync.
+        # Persisted at User scope like the proxy creds below, because $env: alone
+        # would only cover PowerShell sessions and miss GUI-launched apps.
+        # An explicit User-scope value (e.g. '0') is respected.
+        $nodeCa = [Environment]::GetEnvironmentVariable('NODE_USE_SYSTEM_CA', 'User')
+        if (-not $nodeCa) {
+            [Environment]::SetEnvironmentVariable('NODE_USE_SYSTEM_CA', '1', 'User')
+            $nodeCa = '1'
+        }
+        $env:NODE_USE_SYSTEM_CA = $nodeCa
+
         Set-ItemProperty -Path "HKCU:\Console" -Name "VirtualTerminalLevel" -Value 1 -Type DWord -ErrorAction SilentlyContinue
 
         $scriptResolvers = [ordered]@{
