@@ -40,8 +40,18 @@ def get_platform_info():
 def fetch_latest_pwsh_release(os_name, arch_name):
     url = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
     try:
-        data = fetch_json(url) or {}
-        assets = data.get("assets", [])
+        data = fetch_json(url)
+        # fetch_json returns None for any failure — unreachable host, timeout,
+        # rate limit, malformed body. Naming that beats blaming the asset
+        # pattern, which is what a swallowed TypeError inside urlopen looked
+        # like: "no matching assets" for a release that had them.
+        if not isinstance(data, dict) or "assets" not in data:
+            raise ValueError(
+                "could not read the GitHub release API — network failure, rate "
+                "limit, or unexpected response (unauthenticated calls are "
+                "limited to 60 requests/hour per IP)"
+            )
+        assets = data["assets"]
 
         # Asset extension and naming pattern:
         # Linux: *linux-x64.tar.gz or *linux-arm64.tar.gz
@@ -70,7 +80,8 @@ def fetch_latest_pwsh_release(os_name, arch_name):
 
         if not matching_assets:
             raise ValueError(
-                f"No matching PowerShell assets found for pattern: {pattern}"
+                f"release {data.get('tag_name', 'unknown')} has no asset matching "
+                f"{pattern} — GitHub may have renamed it"
             )
 
         return data["tag_name"], matching_assets[0]["browser_download_url"]

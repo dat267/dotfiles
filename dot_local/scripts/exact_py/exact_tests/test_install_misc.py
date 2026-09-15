@@ -43,6 +43,34 @@ class TestSmokeInstallers(unittest.TestCase):
             tag, url = pwsh.fetch_latest_pwsh_release("darwin", "arm64")
         self.assertEqual(url, "http://x/m")
 
+    def test_pwsh_unreachable_api_is_not_reported_as_a_missing_asset(self):
+        """fetch_json returns None for any failure, so an unreadable response
+        must be named as such. Blaming the asset pattern is what sent a real bug
+        hunt — a TypeError inside urlopen — after the wrong cause."""
+        with (
+            mock.patch.object(pwsh, "fetch_json", return_value=None),
+            mock.patch.object(pwsh, "log") as logged,
+            self.assertRaises(SystemExit),
+        ):
+            pwsh.fetch_latest_pwsh_release("linux", "x64")
+        message = logged.call_args[0][0]
+        self.assertNotIn("No matching PowerShell assets", message)
+        self.assertIn("GitHub", message)
+
+    def test_pwsh_missing_asset_names_the_release_and_pattern(self):
+        """The other branch keeps its message, but says which release it read —
+        the discriminator the old text lacked."""
+        reply = {"tag_name": "v9.9.9", "assets": [{"name": "powershell-9.9.9-win-x64.zip"}]}
+        with (
+            mock.patch.object(pwsh, "fetch_json", return_value=reply),
+            mock.patch.object(pwsh, "log") as logged,
+            self.assertRaises(SystemExit),
+        ):
+            pwsh.fetch_latest_pwsh_release("linux", "x64")
+        message = logged.call_args[0][0]
+        self.assertIn("v9.9.9", message)
+        self.assertIn("linux-x64.tar.gz", message)
+
 
 class TestFirefoxGuard(unittest.TestCase):
     def test_non_windows_exits_zero(self):
