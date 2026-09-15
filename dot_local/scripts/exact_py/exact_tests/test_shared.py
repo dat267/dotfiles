@@ -42,6 +42,34 @@ class TestFetchJson(unittest.TestCase):
 
         self.assertIsNone(fetch_json("https://api.example.com/x", opener=boom))
 
+    def test_timeout_is_not_passed_as_the_data_argument(self):
+        """The opener must be called with urlopen's own convention:
+        urlopen(url, data=None, timeout=...). Passing the timeout positionally
+        binds it to `data` and raises TypeError, which fetch_json swallows into
+        None — the install scripts then report a missing release asset, which
+        is what install-pwsh did. The (req, timeout) doubles above cannot catch
+        that; this one mirrors the signature urlopen actually has."""
+        seen = {}
+
+        def opener(url, data=None, timeout=None):
+            seen["data"] = data
+            seen["timeout"] = timeout
+            return self.FakeResponse()
+
+        self.assertEqual(fetch_json("https://api.example.com/x", opener=opener), {"tag_name": "v1.2.3"})
+        self.assertIsNone(seen["data"], "timeout was passed as urlopen's data argument")
+        self.assertEqual(seen["timeout"], 5)
+
+    def test_custom_timeout_reaches_the_opener(self):
+        seen = {}
+
+        def opener(url, data=None, timeout=None):
+            seen["timeout"] = timeout
+            return self.FakeResponse()
+
+        fetch_json("https://api.example.com/x", timeout=11, opener=opener)
+        self.assertEqual(seen["timeout"], 11)
+
 
 class TestGithubLatestTag(unittest.TestCase):
     def test_returns_tag_name_with_v_stripped(self):
@@ -93,6 +121,22 @@ class TestDownload(unittest.TestCase):
             download("https://example.com/f", str(dest), headers={"Authorization": "Bearer t"}, opener=opener)
         self.assertEqual(seen["headers"].get("Authorization"), "Bearer t")
         self.assertIsNotNone(seen["timeout"])
+
+    def test_timeout_is_not_passed_as_the_data_argument(self):
+        seen = {}
+        fake = self.FakeResponse([b"x"])
+
+        def opener(url, data=None, timeout=None):
+            seen["data"] = data
+            seen["timeout"] = timeout
+            return fake
+
+        with tempfile.TemporaryDirectory() as d:
+            dest = pathlib.Path(d) / "o"
+            download("https://example.com/f", str(dest), timeout=7, opener=opener)
+            self.assertEqual(dest.read_bytes(), b"x")
+        self.assertIsNone(seen["data"], "timeout was passed as urlopen's data argument")
+        self.assertEqual(seen["timeout"], 7)
 
     def test_network_error_propagates(self):
         def boom(req, timeout):
@@ -213,7 +257,7 @@ class TestDownloadProgress(unittest.TestCase):
         class Resp(io.BytesIO):
             headers = {}
 
-        dest_result = shared.download("http://x", dest, opener=lambda req, t: Resp(b"data"))
+        dest_result = shared.download("http://x", dest, opener=lambda req, timeout: Resp(b"data"))
         self.assertEqual(dest_result, dest)
         self.assertEqual(open(dest, "rb").read(), b"data")
 
@@ -312,3 +356,46 @@ class TestInstallGithubReleaseBinary(unittest.TestCase):
             with mock.patch("os.name", "nt"):
                 dest = self.install(d, url="https://example.com/tool.exe", binary_name="tool.exe", opener=lambda req, timeout: fake)
             self.assertFalse(os.access(dest, os.X_OK))
+
+
+class TestRealUrlopenConvention(unittest.TestCase):
+    """No doubles: drive the production opener, urllib.request.urlopen, against
+    a loopback server.
+
+    Every mock-based test above stayed green while the real call raised
+    TypeError, because the doubles take (req, timeout) and so made a positional
+    timeout look correct. The regression therefore needs at least one test in
+    which urlopen is genuinely real — this is that seam.
+    """
+
+    def _serve(self, body):
+        import http.server
+        import threading
+
+        payload = body
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(payload)))
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        return f"http://127.0.0.1:{server.server_address[1]}/"
+
+    def test_fetch_json_through_the_real_opener(self):
+        self.assertEqual(fetch_json(self._serve(b'{"tag_name": "v7.6.6"}')), {"tag_name": "v7.6.6"})
+
+    def test_download_through_the_real_opener(self):
+        url = self._serve(b"payload-bytes")
+        with tempfile.TemporaryDirectory() as d:
+            dest = os.path.join(d, "out.bin")
+            self.assertEqual(download(url, dest), dest)
+            self.assertEqual(pathlib.Path(dest).read_bytes(), b"payload-bytes")

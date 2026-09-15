@@ -12,11 +12,18 @@ DEFAULT_TIMEOUT = 60
 
 
 def fetch_json(url, timeout=5, opener=None):
-    """GET url, return parsed JSON or None on failure."""
+    """GET url, return parsed JSON or None on failure.
+
+    `opener` mirrors urllib.request.urlopen's own signature — (url, data=None,
+    timeout=...) — so a double and the production opener are called the same
+    way. Passing the timeout positionally would bind it to `data` instead,
+    raising TypeError for the real urlopen; swallowing that into None is how a
+    network failure came to be reported as a missing release asset.
+    """
     open_url = opener or urllib.request.urlopen
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with open_url(req, timeout) as response:
+        with open_url(req, timeout=timeout) as response:
             return json.loads(response.read().decode())
     except Exception:
         return None
@@ -33,14 +40,15 @@ def github_latest_tag(repo, timeout=5, opener=None):
 def download(url, dest, headers=None, timeout=DEFAULT_TIMEOUT, opener=None, on_progress=None):
     """Stream `url` to `dest`, return the dest path.
 
-    `opener(req, timeout)` is injectable for tests; defaults to urlopen.
-    `on_progress(done_bytes, total_bytes)` is called per chunk when given;
-    total_bytes is 0 when the server sends no content-length.
+    `opener(req, timeout=...)` is injectable for tests and mirrors
+    urllib.request.urlopen; the timeout is a keyword for the same reason as in
+    fetch_json. `on_progress(done_bytes, total_bytes)` is called per chunk when
+    given; total_bytes is 0 when the server sends no content-length.
     """
     open_url = opener or urllib.request.urlopen
     req = urllib.request.Request(url, headers=headers or {})
     done = 0
-    with open_url(req, timeout) as resp, open(dest, "wb") as out:
+    with open_url(req, timeout=timeout) as resp, open(dest, "wb") as out:
         total = int(resp.headers.get("content-length", 0)) if hasattr(resp, "headers") else 0
         while True:
             chunk = resp.read(1024 * 256)
