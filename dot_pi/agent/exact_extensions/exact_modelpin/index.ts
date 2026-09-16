@@ -1,69 +1,113 @@
 /**
- * modelpin — one pinned model for every session.
+ * modelpin — every session on the default model, unless manually switched.
  *
- * pi gives each session its own model: /model writes a model_change entry and
+ * pi scopes the model to the session: /model writes a model_change entry and
  * resuming restores it, so the settings default only reaches sessions that
- * never chose. This extension syncs a single pinned model onto every session
- * at start instead — startup, resume, fork, new — so "which model am I on"
- * has one answer. The pin lives in ~/.pi/agent/pinned-model.json — named for what it
- * holds, not for the mechanism, and kept distinct from pi's models.json —
- * set with
- * /modelpin <provider/model>; /modelpin off stops the sync without
- * forgetting it.
+ * never chose. This extension closes that gap from the other side — the pin
+ * IS the settings default (what /model + Ctrl+S writes), read live, and every
+ * session start syncs the session onto it.
+ *
+ * A manual pick outranks the default. model_select with source "set"/"cycle"
+ * is a deliberate choice (the picker, Ctrl+P) and claims the session for good;
+ * source "restore" is pi putting the session's stored model back — the very
+ * state being corrected — so it never counts. The extension's own setModel
+ * also emits "set", which is why the sync guards itself with a flag.
  *
  * setModel only affects the current session ("without changing the configured
- * default for new sessions"), which is why the sync runs on every start rather
- * than once — and also why a mid-session /model survives until the next start.
+ * default for new sessions"), so the sync runs on every start, including
+ * /reload. /modelpin off is the kill switch.
  */
 
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { resolveModelRef, type ModelRef } from "./resolve.ts";
-import { loadState, saveState } from "./state.ts";
+import { loadState, saveState, type ModelState } from "./state.ts";
+import { readDefaultModelRef, type ModelRef } from "./defaults.ts";
 
-export interface ModelSyncOptions {
+export interface ModelPinOptions {
 	statePath?: string;
+	agentDir?: string;
 }
 
-function defaultStatePath(): string {
-	return join(getAgentDir(), "pinned-model.json");
+function refOf(model: { provider: string; id: string }): string {
+	return `${model.provider}/${model.id}`;
 }
 
-function availableModels(ctx: ExtensionContext): ModelRef[] {
-	return ctx.modelRegistry.getAvailable().map((m) => ({ provider: m.provider, id: m.id }));
-}
+export function registerModelSync(pi: ExtensionAPI, options: ModelPinOptions = {}) {
+	const statePath = options.statePath ?? join(getAgentDir(), "pinned-model.json");
+	const agentDir = options.agentDir ?? getAgentDir();
 
-export function registerModelSync(pi: ExtensionAPI, options: ModelSyncOptions = {}) {
-	const statePath = options.statePath ?? defaultStatePath();
+	// Guards the model_select handler while the sync's own setModel runs —
+	// a programmatic set emits "set" exactly like a user pick.
+	let syncing = false;
+
+	function claim(state: ModelState, sessionFile: string | undefined, model: { provider: string; id: string }): ModelState {
+		if (!sessionFile) return state;
+		const manual = { ...state.manual };
+		if (model && readDefaultModelRef(agentDir)?.provider === model.provider && readDefaultModelRef(agentDir)?.id === model.id) {
+			delete manual[sessionFile];
+		} else {
+			manual[sessionFile] = true;
+		}
+		return { ...state, manual };
+	}
 
 	async function sync(ctx: ExtensionContext, reason: string): Promise<void> {
 		const state = loadState(statePath);
-		if (!state.enabled || !state.model) return;
+		if (!state.enabled) return;
 
-		const current = ctx.model;
-		if (current?.provider && current?.id && state.model === `${current.provider}/${current.id}`) return;
+		const defaultRef = readDefaultModelRef(agentDir);
+		if (!defaultRef) return;
 
-		const resolution = resolveModelRef(state.model, availableModels(ctx), current?.provider);
-		if (!resolution.ok) {
-			ctx.ui.notify(`[modelpin] pin ${state.model}: ${resolution.reason}`, "warning");
+		const sessionFile = ctx.sessionManager.getSessionFile();
+		if (sessionFile && state.manual[sessionFile]) return;
+
+		if (ctx.model && refOf(ctx.model) === refOf(defaultRef)) return;
+
+		// Resolve to the registry's full model. setModel handed a bare
+		// {provider, id} ref once and the footer read its missing
+		// contextWindow as "?/0" — a ref is not a model.
+		const full = ctx.modelRegistry.find(defaultRef.provider, defaultRef.id);
+		if (!full) {
+			ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} is not in the available models`, "warning");
 			return;
 		}
 
-		const applied = await pi.setModel(resolution.model as Parameters<typeof pi.setModel>[0]);
-		if (applied === false) {
-			ctx.ui.notify(`[modelpin] ${state.model} has no configured auth — staying on ${current ? `${current.provider}/${current.id}` : "nothing"}`, "warning");
-			return;
+		syncing = true;
+		try {
+			const applied = await pi.setModel(full as Parameters<typeof pi.setModel>[0]);
+			if (applied === false) {
+				ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} has no configured auth — staying on ${ctx.model ? refOf(ctx.model) : "nothing"}`, "warning");
+				return;
+			}
+			ctx.ui.notify(`[modelpin] using default ${refOf(defaultRef)} (${reason})`, "info");
+		} catch (error) {
+			const detail = error instanceof Error ? error.message : String(error);
+			ctx.ui.notify(`[modelpin] could not switch to ${refOf(defaultRef)}: ${detail}`, "warning");
+		} finally {
+			syncing = false;
 		}
-		ctx.ui.notify(`[modelpin] using ${state.model} (${reason})`, "info");
 	}
 
 	pi.on("session_start", async (event, ctx) => {
 		await sync(ctx, event.reason);
 	});
 
+	pi.on("model_select", async (event, ctx) => {
+		if (syncing) return;
+		if (event.source === "restore") return;
+
+		const sessionFile = ctx.sessionManager.getSessionFile();
+		if (!sessionFile) return;
+		const defaultRef = readDefaultModelRef(agentDir);
+		const picked = { provider: event.model.provider, id: event.model.id };
+		const state = claim(loadState(statePath), sessionFile, picked);
+		void defaultRef;
+		saveState(statePath, state);
+	});
+
 	pi.registerCommand("modelpin", {
-		description: "Pin one model for every session — /modelpin <provider/model>, on|off, or bare for status",
+		description: "Sync every session onto the default model unless manually switched — /modelpin on|off, or bare for status",
 		getArgumentCompletions: (prefix: string) => {
 			const items = ["on", "off"].filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v }));
 			return items.length > 0 ? items : null;
@@ -73,37 +117,29 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelSyncOptions = 
 			const state = loadState(statePath);
 
 			if (arg === "") {
-				if (!state.model) {
-					ctx.ui.notify("[modelpin] nothing pinned — every session keeps its own model. Pin one: /modelpin <provider/model>", "info");
-					return;
-				}
-				const current = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "none";
-				ctx.ui.notify(`[modelpin] pinned ${state.model}, sync ${state.enabled ? "on" : "off"} — this session: ${current}`, "info");
+				const defaultRef = readDefaultModelRef(agentDir);
+				const sessionFile = ctx.sessionManager.getSessionFile();
+				const manual = (sessionFile && state.manual[sessionFile]) || !ctx.model;
+				const current = ctx.model ? refOf(ctx.model) : "none";
+				const detail = !defaultRef
+					? "no default model set (use /model and press Ctrl+S)"
+					: manual
+						? "manually switched — not synced"
+						: `sync ${state.enabled ? "on" : "off"}`;
+				ctx.ui.notify(`[modelpin] default ${defaultRef ? refOf(defaultRef) : "unset"}, sync ${state.enabled ? "on" : "off"} — this session: ${current} (${detail})`, "info");
 				return;
 			}
 
 			if (arg === "on" || arg === "off") {
-				if (arg === "on" && !state.model) {
-					ctx.ui.notify("[modelpin] nothing to enable — pin a model first: /modelpin <provider/model>", "warning");
-					return;
-				}
 				saveState(statePath, { ...state, enabled: arg === "on" });
-				ctx.ui.notify(`[modelpin] sync ${arg}${state.model ? ` — pin ${state.model} kept` : ""}`, "info");
+				ctx.ui.notify(`[modelpin] sync ${arg}`, "info");
 				if (arg === "on") await sync(ctx, "enabled");
 				return;
 			}
 
-			// Anything else is a model to pin. Resolve it against what pi can
-			// actually use before saving, so a typo never becomes a pin.
-			const resolution = resolveModelRef(arg, availableModels(ctx), ctx.model?.provider);
-			if (!resolution.ok) {
-				ctx.ui.notify(`[modelpin] ${resolution.reason}`, "warning");
-				return;
-			}
-			const model = `${resolution.model.provider}/${resolution.model.id}`;
-			saveState(statePath, { enabled: true, model });
-			ctx.ui.notify(`[modelpin] pinned ${model}`, "info");
-			await sync(ctx, "pinned");
+			// There is no model argument any more: the pinned model is the
+			// settings default, and that is changed where it is owned.
+			ctx.ui.notify("[modelpin] the pinned model is your settings default — change it with /model and press Ctrl+S", "info");
 		},
 	});
 }

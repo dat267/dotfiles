@@ -1,7 +1,7 @@
 /**
- * Smoke test for modelpin/index.ts — the session_start sync and the
- * /modelpin command, driven through the same registration surface pi uses.
- * The pin file is pointed at a temp path so no test touches the real one.
+ * Smoke test for modelpin/index.ts — the session_start sync, the manual-claim
+ * rule, and the /modelpin command, driven through the registration surface pi
+ * uses. State and agent dir are pointed at temp paths.
  */
 
 import { describe, it } from "node:test";
@@ -10,113 +10,202 @@ import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerModelSync } from "./index.ts";
+import { loadState } from "./state.ts";
 
-const AVAILABLE = [
-	{ provider: "hyper", id: "deepseek-v4-flash" },
-	{ provider: "hyper", id: "glm-5.3-flash" },
+// Full model objects, as the registry holds them — contextWindow included,
+// because dropping it is the ?/0 footer bug this suite guards against.
+const CATALOG = [
+	{ provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
+	{ provider: "hyper", id: "glm-5.3-flash", contextWindow: 1_000_000 },
 ];
 
-function harness(stateFile: string, current?: { provider: string; id: string }) {
-	const calls: Record<string, unknown[]> = { notify: [], setModel: [] };
-	const fakePi = {
-		on: (event: string, fn: (event: any, ctx: any) => void) => {
-			if (event === "session_start") (fakePi as any)._sessionStart = fn;
+function setup(opts: {
+	agentSettings?: unknown;
+	state?: Record<string, unknown>;
+	sessionFile?: string;
+	current?: { provider: string; id: string; contextWindow?: number };
+}) {
+	const agentDir = mkdtempSync(join(tmpdir(), "modelpin-agent-"));
+	if (opts.agentSettings !== undefined) {
+		writeFileSync(
+			join(agentDir, "settings.json"),
+			typeof opts.agentSettings === "string" ? opts.agentSettings : JSON.stringify(opts.agentSettings),
+		);
+	}
+	const statePath = join(mkdtempSync(join(tmpdir(), "modelpin-")), "pinned-model.json");
+	if (opts.state) writeFileSync(statePath, JSON.stringify(opts.state));
+
+	const calls: { notify: Array<{ message: string; level?: string }>; setModel: any[] } = {
+		notify: [],
+		setModel: [],
+	};
+	const handlers: Record<string, (event: any, ctx: any) => Promise<void>> = {};
+	const fakePi: any = {
+		on: (event: string, fn: (event: any, ctx: any) => Promise<void>) => {
+			handlers[event] = fn;
 		},
-		registerCommand: (name: string, command: any) => {
-			if (name === "modelpin") (fakePi as any)._command = command;
+		registerCommand: (_name: string, command: any) => {
+			fakePi.command = command;
 		},
+		// Mirror the real setModel: persists, then emits model_select "set".
 		setModel: async (model: any) => {
+			const previous = opts.current;
+			opts.current = model;
 			calls.setModel.push(model);
+			await handlers["model_select"]?.({ model, previousModel: previous, source: "set" }, fakePi.ctx);
 			return true;
 		},
 	};
-	registerModelSync(fakePi as any, { statePath: stateFile });
-	const ctx = {
-		model: current,
-		modelRegistry: { getAvailable: () => AVAILABLE },
+	fakePi.ctx = {
+		model: opts.current,
+		sessionManager: { getSessionFile: () => opts.sessionFile },
+		modelRegistry: {
+			getAvailable: () => CATALOG,
+			find: (provider: string, id: string) => CATALOG.find((m) => m.provider === provider && m.id === id),
+		},
 		ui: { notify: (message: string, level?: string) => calls.notify.push({ message, level }) },
 	};
+	registerModelSync(fakePi, { statePath, agentDir });
 	return {
-		notify: calls.notify as Array<{ message: string; level?: string }>,
-		setModelCalls: calls.setModel,
-		sessionStart: (reason = "resume") => (fakePi as any)._sessionStart({ reason }, ctx),
-		command: () => (fakePi as any)._command,
+		...calls,
+		ctx: fakePi.ctx,
+		sessionStart: (reason = "resume") => handlers["session_start"]({ reason }, fakePi.ctx),
+		modelSelect: (source: "set" | "cycle" | "restore", model = opts.current) =>
+			handlers["model_select"]({ model, previousModel: undefined, source }, fakePi.ctx),
+		command: () => fakePi.command,
+		statePath,
 	};
 }
 
-function stateFile(state?: Record<string, unknown>): string {
-	const path = join(mkdtempSync(join(tmpdir(), "modelpin-test-")), "state.json");
-	if (state) writeFileSync(path, JSON.stringify(state));
-	return path;
-}
+const notice = (h: { notify: Array<{ message: string; level?: string }> }) => h.notify[0]?.message ?? "";
 
 void describe("session_start sync", () => {
-	void it("switches a session pinned to another model", async () => {
-		const h = harness(stateFile({ enabled: true, model: "hyper/glm-5.3-flash" }), {
-			provider: "hyper",
-			id: "deepseek-v4-flash",
+	void it("moves a session back to the default model — the full registry object, not a ref", async () => {
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
+			current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
 		});
 		await h.sessionStart();
-		assert.deepEqual(h.setModelCalls, [{ provider: "hyper", id: "glm-5.3-flash" }]);
-		assert.match(h.notify[0].message, /glm-5\.3-flash/);
+		assert.equal(h.setModel.length, 1);
+		// Regression: a bare {provider, id} ref reached the session once and the
+		// footer read its missing contextWindow as "?/0".
+		assert.equal(h.setModel[0].contextWindow, 1_000_000);
+		assert.match(notice(h), /glm-5\.3-flash/);
 	});
 
-	void it("leaves the session alone when it already matches", async () => {
-		const h = harness(stateFile({ enabled: true, model: "hyper/glm-5.3-flash" }), {
-			provider: "hyper",
-			id: "glm-5.3-flash",
+	void it("leaves a session that is already on the default alone", async () => {
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
+			current: { provider: "hyper", id: "glm-5.3-flash", contextWindow: 1_000_000 },
 		});
 		await h.sessionStart();
-		assert.deepEqual(h.setModelCalls, []);
+		assert.deepEqual(h.setModel, []);
+		assert.deepEqual(h.notify, []);
+	});
+
+	void it("respects a manual pick in this session instead of yanking it back", async () => {
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
+			state: { manual: { "/s/one.jsonl": true } },
+			sessionFile: "/s/one.jsonl",
+			current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
+		});
+		await h.sessionStart();
+		assert.deepEqual(h.setModel, []);
 		assert.deepEqual(h.notify, []);
 	});
 
 	void it("does nothing when disabled", async () => {
-		const h = harness(stateFile({ enabled: false, model: "hyper/glm-5.3-flash" }), {
-			provider: "hyper",
-			id: "deepseek-v4-flash",
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
+			state: { enabled: false },
+			current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
 		});
 		await h.sessionStart();
-		assert.deepEqual(h.setModelCalls, []);
+		assert.deepEqual(h.setModel, []);
+	});
+
+	void it("does nothing when settings define no default model", async () => {
+		const h = setup({ agentSettings: {}, current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 } });
+		await h.sessionStart();
+		assert.deepEqual(h.setModel, []);
 		assert.deepEqual(h.notify, []);
 	});
 
-	void it("warns instead of switching when the pin matches no available model", async () => {
-		const h = harness(stateFile({ enabled: true, model: "hyper/gpt-9" }), {
-			provider: "hyper",
-			id: "deepseek-v4-flash",
+	void it("warns when the default model is not in the available catalog", async () => {
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "gpt-9" },
+			current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
 		});
 		await h.sessionStart();
-		assert.deepEqual(h.setModelCalls, []);
+		assert.deepEqual(h.setModel, []);
 		assert.equal(h.notify[0].level, "warning");
 	});
 });
 
-void describe("/modelpin command", () => {
-	void it("pins and applies a model in one step", async () => {
-		const path = stateFile();
-		const h = harness(path, { provider: "hyper", id: "deepseek-v4-flash" });
-		await h.command().handler("hyper/glm-5.3-flash", { model: undefined, modelRegistry: { getAvailable: () => AVAILABLE }, ui: { notify: (m: string) => h.notify.push({ message: m }) } } as any);
-		assert.deepEqual(h.setModelCalls, [{ provider: "hyper", id: "glm-5.3-flash" }]);
-		assert.equal(JSON.parse(readFileSync(path, "utf8")).model, "hyper/glm-5.3-flash");
-	});
-
-	void it("reports the pin and the live state with no arguments", async () => {
-		const h = harness(stateFile({ enabled: true, model: "hyper/glm-5.3-flash" }), {
-			provider: "hyper",
-			id: "glm-5.3-flash",
+void describe("manual-claim tracking", () => {
+	void it("records a user pick so later resumes keep it", async () => {
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
+			sessionFile: "/s/one.jsonl",
 		});
-		await h.command().handler("", { model: { provider: "hyper", id: "glm-5.3-flash" }, ui: { notify: (m: string) => h.notify.push({ message: m }) } } as any);
-		assert.match(h.notify[0].message, /hyper\/glm-5\.3-flash/);
-		assert.match(h.notify[0].message, /on/);
+		await h.modelSelect("set", { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 });
+		assert.equal(loadState(h.statePath).manual["/s/one.jsonl"], true);
 	});
 
-	void it("stops syncing on off but keeps the pin", async () => {
-		const path = stateFile({ enabled: true, model: "hyper/glm-5.3-flash" });
-		const h = harness(path);
-		await h.command().handler("off", { ui: { notify: (m: string) => h.notify.push({ message: m }) } } as any);
-		const saved = JSON.parse(readFileSync(path, "utf8"));
-		assert.equal(saved.enabled, false);
-		assert.equal(saved.model, "hyper/glm-5.3-flash");
+	void it("ignores pi's own session restore — that is the state being corrected", async () => {
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
+			sessionFile: "/s/one.jsonl",
+		});
+		await h.modelSelect("restore", { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 });
+		assert.equal(loadState(h.statePath).manual["/s/one.jsonl"], undefined);
+	});
+
+	void it("does not claim the session for its own sync", async () => {
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
+			sessionFile: "/s/one.jsonl",
+			current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
+		});
+		await h.sessionStart(); // syncs; the fake pi re-emits model_select "set"
+		assert.equal(loadState(h.statePath).manual["/s/one.jsonl"], undefined);
+	});
+});
+
+void describe("/modelpin command", () => {
+	void it("reports the default, the sync state, and this session's model", async () => {
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
+			sessionFile: "/s/one.jsonl",
+			current: { provider: "hyper", id: "glm-5.3-flash", contextWindow: 1_000_000 },
+		});
+		await h.command().handler("", h.ctx);
+		assert.match(notice(h), /hyper\/glm-5\.3-flash/);
+		assert.match(notice(h), /on/);
+	});
+
+	void it("points at /model when handed a model name — the pin is the default now", async () => {
+		const h = setup({ agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" } });
+		await h.command().handler("hyper/deepseek-v4-flash", h.ctx);
+		assert.deepEqual(h.setModel, []);
+		assert.match(notice(h), /\/model/);
+	});
+
+	void it("stops syncing on off", async () => {
+		const h = setup({ agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" } });
+		await h.command().handler("off", h.ctx);
+		assert.equal(JSON.parse(readFileSync(h.statePath, "utf8")).enabled, false);
+	});
+
+	void it("resumes syncing on on", async () => {
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
+			state: { enabled: false },
+			current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
+		});
+		await h.command().handler("on", h.ctx);
+		assert.equal(JSON.parse(readFileSync(h.statePath, "utf8")).enabled, true);
+		assert.equal(h.setModel.length, 1);
 	});
 });
