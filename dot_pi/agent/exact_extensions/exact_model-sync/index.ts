@@ -5,7 +5,9 @@
  * resuming restores it, so the settings default only reaches sessions that
  * never chose. This extension syncs a single pinned model onto every session
  * at start instead — startup, resume, fork, new — so "which model am I on"
- * has one answer. The pin lives in ~/.pi/agent/model-sync.json, set with
+ * has one answer. The pin lives in ~/.pi/agent/pinned-model.json — named for what it
+ * holds, not for the mechanism, and kept distinct from pi's models.json —
+ * set with
  * /model-sync <provider/model>; /model-sync off stops the sync without
  * forgetting it.
  *
@@ -25,7 +27,7 @@ export interface ModelSyncOptions {
 }
 
 function defaultStatePath(): string {
-	return join(getAgentDir(), "model-sync.json");
+	return join(getAgentDir(), "pinned-model.json");
 }
 
 function availableModels(ctx: ExtensionContext): ModelRef[] {
