@@ -1,6 +1,8 @@
 /**
  * Smoke test for modelpin/index.ts — the session_start sync through the
- * registration surface pi uses. The agent dir is pointed at a temp path.
+ * registration surface pi uses. The agent dir is pointed at a temp path;
+ * the host is the shared fake (../testlib/fake-pi.ts), so pi's setModel /
+ * availability semantics live in one place instead of being re-derived here.
  *
  * Semantics: every session start syncs the session onto the settings default.
  * A manual switch lasts for the current run only — there is no persisted
@@ -14,6 +16,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerModelSync } from "./index.ts";
+import { makeFakePi } from "../testlib/fake-pi.ts";
 
 // Full model objects, as the registry holds them — contextWindow included,
 // because dropping it is the ?/0 footer bug this suite guards against.
@@ -24,7 +27,6 @@ const CATALOG = [
 
 function setup(opts: {
 	agentSettings?: unknown;
-	sessionFile?: string;
 	current?: { provider: string; id: string; contextWindow?: number };
 	/** When set, the available snapshot starts empty and fills after this many ms. */
 	availableAfterMs?: number;
@@ -39,53 +41,22 @@ function setup(opts: {
 		);
 	}
 
-	const calls: { notify: Array<{ message: string; level?: string }>; setModel: any[] } = {
-		notify: [],
-		setModel: [],
-	};
-	const handlers: Record<string, (event: any, ctx: any) => Promise<void>> = {};
-	const fakePi: any = {
-		on: (event: string, fn: (event: any, ctx: any) => Promise<void>) => {
-			handlers[event] = fn;
-		},
-		registerCommand: (_name: string, command: any) => {
-			fakePi.command = command;
-		},
-		// Mirror the real setModel: refuses while the provider is missing from
-		// the availability snapshot, then persists and emits model_select "set".
-		setModel: async (model: any) => {
-			if (!fakePi.ctx.modelRegistry.getAvailable().some((m: any) => m.provider === model.provider && m.id === model.id)) {
-				return false;
-			}
-			const previous = opts.current;
-			opts.current = model;
-			calls.setModel.push(model);
-			await handlers["model_select"]?.({ model, previousModel: previous, source: "set" }, fakePi.ctx);
-			return true;
-		},
-	};
-	const readyAt = Date.now() + (opts.availableAfterMs ?? 0);
-	fakePi.ctx = {
-		model: opts.current,
-		sessionManager: { getSessionFile: () => opts.sessionFile },
-		modelRegistry: {
-			getAvailable: () => (Date.now() >= readyAt ? CATALOG : []),
-			find: (provider: string, id: string) => CATALOG.find((m) => m.provider === provider && m.id === id),
-		},
-		ui: { notify: (message: string, level?: string) => calls.notify.push({ message, level }) },
-	};
-	registerModelSync(fakePi, { agentDir, pollMs: opts.pollMs, timeoutMs: opts.timeoutMs });
+	const fake = makeFakePi({
+		catalog: CATALOG,
+		current: opts.current,
+		availableAfterMs: opts.availableAfterMs,
+	});
+	registerModelSync(fake.pi, { agentDir, pollMs: opts.pollMs, timeoutMs: opts.timeoutMs });
+
+	const notice = () => fake.calls.notifies[0]?.message ?? "";
 	return {
-		...calls,
-		ctx: fakePi.ctx,
-		sessionStart: (reason = "resume") => handlers["session_start"]({ reason }, fakePi.ctx),
+		fake,
+		notice,
+		sessionStart: (reason = "resume") => fake.emit("session_start", { reason }),
 		modelSelect: (source: "set" | "cycle" | "restore", model = opts.current) =>
-			handlers["model_select"]?.({ model, previousModel: undefined, source }, fakePi.ctx),
-		command: () => fakePi.command,
+			fake.emit("model_select", { model, previousModel: undefined, source }),
 	};
 }
-
-const notice = (h: { notify: Array<{ message: string; level?: string }> }) => h.notify[0]?.message ?? "";
 
 void describe("session_start sync", () => {
 	const SETTINGS = { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" };
@@ -96,11 +67,11 @@ void describe("session_start sync", () => {
 			current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
 		});
 		await h.sessionStart("resume");
-		assert.equal(h.setModel.length, 1);
+		assert.equal(h.fake.calls.modelChanges.length, 1);
 		// Regression: a bare {provider, id} ref reached the session once and the
 		// footer read its missing contextWindow as "?/0".
-		assert.equal(h.setModel[0].contextWindow, 1_000_000);
-		assert.match(notice(h), /glm-5\.3-flash/);
+		assert.equal(h.fake.calls.modelChanges[0].contextWindow, 1_000_000);
+		assert.match(h.notice(), /glm-5\.3-flash/);
 	});
 
 	void it("leaves a session that is already on the default alone", async () => {
@@ -109,25 +80,30 @@ void describe("session_start sync", () => {
 			current: { provider: "hyper", id: "glm-5.3-flash", contextWindow: 1_000_000 },
 		});
 		await h.sessionStart();
-		assert.deepEqual(h.setModel, []);
-		assert.deepEqual(h.notify, []);
+		assert.deepEqual(h.fake.calls.modelChanges, []);
+		assert.deepEqual(h.fake.calls.notifies, []);
 	});
 
 	void it("does nothing when settings define no default model", async () => {
 		const h = setup({ agentSettings: {}, current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 } });
 		await h.sessionStart();
-		assert.deepEqual(h.setModel, []);
-		assert.deepEqual(h.notify, []);
+		assert.deepEqual(h.fake.calls.modelChanges, []);
+		assert.deepEqual(h.fake.calls.notifies, []);
 	});
 
 	void it("warns when the default model is not in the available catalog", async () => {
+		// Same gate as the race below — from the extension's seat, an absent
+		// model is an absent model. Short timeout keeps the test fast.
 		const h = setup({
 			agentSettings: { defaultProvider: "hyper", defaultModel: "gpt-9" },
 			current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
+			pollMs: 5,
+			timeoutMs: 40,
 		});
 		await h.sessionStart();
-		assert.deepEqual(h.setModel, []);
-		assert.equal(h.notify[0].level, "warning");
+		assert.deepEqual(h.fake.calls.modelChanges, []);
+		assert.equal(h.fake.calls.notifies[0].level, "warning");
+		assert.match(h.notice(), /not available yet/);
 	});
 
 	void it("switches even when the session carries a stale manual pick from a previous run", async () => {
@@ -137,8 +113,8 @@ void describe("session_start sync", () => {
 			current: { provider: "commandcode", id: "z-ai/glm-5.3-flash", contextWindow: 1_000_000 },
 		});
 		await h.sessionStart("resume");
-		assert.equal(h.setModel.length, 1);
-		assert.equal(h.setModel[0].id, "glm-5.3-flash");
+		assert.equal(h.fake.calls.modelChanges.length, 1);
+		assert.equal(h.fake.calls.modelChanges[0].id, "glm-5.3-flash");
 	});
 });
 
@@ -152,8 +128,8 @@ void describe("availability race at startup", () => {
 			timeoutMs: 2_000,
 		});
 		await h.sessionStart();
-		assert.equal(h.setModel.length, 1, "sync must land once the provider becomes available");
-		assert.match(notice(h), /glm-5\.3-flash/);
+		assert.equal(h.fake.calls.modelChanges.length, 1, "sync must land once the provider becomes available");
+		assert.match(h.notice(), /glm-5\.3-flash/);
 	});
 
 	void it("warns only after the wait is exhausted", async () => {
@@ -165,16 +141,16 @@ void describe("availability race at startup", () => {
 			timeoutMs: 40,
 		});
 		await h.sessionStart();
-		assert.deepEqual(h.setModel, []);
-		assert.equal(h.notify[0].level, "warning");
-		assert.match(notice(h), /no configured auth/);
+		assert.deepEqual(h.fake.calls.modelChanges, []);
+		assert.equal(h.fake.calls.notifies[0].level, "warning");
+		assert.match(h.notice(), /no configured auth/);
 	});
 });
 
 void describe("surface", () => {
 	void it("registers no command — the behavior is unconditional", () => {
 		const h = setup({ agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" } });
-		assert.equal(h.command(), undefined);
+		assert.deepEqual(Object.keys(h.fake.commands), []);
 	});
 
 	// A mid-run manual switch is pi's own setModel; the extension must neither
@@ -185,6 +161,6 @@ void describe("surface", () => {
 			current: { provider: "hyper", id: "glm-5.3-flash", contextWindow: 1_000_000 },
 		});
 		await h.modelSelect("set", { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 });
-		assert.deepEqual(h.setModel, []);
+		assert.deepEqual(h.fake.calls.modelChanges, []);
 	});
 });

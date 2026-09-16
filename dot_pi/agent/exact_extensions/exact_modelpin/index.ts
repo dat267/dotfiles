@@ -41,18 +41,18 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** pi's configured-provider set fills asynchronously; before it lands,
  *  setModel refuses and even pi's own model restore is skipped (the session
  *  then sits on the unknown/unknown placeholder). Poll until the default
- *  model is offered, within a bounded wait. */
+ *  model resolves to a full registry entry, within a bounded wait. */
 async function awaitAvailable(
 	ctx: ExtensionContext,
 	ref: ModelRef,
 	pollMs: number,
 	timeoutMs: number,
-): Promise<boolean> {
+): Promise<{ provider: string; id: string } | undefined> {
 	const deadline = Date.now() + timeoutMs;
 	for (;;) {
-		const offered = ctx.modelRegistry.getAvailable().some((m) => m.provider === ref.provider && m.id === ref.id);
-		if (offered) return true;
-		if (Date.now() >= deadline) return false;
+		const found = ctx.modelRegistry.find(ref.provider, ref.id);
+		if (found) return found;
+		if (Date.now() >= deadline) return undefined;
 		await sleep(pollMs);
 	}
 }
@@ -68,25 +68,23 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelPinOptions = {
 
 		if (ctx.model?.provider && ctx.model?.id && refOf(ctx.model) === refOf(defaultRef)) return;
 
-		// Resolve to the registry's full model. setModel handed a bare
-		// {provider, id} ref once and the footer read its missing
-		// contextWindow as "?/0" — a ref is not a model.
-		const full = ctx.modelRegistry.find(defaultRef.provider, defaultRef.id);
+		// One gate for both failure modes pi shows at startup: the default is
+		// absent from the availability snapshot either because its auth is not
+		// configured yet (the async refresh is still in flight) or because it
+		// is genuinely not offered. From out here they are the same fact —
+		// poll once, warn once. (The shared fake exposed the old ordering:
+		// find-before-poll made the poll dead code during the race.)
+		const full = await awaitAvailable(ctx, defaultRef, pollMs, timeoutMs);
 		if (!full) {
-			ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} is not in the available models`, "warning");
-			return;
-		}
-
-		if (!(await awaitAvailable(ctx, defaultRef, pollMs, timeoutMs))) {
 			const current = ctx.model && ctx.model.provider !== "unknown" ? refOf(ctx.model) : "no model yet";
-			ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} has no configured auth yet — staying on ${current}`, "warning");
+			ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} is not available yet (no configured auth, or not in the catalog) — staying on ${current}`, "warning");
 			return;
 		}
 
 		try {
 			const applied = await pi.setModel(full as Parameters<typeof pi.setModel>[0]);
 			if (applied === false) {
-				ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} has no configured auth — staying on ${ctx.model && ctx.model.provider !== "unknown" ? refOf(ctx.model) : "no model yet"}`, "warning");
+				ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} refused by the host (no configured auth) — staying on ${ctx.model && ctx.model.provider !== "unknown" ? refOf(ctx.model) : "no model yet"}`, "warning");
 				return;
 			}
 			ctx.ui.notify(`[modelpin] using default ${refOf(defaultRef)} (${reason})`, "info");
