@@ -24,6 +24,7 @@ Edit source files (`dot_*` prefix), never deployed versions. Preserve `{{- ... -
 chezmoi diff                         # verify before applying
 chezmoi apply --force <target-path>  # full apply fails on mimeapps.list TTY conflict
 python3 script.py --help             # verify new CLI scripts parse
+pi-lint-extensions                   # tsc --strict every pi extension; node --test does NOT typecheck — run before committing extension changes
 ```
 
 Chezmoi source is the authoritative reference — clone and grep it (`internal/chezmoi/` = mechanics, `internal/cmd/` = commands/template funcs):
