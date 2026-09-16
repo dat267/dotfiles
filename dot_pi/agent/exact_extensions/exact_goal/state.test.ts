@@ -101,7 +101,7 @@ test("fold rejects non-sequential goal turns", () => {
 
 test("fold ignores turn entries from a previous goal", () => {
 	const g1 = createGoalState("first", T0);
-	const g2 = createGoalState("second", null, T0 + 500);
+	const g2 = { ...createGoalState("second"), createdAt: T0 + 500 };
 	const view = foldGoal([
 		change("create", g1, T0),
 		turn(g1.id, 1, 1, T0 + 10),
@@ -131,7 +131,7 @@ test("applyChange enforces CAS revision", () => {
 
 test("entering blocked requires a blocker reason", () => {
 	const g = createGoalState("obj", T0);
-	const noReason = { ...g, phase: "blocked", revision: 2, updatedAt: T0 + 1 };
+	const noReason = { ...g, phase: "blocked" as const, revision: 2, updatedAt: T0 + 1 };
 	assert.throws(
 		() => applyChange(g, { operation: "block", goal: noReason, timestamp: T0 + 1 }),
 		/blocker reason/,

@@ -95,11 +95,15 @@ void describe("goal extension smoke", () => {
 		void it("cards render tinted vertical padding like pi tool cards", () => {
 			// Box(1,1): blank first/last lines (tinted), content between.
 			const { calls } = boot();
-			const render = calls.find(c => c.kind === "entryRenderer" && c.customType === "pi-goal").fn;
+			const render = calls.find((c) => c.kind === "entryRenderer" && c.customType === "pi-goal")?.fn;
+			assert.ok(render, "pi-goal entry renderer registered");
 			const out = lines(render({ data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", createdAt: 1, updatedAt: 1 } } }, { expanded: false }, theme));
+			const last = out.at(-1);
+			const secondLast = out.at(-2);
+			assert.ok(last !== undefined && secondLast !== undefined, "expected padding lines");
 			assert.equal(out[0].trim(), "", "expected tinted padding line first");
-			assert.equal(out.at(-1).trim(), "", "expected tinted padding line last");
-			assert.equal(out.at(-2).trim() !== "", true, "padding should be exactly one line");
+			assert.equal(last.trim(), "", "expected tinted padding line last");
+			assert.equal(secondLast.trim() !== "", true, "padding should be exactly one line");
 		});
 
 		void it("tool cards are bare renderer output — pi wraps them in its own tinted box", () => {

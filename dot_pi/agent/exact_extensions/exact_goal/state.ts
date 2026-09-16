@@ -185,7 +185,8 @@ export function truncateObjective(text: string, max = 60): string {
 }
 
 /** Shape the get_goal tool-result payload (the model-facing contract). */
-export function goalView(goal: GoalView | null): { goal: Record<string, unknown> | null; activation: string } {
+export function goalView(goal: GoalView | null): { goal: Record<string, unknown> | null; activation?: string } {
+	// No goal → no activation; inventing one would tell the model a goal exists.
 	if (!goal) return { goal: null };
 	return {
 		goal: {

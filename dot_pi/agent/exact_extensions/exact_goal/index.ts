@@ -23,7 +23,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	const machine = new GoalMachine();
 
 	/** Last failing provider HTTP response this run — cleared on success or new run. */
-	let providerError: { status: number; message: string } | undefined;
+	let providerError: { status: number; message: string; retryAfterMs?: number } | undefined;
 	/** Pending backoff timer from a scheduleRetry effect. */
 	let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -117,7 +117,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	pi.registerMessageRenderer<Record<string, unknown>>(EVENT_TYPE, (message, { expanded }, theme) => {
 		const kind = (message.details as any)?.kind ?? "event";
 		const turn = (message.details as any)?.turn as number | undefined;
-		return renderGoalEventMessage(kind, message.content, turn, machine.snapshot.goal?.phase, theme, expanded);
+		return renderGoalEventMessage(kind, message.content as string, turn, machine.snapshot.goal?.phase, theme, expanded);
 	});
 
 	// Durable lifecycle mutations (appendEntry) render as transcript cards.
@@ -168,9 +168,11 @@ export default function piGoal(pi: ExtensionAPI) {
 			additionalProperties: false,
 		} as any,
 		renderCall: (args, theme) => renderCreateGoalRenderCall(args as Record<string, unknown> | undefined, theme),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
+			const params = rawParams as Record<string, unknown>;
 			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
-			if (!objective) return { content: [{ type: "text", text: "objective is required." }], isError: true };
+			if (!objective)
+				return { content: [{ type: "text", text: "objective is required." }], isError: true, details: undefined };
 			const { effects, reply, isError } = machine.dispatch({ type: "goal_create", objective });
 			apply(effects, ctx);
 			return { content: [{ type: "text", text: reply ?? "Goal created." }], isError, details: { goal: machine.snapshot.goal } };
@@ -200,7 +202,8 @@ export default function piGoal(pi: ExtensionAPI) {
 		} as any,
 		renderCall: (args, theme) => renderUpdateGoalRenderCall(args as Record<string, unknown> | undefined, theme),
 		renderResult: (result, _options, theme) => renderUpdateGoalRenderResult(result as any, theme),
-		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
+			const params = rawParams as Record<string, unknown>;
 			const { effects, reply, isError } = machine.dispatch({
 				type: "goal_update",
 				goal_id: String(params.goal_id ?? ""),
@@ -292,10 +295,13 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	pi.on("agent_end", (_event, ctx) => {
+		const usage = ctx.getContextUsage();
 		apply(
 			machine.dispatch({
 				type: "agent_end",
-				contextUsage: ctx.getContextUsage(),
+				// getContextUsage() is typed nullable; null tokens already model
+				// "unknown" downstream — never hand the machine bare undefined.
+				contextUsage: usage ?? { tokens: null, contextWindow: 0 },
 				aborted: !!ctx.signal?.aborted,
 			}).effects,
 			ctx,
@@ -304,10 +310,11 @@ export default function piGoal(pi: ExtensionAPI) {
 
 	pi.on("agent_settled", (_event, ctx) => {
 		const err = providerError;
+		const usage = ctx.getContextUsage();
 		apply(
 			machine.dispatch({
 				type: "agent_settled",
-				contextUsage: ctx.getContextUsage(),
+				contextUsage: usage ?? { tokens: null, contextWindow: 0 },
 				providerError: err,
 			}).effects,
 			ctx,

@@ -49,8 +49,7 @@ void describe("GoalMachine.goal_create", () => {
 	void it("no existing goal: appendEntry(create), armed, createdThisRun", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [] });
-		const { effects, error } = m.dispatch({ type: "goal_create", objective: "ship it" });
-		assert.equal(error, undefined);
+		const { effects } = m.dispatch({ type: "goal_create", objective: "ship it" });
 		const entry = effects.find((e) => e.kind === "appendEntry");
 		assert.ok(entry, "expected appendEntry effect");
 		assert.equal((entry.data as GoalChangeEntry).operation, "create");
@@ -79,8 +78,7 @@ void describe("GoalMachine.goal_create", () => {
 		};
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create", g), done] });
-		const { error } = m.dispatch({ type: "goal_create", objective: "fresh" });
-		assert.equal(error, undefined);
+		m.dispatch({ type: "goal_create", objective: "fresh" });
 		assert.equal(m.snapshot.goal?.objective, "fresh");
 	});
 });
@@ -291,7 +289,6 @@ void describe("GoalMachine.goal_update", () => {
 
 	void it("stale ref: error, no mutation", () => {
 		const m = armedMachine();
-		const ref = currentSnapshot(m);
 		const real = m.snapshot.goal!;
 		const { reply, isError, effects } = m.dispatch({ type: "goal_update", goal_id: real.id, revision: 999, action: "complete" });
 		assert.equal(isError, true);
@@ -304,7 +301,6 @@ void describe("GoalMachine.goal_update", () => {
 		// Session evidence: the model hallucinated goal_9f5b6c48e33d and the
 		// combined 'stale ref' message sent it through a get_goal round trip.
 		const m = armedMachine();
-		const ref = currentSnapshot(m);
 		const { reply, isError } = m.dispatch({ type: "goal_update", goal_id: "goal_9f5b6c48e33d", revision: 1, action: "complete" });
 		assert.equal(isError, true);
 		assert.match(reply ?? '', new RegExp(m.snapshot.goal!.id));

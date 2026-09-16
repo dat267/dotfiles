@@ -8,7 +8,7 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Provider } from "@earendil-works/pi-ai";
 import { registerCharmHyper } from "./index.ts";
 

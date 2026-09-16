@@ -15,7 +15,7 @@
  * On any failure it returns undefined and pi falls back to default compaction.
  */
 
-import type { ExtensionAPI, Model } from "@earendil-works/pi-coding-agent";
+import type { CompactionResult, ExtensionAPI, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { convertToLlm, serializeConversation } from "@earendil-works/pi-coding-agent";
 import {
 	buildSummarizerPrompt,
@@ -38,17 +38,33 @@ function parseOverride(
 	return [envValue.slice(0, slash), envValue.slice(slash + 1)];
 }
 
+// Model and Usage live in @earendil-works/pi-ai, which extension dirs cannot
+// import directly (it is a dependency of the pi package, not resolvable from
+// here) — derive both from pi's exported surface instead.
+type Model = NonNullable<ReturnType<ModelRegistry["find"]>>;
+type Usage = CompactionResult["usage"];
+
 /** Text budget for the summary — well above stock's ~13k, no reasoning tokens. */
 const SUMMARY_MAX_TOKENS = 32_768;
 
 type RegistryLike = {
-	find(provider: string, modelId: string): Model<any> | undefined;
-	hasConfiguredAuth(model: Model<any>): boolean;
+	find(provider: string, modelId: string): Model | undefined;
+	hasConfiguredAuth(model: Model): boolean;
+	complete(
+		model: Model,
+		context: unknown,
+		options?: { maxTokens?: number; signal?: AbortSignal; cacheRetention?: string },
+	): Promise<{
+		stopReason: string;
+		errorMessage?: string;
+		content: Array<{ type: string; text?: string }>;
+		usage?: unknown;
+	}>;
 };
 
 type CtxLike = {
 	modelRegistry: RegistryLike;
-	model?: Model<any>;
+	model?: Model;
 	ui?: { notify(message: string, level?: string): void };
 	hasUI?: boolean;
 };
@@ -60,7 +76,7 @@ type CtxLike = {
 export function pickSummarizer(
 	ctx: CtxLike,
 	envModel?: string,
-): Model<any> | undefined {
+): Model | undefined {
 	const override = parseOverride(envModel);
 	if (override) {
 		const model = ctx.modelRegistry.find(override[0], override[1]);
@@ -71,7 +87,7 @@ export function pickSummarizer(
 
 async function summarize(
 	ctx: CtxLike,
-	model: Model<any>,
+	model: Model,
 	prompt: string,
 	signal: AbortSignal,
 ): Promise<{ text: string; usage?: unknown }> {
@@ -95,7 +111,7 @@ async function summarize(
 		.filter((c): c is { type: "text"; text: string } => c.type === "text")
 		.map((c) => c.text)
 		.join("\n");
-	return { text, usage: response.usage };
+	return { text, usage: response.usage as Usage | undefined };
 }
 
 export default function (pi: ExtensionAPI) {
@@ -165,7 +181,7 @@ export default function (pi: ExtensionAPI) {
 					summary,
 					firstKeptEntryId,
 					tokensBefore,
-					usage: historyResult?.usage ?? prefixResult?.usage,
+					usage: (historyResult?.usage ?? prefixResult?.usage) as Usage,
 					details: { readFiles: lists.readFiles, modifiedFiles: lists.modifiedFiles },
 				},
 			};

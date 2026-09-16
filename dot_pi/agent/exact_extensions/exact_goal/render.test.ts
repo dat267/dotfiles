@@ -79,7 +79,7 @@ void describe("renderGoalCard", () => {
 
 void describe("renderGoalChangeEntry", () => {
 	void it("renders a create entry", () => {
-		const goal = createGoalState("test objective", null);
+		const goal = createGoalState("test objective");
 		const entry: GoalChangeEntry = { operation: "create", goal, timestamp: Date.now() };
 		const card = renderGoalChangeEntry(entry, stubTheme, false);
 		assert.ok(card instanceof Box);
@@ -92,7 +92,7 @@ void describe("renderGoalChangeEntry", () => {
 	});
 
 	void it("renders a blocked entry with reason", () => {
-		const goal = { ...createGoalState("test", null), phase: "blocked" as const, blockedReason: { code: "err", message: "stuck" } };
+		const goal = { ...createGoalState("test"), phase: "blocked" as const, blockedReason: { code: "err", message: "stuck" } };
 		const entry: GoalChangeEntry = { operation: "block", goal, timestamp: Date.now() };
 		const card = renderGoalChangeEntry(entry, stubTheme, false);
 		assert.ok(card instanceof Box);
@@ -144,8 +144,8 @@ void describe("renderGoalTurnEntry", () => {
 		const data: GoalTurnEntry = { goalId: "g1", revision: 1, turn: 3, timestamp: Date.now() };
 		const card = renderGoalTurnEntry(data, stubTheme, false);
 		assert.ok(card instanceof Text, "flat Text — no tinted box, no vertical padding");
-		assert.ok(card.text.includes("#3"), `label missing round number: ${card.text}`);
 		const out = card.render(80);
+		assert.ok(out[0].includes("#3"), `label missing round number: ${JSON.stringify(out)}`);
 		assert.equal(out.length, 1, `one line, no vertical padding: ${JSON.stringify(out)}`);
 		assert.equal(out[0].startsWith(" "), true, "1-space left padding");
 	});

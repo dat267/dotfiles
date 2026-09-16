@@ -242,7 +242,8 @@ export class GoalMachine {
 		// applyChange). A transition replay would reject must never be written;
 		// applyChange throws and leaves this.view untouched.
 		const validated = applyChange(this.view ? toSnapshot(this.view) : null, data);
-		const turns = this.view?.id === validated?.id ? this.view.turnsStarted : 0;
+		const view = this.view;
+	const turns = view && validated && view.id === validated.id ? view.turnsStarted : 0;
 		this.view = validated ? { ...validated, armed: this.armed, turnsStarted: turns } : null;
 		return [{ kind: "appendEntry", entryType: CUSTOM_TYPE, data }, { kind: "renderStatus" }];
 	}
