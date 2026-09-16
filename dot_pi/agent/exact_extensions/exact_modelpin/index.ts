@@ -1,5 +1,5 @@
 /**
- * modelpin — every session on the default model, unless manually switched.
+ * modelpin — every session starts on the default model.
  *
  * pi scopes the model to the session: /model writes a model_change entry and
  * resuming restores it, so the settings default only reaches sessions that
@@ -7,63 +7,66 @@
  * IS the settings default (what /model + Ctrl+S writes), read live, and every
  * session start syncs the session onto it.
  *
- * A manual pick outranks the default. model_select with source "set"/"cycle"
- * is a deliberate choice (the picker, Ctrl+P) and claims the session for good;
- * source "restore" is pi putting the session's stored model back — the very
- * state being corrected — so it never counts. The extension's own setModel
- * also emits "set", which is why the sync guards itself with a flag.
+ * A manual switch lasts for the current run: setModel persists it into the
+ * session, and the next start syncs back to the default. There is no
+ * persisted state, no command, no opt-out short of removing the extension.
+ * An earlier version kept a per-session manual claim in pinned-model.json;
+ * one /model pick then silenced the sync for that session forever — that
+ * file is obsolete and can be deleted.
  *
  * setModel only affects the current session ("without changing the configured
- * default for new sessions"), so the sync runs on every start, including
- * /reload. There is no command: the behavior is unconditional, and the
- * escape hatches are a manual pick (per session) and `enabled: false` in
- * the state file (global).
+ * default for new sessions"), which is why the sync runs on every start,
+ * including /reload.
  */
 
-import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
-import { loadState, saveState, type ModelState } from "./state.ts";
 import { readDefaultModelRef, type ModelRef } from "./defaults.ts";
 
 export interface ModelPinOptions {
-	statePath?: string;
 	agentDir?: string;
+	/** Availability-wait tuning. pi's provider-auth snapshot is populated by an
+	 *  async refresh that can still be in flight when session_start fires; the
+	 *  sync polls until the default model shows up as available. */
+	pollMs?: number;
+	timeoutMs?: number;
 }
 
 function refOf(model: { provider: string; id: string }): string {
 	return `${model.provider}/${model.id}`;
 }
 
-export function registerModelSync(pi: ExtensionAPI, options: ModelPinOptions = {}) {
-	const statePath = options.statePath ?? join(getAgentDir(), "pinned-model.json");
-	const agentDir = options.agentDir ?? getAgentDir();
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-	// Guards the model_select handler while the sync's own setModel runs —
-	// a programmatic set emits "set" exactly like a user pick.
-	let syncing = false;
-
-	/** A pick that matches the default is not a claim — it is a no-op, and
-	 *  dropping the entry keeps the file from growing across sessions. */
-	function claim(state: ModelState, sessionFile: string | undefined, picked: ModelRef, defaultRef: ModelRef | undefined): ModelState {
-		if (!sessionFile) return state;
-		const manual = { ...state.manual };
-		if (defaultRef && refOf(picked) === refOf(defaultRef)) delete manual[sessionFile];
-		else manual[sessionFile] = true;
-		return { ...state, manual };
+/** pi's configured-provider set fills asynchronously; before it lands,
+ *  setModel refuses and even pi's own model restore is skipped (the session
+ *  then sits on the unknown/unknown placeholder). Poll until the default
+ *  model is offered, within a bounded wait. */
+async function awaitAvailable(
+	ctx: ExtensionContext,
+	ref: ModelRef,
+	pollMs: number,
+	timeoutMs: number,
+): Promise<boolean> {
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		const offered = ctx.modelRegistry.getAvailable().some((m) => m.provider === ref.provider && m.id === ref.id);
+		if (offered) return true;
+		if (Date.now() >= deadline) return false;
+		await sleep(pollMs);
 	}
+}
+
+export function registerModelSync(pi: ExtensionAPI, options: ModelPinOptions = {}) {
+	const agentDir = options.agentDir ?? getAgentDir();
+	const pollMs = options.pollMs ?? 150;
+	const timeoutMs = options.timeoutMs ?? 4_000;
 
 	async function sync(ctx: ExtensionContext, reason: string): Promise<void> {
-		const state = loadState(statePath);
-		if (!state.enabled) return;
-
 		const defaultRef = readDefaultModelRef(agentDir);
 		if (!defaultRef) return;
 
-		const sessionFile = ctx.sessionManager.getSessionFile();
-		if (sessionFile && state.manual[sessionFile]) return;
-
-		if (ctx.model && refOf(ctx.model) === refOf(defaultRef)) return;
+		if (ctx.model?.provider && ctx.model?.id && refOf(ctx.model) === refOf(defaultRef)) return;
 
 		// Resolve to the registry's full model. setModel handed a bare
 		// {provider, id} ref once and the footer read its missing
@@ -74,35 +77,27 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelPinOptions = {
 			return;
 		}
 
-		syncing = true;
+		if (!(await awaitAvailable(ctx, defaultRef, pollMs, timeoutMs))) {
+			const current = ctx.model && ctx.model.provider !== "unknown" ? refOf(ctx.model) : "no model yet";
+			ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} has no configured auth yet — staying on ${current}`, "warning");
+			return;
+		}
+
 		try {
 			const applied = await pi.setModel(full as Parameters<typeof pi.setModel>[0]);
 			if (applied === false) {
-				ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} has no configured auth — staying on ${ctx.model ? refOf(ctx.model) : "nothing"}`, "warning");
+				ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} has no configured auth — staying on ${ctx.model && ctx.model.provider !== "unknown" ? refOf(ctx.model) : "no model yet"}`, "warning");
 				return;
 			}
 			ctx.ui.notify(`[modelpin] using default ${refOf(defaultRef)} (${reason})`, "info");
 		} catch (error) {
 			const detail = error instanceof Error ? error.message : String(error);
 			ctx.ui.notify(`[modelpin] could not switch to ${refOf(defaultRef)}: ${detail}`, "warning");
-		} finally {
-			syncing = false;
 		}
 	}
 
 	pi.on("session_start", async (event, ctx) => {
 		await sync(ctx, event.reason);
-	});
-
-	pi.on("model_select", async (event, ctx) => {
-		if (syncing) return;
-		if (event.source === "restore") return;
-
-		const sessionFile = ctx.sessionManager.getSessionFile();
-		if (!sessionFile) return;
-		const picked = { provider: event.model.provider, id: event.model.id };
-		const state = claim(loadState(statePath), sessionFile, picked, readDefaultModelRef(agentDir));
-		saveState(statePath, state);
 	});
 }
 
