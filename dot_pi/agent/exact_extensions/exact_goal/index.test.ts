@@ -10,38 +10,20 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 import piGoal from "./index.ts";
+import { makeFakePi } from "../testlib/fake-pi.ts";
 
 type Recorded = { kind: string; [k: string]: any };
 
 void describe("goal extension smoke", () => {
+	// Host = the shared fake; boot() adapts its live capture stream to the
+	// flat kind-tagged vocabulary these tests assert on.
 	function boot() {
-		const calls: Recorded[] = [];
-		const fakePi = {
-			registerMessageRenderer: () => {},
-			registerEntryRenderer: (customType: string, fn: any) => calls.push({ kind: "entryRenderer", customType, fn }),
-			registerTool: (t: any) => calls.push({ kind: "tool", tool: t }),
-			registerCommand: (n: string, c: any) => calls.push({ kind: "command", name: n, command: c }),
-			on: (ev: string, fn: any) => calls.push({ kind: "event", event: ev, fn }),
-			appendEntry: (entryType: string, data: any) => calls.push({ kind: "appendEntry", entryType, data }),
-			sendMessage: (msg: any, opts: any) => calls.push({ kind: "sendMessage", msg, opts }),
-			getActiveTools: () => [] as string[],
-			setActiveTools: () => {},
-		};
-		piGoal(fakePi as any);
-		return { calls, events: Object.fromEntries(calls.filter(c => c.kind === "event").map(c => [c.event, c.fn])), tools: Object.fromEntries(calls.filter(c => c.kind === "tool").map(c => [c.tool.name, c.tool])) };
+		const fake = makeFakePi();
+		piGoal(fake.pi);
+		return { calls: fake.calls.all as Recorded[], events: fake.handlers, tools: fake.tools };
 	}
 
-	const ctx = (entries: any[] = []) => ({
-		sessionManager: { getBranch: () => entries },
-		getContextUsage: () => ({ tokens: 100_000, contextWindow: 1_000_000, percent: 10 }),
-		ui: {
-			theme: { fg: (_s: string, t: string) => t, bold: (t: string) => t },
-			setStatus: () => {},
-			setWidget: () => {},
-			notify: () => {},
-		},
-		signal: { aborted: false },
-	});
+	const ctx = (entries: any[] = []) => makeFakePi({ entries }).ctx;
 
 	void it("registers the three goal tools and lifecycle events", () => {
 		const { tools, events } = boot();
@@ -84,7 +66,7 @@ void describe("goal extension smoke", () => {
 		await events.agent_settled({}, ctx());
 		const msg = calls.find(c => c.kind === "sendMessage");
 		assert.ok(msg, "continuation round message sent");
-		assert.match(msg.msg.content, /<goal_round>/);
+		assert.match(msg.message.content, /<goal_round>/);
 		assert.equal(calls.some(c => c.kind === "appendEntry"), false, "turn card is admitted at next agent_end");
 	});
 

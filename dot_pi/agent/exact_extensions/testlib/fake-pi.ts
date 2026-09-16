@@ -20,6 +20,8 @@ export interface FakePiOptions {
 	availableAfterMs?: number;
 	/** Initial ctx.model. */
 	current?: FakeModel;
+	/** Durable entries replayed via ctx.sessionManager.getBranch(). */
+	entries?: unknown[];
 }
 
 export interface FakePi {
@@ -30,13 +32,22 @@ export interface FakePi {
 		messages: Array<{ message: unknown; opts: unknown }>;
 		notifies: Array<{ message: string; level?: string }>;
 		modelChanges: FakeModel[];
+		/** Live kind-tagged stream of every captured host call and registration. */
+		all: Array<{ kind: string; [k: string]: unknown }>;
 	};
 	commands: Record<string, any>;
+	tools: Record<string, any>;
+	entryRenderers: Record<string, any>;
+	messageRenderers: Record<string, any>;
+	/** Live view: first handler registered per event. */
+	handlers: Record<string, (event: unknown, ctx: unknown) => Promise<void>>;
 	runCommand: (name: string, args?: string) => Promise<void>;
 	emit: (event: string, payload?: unknown) => Promise<void>;
 }
 
 export function makeFakePi(options: FakePiOptions = {}): FakePi {
+	let activeTools: string[] = [];
+	const all: Array<{ kind: string; [k: string]: unknown }> = [];
 	const catalog = options.catalog ?? [];
 	const readyAt = Date.now() + (options.availableAfterMs ?? 0);
 	const visible = () => (Date.now() >= readyAt ? catalog : []);
@@ -47,9 +58,13 @@ export function makeFakePi(options: FakePiOptions = {}): FakePi {
 		messages: [] as Array<{ message: unknown; opts: unknown }>,
 		notifies: [] as Array<{ message: string; level?: string }>,
 		modelChanges: [] as FakeModel[],
+		all,
 	};
 
 	const commands: Record<string, any> = {};
+	const tools: Record<string, any> = {};
+	const entryRenderers: Record<string, any> = {};
+	const messageRenderers: Record<string, any> = {};
 
 	const pi: any = {
 		on: (event: string, fn: (event: unknown, ctx: unknown) => Promise<void>) => {
@@ -57,10 +72,36 @@ export function makeFakePi(options: FakePiOptions = {}): FakePi {
 			list.push(fn);
 			handlers.set(event, list);
 		},
-		appendEntry: (entryType: string, data: unknown) => calls.entries.push({ entryType, data }),
-		sendMessage: (message: unknown, opts: unknown) => calls.messages.push({ message, opts }),
+		appendEntry: (entryType: string, data: unknown) => {
+			const record = { kind: "appendEntry", entryType, data };
+			all.push(record);
+			calls.entries.push(record);
+		},
+		sendMessage: (message: unknown, opts: unknown) => {
+			const record = { kind: "sendMessage", message, opts };
+			all.push(record);
+			calls.messages.push(record);
+		},
 		registerCommand: (name: string, command: any) => {
 			commands[name] = command;
+			all.push({ kind: "command", name, command });
+		},
+		registerTool: (tool: any) => {
+			tools[tool.name] = tool;
+			all.push({ kind: "tool", tool });
+		},
+		registerEntryRenderer: (customType: string, fn: any) => {
+			entryRenderers[customType] = fn;
+			all.push({ kind: "entryRenderer", customType, fn });
+		},
+		registerMessageRenderer: (customType: string, fn: any) => {
+			messageRenderers[customType] = fn;
+			all.push({ kind: "messageRenderer", customType, fn });
+		},
+		getActiveTools: () => [...activeTools],
+		setActiveTools: (names: string[]) => {
+			activeTools = [...names];
+			all.push({ kind: "setActiveTools", names });
 		},
 		// pi's extension-API setModel: refuses (false) while the provider has no
 		// availability snapshot — it must not change the model nor emit. On
@@ -82,12 +123,21 @@ export function makeFakePi(options: FakePiOptions = {}): FakePi {
 		get model() {
 			return current;
 		},
+		sessionManager: {
+			getBranch: () => options.entries ?? [],
+		},
+		getContextUsage: () => ({ tokens: 100_000, contextWindow: 1_000_000, percent: 10 }),
+		signal: { aborted: false },
 		modelRegistry: {
 			getAvailable: () => visible(),
 			find: (provider: string, id: string) => visible().find((m) => m.provider === provider && m.id === id),
 		},
 		ui: {
+			// Identity styling — assertions verify structure, not color codes.
+			theme: { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t },
 			notify: (message: string, level?: string) => calls.notifies.push({ message, level }),
+			setStatus: (key: string, value: unknown) => all.push({ kind: "setStatus", key, value }),
+			setWidget: (key: string, value: unknown) => all.push({ kind: "setWidget", key, value }),
 		},
 	};
 
@@ -96,6 +146,14 @@ export function makeFakePi(options: FakePiOptions = {}): FakePi {
 		ctx,
 		calls,
 		commands,
+		tools,
+		entryRenderers,
+		messageRenderers,
+		// Live view — a snapshot taken here would miss every handler the
+		// extension registers after makeFakePi returns.
+		get handlers() {
+			return Object.fromEntries([...handlers].map(([event, fns]) => [event, fns[0]]));
+		},
 		runCommand: async (name: string, args = "") => {
 			const command = commands[name];
 			if (!command) throw new Error(`no command registered as "${name}"`);

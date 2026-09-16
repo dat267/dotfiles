@@ -74,6 +74,41 @@ void describe("commands", () => {
 	});
 });
 
+void describe("tool and renderer registrations", () => {
+	void it("captures registerTool and exposes tools by name", () => {
+		const fake = makeFakePi();
+		fake.pi.registerTool({ name: "get_goal", execute: async () => ({}), renderCall: () => ({}) });
+		assert.ok(fake.tools["get_goal"], "tool exposed by its name");
+		assert.equal(fake.tools["get_goal"].name, "get_goal");
+	});
+});
+
+void describe("handler and ctx contracts", () => {
+	void it("exposes registered handlers for direct invocation", async () => {
+		const fake = makeFakePi();
+		fake.pi.on("agent_end", async () => {});
+		assert.equal(typeof fake.handlers["agent_end"], "function");
+	});
+
+	void it("active tools are a stateful pair, like the host", () => {
+		const fake = makeFakePi();
+		assert.deepEqual(fake.pi.getActiveTools(), []);
+		fake.pi.setActiveTools(["get_goal", "create_goal"]);
+		assert.deepEqual(fake.pi.getActiveTools(), ["get_goal", "create_goal"]);
+	});
+
+	void it("ctx carries session entries, usage, identity theme, and a live signal", () => {
+		const goalEntry = { type: "custom", customType: "pi-goal", data: {} };
+		const fake = makeFakePi({ entries: [goalEntry] });
+		assert.deepEqual(fake.ctx.sessionManager.getBranch(), [goalEntry]);
+		assert.deepEqual(fake.ctx.getContextUsage(), { tokens: 100_000, contextWindow: 1_000_000, percent: 10 });
+		// Identity styling: assertions check structure, not color codes.
+		assert.equal(fake.ctx.ui.theme.fg("accent", "x"), "x");
+		assert.equal(fake.ctx.ui.theme.bold("x"), "x");
+		assert.equal(fake.ctx.signal.aborted, false);
+	});
+});
+
 void describe("event dispatch and capture", () => {
 	void it("dispatches registered events and captures host calls", async () => {
 		const fake = makeFakePi();
@@ -87,8 +122,10 @@ void describe("event dispatch and capture", () => {
 		fake.pi.appendEntry("custom", { a: 1 });
 		fake.pi.sendMessage({ customType: "x" }, { triggerTurn: true });
 		fake.ctx.ui.notify("msg", "warning");
-		assert.deepEqual(fake.calls.entries, [{ entryType: "custom", data: { a: 1 } }]);
-		assert.deepEqual(fake.calls.messages, [{ message: { customType: "x" }, opts: { triggerTurn: true } }]);
+		// Contract (changed when the live kind-tagged stream landed): typed
+		// buckets hold the same tagged records as calls.all, not bare shapes.
+		assert.deepEqual(fake.calls.entries, [{ kind: "appendEntry", entryType: "custom", data: { a: 1 } }]);
+		assert.deepEqual(fake.calls.messages, [{ kind: "sendMessage", message: { customType: "x" }, opts: { triggerTurn: true } }]);
 		assert.deepEqual(fake.calls.notifies, [{ message: "msg", level: "warning" }]);
 	});
 });
