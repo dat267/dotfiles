@@ -256,10 +256,9 @@ function resolveTermux(): SandboxMode {
 				&& readFileSync(join(plan.ws, "nonce"), "utf-8") === nonce;
 			const outsideBlocked = !existsSync(join(plan.outside, "nonce"));
 			if (!insideOk || !outsideBlocked) {
-				return {
-					mode: "none",
-					detail: `preload gate probe failed (inside write ${insideOk ? "ok" : "failed"}, outside write ${outsideBlocked ? "blocked" : "landed"}; exit ${r.status})`,
-				};
+				return recordFailure(
+					`preload gate probe failed (inside write ${insideOk ? "ok" : "failed"}, outside write ${outsideBlocked ? "blocked" : "landed"}; exit ${r.status})`,
+				);
 			}
 			return { mode: "preload", bin: TERMUX_BIN, lib: TERMUX_LIB };
 		} finally {

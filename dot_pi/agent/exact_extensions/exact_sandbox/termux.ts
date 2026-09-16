@@ -26,7 +26,7 @@ export function compileLauncherArgv(source: string, output: string): string[] {
 
 /** argv that builds the LD_PRELOAD interposer from the same source. */
 export function compileInterposerArgv(source: string, output: string): string[] {
-	return ["-O2", "-Wall", "-std=c99", "-shared", "-fPIC", "-o", output, source];
+	return ["-O2", "-Wall", "-std=c99", "-DPI_GATE_LIB", "-shared", "-fPIC", "-o", output, source];
 }
 
 export interface ProbePlan {

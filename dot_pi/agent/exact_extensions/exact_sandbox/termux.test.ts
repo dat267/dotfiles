@@ -26,10 +26,14 @@ void describe("compile argv", () => {
 		);
 	});
 
-	void it("builds the interposer as a shared object", () => {
+	void it("builds the interposer as a shared object with the hook half selected", () => {
 		const argv = compileInterposerArgv(source, "/cache/gate-preload.so");
 		assert.ok(argv.includes("-shared"), "missing -shared");
 		assert.ok(argv.includes("-fPIC"), "missing -fPIC");
+		// Without this the shared object compiles the launcher half: a .so full
+		// of main() and no hooks. It loads silently, denies nothing, and the
+		// probe is the only thing that notices.
+		assert.ok(argv.includes("-DPI_GATE_LIB"), "missing -DPI_GATE_LIB — the .so would have no hooks");
 		assert.equal(argv[argv.length - 1], source, "source must be last");
 	});
 
