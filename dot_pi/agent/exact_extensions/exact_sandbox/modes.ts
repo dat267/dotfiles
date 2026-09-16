@@ -2,17 +2,17 @@
  * sandbox/modes.ts — pure mode-switching rules and human-facing detail
  * strings, so index.ts commands stay thin and the rules stay testable.
  *
- * workspace (kernel-enforced) is preferred, on whichever backend the platform
- * offers: Landlock on Linux, low integrity on Windows. Where neither is
- * available the fallback is yolo, announced with a warning and pinned to the
- * status line — there is no approval mode and the agent is never asked to
- * confirm a command.
+ * workspace (enforced) is preferred, on whichever backend the platform
+ * offers: Landlock on Linux, low integrity on Windows, the advisory
+ * LD_PRELOAD gate on Android/Termux. Where none is available the fallback
+ * is yolo, announced with a warning and pinned to the status line — there
+ * is no approval mode and the agent is never asked to confirm a command.
  */
 
 export type ActiveMode = "read" | "workspace" | "yolo";
 
 /** What can enforce workspace mode on this machine. */
-export type SandboxBackend = "landlock" | "lowil" | "none";
+export type SandboxBackend = "landlock" | "lowil" | "preload" | "none";
 
 const DETAILS: Record<ActiveMode, string> = {
 	read: "read-only (bash/write/edit disabled)",
@@ -23,6 +23,7 @@ const DETAILS: Record<ActiveMode, string> = {
 const ENFORCED_DETAIL: Record<Exclude<SandboxBackend, "none">, string> = {
 	landlock: "Landlock (kernel-enforced)",
 	lowil: "low integrity (kernel-enforced)",
+	preload: "userspace gate (advisory)",
 };
 
 /** Detail for the current mode, naming the backend when one is in force. */

@@ -10,12 +10,17 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import piSandbox from "./index.ts";
+import piSandbox, { type SandboxMode } from "./index.ts";
 
 type Recorded = { kind: string; [k: string]: any };
 
-/** Boot the extension on a host with no kernel backend (Termux/Android). */
-function boot() {
+/**
+ * Boot the extension with an injected backend result. Resolution itself is
+ * environment-dependent (it compiles and probes a C gate), so the wiring
+ * tests pin it: android no longer implies "no backend" — on a Termux with a
+ * C compiler the preload backend resolves for real.
+ */
+function boot(resolve: SandboxMode = { mode: "none", detail: "test backend unavailable" }) {
 	const calls: Recorded[] = [];
 	const fakePi = {
 		on: (ev: string, fn: any) => calls.push({ kind: "event", event: ev, fn }),
@@ -24,7 +29,7 @@ function boot() {
 	const real = process.platform;
 	Object.defineProperty(process, "platform", { value: "android", configurable: true });
 	try {
-		piSandbox(fakePi as any);
+		piSandbox(fakePi as any, () => resolve);
 	} finally {
 		Object.defineProperty(process, "platform", { value: real, configurable: true });
 	}
@@ -115,5 +120,20 @@ void describe("sandbox extension smoke", () => {
 		await commands.sandbox.handler("WS", ctx);
 		assert.match(notes.at(-1) ?? "", /unavailable/);
 		assert.equal(status.at(-1), "RW", "workspace cannot be enforced, so yolo stays");
+	});
+
+	void it("boots into workspace when the preload backend resolves", async () => {
+		const { events, commands } = boot({ mode: "preload", bin: "/cache/gate", lib: "/cache/gate-preload.so" });
+		const { ctx, status, notes } = makeCtx();
+		await events.session_start({}, ctx);
+		assert.equal(notes.length, 0, "no fallback warning — the gate enforces");
+		assert.equal(status[0], "WS", "workspace is the default on a working backend");
+
+		await commands.sandbox.handler("WS", ctx);
+		assert.match(notes.at(-1) ?? "", /userspace gate \(advisory\)/, "the detail is honest about the tier");
+		assert.equal(status.at(-1), "WS");
+
+		await commands.sandbox.handler("RO", ctx);
+		assert.equal(status.at(-1), "RO", "mode switches stay live on the preload backend");
 	});
 });

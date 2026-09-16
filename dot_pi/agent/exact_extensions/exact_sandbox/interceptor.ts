@@ -75,10 +75,14 @@ export function promptNote(
 	switch (active) {
 		case "read":
 			return shared + `\n- Read-only mode: bash, write, edit, and powershell calls are always blocked. You cannot modify anything.`;
-		case "workspace":
-			return shared + (sandbox === "lowil"
+		case "workspace": {
+			const enforcement = sandbox === "lowil"
 				? `\n- Enforcement: shell commands run under a kernel-level low integrity gate (writes outside the labelled trees are denied by the OS); write and edit targets are checked in-process.`
-				: `\n- Enforcement: shell commands run under a kernel-level Landlock gate (blocked writes return Permission denied from the OS); write and edit targets are checked in-process with symlink resolution.`);
+				: sandbox === "preload"
+				? `\n- Enforcement: shell commands run under a userspace LD_PRELOAD gate (blocked writes return Permission denied from libc interposition; reads are unaffected, and it is advisory — a program issuing raw syscalls bypasses it, so treat it as containment against accidents, not adversaries); write and edit targets are checked in-process with symlink resolution.`
+				: `\n- Enforcement: shell commands run under a kernel-level Landlock gate (blocked writes return Permission denied from the OS); write and edit targets are checked in-process with symlink resolution.`;
+			return shared + enforcement;
+		}
 		case "yolo":
 			return sandbox === "none"
 				? `Workspace filesystem sandbox is DISABLED (yolo mode) — no kernel sandbox backend is available on this platform, so the workspace sandbox cannot be enforced and all filesystem writes are unrestricted.`

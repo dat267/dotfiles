@@ -1,8 +1,9 @@
 /**
  * Tests for sandbox/modes.ts — mode switching rules and detail strings.
  *
- * Contract: workspace (kernel-enforced) is preferred, on either backend
- * (Landlock on Linux, low integrity on Windows). When neither is available
+ * Contract: workspace (enforced) is preferred, on whichever backend the
+ * platform offers: Landlock on Linux, low integrity on Windows, the
+ * advisory LD_PRELOAD gate on Android/Termux. When none is available
  * the fallback is yolo, announced with a warning. There is no approval mode.
  */
 
@@ -17,6 +18,10 @@ void describe("defaultMode", () => {
 
 	void it("prefers the kernel sandbox when the low-integrity gate is available", () => {
 		assert.equal(defaultMode("lowil"), "workspace");
+	});
+
+	void it("prefers workspace when the advisory preload gate is available", () => {
+		assert.equal(defaultMode("preload"), "workspace");
 	});
 
 	void it("falls back to yolo only when no backend is available", () => {
@@ -36,8 +41,8 @@ void describe("switchMode", () => {
 		assert.match(warning ?? "", /unrestricted|no sandbox|disabled/i);
 	});
 
-	void it("workspace switches cleanly on either backend", () => {
-		for (const backend of ["landlock", "lowil"] as const) {
+	void it("workspace switches cleanly on every backend", () => {
+		for (const backend of ["landlock", "lowil", "preload"] as const) {
 			const { mode, warning } = switchMode("workspace", backend);
 			assert.equal(mode, "workspace");
 			assert.equal(warning, undefined);
@@ -46,7 +51,7 @@ void describe("switchMode", () => {
 
 	void it("other modes switch unconditionally", () => {
 		for (const requested of ["read", "yolo"] as const) {
-			for (const backend of ["none", "landlock", "lowil"] as const) {
+			for (const backend of ["none", "landlock", "lowil", "preload"] as const) {
 				assert.equal(switchMode(requested, backend).mode, requested);
 			}
 		}
@@ -57,11 +62,21 @@ void describe("modeDetail", () => {
 	void it("names the backend actually in force", () => {
 		assert.equal(modeDetail("workspace", "landlock"), "Landlock (kernel-enforced)");
 		assert.equal(modeDetail("workspace", "lowil"), "low integrity (kernel-enforced)");
+		assert.equal(modeDetail("workspace", "preload"), "userspace gate (advisory)");
+	});
+
+	void it("the preload backend never claims kernel enforcement", () => {
+		// Honesty surface: the interposer is libc-level, bypassable by raw
+		// syscalls. It must not be described as kernel-enforced anywhere the
+		// user or the agent reads.
+		for (const active of ["read", "workspace", "yolo"] as const) {
+			assert.doesNotMatch(modeDetail(active, "preload"), /kernel/i);
+		}
 	});
 
 	void it("every mode has a non-empty detail on every backend", () => {
 		for (const active of ["read", "workspace", "yolo"] as const) {
-			for (const backend of ["none", "landlock", "lowil"] as const) {
+			for (const backend of ["none", "landlock", "lowil", "preload"] as const) {
 				assert.ok(modeDetail(active, backend).length > 0, `no detail for ${active}/${backend}`);
 			}
 		}
@@ -69,7 +84,7 @@ void describe("modeDetail", () => {
 
 	void it("no detail mentions a removed approval mode", () => {
 		for (const active of ["read", "workspace", "yolo"] as const) {
-			for (const backend of ["none", "landlock", "lowil"] as const) {
+			for (const backend of ["none", "landlock", "lowil", "preload"] as const) {
 				assert.doesNotMatch(modeDetail(active, backend), /supervised|ask before|approval/i);
 			}
 		}
