@@ -1,8 +1,8 @@
 /**
- * model-sync/state.ts — where the pinned model lives.
+ * modelpin/state.ts — where the pinned model lives.
  *
- * One small JSON file in the agent dir, written only by /model-sync. `enabled`
- * is the kill switch: /model-sync off stops the sync but keeps the pin, so a
+ * One small JSON file in the agent dir, written only by /modelpin. `enabled`
+ * is the kill switch: /modelpin off stops the sync but keeps the pin, so a
  * re-enable does not need to remember the model.
  */
 

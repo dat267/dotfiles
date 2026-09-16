@@ -1,5 +1,5 @@
 /**
- * Tests for model-sync/resolve.ts — turning a pin string into a model.
+ * Tests for modelpin/resolve.ts — turning a pin string into a model.
  */
 
 import { describe, it } from "node:test";

@@ -1,5 +1,5 @@
 /**
- * Tests for model-sync/state.ts — the pin file.
+ * Tests for modelpin/state.ts — the pin file.
  */
 
 import { describe, it } from "node:test";
@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { loadState, saveState } from "./state.ts";
 
 function scratch(): string {
-	return join(mkdtempSync(join(tmpdir(), "model-sync-")), "state.json");
+	return join(mkdtempSync(join(tmpdir(), "modelpin-")), "state.json");
 }
 
 void describe("loadState", () => {

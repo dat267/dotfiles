@@ -1,5 +1,5 @@
 /**
- * model-sync/resolve.ts — turning a pin string into a concrete model.
+ * modelpin/resolve.ts — turning a pin string into a concrete model.
  *
  * A pin accepts either form: "provider/modelId" (unambiguous by construction)
  * or a bare "modelId" resolved against the models pi has available.

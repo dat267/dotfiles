@@ -1,5 +1,5 @@
 /**
- * model-sync — one pinned model for every session.
+ * modelpin — one pinned model for every session.
  *
  * pi gives each session its own model: /model writes a model_change entry and
  * resuming restores it, so the settings default only reaches sessions that
@@ -8,7 +8,7 @@
  * has one answer. The pin lives in ~/.pi/agent/pinned-model.json — named for what it
  * holds, not for the mechanism, and kept distinct from pi's models.json —
  * set with
- * /model-sync <provider/model>; /model-sync off stops the sync without
+ * /modelpin <provider/model>; /modelpin off stops the sync without
  * forgetting it.
  *
  * setModel only affects the current session ("without changing the configured
@@ -46,24 +46,24 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelSyncOptions = 
 
 		const resolution = resolveModelRef(state.model, availableModels(ctx), current?.provider);
 		if (!resolution.ok) {
-			ctx.ui.notify(`[model-sync] pin ${state.model}: ${resolution.reason}`, "warning");
+			ctx.ui.notify(`[modelpin] pin ${state.model}: ${resolution.reason}`, "warning");
 			return;
 		}
 
 		const applied = await pi.setModel(resolution.model as Parameters<typeof pi.setModel>[0]);
 		if (applied === false) {
-			ctx.ui.notify(`[model-sync] ${state.model} has no configured auth — staying on ${current ? `${current.provider}/${current.id}` : "nothing"}`, "warning");
+			ctx.ui.notify(`[modelpin] ${state.model} has no configured auth — staying on ${current ? `${current.provider}/${current.id}` : "nothing"}`, "warning");
 			return;
 		}
-		ctx.ui.notify(`[model-sync] using ${state.model} (${reason})`, "info");
+		ctx.ui.notify(`[modelpin] using ${state.model} (${reason})`, "info");
 	}
 
 	pi.on("session_start", async (event, ctx) => {
 		await sync(ctx, event.reason);
 	});
 
-	pi.registerCommand("model-sync", {
-		description: "Pin one model for every session — /model-sync <provider/model>, on|off, or bare for status",
+	pi.registerCommand("modelpin", {
+		description: "Pin one model for every session — /modelpin <provider/model>, on|off, or bare for status",
 		getArgumentCompletions: (prefix: string) => {
 			const items = ["on", "off"].filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v }));
 			return items.length > 0 ? items : null;
@@ -74,21 +74,21 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelSyncOptions = 
 
 			if (arg === "") {
 				if (!state.model) {
-					ctx.ui.notify("[model-sync] nothing pinned — every session keeps its own model. Pin one: /model-sync <provider/model>", "info");
+					ctx.ui.notify("[modelpin] nothing pinned — every session keeps its own model. Pin one: /modelpin <provider/model>", "info");
 					return;
 				}
 				const current = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "none";
-				ctx.ui.notify(`[model-sync] pinned ${state.model}, sync ${state.enabled ? "on" : "off"} — this session: ${current}`, "info");
+				ctx.ui.notify(`[modelpin] pinned ${state.model}, sync ${state.enabled ? "on" : "off"} — this session: ${current}`, "info");
 				return;
 			}
 
 			if (arg === "on" || arg === "off") {
 				if (arg === "on" && !state.model) {
-					ctx.ui.notify("[model-sync] nothing to enable — pin a model first: /model-sync <provider/model>", "warning");
+					ctx.ui.notify("[modelpin] nothing to enable — pin a model first: /modelpin <provider/model>", "warning");
 					return;
 				}
 				saveState(statePath, { ...state, enabled: arg === "on" });
-				ctx.ui.notify(`[model-sync] sync ${arg}${state.model ? ` — pin ${state.model} kept` : ""}`, "info");
+				ctx.ui.notify(`[modelpin] sync ${arg}${state.model ? ` — pin ${state.model} kept` : ""}`, "info");
 				if (arg === "on") await sync(ctx, "enabled");
 				return;
 			}
@@ -97,12 +97,12 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelSyncOptions = 
 			// actually use before saving, so a typo never becomes a pin.
 			const resolution = resolveModelRef(arg, availableModels(ctx), ctx.model?.provider);
 			if (!resolution.ok) {
-				ctx.ui.notify(`[model-sync] ${resolution.reason}`, "warning");
+				ctx.ui.notify(`[modelpin] ${resolution.reason}`, "warning");
 				return;
 			}
 			const model = `${resolution.model.provider}/${resolution.model.id}`;
 			saveState(statePath, { enabled: true, model });
-			ctx.ui.notify(`[model-sync] pinned ${model}`, "info");
+			ctx.ui.notify(`[modelpin] pinned ${model}`, "info");
 			await sync(ctx, "pinned");
 		},
 	});

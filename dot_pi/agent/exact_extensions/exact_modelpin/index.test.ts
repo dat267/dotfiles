@@ -1,6 +1,6 @@
 /**
- * Smoke test for model-sync/index.ts — the session_start sync and the
- * /model-sync command, driven through the same registration surface pi uses.
+ * Smoke test for modelpin/index.ts — the session_start sync and the
+ * /modelpin command, driven through the same registration surface pi uses.
  * The pin file is pointed at a temp path so no test touches the real one.
  */
 
@@ -23,7 +23,7 @@ function harness(stateFile: string, current?: { provider: string; id: string }) 
 			if (event === "session_start") (fakePi as any)._sessionStart = fn;
 		},
 		registerCommand: (name: string, command: any) => {
-			if (name === "model-sync") (fakePi as any)._command = command;
+			if (name === "modelpin") (fakePi as any)._command = command;
 		},
 		setModel: async (model: any) => {
 			calls.setModel.push(model);
@@ -45,7 +45,7 @@ function harness(stateFile: string, current?: { provider: string; id: string }) 
 }
 
 function stateFile(state?: Record<string, unknown>): string {
-	const path = join(mkdtempSync(join(tmpdir(), "model-sync-test-")), "state.json");
+	const path = join(mkdtempSync(join(tmpdir(), "modelpin-test-")), "state.json");
 	if (state) writeFileSync(path, JSON.stringify(state));
 	return path;
 }
@@ -92,7 +92,7 @@ void describe("session_start sync", () => {
 	});
 });
 
-void describe("/model-sync command", () => {
+void describe("/modelpin command", () => {
 	void it("pins and applies a model in one step", async () => {
 		const path = stateFile();
 		const h = harness(path, { provider: "hyper", id: "deepseek-v4-flash" });
