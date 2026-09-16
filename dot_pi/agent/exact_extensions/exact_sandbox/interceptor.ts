@@ -79,7 +79,7 @@ export function promptNote(
 			const enforcement = sandbox === "lowil"
 				? `\n- Enforcement: shell commands run under a kernel-level low integrity gate (writes outside the labelled trees are denied by the OS); write and edit targets are checked in-process.`
 				: sandbox === "preload"
-				? `\n- Enforcement: shell commands run under a userspace LD_PRELOAD gate (blocked writes return Permission denied from libc interposition; reads are unaffected, and it is advisory — a program issuing raw syscalls bypasses it, so treat it as containment against accidents, not adversaries); write and edit targets are checked in-process with symlink resolution.`
+				? `\n- Enforcement: shell commands run under a userspace LD_PRELOAD gate with a seccomp backstop (blocked writes return Permission denied from libc interposition; reads are unaffected; exotic kernel interfaces like io_uring are kernel-denied; advisory — a program emitting raw syscall instructions bypasses path checks, so treat it as containment against accidents, not adversaries); write and edit targets are checked in-process with symlink resolution.`
 				: `\n- Enforcement: shell commands run under a kernel-level Landlock gate (blocked writes return Permission denied from the OS); write and edit targets are checked in-process with symlink resolution.`;
 			return shared + enforcement;
 		}
