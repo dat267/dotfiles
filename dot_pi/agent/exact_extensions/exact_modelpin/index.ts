@@ -15,7 +15,9 @@
  *
  * setModel only affects the current session ("without changing the configured
  * default for new sessions"), so the sync runs on every start, including
- * /reload. /modelpin off is the kill switch.
+ * /reload. There is no command: the behavior is unconditional, and the
+ * escape hatches are a manual pick (per session) and `enabled: false` in
+ * the state file (global).
  */
 
 import { join } from "node:path";
@@ -41,14 +43,13 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelPinOptions = {
 	// a programmatic set emits "set" exactly like a user pick.
 	let syncing = false;
 
-	function claim(state: ModelState, sessionFile: string | undefined, model: { provider: string; id: string }): ModelState {
+	/** A pick that matches the default is not a claim — it is a no-op, and
+	 *  dropping the entry keeps the file from growing across sessions. */
+	function claim(state: ModelState, sessionFile: string | undefined, picked: ModelRef, defaultRef: ModelRef | undefined): ModelState {
 		if (!sessionFile) return state;
 		const manual = { ...state.manual };
-		if (model && readDefaultModelRef(agentDir)?.provider === model.provider && readDefaultModelRef(agentDir)?.id === model.id) {
-			delete manual[sessionFile];
-		} else {
-			manual[sessionFile] = true;
-		}
+		if (defaultRef && refOf(picked) === refOf(defaultRef)) delete manual[sessionFile];
+		else manual[sessionFile] = true;
 		return { ...state, manual };
 	}
 
@@ -99,48 +100,9 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelPinOptions = {
 
 		const sessionFile = ctx.sessionManager.getSessionFile();
 		if (!sessionFile) return;
-		const defaultRef = readDefaultModelRef(agentDir);
 		const picked = { provider: event.model.provider, id: event.model.id };
-		const state = claim(loadState(statePath), sessionFile, picked);
-		void defaultRef;
+		const state = claim(loadState(statePath), sessionFile, picked, readDefaultModelRef(agentDir));
 		saveState(statePath, state);
-	});
-
-	pi.registerCommand("modelpin", {
-		description: "Sync every session onto the default model unless manually switched — /modelpin on|off, or bare for status",
-		getArgumentCompletions: (prefix: string) => {
-			const items = ["on", "off"].filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v }));
-			return items.length > 0 ? items : null;
-		},
-		handler: async (args, ctx) => {
-			const arg = args.trim();
-			const state = loadState(statePath);
-
-			if (arg === "") {
-				const defaultRef = readDefaultModelRef(agentDir);
-				const sessionFile = ctx.sessionManager.getSessionFile();
-				const manual = (sessionFile && state.manual[sessionFile]) || !ctx.model;
-				const current = ctx.model ? refOf(ctx.model) : "none";
-				const detail = !defaultRef
-					? "no default model set (use /model and press Ctrl+S)"
-					: manual
-						? "manually switched — not synced"
-						: `sync ${state.enabled ? "on" : "off"}`;
-				ctx.ui.notify(`[modelpin] default ${defaultRef ? refOf(defaultRef) : "unset"}, sync ${state.enabled ? "on" : "off"} — this session: ${current} (${detail})`, "info");
-				return;
-			}
-
-			if (arg === "on" || arg === "off") {
-				saveState(statePath, { ...state, enabled: arg === "on" });
-				ctx.ui.notify(`[modelpin] sync ${arg}`, "info");
-				if (arg === "on") await sync(ctx, "enabled");
-				return;
-			}
-
-			// There is no model argument any more: the pinned model is the
-			// settings default, and that is changed where it is owned.
-			ctx.ui.notify("[modelpin] the pinned model is your settings default — change it with /model and press Ctrl+S", "info");
-		},
 	});
 }
 

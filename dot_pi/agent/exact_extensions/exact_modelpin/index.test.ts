@@ -173,39 +173,9 @@ void describe("manual-claim tracking", () => {
 	});
 });
 
-void describe("/modelpin command", () => {
-	void it("reports the default, the sync state, and this session's model", async () => {
-		const h = setup({
-			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
-			sessionFile: "/s/one.jsonl",
-			current: { provider: "hyper", id: "glm-5.3-flash", contextWindow: 1_000_000 },
-		});
-		await h.command().handler("", h.ctx);
-		assert.match(notice(h), /hyper\/glm-5\.3-flash/);
-		assert.match(notice(h), /on/);
-	});
-
-	void it("points at /model when handed a model name — the pin is the default now", async () => {
+void describe("surface", () => {
+	void it("registers no command — the behavior is unconditional", () => {
 		const h = setup({ agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" } });
-		await h.command().handler("hyper/deepseek-v4-flash", h.ctx);
-		assert.deepEqual(h.setModel, []);
-		assert.match(notice(h), /\/model/);
-	});
-
-	void it("stops syncing on off", async () => {
-		const h = setup({ agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" } });
-		await h.command().handler("off", h.ctx);
-		assert.equal(JSON.parse(readFileSync(h.statePath, "utf8")).enabled, false);
-	});
-
-	void it("resumes syncing on on", async () => {
-		const h = setup({
-			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
-			state: { enabled: false },
-			current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
-		});
-		await h.command().handler("on", h.ctx);
-		assert.equal(JSON.parse(readFileSync(h.statePath, "utf8")).enabled, true);
-		assert.equal(h.setModel.length, 1);
+		assert.equal(h.command(), undefined);
 	});
 });
