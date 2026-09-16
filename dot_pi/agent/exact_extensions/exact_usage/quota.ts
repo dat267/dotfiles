@@ -8,23 +8,34 @@
  * to "no quota endpoint" rather than a wrong number.
  */
 
-/** Reads the `balance` field Hyper's credits endpoint returns. */
-export function parseCreditsBalance(body: unknown): number | undefined {
+/** What the API reported: Hyper's /credits answers either in Hypercredits or
+ *  in dollars ({balance} vs {balance_usd} — the official provider's schema
+ *  accepts both), never both at once. */
+export interface Balance {
+	credits?: number;
+	usd?: number;
+}
+
+export function parseBalance(body: unknown): Balance | undefined {
 	if (typeof body !== "object" || body === null) return undefined;
-	const balance = (body as { balance?: unknown }).balance;
-	return typeof balance === "number" && Number.isFinite(balance) ? balance : undefined;
+	const source = body as { balance?: unknown; balance_usd?: unknown };
+	const numeric = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : undefined);
+	const credits = numeric(source.balance);
+	if (credits !== undefined) return { credits };
+	const usd = numeric(source.balance_usd);
+	return usd !== undefined ? { usd } : undefined;
 }
 
 /** A provider's balance endpoint: the path appended to its base URL, plus the
  *  parser for whatever that endpoint returns. */
 export interface QuotaSpec {
 	path: string;
-	parse(body: unknown): number | undefined;
+	parse(body: unknown): Balance | undefined;
 }
 
 /** Keyed by the provider id pi reports for the active model (ctx.model.provider). */
 export const QUOTA_SPECS: Record<string, QuotaSpec> = {
-	hyper: { path: "/credits", parse: parseCreditsBalance },
+	hyper: { path: "/credits", parse: parseBalance },
 };
 
 /** The balance URL for a provider, or undefined when it has no such endpoint.
@@ -46,7 +57,7 @@ export interface QuotaQuery {
 /** A discriminated result: the caller prints `reason` verbatim, so every
  *  failure mode has to be described here rather than thrown. */
 export type QuotaResult =
-	| { ok: true; balance: number }
+	| { ok: true; balance: Balance }
 	| { ok: false; reason: string };
 
 /** Fetch the account balance once. No polling, no caching: the command is the
@@ -85,7 +96,7 @@ export async function fetchQuota(
 	}
 
 	const balance = spec.parse(await response.json());
-	if (balance === undefined) {
+	if (!balance) {
 		return { ok: false, reason: `${query.providerId} returned no balance field` };
 	}
 	return { ok: true, balance };

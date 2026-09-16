@@ -4,11 +4,25 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { fetchQuota, parseCreditsBalance, quotaUrlFor } from "./quota.ts";
+import { fetchQuota, parseBalance, quotaUrlFor } from "./quota.ts";
 
-void describe("parseCreditsBalance", () => {
-	void it("reads the balance field", () => {
-		assert.equal(parseCreditsBalance({ balance: 95 }), 95);
+void describe("parseBalance", () => {
+	void it("reads a credits balance", () => {
+		assert.deepEqual(parseBalance({ balance: 95 }), { credits: 95 });
+	});
+
+	// The official Hyper provider's schema accepts both shapes; a balance in
+	// dollars makes the rate-based estimate unnecessary.
+	void it("reads a dollar balance", () => {
+		assert.deepEqual(parseBalance({ balance_usd: 4.45 }), { usd: 4.45 });
+	});
+
+	void it("rejects a body with neither field", () => {
+		assert.equal(parseBalance({}), undefined);
+	});
+
+	void it("rejects non-numeric fields", () => {
+		assert.equal(parseBalance({ balance: "95" }), undefined);
 	});
 });
 
@@ -32,7 +46,13 @@ void describe("fetchQuota", () => {
 	void it("reads the balance from a 200 response", async () => {
 		const fake = async () => new Response(JSON.stringify({ balance: 95 }), { status: 200 });
 		const result = await fetchQuota({ providerId: "hyper", baseUrl: "https://hyper.charm.land/v1", apiKey: "k" }, fake);
-		assert.deepEqual(result, { ok: true, balance: 95 });
+		assert.deepEqual(result, { ok: true, balance: { credits: 95 } });
+	});
+
+	void it("passes a dollar balance through unchanged", async () => {
+		const fake = async () => new Response(JSON.stringify({ balance_usd: 4.45 }), { status: 200 });
+		const result = await fetchQuota({ providerId: "hyper", baseUrl: "https://hyper.charm.land/v1", apiKey: "k" }, fake);
+		assert.deepEqual(result, { ok: true, balance: { usd: 4.45 } });
 	});
 
 	void it("sends the API key as a bearer token", async () => {
