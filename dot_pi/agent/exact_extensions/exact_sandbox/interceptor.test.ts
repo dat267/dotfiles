@@ -39,8 +39,8 @@ function decodePowershellCommand(wrapped: string): string {
 
 const ALL_MODES: readonly ActiveMode[] = ["read", "workspace", "yolo"];
 const ALL_TOOLS: readonly ToolType[] = ["bash", "powershell", "write", "edit", "other"];
-const ALL_BACKENDS: readonly SandboxBackend[] = ["landlock", "lowil", "none"];
-const ENFORCED: readonly SandboxBackend[] = ["landlock", "lowil"];
+const ALL_BACKENDS: readonly SandboxBackend[] = ["landlock", "lowil", "preload", "none"];
+const ENFORCED: readonly SandboxBackend[] = ["landlock", "lowil", "preload"];
 
 void describe("interceptToolCall never asks", () => {
 	void it("no mode/tool/backend combination produces an ask", () => {
@@ -287,6 +287,30 @@ void describe("interceptToolCall (windows low-integrity backend)", () => {
 	});
 });
 
+void describe("interceptToolCall (android preload backend)", () => {
+	const termux = {
+		active: "workspace" as const,
+		sandboxMode: "preload" as const,
+		platform: "android" as const,
+		sandboxBin: "/home/.cache/pi/sandbox/gate",
+		workspace: "/home/.local/share/chezmoi",
+		toolType: "bash" as const,
+		command: "echo hi",
+	};
+
+	void it("wraps bash in the same gate argv shape as the other backends", () => {
+		const r = interceptToolCall(makeInput(termux));
+		assert.equal(r.action, "wrap");
+		assert.ok(r.command.startsWith("'/home/.cache/pi/sandbox/gate' '--ws' '/home/.local/share/chezmoi'"), r.command);
+		assert.ok(r.command.endsWith("'--' 'bash' '-c' 'echo hi'"), r.command);
+	});
+
+	void it("write targets are checked in-process against the allowlist", () => {
+		const outside = interceptToolCall(makeInput({ ...termux, toolType: "write", path: "/system/etc/hosts" }));
+		assert.equal(outside.action, "block");
+	});
+});
+
 void describe("promptNote", () => {
 	void it("read mode includes mode name and final warning", () => {
 		const note = promptNote("read", "landlock", "/home/user/project");
@@ -298,6 +322,13 @@ void describe("promptNote", () => {
 	void it("workspace mode names the backend in force", () => {
 		assert.match(promptNote("workspace", "landlock", "/home/user/project"), /Landlock/);
 		assert.match(promptNote("workspace", "lowil", "C:\\work"), /low integrity/);
+		assert.match(promptNote("workspace", "preload", "/home/user/project"), /LD_PRELOAD/);
+	});
+
+	void it("the preload note is honest about being advisory", () => {
+		const note = promptNote("workspace", "preload", "/home/user/project");
+		assert.match(note, /advisory/);
+		assert.doesNotMatch(note, /kernel-level|kernel-enforced/i);
 	});
 
 	void it("yolo mode warns sandbox is disabled", () => {

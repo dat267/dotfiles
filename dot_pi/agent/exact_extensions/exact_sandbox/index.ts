@@ -21,7 +21,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { mkdirSync, statSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, statSync, writeFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +31,12 @@ import { interceptToolCall, promptNote, blocked, type ShellSpec, type ToolType }
 import { resolveModuleDir } from "./module-dir.ts";
 import { defaultMode, modeCompletions, modeDetail, modeFromCode, statusLine, switchMode, type ActiveMode } from "./modes.ts";
 import { defaultAllowlist } from "./policy.ts";
+import {
+	COMPILER_CANDIDATES as TERMUX_COMPILERS,
+	compileInterposerArgv,
+	compileLauncherArgv,
+	probePlan,
+} from "./termux.ts";
 import { COMPILER_CANDIDATES, bashCandidates, compileArgv, labelArgv, powershellHosts, powershellShell, probeArgv } from "./windows.ts";
 
 // pi's module wrapper injects a real `__dirname`; it is absent only if the
@@ -54,9 +60,16 @@ const WIN_SOURCE = join(MODULE_DIR, "gate-win.c");
 const WIN_BIN = join(CACHE_DIR, "gate.exe");
 const WIN_SCRATCH = join(CACHE_DIR, "tmp");
 
-type SandboxMode =
+/** Android/Termux: one source, a launcher binary and the interposer it preloads. */
+const TERMUX_SOURCE = join(MODULE_DIR, "gate-preload.c");
+const TERMUX_BIN = join(CACHE_DIR, "gate");
+const TERMUX_LIB = join(CACHE_DIR, "gate-preload.so");
+const TERMUX_SCRATCH = join(CACHE_DIR, "tmp");
+
+export type SandboxMode =
 	| { mode: "landlock"; bin: string }
 	| { mode: "lowil"; bin: string; scratch: string; powershell?: ShellSpec }
+	| { mode: "preload"; bin: string; lib: string }
 	| { mode: "none"; detail: string };
 
 interface RunResult {
@@ -203,7 +216,57 @@ function resolveWindows(): SandboxMode {
 function resolveMode(): SandboxMode {
 	if (process.platform === "linux") return resolveLinux();
 	if (process.platform === "win32") return resolveWindows();
+	if (process.platform === "android") return resolveTermux();
 	return { mode: "none", detail: "no kernel sandbox backend for this platform" };
+}
+
+/**
+ * Compile the preload gate (launcher + interposer) once, then prove it with a
+ * live round trip. Enforcement here is libc interposition, so the probe is
+ * not a formality: a Termux without a C compiler, an LD_PRELOAD that does not
+ * reach the shell, or a stripped environment all surface as no backend —
+ * yolo with a warning — rather than a gate that runs unconfined.
+ */
+function resolveTermux(): SandboxMode {
+	try {
+		mkdirSync(CACHE_DIR, { recursive: true });
+		mkdirSync(TERMUX_SCRATCH, { recursive: true });
+		for (const [out, argvOf] of [
+			[TERMUX_BIN, compileLauncherArgv],
+			[TERMUX_LIB, compileInterposerArgv],
+		] as const) {
+			if (existsSync(out) && statSync(TERMUX_SOURCE).mtimeMs <= statSync(out).mtimeMs) continue;
+			let lastError = "";
+			let built = false;
+			for (const cc of TERMUX_COMPILERS) {
+				const r = run(cc, argvOf(TERMUX_SOURCE, out));
+				if (r.ok) { built = true; break; }
+				if (r.stderr) lastError = `${cc}: ${r.stderr}`;
+			}
+			if (!built) return recordFailure(`gate-preload compile failed (${TERMUX_COMPILERS.join(", ")}): ${lastError}`);
+		}
+
+		const nonce = Math.random().toString(36).slice(2);
+		const plan = probePlan(TERMUX_BIN, CACHE_DIR, nonce);
+		try {
+			mkdirSync(plan.ws, { recursive: true });
+			mkdirSync(plan.outside, { recursive: true });
+			const r = run(plan.argv[0], plan.argv.slice(1));
+			const insideOk = existsSync(join(plan.ws, "nonce"))
+				&& readFileSync(join(plan.ws, "nonce"), "utf-8") === nonce;
+			const outsideBlocked = !existsSync(join(plan.outside, "nonce"));
+			if (!insideOk || !outsideBlocked) {
+				return recordFailure(
+					`preload gate probe failed (inside write ${insideOk ? "ok" : "failed"}, outside write ${outsideBlocked ? "blocked" : "landed"}; exit ${r.status})`,
+				);
+			}
+			return { mode: "preload", bin: TERMUX_BIN, lib: TERMUX_LIB };
+		} finally {
+			try { rmSync(plan.base, { recursive: true, force: true }); } catch { /* best effort */ }
+		}
+	} catch (err) {
+		return recordFailure(String((err as Error).message));
+	}
 }
 
 const MUTATOR_TOOLS = ["bash", "write", "edit", "powershell"] as const;
@@ -229,8 +292,8 @@ function ensureWorkspaceLabeled(dir: string): string | null {
 	return null;
 }
 
-export default function (pi: ExtensionAPI) {
-	const sandbox = resolveMode();
+export default function (pi: ExtensionAPI, resolve: () => SandboxMode = resolveMode) {
+	const sandbox = resolve();
 	// Which PowerShell the probe proved runnable under confinement; undefined
 	// means the gate cannot cover that tool on this machine.
 	const powershell = sandbox.mode === "lowil" ? sandbox.powershell : undefined;
@@ -260,7 +323,9 @@ export default function (pi: ExtensionAPI) {
 				);
 			}
 		}
-		const scratch = sandbox.mode === "lowil" ? sandbox.scratch : undefined;
+		const scratch = sandbox.mode === "lowil" ? sandbox.scratch
+			: sandbox.mode === "preload" ? TERMUX_SCRATCH
+			: undefined;
 		return {
 			systemPrompt: event.systemPrompt + "\n\n"
 				+ promptNote(active, sandbox.mode, ctx.cwd, { platform: process.platform, scratch }),
@@ -274,7 +339,9 @@ export default function (pi: ExtensionAPI) {
 			: isToolCallEventType("edit", event) ? "edit"
 			: "other";
 
-		const scratch = sandbox.mode === "lowil" ? sandbox.scratch : undefined;
+		const scratch = sandbox.mode === "lowil" ? sandbox.scratch
+			: sandbox.mode === "preload" ? TERMUX_SCRATCH
+			: undefined;
 
 		// The Windows backend needs the workspace labelled before anything runs.
 		// On Windows the powershell tool replaces bash, so it needs the label too —

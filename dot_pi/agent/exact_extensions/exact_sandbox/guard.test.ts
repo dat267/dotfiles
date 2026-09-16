@@ -5,7 +5,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { inspectPath } from "./guard.ts";
@@ -44,8 +44,13 @@ test("outside targets are blocked", () => {
 });
 
 test("symlinks inside the workspace cannot escape", (t) => {
-	const outside = mkdtempSync(join(tmpdir(), "guard-out-"));
-	const ws = mkdtempSync(join(tmpdir(), "guard-ws-"));
+	// Fixture dirs live under the module directory, not os.tmpdir(): on a
+	// gated host the suite itself runs inside the workspace grant, and
+	// /usr/tmp (Termux's tmpdir) is outside it.
+	const base = mkdtempSync(join(process.cwd(), "guard-"));
+	const outside = join(base, "out");
+	const ws = join(base, "ws");
+	mkdirSync(outside); mkdirSync(ws);
 	try {
 		// Windows needs "junction" (a plain symlink requires Developer Mode or
 		// admin); POSIX uses "dir". Skip rather than fail where neither is allowed.
@@ -61,13 +66,12 @@ test("symlinks inside the workspace cannot escape", (t) => {
 		assert.ok(inspectPath("escape/secret", ws, allow), "symlink escape must be blocked");
 		assert.equal(inspectPath("inner.txt", ws, allow), null, "plain workspace target must pass");
 	} finally {
-		rmSync(ws, { recursive: true, force: true });
-		rmSync(outside, { recursive: true, force: true });
+		rmSync(base, { recursive: true, force: true });
 	}
 });
 
 test("writes to new files under the workspace resolve via the existing ancestor", () => {
-	const ws = mkdtempSync(join(tmpdir(), "guard-new-"));
+	const ws = mkdtempSync(join(process.cwd(), "guard-new-"));
 	try {
 		const allow = defaultAllowlist(ws);
 		assert.equal(inspectPath("a/b/new-file.txt", ws, allow), null);
