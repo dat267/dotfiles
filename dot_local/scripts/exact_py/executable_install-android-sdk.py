@@ -14,7 +14,7 @@ import urllib.error
 import xml.etree.ElementTree as ET
 import zipfile
 
-from _shared import COLORS, download, log
+from _shared import download, log
 
 REPO_XML = "https://dl.google.com/android/repository/repository2-3.xml"
 

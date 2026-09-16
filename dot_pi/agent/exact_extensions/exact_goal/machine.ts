@@ -276,7 +276,7 @@ export class GoalMachine {
 		return { effects: [...effects, ...this.queueRound()] };
 	}
 
-	private agentEnd(usage: { tokens: number | null; contextWindow: number }, aborted: boolean): DispatchResult {
+	private agentEnd(_usage: { tokens: number | null; contextWindow: number }, aborted: boolean): DispatchResult {
 		const effects: Effect[] = [];
 
 		if (!this.view) {
@@ -337,7 +337,7 @@ export class GoalMachine {
 		return { effects };
 	}
 
-	private agentSettled(usage: { tokens: number | null; contextWindow: number }, providerError?: ProviderError): DispatchResult {
+	private agentSettled(_usage: { tokens: number | null; contextWindow: number }, providerError?: ProviderError): DispatchResult {
 		if (!this.view || this.view.phase !== "active" || !this.armed) {
 			return { effects: [{ kind: "renderStatus" }] };
 		}

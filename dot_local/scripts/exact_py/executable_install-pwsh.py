@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 import argparse
-import json
 import os
 import platform
 import shutil
 import sys
 import tarfile
 import tempfile
-import urllib.request
 import zipfile
 
-from _shared import COLORS, download, fetch_json, log
+from _shared import download, fetch_json, log
 
 def get_platform_info():
     system = platform.system().lower()

@@ -3,15 +3,13 @@
 import argparse
 import gzip
 import os
-import platform
 import shutil
 import socket
 import subprocess
 import sys
-import tarfile
 import zipfile
 
-from _shared import Platform, download, extract_archive, fetch_json, github_latest_tag, install_github_release_binary, is_termux
+from _shared import Platform, download, extract_archive, fetch_json, github_latest_tag, install_github_release_binary
 
 # Force IPv4 — Termux IPv6 lookups fail on some networks
 _orig_getaddrinfo = socket.getaddrinfo

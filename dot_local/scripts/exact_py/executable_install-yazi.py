@@ -12,7 +12,7 @@ import zipfile
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import COLORS, download, log
+from _shared import download, log
 
 def get_platform_info():
     system = platform.system().lower()

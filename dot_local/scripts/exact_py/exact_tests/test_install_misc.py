@@ -24,8 +24,8 @@ class TestSmokeInstallers(unittest.TestCase):
             '{"name": "powershell-7.4.0-linux-x64.tar.gz", "browser_download_url": "http://x/l"},'
             '{"name": "powershell-7.4.0-win-x64.zip", "browser_download_url": "http://x/w"}]}'
         )
-        with mock.patch.object(
-            pwsh.urllib.request, "urlopen", mock.mock_open(read_data=data.encode())
+        with mock.patch(
+            "urllib.request.urlopen", mock.mock_open(read_data=data.encode())
         ):
             tag, url = pwsh.fetch_latest_pwsh_release("linux", "x64")
         self.assertEqual(tag, "v7.4.0")
@@ -36,8 +36,8 @@ class TestSmokeInstallers(unittest.TestCase):
             '{"tag_name": "v7.4.0", "assets": ['
             '{"name": "powershell-7.4.0-osx-x64.tar.gz", "browser_download_url": "http://x/m"}]}'
         )
-        with mock.patch.object(
-            pwsh.urllib.request, "urlopen", mock.mock_open(read_data=data.encode())
+        with mock.patch(
+            "urllib.request.urlopen", mock.mock_open(read_data=data.encode())
         ):
             # osx-arm64 pattern misses, fallback to x64 pattern matches
             tag, url = pwsh.fetch_latest_pwsh_release("darwin", "arm64")

@@ -9,7 +9,6 @@ import {
 	type GoalView,
 } from "./state.ts";
 import {
-	PHASE_COLOR,
 	renderGoalChangeEntry,
 	renderGoalEventMessage,
 	renderGoalTurnEntry,
@@ -143,7 +142,7 @@ export default function piGoal(pi: ExtensionAPI) {
 			const details = result.details as { goal?: GoalView | null } | undefined;
 			return renderGetGoalRenderResult(details?.goal ?? null, theme);
 		},
-		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, _params, _signal, _onUpdate) {
 			const { goal } = machine.snapshot;
 			const value = goalView(goal);
 			return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }], details: { goal } };
@@ -222,7 +221,6 @@ export default function piGoal(pi: ExtensionAPI) {
 		},
 		handler: async (args: string, ctx: ExtensionContext) => {
 			const { goal, bannerEnabled } = machine.snapshot;
-			const usage = ctx.getContextUsage();
 
 			// `fallback` is a thunk, not a string. Several of these messages read state
 			// the dispatch has just changed, and a pre-rendered string reports the
@@ -271,7 +269,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	// Deterministic trigger removed: 'goal: ' prompts now run as plain turns.
 	// Goal entry is model-driven (create_goal judgment) or human-driven (/goal set).
 
-	pi.on("session_start", (event, ctx) => {
+	pi.on("session_start", (_event, ctx) => {
 		clearRetryTimer();
 		try {
 			const entries = ctx.sessionManager.getBranch();

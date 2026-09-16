@@ -5,12 +5,11 @@ import shutil
 import sys
 import tarfile
 import tempfile
-import urllib.request
 import zipfile
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import COLORS, download, get_platform_info, log
+from _shared import download, get_platform_info, log
 
 def main():
     parser = argparse.ArgumentParser(description="Install lf from the latest GitHub release.")

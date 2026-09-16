@@ -3,7 +3,7 @@ import argparse
 import os
 import sys
 
-from _shared import COLORS, fetch_json, log, get_platform_info
+from _shared import fetch_json, log, get_platform_info
 
 REPO = "dat267/dotfiles"
 INSTALL_DIR = os.path.expanduser("~/.local/bin")

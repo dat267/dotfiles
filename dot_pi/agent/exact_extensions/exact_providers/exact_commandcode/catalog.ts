@@ -21,16 +21,6 @@ export const BASE_URL = "https://api.commandcode.ai/provider/v1";
 /** Claude models live on /provider/v1/messages: the base url minus "/v1". */
 export const ANTHROPIC_BASE_URL = "https://api.commandcode.ai/provider";
 
-const DEFAULT_MAX_OUTPUT_TOKENS = 65_536;
-const DEFAULT_CONTEXT_WINDOW = 128_000;
-
-/** Per-model output caps from the CLI catalog; the rest use the default. */
-const MAX_OUTPUT_TOKENS: Readonly<Record<string, number>> = {
-	"poolside/laguna-s-2.1-free": 32_768,
-	"Qwen/Qwen3.8-27B": 32_768,
-	"z-ai/glm-5.3-flash": 131_072,
-};
-
 type Effort = "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
 /** Compact per-model record: only what varies between models. */
@@ -463,8 +453,6 @@ const CATALOG: CompactEntry[] = [
 		contextWindow: 500_000, maxTokens: 65_536,
 	},
 ];
-
-const BY_ID = new Map(CATALOG.map((entry) => [entry.id, entry]));
 
 function apiForId(id: string): Api {
 	return id.startsWith("claude-") ? API_ANTHROPIC : API_OPENAI;

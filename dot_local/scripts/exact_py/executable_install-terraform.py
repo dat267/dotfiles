@@ -10,7 +10,7 @@ import zipfile
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import COLORS, download, get_platform_info, log
+from _shared import download, get_platform_info, log
 
 def fetch_latest_version():
     url = "https://releases.hashicorp.com/index.json"

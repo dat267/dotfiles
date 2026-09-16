@@ -152,10 +152,7 @@ export function applyChange(
 }
 
 /** Fold all durable entries into the current goal view. Throws on corruption. */
-export function foldGoal(
-	entries: { customType: string; data: any }[],
-	now = Date.now(),
-): GoalView | null {
+export function foldGoal(entries: { customType: string; data: any }[]): GoalView | null {
 	let current: GoalSnapshot | null = null;
 	let turnsStarted = 0;
 	let turnNo = 0;

@@ -30,7 +30,6 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { interceptToolCall, promptNote, blocked, type ShellSpec, type ToolType } from "./interceptor.ts";
 import { resolveModuleDir } from "./module-dir.ts";
 import { defaultMode, modeCompletions, modeDetail, modeFromCode, statusLine, switchMode, type ActiveMode } from "./modes.ts";
-import { defaultAllowlist } from "./policy.ts";
 import {
 	COMPILER_CANDIDATES as TERMUX_COMPILERS,
 	compileInterposerArgv,

@@ -10,7 +10,7 @@ import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Provider } from "@earendil-works/pi-ai";
-import { API_ANTHROPIC, API_OPENAI, BASE_URL, PROVIDER_ID } from "./catalog.ts";
+import { API_OPENAI, BASE_URL, PROVIDER_ID } from "./catalog.ts";
 import { registerCommandCode } from "./index.ts";
 
 function captureProvider(): Provider {

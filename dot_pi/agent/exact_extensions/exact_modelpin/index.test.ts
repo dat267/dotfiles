@@ -6,7 +6,7 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { registerModelSync } from "./index.ts";

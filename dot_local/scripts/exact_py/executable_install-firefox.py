@@ -5,10 +5,9 @@ import platform
 import shutil
 import sys
 import tempfile
-import urllib.request
 import zipfile
 
-from _shared import COLORS, download, log
+from _shared import download, log
 
 def clean_directory(path):
     if os.path.exists(path):

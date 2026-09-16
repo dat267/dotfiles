@@ -9,7 +9,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-from _shared import COLORS, download, get_platform_info, log
+from _shared import download, get_platform_info, log
 
 def fetch_latest_go_version():
     url = "https://golang.org/VERSION?m=text"

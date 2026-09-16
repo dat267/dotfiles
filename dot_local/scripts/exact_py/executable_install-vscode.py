@@ -6,10 +6,9 @@ import shutil
 import sys
 import tarfile
 import tempfile
-import urllib.request
 import zipfile
 
-from _shared import COLORS, download, log
+from _shared import download, log
 
 def get_platform_info():
     system = platform.system().lower()

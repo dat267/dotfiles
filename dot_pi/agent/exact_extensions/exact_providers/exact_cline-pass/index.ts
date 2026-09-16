@@ -13,7 +13,7 @@
 import { openAICompletionsApi } from "@earendil-works/pi-ai/compat";
 import { createProvider, envApiKeyAuth } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { API, BASE_URL, PROVIDER_ID, buildModels } from "./catalog.ts";
+import { BASE_URL, PROVIDER_ID, buildModels } from "./catalog.ts";
 import { normalizeClinePromptCachePayload } from "./cache.ts";
 
 export const CLINE_HEADERS: Record<string, string> = {

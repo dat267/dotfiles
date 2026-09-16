@@ -10,8 +10,8 @@ import { createGoalState, type GoalChangeEntry, type GoalTurnEntry } from "./sta
 
 /** Minimal Theme stub that returns strings unchanged. */
 const stubTheme = {
-	fg: (color: string, text: string) => text,
-	bg: (color: string, text: string) => text,
+	fg: (_color: string, text: string) => text,
+	bg: (_color: string, text: string) => text,
 	bold: (text: string) => text,
 	dim: (text: string) => text,
 } as any;

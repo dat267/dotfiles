@@ -291,6 +291,7 @@ void describe("GoalMachine.goal_update", () => {
 
 	void it("stale ref: error, no mutation", () => {
 		const m = armedMachine();
+		const ref = currentSnapshot(m);
 		const real = m.snapshot.goal!;
 		const { reply, isError, effects } = m.dispatch({ type: "goal_update", goal_id: real.id, revision: 999, action: "complete" });
 		assert.equal(isError, true);
@@ -303,6 +304,7 @@ void describe("GoalMachine.goal_update", () => {
 		// Session evidence: the model hallucinated goal_9f5b6c48e33d and the
 		// combined 'stale ref' message sent it through a get_goal round trip.
 		const m = armedMachine();
+		const ref = currentSnapshot(m);
 		const { reply, isError } = m.dispatch({ type: "goal_update", goal_id: "goal_9f5b6c48e33d", revision: 1, action: "complete" });
 		assert.equal(isError, true);
 		assert.match(reply ?? '', new RegExp(m.snapshot.goal!.id));
@@ -348,7 +350,6 @@ void describe("GoalMachine.goal_update", () => {
 
 	void it("blocked after 3 rounds: entry + blocked wrapup", () => {
 		const m = armedMachine();
-		const ref = currentSnapshot(m);
 		// admit 3 rounds
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
 		m.dispatch({ type: "agent_settled", contextUsage: USAGE });
