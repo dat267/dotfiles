@@ -41,6 +41,13 @@ function posixAllowlist(workspace: string, home: string): string[] {
 		home + "/.cargo", // CARGO_HOME: registry cache, cargo/rustc bins
 		home + "/.cache",
 		home + "/.npm",
+		// pi's agent state: extensions, skills, sessions, settings, and the
+		// credential store (whose lock files it mkdirs even on reads). The one
+		// entry that lets the agent manage pi itself - extension and skill
+		// deploys, settings writes, /reload - without a hand-run chezmoi apply.
+		// Contains credentials; the user accepts the wider surface by keeping
+		// it writable.
+		home + "/.pi",
 	];
 }
 

@@ -49,6 +49,15 @@ void describe("policy (posix)", () => {
 		assert.ok(list.includes(posix.home + "/.rustup"), "missing ~/.rustup (toolchains, rustup update)");
 		assert.ok(list.includes(posix.home + "/.cargo"), "missing ~/.cargo (registry, bins)");
 	});
+
+	// pi's own state: extensions, skills, sessions, settings — and the
+	// credential store, whose lock files it mkdirs during reads. Without this
+	// entry every pi-side mutation (an install, a settings write, a skill
+	// deploy) needs a hand-run chezmoi apply.
+	void it("defaultAllowlist covers the agent state directory ~/.pi", () => {
+		const list = defaultAllowlist("/data/work", posix);
+		assert.ok(list.includes(posix.home + "/.pi"), "missing ~/.pi (agent state, extension deploys)");
+	});
 });
 
 void describe("policy (windows)", () => {
