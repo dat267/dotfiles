@@ -105,6 +105,19 @@ $global:__dotfiles_profile_loaded = $true
         }
         $env:NODE_USE_SYSTEM_CA = $nodeCa
 
+        # pi phones home on startup (version check + install telemetry, both to
+        # pi.dev) and refreshes model catalogs over the network. PI_OFFLINE gates
+        # all of it; prompting is untouched, so the network is first touched when
+        # the first prompt is sent. Explicit `pi install` still works. Same
+        # User-scope persistence as above, with the same respect for an explicit
+        # '0'.
+        $piOffline = [Environment]::GetEnvironmentVariable('PI_OFFLINE', 'User')
+        if (-not $piOffline) {
+            [Environment]::SetEnvironmentVariable('PI_OFFLINE', '1', 'User')
+            $piOffline = '1'
+        }
+        $env:PI_OFFLINE = $piOffline
+
         # Python has no NODE_USE_SYSTEM_CA equivalent. certifi-based tools
         # (requests, pip, httpx) ship their own CA bundle and ignore the Windows
         # store, so a corp MITM root that GPO put in ROOT is invisible to them —
