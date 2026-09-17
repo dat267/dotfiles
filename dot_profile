@@ -97,7 +97,12 @@ export PI_OFFLINE=1
 # (the default cafile path is distro-specific; first one that exists wins).
 # uv does have a real switch — UV_NATIVE_TLS is deprecated in its favour as of
 # 0.11, and uv otherwise uses its own baked-in roots.
-for _ca in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt; do
+# Termux has no /etc/ssl — its bundle lives at $PREFIX/etc/tls/cert.pem, and
+# openssl's default CApath dir ($PREFIX/etc/tls/certs) doesn't exist, which
+# makes node print a warning on startup; pointing at the bundle silences it
+# and uses the pkg-managed roots instead of node's baked-in ones.
+for _ca in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
+	$PREFIX/etc/tls/cert.pem; do
 	if [ -f "$_ca" ]; then
 		export SSL_CERT_FILE="$_ca"
 		export REQUESTS_CA_BUNDLE="$_ca"
