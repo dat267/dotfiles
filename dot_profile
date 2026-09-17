@@ -104,9 +104,6 @@ export PI_OFFLINE=1
 # probes openssl's compiled-in default CApath dir on startup and warns when
 # it doesn't exist — exporting SSL_CERT_DIR (even to the still-missing path)
 # makes it skip that probe.
-if [ "${_ca:-}" = "$PREFIX/etc/tls/cert.pem" ]; then
-	export SSL_CERT_DIR="$PREFIX/etc/tls/certs"
-fi
 for _ca in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
 	$PREFIX/etc/tls/cert.pem; do
 	if [ -f "$_ca" ]; then
@@ -116,6 +113,9 @@ for _ca in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
 		break
 	fi
 done
+if [ "${_ca:-}" = "$PREFIX/etc/tls/cert.pem" ]; then
+	export SSL_CERT_DIR="$PREFIX/etc/tls/certs"
+fi
 unset _ca
 export UV_SYSTEM_CERTS=1
 export LIBVIRT_DEFAULT_URI="qemu:///system"
