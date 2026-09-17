@@ -3,8 +3,10 @@
  *
  * CATALOG holds compact records (only fields that vary between models);
  * buildModels() fills the invariants (api, provider, baseUrl, input, compat).
- * This static catalog is the only source of models: update it by editing
- * CATALOG, not by fetching /v1/models (see index.ts).
+ * Data fields (cost, limits, efforts, vision) are generated from the live
+ * API — regenerate with `hyper-catalog` (dot_local/scripts/exact_py), never
+ * by hand; display names and model selection stay curated. Still no
+ * fetchModels overlay at startup (see index.ts).
  */
 
 import type { Api, Model } from "@earendil-works/pi-ai";
@@ -53,61 +55,61 @@ const CATALOG: CompactEntry[] = [
 	},
 	{
 		id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", reasoning: true,
-		efforts: ["high", "max"],
-		cost: { input: 0.8, output: 1.6, cacheRead: 0.16, cacheWrite: 0 },
+		efforts: ["high", "xhigh"],
+		cost: { input: 2.4, output: 4.8, cacheRead: 0.2, cacheWrite: 0 },
 		contextWindow: 1_000_000, maxTokens: 384_000,
 	},
 	{
 		id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", reasoning: true, vision: true,
-		efforts: ["low", "high", "xhigh"],
+		efforts: ["low", "high", "max"],
 		cost: { input: 0.3, output: 1.2, cacheRead: 0.03, cacheWrite: 0 },
-		contextWindow: 1_048_576, maxTokens: 384_000,
+		contextWindow: 1_000_000, maxTokens: 32_768,
 	},
 	{
 		id: "glm-5.3", name: "GLM-5.3", reasoning: true,
-		efforts: ["high"],
-		cost: { input: 1.4, output: 4.4, cacheRead: 0.26, cacheWrite: 0 },
-		contextWindow: 1_000_000, maxTokens: 131_072,
+		efforts: ["low", "high", "max"],
+		cost: { input: 1.52432, output: 4.79072, cacheRead: 0.283088, cacheWrite: 0 },
+		contextWindow: 1_000_000, maxTokens: 128_000,
 	},
 	{
 		id: "glm-5.3-flash", name: "GLM-5.3 Flash", reasoning: true, vision: true,
 		efforts: ["low", "high", "max"],
-		cost: { input: 0.16, output: 0.54, cacheRead: 0.03, cacheWrite: 0 },
+		cost: { input: 0.16332, output: 0.5444, cacheRead: 0.031575, cacheWrite: 0 },
 		contextWindow: 1_048_576, maxTokens: 131_072,
 	},
 	{
-		id: "kimi-k3", name: "Kimi K3", reasoning: true,
-		efforts: ["high"],
-		cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 0 },
-		contextWindow: 1_000_000, maxTokens: 131_072,
+		id: "kimi-k3", name: "Kimi K3", reasoning: true, vision: true,
+		efforts: ["low", "high", "max"],
+		cost: { input: 3.2664, output: 16.332, cacheRead: 0.32664, cacheWrite: 0 },
+		contextWindow: 1_048_576, maxTokens: 16_000,
 	},
 	{
-		id: "minimax-m3", name: "MiniMax M3", reasoning: true,
-		efforts: ["high"],
-		cost: { input: 0.3, output: 1.2, cacheRead: 0.06, cacheWrite: 0 },
-		contextWindow: 1_000_000, maxTokens: 512_000,
+		id: "minimax-m3", name: "MiniMax M3", reasoning: true, vision: true,
+		efforts: ["low", "medium", "high"],
+		cost: { input: 0.32664, output: 1.30656, cacheRead: 0.064239, cacheWrite: 0 },
+		contextWindow: 512_000, maxTokens: 512_000,
 	},
 	{
 		id: "qwen3.7-max", name: "Qwen3.7 Max", reasoning: true,
-		efforts: ["high"],
-		cost: { input: 2.5, output: 7.5, cacheRead: 0.5, cacheWrite: 3.125 },
-		contextWindow: 1_000_000, maxTokens: 65_536,
-	},
-	{
-		id: "qwen3.7-plus", name: "Qwen3.7 Plus", reasoning: true,
-		efforts: ["high"],
-		cost: { input: 1.2, output: 4.8, cacheRead: 0.12, cacheWrite: 0 },
+		efforts: ["low", "medium", "high"],
+		cost: { input: 2.5, output: 7.5, cacheRead: 0.5, cacheWrite: 0 },
 		contextWindow: 1_000_000, maxTokens: 64_000,
 	},
 	{
-		id: "qwen3.8-flash", name: "Qwen3.8 Flash", reasoning: false,
-		efforts: [],
+		id: "qwen3.7-plus", name: "Qwen3.7 Plus", reasoning: true, vision: true,
+		efforts: ["low", "medium", "high"],
+		cost: { input: 1.2, output: 4.8, cacheRead: 0.24, cacheWrite: 0 },
+		contextWindow: 1_000_000, maxTokens: 64_000,
+	},
+	{
+		id: "qwen3.8-flash", name: "Qwen3.8 Flash", reasoning: true, vision: true,
+		efforts: ["low", "medium", "high"],
 		cost: { input: 0.15, output: 0.47, cacheRead: 0.016, cacheWrite: 0 },
 		contextWindow: 1_000_000, maxTokens: 128_000,
 	},
 	{
-		id: "qwen3.8-max", name: "Qwen3.8 Max", reasoning: true,
-		efforts: ["high"],
+		id: "qwen3.8-max", name: "Qwen3.8 Max", reasoning: true, vision: true,
+		efforts: ["low", "medium", "high"],
 		cost: { input: 2, output: 6, cacheRead: 0.25, cacheWrite: 0 },
 		contextWindow: 1_000_000, maxTokens: 65_536,
 	},

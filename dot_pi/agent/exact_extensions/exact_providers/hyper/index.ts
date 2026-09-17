@@ -2,11 +2,12 @@
  * Charm Hyper provider extension for pi
  *
  * Registers the Charm Hyper provider (https://hyper.charm.land) with the
- * hand-maintained static catalog from catalog.ts. No fetchModels overlay:
- * pi refreshes at startup with allowNetwork=false and would restore stale
- * entries from ~/.pi/agent/models.json over the static list anyway (dynamic
- * copies replace baseline entries by id), so the catalog is updated by
- * editing catalog.ts, not from the live API.
+ * catalog from catalog.ts. No fetchModels overlay: pi refreshes at startup
+ * with allowNetwork=false and would restore stale entries from
+ * ~/.pi/agent/models.json over the static list anyway (dynamic copies
+ * replace baseline entries by id). The catalog's data fields are kept in
+ * sync with /v1/models by the `hyper-catalog` script, run by hand —
+ * `hyper-catalog --check` shows drift, `hyper-catalog` rewrites it.
  *
  * Auth: ~/.pi/agent/auth.json (provider id "hyper") or HYPER_API_KEY env var.
  */

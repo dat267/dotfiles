@@ -21,11 +21,14 @@ void describe("buildModels", () => {
 		}
 	});
 
-	void it("reasoning models get a thinkingLevelMap, non-reasoning do not", () => {
+	void it("reasoning models get a thinkingLevelMap from their efforts", () => {
+		// Contract change 2026-09-17: the catalog is generated from the live
+		// /v1/models API, which publishes effort levels for every curated model —
+		// qwen3.8-flash included. No hyper model is non-reasoning any more.
 		const flash = buildModels().find((m) => m.id === "qwen3.8-flash")!;
-		assert.equal(flash.reasoning, false);
-		assert.equal(flash.thinkingLevelMap, undefined);
-		assert.equal((flash.compat as { supportsReasoningEffort: boolean }).supportsReasoningEffort, false);
+		assert.equal(flash.reasoning, true);
+		assert.ok(flash.thinkingLevelMap, "qwen3.8-flash supports effort levels");
+		assert.equal((flash.compat as { supportsReasoningEffort: boolean }).supportsReasoningEffort, true);
 
 		const deepseek = buildModels().find((m) => m.id === "deepseek-v4-flash")!;
 		assert.equal(deepseek.reasoning, true);
@@ -35,14 +38,14 @@ void describe("buildModels", () => {
 
 	void it("costs and context windows survive the build", () => {
 		const glm = buildModels().find((m) => m.id === "glm-5.3")!;
-		assert.equal(glm.cost.input, 1.4);
+		assert.equal(glm.cost.input, 1.52432);
 		assert.equal(glm.contextWindow, 1_000_000);
 
 		const glmFlash = buildModels().find((m) => m.id === "glm-5.3-flash")!;
 		assert.equal(glmFlash.reasoning, true);
 		assert.equal(glmFlash.contextWindow, 1_048_576);
 		assert.equal(glmFlash.maxTokens, 131_072);
-		assert.deepEqual(glmFlash.cost, { input: 0.16, output: 0.54, cacheRead: 0.03, cacheWrite: 0 });
+		assert.deepEqual(glmFlash.cost, { input: 0.16332, output: 0.5444, cacheRead: 0.031575, cacheWrite: 0 });
 		assert.deepEqual(glmFlash.input, ["text", "image"], "glm-5.3-flash is vision-capable");
 	});
 
@@ -50,8 +53,8 @@ void describe("buildModels", () => {
 		const m = buildModels().find((m) => m.id === "deepseek-v4.1-flash");
 		assert.ok(m, "deepseek-v4.1-flash must be in the catalog");
 		assert.equal(m.reasoning, true);
-		assert.equal(m.contextWindow, 1_048_576);
-		assert.equal(m.maxTokens, 384_000);
+		assert.equal(m.contextWindow, 1_000_000);
+		assert.equal(m.maxTokens, 32_768);
 		assert.deepEqual(m.cost, { input: 0.3, output: 1.2, cacheRead: 0.03, cacheWrite: 0 });
 		assert.deepEqual(m.input, ["text", "image"], "deepseek-v4.1-flash is vision-capable");
 	});
