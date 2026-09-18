@@ -64,5 +64,25 @@ class TestAddrPattern(unittest.TestCase):
         self.assertIsNone(self.re.search("ssh hostname-only"))
 
 
+import _loader
+
+mod = _loader.load("cloudsh")
+
+
+class TestSshCmd(unittest.TestCase):
+    """An interactive session (no remote command) must NOT append a trailing
+    empty string: 'ssh host ""' runs the empty command remotely, which prints
+    the banner and exits immediately — the local shell never takes over."""
+
+    def test_no_command_omits_trailing_arg(self):
+        cmd = mod.build_ssh_cmd("", "6000", "user@1.2.3.4", "/k")
+        self.assertEqual(cmd[-1], "user@1.2.3.4")
+        self.assertNotIn("", cmd)
+
+    def test_with_command_appends_it(self):
+        cmd = mod.build_ssh_cmd("ls -l", "6000", "user@1.2.3.4", "/k")
+        self.assertEqual(cmd[-2:], ["user@1.2.3.4", "ls -l"])
+
+
 if __name__ == "__main__":
     unittest.main()
