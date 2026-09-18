@@ -8,6 +8,7 @@ and exit codes.
 
 import io
 import json
+import contextlib
 import os
 import tempfile
 import unittest
@@ -108,6 +109,55 @@ class StdinCase(unittest.TestCase):
 		payload = "piped message\n"
 		with patch("sys.stdin", io.StringIO(payload)):
 			self.assertEqual(ntfy.read_message(None), payload)
+
+
+class GenerateCase(unittest.TestCase):
+	def test_print_topic_prints_a_url_and_setup_commands(self):
+		buf = io.StringIO()
+		with contextlib.redirect_stdout(buf):
+			rc = ntfy.main(["--print-topic"])
+		self.assertEqual(rc, 0)
+		lines = buf.getvalue().splitlines()
+		# First line is the URL; subsequent lines are the exact setup recipe.
+		self.assertTrue(lines[0].startswith("https://ntfy.sh/"), lines[0])
+		token = lines[0].removeprefix("https://ntfy.sh/")
+		self.assertGreaterEqual(len(token), 32, f"token too short for crypto-grade entropy: {token!r}")
+		body = "\n".join(lines[1:])
+		self.assertIn("mkdir -p ~/.config/ntfy", body)
+		self.assertIn(f"printf '%s\\n' '{lines[0]}' > ~/.config/ntfy/target", body)
+		self.assertIn("chmod 600 ~/.config/ntfy/target", body)
+
+	def test_print_topic_does_not_send(self):
+		def opener(req, timeout=0):
+			raise AssertionError("transport should not be invoked for --print-topic")
+
+		with contextlib.redirect_stdout(io.StringIO()):
+			rc = ntfy.main(["--print-topic"], opener=opener)
+		self.assertEqual(rc, 0)
+
+	def test_print_topic_ignores_existing_target_config(self):
+		with tempfile.TemporaryDirectory() as tmp:
+			cfg = ntfy.config_path(self.home(tmp))
+			cfg.parent.mkdir(parents=True)
+			cfg.write_text("https://ntfy.sh/old-configured-topic\n")
+			buf = io.StringIO()
+			with contextlib.redirect_stdout(buf):
+				rc = ntfy.main(["--print-topic", "--topic", "ignored-env-value"], home=self.home(tmp))
+			self.assertEqual(rc, 0)
+			self.assertNotIn("old-configured-topic", buf.getvalue())
+			self.assertNotIn("ignored-env-value", buf.getvalue())
+
+	def test_two_calls_produce_different_topics(self):
+		urls = []
+		for _ in range(2):
+			buf = io.StringIO()
+			with contextlib.redirect_stdout(buf):
+				ntfy.main(["--print-topic"])
+			urls.append(buf.getvalue().splitlines()[0])
+		self.assertNotEqual(*urls, "crypto-secure generation should not collide across two calls")
+
+	def home(self, tmp):
+		return type(tmp)(tmp)
 
 
 if __name__ == "__main__":

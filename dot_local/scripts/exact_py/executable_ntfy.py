@@ -17,11 +17,13 @@ The topic name (or URL path) is a bearer secret: anyone who knows it can
 send. Keep it out of agent-writable config if the channel matters.
 
 Run: ntfy [-s SUBJECT] [-p PRIORITY] [-t TOPIC] [--tag TAG]... [MESSAGE]
+     ntfy --print-topic  # mint a fresh crypto-secure URL + setup recipe
 """
 
 import argparse
 import json
 import os
+import secrets
 import sys
 import urllib.error
 import urllib.request
@@ -101,13 +103,22 @@ def send(url: str, *, message: str, subject=None, priority=None, tags=None, open
 	return 0
 
 
+def generate_topic():
+	"""192 bits of crypto-secure entropy, URL-safe base64 (32 chars).
+
+	UUID4 is only 122 bits and confusingly versions-stamped; secrets.token_urlsafe
+	is the idiomatic stdlib answer for opaque string secrets. The token is the
+	sole auth on ntfy.sh — see the safety note in the module docstring."""
+	return secrets.token_urlsafe(24)
+
+
 def read_message(positional: str | None) -> str:
 	if positional is not None and positional != "-":
 		return positional
 	return sys.stdin.read()
 
 
-def main(argv=None):
+def main(argv=None, opener=None, home=None):
 	parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
 	parser.add_argument("message", nargs="?", help="body text; '-' or omitted reads stdin")
 	parser.add_argument("-s", "--subject", help="notification title")
@@ -115,14 +126,24 @@ def main(argv=None):
 	parser.add_argument("-t", "--topic", help="topic name or full URL "
 		"(default: $NTFY_TARGET, then ~/.config/ntfy/target)")
 	parser.add_argument("--tag", action="append", default=[], help="tag, repeatable")
+	parser.add_argument("--print-topic", action="store_true",
+		help="print a fresh crypto-secure topic URL and the exact setup recipe, then exit")
 	args = parser.parse_args(argv)
+
+	if args.print_topic:
+		url = PUBLIC_BASE + generate_topic()
+		print(url)
+		print(f"mkdir -p ~/.config/ntfy")
+		print(f"printf '%s\\n' '{url}' > ~/.config/ntfy/target")
+		print(f"chmod 600 ~/.config/ntfy/target")
+		return 0
 
 	message = read_message(args.message)
 	if not message.strip():
-		print("ntfy: empty message (pass one or pipe to stdin)", file=sys.stderr)
+		print("ntfy: empty message (pass one or pass to stdin)", file=sys.stderr)
 		return 2
-	url = target_url(resolve_target(args.topic))
-	return send(url, message=message, subject=args.subject, priority=args.priority, tags=args.tag)
+	url = target_url(resolve_target(args.topic, home=home))
+	return send(url, message=message, subject=args.subject, priority=args.priority, tags=args.tag, opener=opener)
 
 
 if __name__ == "__main__":
