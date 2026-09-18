@@ -1,9 +1,11 @@
 {{ if eq .chezmoi.os "linux" -}}
 #!/bin/sh
 # Reload the user manager after a systemd unit change; bounce the service only
-# if it's already running.
-systemctl --user daemon-reload 2>/dev/null || true
-if systemctl --user is-active --quiet dsh-web; then
+# if it's already running. Environments without a user bus (containers, Cloud
+# Shell, WSL) have nothing to reload — exit quietly instead of leaking
+# "Failed to connect to bus" noise into the apply output.
+systemctl --user daemon-reload 2>/dev/null || exit 0
+if systemctl --user is-active --quiet dsh-web 2>/dev/null; then
     echo "Restarting dsh-web (unit changed)"
     systemctl --user restart dsh-web
 fi
