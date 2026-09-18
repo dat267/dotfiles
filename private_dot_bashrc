@@ -1,5 +1,10 @@
 # shellcheck disable=SC1091
-[[ -f ~/.profile ]] && . ~/.profile
+# Login shells arrive via .profile's handoff (DOTFILES_PROFILE_SOURCED set);
+# non-login interactive shells pull in the shared profile env themselves.
+if [ -z "$DOTFILES_PROFILE_SOURCED" ]; then
+	DOTFILES_VIA_BASHRC=1
+	[[ -f ~/.profile ]] && . ~/.profile
+fi
 # Out-of-repo secrets (mode 600, never committed; see ~/.secrets.env)
 [[ -f ~/.secrets.env ]] && . ~/.secrets.env
 [[ $- != *i* ]] && return

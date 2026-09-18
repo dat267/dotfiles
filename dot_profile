@@ -1,3 +1,13 @@
+# One-way handoff to .bashrc for interactive bash login shells (tmux, ssh,
+# console logins): without it, login shells never see the bashrc at all —
+# aliases, PS1, and /google/devshell/bashrc.google included. .bashrc sources
+# this file back for the shared env; DOTFILES_VIA_BASHRC marks that path so
+# the handoff is skipped and the chain terminates exactly once.
+DOTFILES_PROFILE_SOURCED=1
+if [ -n "$BASH_VERSION" ] && [ -z "$DOTFILES_VIA_BASHRC" ] && [ -f "$HOME/.bashrc" ]; then
+	. "$HOME/.bashrc"
+fi
+
 prepend_paths() {
 	for p in "$@"; do
 		if [ -d "$p" ]; then
