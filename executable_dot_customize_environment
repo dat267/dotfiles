@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-
-# This script is executed as root in Google Cloud Shell at container creation.
-# It must keep the executable bit — chezmoi's executable_ prefix provides it —
-# or Cloud Shell silently skips it (the file deploys, nothing ever runs).
-
-export DEBIAN_FRONTEND=noninteractive
-apt-get update
-apt-get install -y nasm pngquant flac lame libegl1 libopengl0

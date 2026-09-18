@@ -5,9 +5,6 @@ LICENSE
 docs
 
 
-{{- if ne (env "CLOUD_SHELL") "true" }}
-.customize_environment
-{{- end }}
 
 {{- if ne .chezmoi.os "android" }}
 .termux

@@ -10,7 +10,7 @@ Edit source files (`dot_*` prefix), never deployed versions. Preserve `{{- ... -
 
 ## Layout
 
-- Shell: `dot_profile`, `private_dot_{bashrc,zshrc}`, `dot_customize_environment` (Cloud Shell)
+- Shell: `dot_profile`, `private_dot_{bashrc,zshrc}`
 - Editors: `dot_config/{helix,nvim,Code,zed}/`, `dot_vimrc` (nvim = zero-plugin Lua modules)
 - Yazi: `dot_config/yazi/{yazi,keymap,init,theme}`
 - Chezmoi: `.chezmoi.toml.tmpl` (autoAdd/autoCommit, no autoPush), `.chezmoiignore`, `.chezmoiexternal.toml.tmpl` (zsh plugin tarballs)
