@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-# This script is executed as root in Google Cloud Shell
-
-apt-get update
-apt-get install -y nasm pngquant flac lame libegl1 libopengl0
