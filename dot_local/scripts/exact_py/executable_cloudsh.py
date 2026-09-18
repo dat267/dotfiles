@@ -15,11 +15,13 @@ if not gcloud:
 port_pattern = r"-[pP]\s([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])(?!\d)"
 addr_pattern = r"\S*@\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
 
-def resolve_target() -> tuple[str, str, str]:
-    """Ask gcloud for the tunnel port and SSH address; return (port, addr, key).
+def resolve_target() -> tuple[str, str, str, str]:
+    """Ask gcloud for the tunnel port and SSH address.
 
-    Runs `gcloud cloud-shell ssh --dry-run --authorize-session`, which must not
-    happen at import time (tests import this module without gcloud side effects).
+    Returns (port, addr, key, project); project may be empty when none is
+    configured. Runs `gcloud cloud-shell ssh --dry-run --authorize-session`,
+    which must not happen at import time (tests import this module without
+    gcloud side effects).
     """
     out: str = subprocess.check_output(
         [gcloud, "cloud-shell", "ssh", "--dry-run", "--authorize-session"], text=True
@@ -41,13 +43,26 @@ def resolve_target() -> tuple[str, str, str]:
     if not os.path.exists(key):
         sys.stderr.write("Private key does not exist!\n")
         sys.exit(1)
-    return port, addr, key
+
+    project: str = subprocess.run(
+        [gcloud, "config", "get-value", "project"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    return port, addr, key, project
 
 
-def build_ssh_cmd(command: str, port: str, addr: str, key: str) -> list[str]:
-    """Assemble the ssh argv. A command is appended only when non-empty:
-    a trailing empty string makes ssh run the empty command remotely — banner,
-    then instant exit, instead of handing over an interactive session."""
+def build_ssh_cmd(
+    command: str, port: str, addr: str, key: str, project: str | None = None
+) -> list[str]:
+    """Assemble the ssh argv, mirroring what gcloud cloud-shell ssh runs.
+
+    Two non-obvious parts: the remote command is appended only when non-empty
+    (a trailing empty string makes ssh run the empty command remotely — banner,
+    then instant exit), and an interactive session must explicitly run a remote
+    login shell — the Cloud Shell sshd kills bare sessions with a signal right
+    after the banner (gcloud sends: DEVSHELL_PROJECT_ID=<project> 'bash -l').
+    """
     cmd: list[str] = [
         "ssh",
         "-t",
@@ -63,6 +78,11 @@ def build_ssh_cmd(command: str, port: str, addr: str, key: str) -> list[str]:
     ]
     if command:
         cmd.append(command)
+    else:
+        remote = "bash -l"
+        if project:
+            remote = f"DEVSHELL_PROJECT_ID={project} {remote}"
+        cmd.append(remote)
     return cmd
 
 
@@ -73,8 +93,8 @@ if __name__ == "__main__":
     # Preserve original behavior of sys.argv[2:] (first positional arg is dropped)
     command = " ".join(args.command[1:] if args.command else [])
 
-    port, addr, key = resolve_target()
-    cmd = build_ssh_cmd(command, port, addr, key)
+    port, addr, key, project = resolve_target()
+    cmd = build_ssh_cmd(command, port, addr, key, project)
 
     print(f"Trying to SSH into {addr}, tunnel port {port}...")
     try:

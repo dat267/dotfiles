@@ -70,17 +70,22 @@ mod = _loader.load("cloudsh")
 
 
 class TestSshCmd(unittest.TestCase):
-    """An interactive session (no remote command) must NOT append a trailing
-    empty string: 'ssh host ""' runs the empty command remotely, which prints
-    the banner and exits immediately — the local shell never takes over."""
+    """Mirrors gcloud's argv: interactive sessions must run the remote login
+    shell (the Cloud Shell sshd kills bare sessions right after the banner),
+    and an explicit command must never turn into a trailing empty string
+    ('ssh host ""' — banner, then instant exit)."""
 
-    def test_no_command_omits_trailing_arg(self):
-        cmd = mod.build_ssh_cmd("", "6000", "user@1.2.3.4", "/k")
-        self.assertEqual(cmd[-1], "user@1.2.3.4")
+    def test_interactive_runs_remote_login_shell_with_project(self):
+        cmd = mod.build_ssh_cmd("", "6000", "user@1.2.3.4", "/k", "proj-1")
+        self.assertEqual(cmd[-1], "DEVSHELL_PROJECT_ID=proj-1 bash -l")
         self.assertNotIn("", cmd)
 
+    def test_interactive_without_project_still_runs_login_shell(self):
+        cmd = mod.build_ssh_cmd("", "6000", "user@1.2.3.4", "/k", None)
+        self.assertEqual(cmd[-1], "bash -l")
+
     def test_with_command_appends_it(self):
-        cmd = mod.build_ssh_cmd("ls -l", "6000", "user@1.2.3.4", "/k")
+        cmd = mod.build_ssh_cmd("ls -l", "6000", "user@1.2.3.4", "/k", "proj-1")
         self.assertEqual(cmd[-2:], ["user@1.2.3.4", "ls -l"])
 
 
