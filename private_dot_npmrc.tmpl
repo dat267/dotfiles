@@ -1,7 +1,10 @@
-# User-level global install location: `npm i -g` installs into ~/.local
-# (binaries in ~/.local/bin, already on PATH via dot_profile) instead of
-# /usr/lib/node_modules, which needs root (EACCES on system npm).
-prefix={{ if eq .chezmoi.os "windows" }}{{ .chezmoi.homeDir }}/.local{{ else }}${HOME}/.local{{ end }}
+# User-level global install location.
+# Linux: `npm i -g` installs into ~/.local (binaries in ~/.local/bin, already on
+# PATH via dot_profile) instead of /usr/lib/node_modules, which needs root.
+# Windows: npm has no lib/bin split — it drops node_modules and the .cmd shims
+# straight into the prefix dir — so keep npm's conventional %APPDATA%\npm,
+# which the Node installer already puts on PATH.
+prefix={{ if eq .chezmoi.os "windows" }}${APPDATA}/npm{{ else }}${HOME}/.local{{ end }}
 
 # Retained from the pre-existing ~/.npmrc: allow installing deps from any git host.
 allow-git=all
