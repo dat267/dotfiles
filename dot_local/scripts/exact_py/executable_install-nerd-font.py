@@ -17,7 +17,11 @@ import tempfile
 import urllib.request
 import zipfile
 
-from _shared import log, get_platform_info
+from _shared import Platform, log
+
+# Font paths and fc-cache only care which desktop OS this is; Termux
+# counts as Linux (it has fontconfig too).
+OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
 
 REPO = "ryanoasis/nerd-fonts"
 KNOWN = [
@@ -30,7 +34,7 @@ KNOWN = [
 
 
 def font_dir():
-    os_name, _ = get_platform_info()
+    (os_name, _) = Platform.detect().vendor(os=OS_WORDS)
     if os_name == "windows":
         return os.path.expandvars(r"%USERPROFILE%\AppData\Local\Microsoft\Windows\Fonts")
     return os.path.expanduser("~/.local/share/fonts")
@@ -66,7 +70,7 @@ def install_font(name):
             shutil.copy2(src, dst)
             log(f"  Installed {os.path.basename(src)}", "green")
 
-    os_name, _ = get_platform_info()
+    (os_name, _) = Platform.detect().vendor(os=OS_WORDS)
     if os_name == "linux":
         subprocess.run(["fc-cache", "-f"], capture_output=True)
         log("Font cache updated (fc-cache)", "green")

@@ -9,7 +9,11 @@ import tempfile
 import urllib.request
 import zipfile
 
-from _shared import download, get_platform_info, log
+from _shared import Platform, download, log
+
+# Go's download vocabulary is the canonical one.
+OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
+ARCH_WORDS = {"x64": "amd64", "arm64": "arm64"}
 
 def fetch_latest_go_version():
     url = "https://golang.org/VERSION?m=text"
@@ -62,7 +66,7 @@ def main():
     parser = argparse.ArgumentParser(description="Install Go from the latest release.")
     parser.parse_args()
 
-    os_name, arch_name = get_platform_info()
+    os_name, arch_name = Platform.detect().vendor(os=OS_WORDS, arch=ARCH_WORDS)
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 
     log("Resolving latest Go version...", "cyan")

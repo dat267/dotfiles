@@ -67,7 +67,7 @@ class TestFdMain(unittest.TestCase):
         install = install or mock.Mock(return_value="/home/u/.local/bin/fd")
         p1, p2 = platform_patch(fd, system, machine)
         with mock.patch.object(fd, "github_latest_tag", return_value=tag), \
-                mock.patch.object(fd, "install_github_release_binary", install), \
+                mock.patch.object(fd, "install_release_binary", install), \
                 mock.patch.object(fd.subprocess, "run",
                                   return_value=mock.Mock(returncode=verify_returncode,
                                                          stdout="fd 10.5.0\n")), \
@@ -157,7 +157,7 @@ class TestRipgrepMain(unittest.TestCase):
         install = mock.Mock(return_value="/home/u/.local/bin/rg")
         p1, p2 = platform_patch(rg, system, machine)
         with mock.patch.object(rg, "github_latest_tag", return_value=tag), \
-                mock.patch.object(rg, "install_github_release_binary", install), \
+                mock.patch.object(rg, "install_release_binary", install), \
                 mock.patch.object(rg.subprocess, "run",
                                   return_value=mock.Mock(returncode=verify_returncode,
                                                          stdout="ripgrep 15.2.0\n")), \

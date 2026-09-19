@@ -9,7 +9,7 @@ import subprocess
 import sys
 import zipfile
 
-from _shared import Platform, download, extract_archive, fetch_json, github_latest_tag, install_github_release_binary
+from _shared import Platform, download, extract_archive, fetch_json, github_latest_tag, install_release_binary
 
 # Force IPv4 — Termux IPv6 lookups fail on some networks
 _orig_getaddrinfo = socket.getaddrinfo
@@ -118,7 +118,7 @@ def install_marksman(plat):
 
     url = f"https://github.com/artempyanykh/marksman/releases/latest/download/marksman-{MARKSMAN_ASSETS[(plat.os, plat.arch)]}"
     try:
-        install_github_release_binary(url, "marksman" + plat.exe_ext, BIN_DIR)
+        install_release_binary(url, "marksman" + plat.exe_ext, BIN_DIR)
     except Exception as e:
         print(f"\n[Error] Failed to install Marksman: {e}")
 

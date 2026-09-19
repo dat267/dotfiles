@@ -4,6 +4,7 @@ from unittest import mock
 
 import _loader
 
+shared = _loader.load("_shared")
 lf = _loader.load("install-lf")
 firefox = _loader.load("install-firefox")
 opencode = _loader.load("install-opencode")
@@ -83,15 +84,17 @@ class TestFirefoxGuard(unittest.TestCase):
 
 
 class TestOpencodePlatform(unittest.TestCase):
+    """OpenCode's filename via Platform: canonical words, glibc-runner gate."""
+
     def test_linux(self):
-        with mock.patch.object(opencode.platform, "system", return_value="Linux"), mock.patch.object(
-            opencode.platform, "machine", return_value="x86_64"
-        ):
+        with mock.patch.object(shared.platform, "system", return_value="Linux"), mock.patch.object(
+            shared.platform, "machine", return_value="x86_64"
+        ), mock.patch.object(shared, "is_termux", return_value=False):
             self.assertEqual(opencode.get_platform_filename(), "opencode-linux-x64.tar.gz")
 
     def test_android_requires_glibc_runner(self):
-        with mock.patch.object(opencode.platform, "system", return_value="Android"), mock.patch.object(
-            opencode.platform, "machine", return_value="aarch64"
+        with mock.patch.object(shared.platform, "system", return_value="Android"), mock.patch.object(
+            shared.platform, "machine", return_value="aarch64"
         ), mock.patch.object(opencode.shutil, "which", return_value=None):
             with self.assertRaises(SystemExit):
                 opencode.get_platform_filename()

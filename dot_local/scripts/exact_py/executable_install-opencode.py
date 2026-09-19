@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -12,38 +11,21 @@ import urllib.request
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import download, log
+from _shared import Platform, download, log
+
+# OpenCode's download vocabulary is the canonical one (linux/windows/darwin,
+# x64/arm64); Termux presents as Linux behind the glibc-runner gate.
+OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
+ARCH_WORDS = {"x64": "x64", "arm64": "arm64"}
 
 
 def get_platform_filename():
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-
-    if system == "android":
-        if shutil.which("glibc-runner"):
-            os_name = "linux"
-        else:
-            log("Error: OpenCode's Linux ARM64 builds need glibc (incompatible with Termux's bionic).", "red")
-            log("Install glibc-runner first: pkg install glibc-runner", "yellow")
-            sys.exit(1)
-    elif system == "linux":
-        os_name = "linux"
-    elif system == "windows":
-        os_name = "windows"
-    elif system == "darwin":
-        os_name = "darwin"
-    else:
-        log(f"Error: OS '{system}' is not supported.", "red")
+    detected = Platform.detect()
+    if detected.os == "android" and not shutil.which("glibc-runner"):
+        log("Error: OpenCode's Linux ARM64 builds need glibc (incompatible with Termux's bionic).", "red")
+        log("Install glibc-runner first: pkg install glibc-runner", "yellow")
         sys.exit(1)
-
-    if machine in ("x86_64", "amd64", "em64t"):
-        arch_name = "x64"
-    elif machine in ("aarch64", "arm64"):
-        arch_name = "arm64"
-    else:
-        log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
-
+    os_name, arch_name = detected.vendor(os=OS_WORDS, arch=ARCH_WORDS)
     return f"opencode-{os_name}-{arch_name}.tar.gz"
 
 
@@ -97,7 +79,7 @@ def main():
 
             shutil.move(src, dest_path)
 
-            if platform.system().lower() == "android" and shutil.which("glibc-runner"):
+            if Platform.detect().os == "android" and shutil.which("glibc-runner"):
                 subprocess.run(
                     ["glibc-runner", "--configure", dest_path],
                     capture_output=True,

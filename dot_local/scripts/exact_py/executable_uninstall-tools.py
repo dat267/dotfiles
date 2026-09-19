@@ -3,7 +3,11 @@ import argparse
 import os
 import sys
 
-from _shared import fetch_json, log, get_platform_info
+from _shared import Platform, fetch_json, log
+
+# This repo's own release assets are tagged x86_64/aarch64.
+OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
+ARCH_WORDS = {"x64": "x86_64", "arm64": "aarch64"}
 
 REPO = "dat267/dotfiles"
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
@@ -13,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description="Uninstall tools downloaded from GitHub Releases.")
     parser.parse_args()
 
-    os_name, arch_name = get_platform_info()
+    os_name, arch_name = Platform.detect().vendor(os=OS_WORDS, arch=ARCH_WORDS)
 
     suffix = f"-{os_name}-{arch_name}"
     if os_name == "windows":

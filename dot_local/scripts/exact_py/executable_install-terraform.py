@@ -2,15 +2,16 @@
 import argparse
 import json
 import os
-import shutil
 import sys
-import tempfile
 import urllib.request
-import zipfile
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import download, get_platform_info, log
+from _shared import Platform, install_release_binary, log
+
+# HashiCorp's download vocabulary is the canonical one.
+OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
+ARCH_WORDS = {"x64": "amd64", "arm64": "arm64"}
 
 def fetch_latest_version():
     url = "https://releases.hashicorp.com/index.json"
@@ -49,7 +50,7 @@ def main():
     parser = argparse.ArgumentParser(description="Install Terraform from the latest HashiCorp release.")
     parser.parse_args()
 
-    os_name, arch_name = get_platform_info()
+    os_name, arch_name = Platform.detect().vendor(os=OS_WORDS, arch=ARCH_WORDS)
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 
     log("Checking latest Terraform version...", "cyan")
@@ -60,32 +61,12 @@ def main():
     zip_url = f"https://releases.hashicorp.com/terraform/{latest_version}/terraform_{latest_version}_{os_name}_{arch_name}.zip"
 
     log(f"Downloading from: {zip_url}", "cyan")
-    os.makedirs(INSTALL_DIR, exist_ok=True)
-    dest_path = os.path.join(INSTALL_DIR, binary_name)
-
     try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            zip_path = os.path.join(temp_dir, "terraform.zip")
-
-            download(zip_url, zip_path, headers={"User-Agent": "Mozilla/5.0"})
-
-            log("Extracting binary...", "cyan")
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extract(binary_name, path=temp_dir)
-
-            src_binary = os.path.join(temp_dir, binary_name)
-            if os_name != "windows":
-                os.chmod(src_binary, 0o755)
-
-            try:
-                if os.path.exists(dest_path):
-                    os.remove(dest_path)
-            except Exception as e:
-                log(f"Warning: Could not remove existing file: {e}", "yellow")
-
-            shutil.move(src_binary, dest_path)
-            log(f"Terraform installed successfully -> {dest_path}", "green")
-
+        dest_path = install_release_binary(
+            zip_url, binary_name, INSTALL_DIR,
+            extract="zip", headers={"User-Agent": "Mozilla/5.0"},
+        )
+        log(f"Terraform installed successfully -> {dest_path}", "green")
     except Exception as e:
         log(f"Error installing Terraform: {e}", "red")
         sys.exit(1)

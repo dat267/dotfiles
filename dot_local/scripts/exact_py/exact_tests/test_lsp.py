@@ -151,7 +151,7 @@ class TestLspDeduplication(unittest.TestCase):
     def test_marksman_uses_install_helper(self):
         with tempfile.TemporaryDirectory() as d, mock.patch.object(
             lsp, "BIN_DIR", d
-        ), mock.patch.object(lsp, "install_github_release_binary") as helper:
+        ), mock.patch.object(lsp, "install_release_binary") as helper:
             lsp.install_marksman(shared.Platform("linux", "x64"))
         helper.assert_called_once_with(
             "https://github.com/artempyanykh/marksman/releases/latest/download/marksman-linux-x64",
@@ -163,7 +163,7 @@ class TestLspDeduplication(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             pathlib.Path(d, "marksman").write_text("x")
             with mock.patch.object(lsp, "BIN_DIR", d), mock.patch.object(
-                lsp, "install_github_release_binary"
+                lsp, "install_release_binary"
             ) as helper:
                 lsp.install_marksman(shared.Platform("linux", "x64"))
         helper.assert_not_called()

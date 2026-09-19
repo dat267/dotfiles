@@ -6,7 +6,7 @@ import sys
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import install_github_release_binary, log
+from _shared import install_release_binary, log
 
 def get_platform_filename():
     system = platform.system().lower()
@@ -43,7 +43,7 @@ def main():
     dest_path = os.path.join(INSTALL_DIR, binary_name)
 
     try:
-        dest_path = install_github_release_binary(url, binary_name, INSTALL_DIR, extract="zip")
+        dest_path = install_release_binary(url, binary_name, INSTALL_DIR, extract="zip")
         log(f"fnm installed successfully -> {dest_path}", "green")
 
     except Exception as e:

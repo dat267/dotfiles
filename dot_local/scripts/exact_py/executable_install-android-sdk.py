@@ -3,7 +3,6 @@
 
 import argparse
 import os
-import platform
 import re
 import shutil
 import subprocess
@@ -14,32 +13,13 @@ import urllib.error
 import xml.etree.ElementTree as ET
 import zipfile
 
-from _shared import download, log
+from _shared import Platform, download, log
 
 REPO_XML = "https://dl.google.com/android/repository/repository2-3.xml"
 
-
-def get_platform_info():
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-
-    if system in ("linux", "android"):
-        os_name = "linux"
-    elif system == "windows":
-        os_name = "windows"
-    elif system == "darwin":
-        os_name = "mac"
-    else:
-        log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
-
-    if machine in ("x86_64", "amd64", "em64t"):
-        arch_name = "x86_64"
-    else:
-        log(f"Error: Architecture '{machine}' not supported for Android SDK.", "red")
-        sys.exit(1)
-
-    return os_name, arch_name
+# Google's SDK vocabulary: darwin is "mac", and only x86_64 archives ship.
+OS_WORDS = {"linux": "linux", "darwin": "mac", "windows": "windows"}
+ARCH_WORDS = {"x64": "x86_64"}
 
 
 def find_java_home():
@@ -285,7 +265,7 @@ def run_android_sdk(sdk_root, components):
 
 def main():
     args = parse_args()
-    os_name, arch_name = get_platform_info()
+    os_name, arch_name = Platform.detect().vendor(os=OS_WORDS, arch=ARCH_WORDS)
     log(f"Platform: {os_name}/{arch_name}", "cyan")
 
     sdk_root = os.path.abspath(os.path.expanduser(args.sdk_root))

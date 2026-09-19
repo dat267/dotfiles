@@ -9,7 +9,7 @@ import platform
 import subprocess
 import sys
 
-from _shared import Platform, github_latest_tag, install_github_release_binary, log
+from _shared import Platform, github_latest_tag, install_release_binary, log
 
 REPO = "sharkdp/fd"
 INSTALL_DIR = None  # set in main() to keep the module import-safe for tests
@@ -67,7 +67,7 @@ def main():
     url = download_url(tag, p.os, p.arch)
     log(f"Installing fd {tag} from: {url}", "cyan")
     try:
-        dest = install_github_release_binary(
+        dest = install_release_binary(
             url, binary_name(p.os), INSTALL_DIR,
             extract="zip" if p.is_windows else "tar.gz",
         )

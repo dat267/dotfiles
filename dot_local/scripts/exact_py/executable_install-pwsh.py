@@ -1,39 +1,17 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import platform
 import shutil
 import sys
 import tarfile
 import tempfile
 import zipfile
 
-from _shared import download, fetch_json, log
+from _shared import Platform, download, fetch_json, log
 
-def get_platform_info():
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-
-    if system in ("linux", "android"):
-        os_name = "linux"
-    elif system == "windows":
-        os_name = "windows"
-    elif system == "darwin":
-        os_name = "darwin"
-    else:
-        log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
-
-    if machine in ("x86_64", "amd64", "em64t"):
-        arch_name = "x64"
-    elif machine in ("aarch64", "arm64"):
-        arch_name = "arm64"
-    else:
-        log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
-
-    return os_name, arch_name
-
+# PowerShell's download vocabulary is the canonical one.
+OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
+ARCH_WORDS = {"x64": "x64", "arm64": "arm64"}
 
 def fetch_latest_pwsh_release(os_name, arch_name):
     url = "https://api.github.com/repos/PowerShell/PowerShell/releases/latest"
@@ -105,7 +83,7 @@ def main():
     parser = argparse.ArgumentParser(description="Install PowerShell from the latest GitHub release.")
     parser.parse_args()
 
-    os_name, arch_name = get_platform_info()
+    os_name, arch_name = Platform.detect().vendor(os=OS_WORDS, arch=ARCH_WORDS)
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 
     log("Resolving latest PowerShell release from GitHub...", "cyan")

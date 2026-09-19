@@ -1,39 +1,17 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import platform
 import shutil
 import subprocess
 import sys
 import tempfile
 import zipfile
 
-from _shared import download, log
+from _shared import Platform, download, log
 
-def get_platform_info():
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-
-    if system in ("linux", "android"):
-        os_name = "linux"
-    elif system == "windows":
-        os_name = "windows"
-    elif system == "darwin":
-        os_name = "darwin"
-    else:
-        log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
-
-    if machine in ("x86_64", "amd64", "em64t"):
-        arch_name = "x86_64"
-    elif machine in ("aarch64", "arm64"):
-        arch_name = "aarch64"
-    else:
-        log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
-
-    return os_name, arch_name
-
+# AWS CLI's download vocabulary: aarch64 releases are tagged "aarch64".
+OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
+ARCH_WORDS = {"x64": "x86_64", "arm64": "aarch64"}
 
 def install_unix(os_name, arch_name):
     install_dir = os.path.expanduser("~/.local/aws-cli")
@@ -156,8 +134,7 @@ def main():
     parser = argparse.ArgumentParser(description="Install AWS CLI.")
     parser.parse_args()
 
-    system = platform.system().lower()
-    if system == "android":
+    if Platform.detect().os == "android":
         log("Android (Termux) detected. Installing AWS CLI via pip...", "cyan")
         try:
             subprocess.run(
@@ -170,7 +147,7 @@ def main():
             log(f"Error installing AWS CLI via pip: {e}", "red")
             sys.exit(1)
 
-    os_name, arch_name = get_platform_info()
+    os_name, arch_name = Platform.detect().vendor(os=OS_WORDS, arch=ARCH_WORDS)
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 
     if os_name == "windows":

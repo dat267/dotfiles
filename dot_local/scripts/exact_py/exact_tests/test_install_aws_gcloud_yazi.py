@@ -5,23 +5,28 @@ from unittest import mock
 
 import _loader
 
+shared = _loader.load("_shared")
 aws = _loader.load("install-aws")
 gcloud = _loader.load("install-gcloud")
 yazi = _loader.load("install-yazi")
 
 
-def patch_platform(module, system, machine):
+def patch_platform(system, machine):
+    """Patch _shared's detection inputs (the scripts no longer import platform)."""
     return (
-        mock.patch.object(module.platform, "system", return_value=system),
-        mock.patch.object(module.platform, "machine", return_value=machine),
+        mock.patch.object(shared.platform, "system", return_value=system),
+        mock.patch.object(shared.platform, "machine", return_value=machine),
+        mock.patch.object(shared, "is_termux", return_value=False),
     )
 
 
 class TestAwsPlatform(unittest.TestCase):
+    """AWS's vendor vocabulary via Platform.vendor: aarch64 words."""
+
     def select(self, system, machine):
-        p1, p2 = patch_platform(aws, system, machine)
-        with p1, p2:
-            return aws.get_platform_info()
+        p1, p2, p3 = patch_platform(system, machine)
+        with p1, p2, p3:
+            return shared.Platform.detect().vendor(os=aws.OS_WORDS, arch=aws.ARCH_WORDS)
 
     def test_linux(self):
         self.assertEqual(self.select("Linux", "x86_64"), ("linux", "x86_64"))
@@ -30,15 +35,20 @@ class TestAwsPlatform(unittest.TestCase):
         self.assertEqual(self.select("Darwin", "arm64"), ("darwin", "aarch64"))
 
     def test_unsupported_arch_exits(self):
+        # detect() normalizes every machine to x64/arm64, so the old exit on
+        # exotic machines is now the vendor lookup failing on an unmapped
+        # canonical arch — exercised via direct construction.
         with self.assertRaises(SystemExit):
-            self.select("Linux", "i686")
+            shared.Platform("linux", "i386").vendor(os=aws.OS_WORDS, arch=aws.ARCH_WORDS)
 
 
 class TestGcloudPlatform(unittest.TestCase):
+    """Google Cloud SDK's vocabulary via Platform.vendor: arm64 is "arm"."""
+
     def select(self, system, machine):
-        p1, p2 = patch_platform(gcloud, system, machine)
-        with p1, p2:
-            return gcloud.get_platform_info()
+        p1, p2, p3 = patch_platform(system, machine)
+        with p1, p2, p3:
+            return shared.Platform.detect().vendor(os=gcloud.OS_WORDS, arch=gcloud.ARCH_WORDS)
 
     def test_linux_uses_x86_64(self):
         self.assertEqual(self.select("Linux", "amd64"), ("linux", "x86_64"))
@@ -48,10 +58,12 @@ class TestGcloudPlatform(unittest.TestCase):
 
 
 class TestYaziTargetTriple(unittest.TestCase):
+    """Yazi's Rust target triples, driven through Platform.vendor."""
+
     def target(self, system, machine):
-        p1, p2 = patch_platform(yazi, system, machine)
-        with p1, p2:
-            os_name, arch_name = yazi.get_platform_info()
+        p1, p2, p3 = patch_platform(system, machine)
+        with p1, p2, p3:
+            os_name, arch_name = shared.Platform.detect().vendor(os=yazi.OS_WORDS, arch=yazi.ARCH_WORDS)
             return yazi.build_target(os_name, arch_name)
 
     def test_linux_musl(self):
@@ -62,28 +74,8 @@ class TestYaziTargetTriple(unittest.TestCase):
 
     def test_windows_msvc(self):
         self.assertEqual(self.target("Windows", "AMD64"), "x86_64-pc-windows-msvc")
-
     def test_darwin(self):
         self.assertEqual(self.target("Darwin", "arm64"), "aarch64-apple-darwin")
-
-
-class TestInstallBinary(unittest.TestCase):
-    def test_moves_and_executes(self):
-        src_dir = tempfile.mkdtemp()
-        dest_dir = tempfile.mkdtemp()
-        binary = os.path.join(src_dir, "yazi")
-        open(binary, "w").write("bin")
-        yazi.install_binary(src_dir, "yazi", dest_dir)
-        dest = os.path.join(dest_dir, "yazi")
-        self.assertTrue(os.path.exists(dest))
-        self.assertTrue(os.access(dest, os.X_OK))
-        self.assertFalse(os.path.exists(binary))
-
-    def test_missing_binary_is_skipped(self):
-        src_dir = tempfile.mkdtemp()
-        dest_dir = tempfile.mkdtemp()
-        yazi.install_binary(src_dir, "ghost", dest_dir)
-        self.assertEqual(os.listdir(dest_dir), [])
 
 
 if __name__ == "__main__":

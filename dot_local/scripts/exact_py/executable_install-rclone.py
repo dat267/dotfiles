@@ -1,92 +1,37 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import platform
-import shutil
 import sys
-import tempfile
-import zipfile
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import download, log
+from _shared import Platform, download, log
 
-def get_platform_info():
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-
-    if system in ("linux", "android"):
-        os_name = "linux"
-    elif system == "windows":
-        os_name = "windows"
-    elif system == "darwin":
-        os_name = "osx"
-    else:
-        log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
-
-    if machine in ("x86_64", "amd64", "em64t"):
-        arch_name = "amd64"
-    elif machine in ("aarch64", "arm64"):
-        arch_name = "arm64"
-    else:
-        log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
-
-    return os_name, arch_name
+# rclone's download vocabulary: darwin releases are tagged "osx".
+OS_WORDS = {"linux": "linux", "darwin": "osx", "windows": "windows"}
+ARCH_WORDS = {"x64": "amd64", "arm64": "arm64"}
 
 
 def main():
     parser = argparse.ArgumentParser(description="Install rclone from the latest release.")
     parser.parse_args()
 
-    os_name, arch_name = get_platform_info()
+    os_name, arch_name = Platform.detect().vendor(os=OS_WORDS, arch=ARCH_WORDS)
     log(f"Platform detected: {os_name}/{arch_name}", "cyan")
 
     binary_name = "rclone.exe" if os_name == "windows" else "rclone"
     url = f"https://downloads.rclone.org/rclone-current-{os_name}-{arch_name}.zip"
 
     log(f"Downloading rclone from: {url}", "cyan")
-    os.makedirs(INSTALL_DIR, exist_ok=True)
-    dest_path = os.path.join(INSTALL_DIR, binary_name)
 
     try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            zip_path = os.path.join(temp_dir, "rclone.zip")
-
-            download(url, zip_path, headers={"User-Agent": "Mozilla/5.0"})
-
-            log("Extracting archive...", "cyan")
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(temp_dir)
-
-            # Find the extracted directory nested inside (starts with rclone-v)
-            extracted_dirs = [
-                d
-                for d in os.listdir(temp_dir)
-                if os.path.isdir(os.path.join(temp_dir, d)) and d.startswith("rclone-")
-            ]
-            if not extracted_dirs:
-                log("Error: Extracted directory not found.", "red")
-                sys.exit(1)
-
-            src_binary = os.path.join(temp_dir, extracted_dirs[0], binary_name)
-            if not os.path.exists(src_binary):
-                log(f"Error: Binary {binary_name} not found in archive.", "red")
-                sys.exit(1)
-
-            if os_name != "windows":
-                os.chmod(src_binary, 0o755)
-
-            try:
-                if os.path.exists(dest_path):
-                    os.remove(dest_path)
-            except Exception as e:
-                log(f"Warning: Could not remove existing file: {e}", "yellow")
-
-            shutil.move(src_binary, dest_path)
-            log(f"rclone installed successfully -> {dest_path}", "green")
-
+        # The zip nests a versioned rclone-v* directory; the walk-find in the
+        # shared installer reaches the binary wherever it sits.
+        dest_path = install_release_binary(
+            url, binary_name, INSTALL_DIR,
+            extract="zip", headers={"User-Agent": "Mozilla/5.0"},
+        )
+        log(f"rclone installed successfully -> {dest_path}", "green")
     except Exception as e:
         log(f"Error installing rclone: {e}", "red")
         sys.exit(1)

@@ -3,7 +3,11 @@ import argparse
 import os
 import sys
 
-from _shared import fetch_json, get_platform_info, install_github_release_binary, log
+from _shared import Platform, fetch_json, install_release_binary, log
+
+# This repo's own release assets are tagged x86_64/aarch64.
+OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
+ARCH_WORDS = {"x64": "x86_64", "arm64": "aarch64"}
 
 REPO = "dat267/dotfiles"
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
@@ -13,7 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description="Download and install tools from GitHub Releases.")
     parser.parse_args()
 
-    os_name, arch_name = get_platform_info()
+    os_name, arch_name = Platform.detect().vendor(os=OS_WORDS, arch=ARCH_WORDS)
     log(f"Platform: {os_name}/{arch_name}", "cyan")
 
     suffix = f"-{os_name}-{arch_name}"
@@ -56,7 +60,7 @@ def main():
             binary_name += ".exe"
 
         try:
-            dest_path = install_github_release_binary(
+            dest_path = install_release_binary(
                 asset["browser_download_url"], binary_name, INSTALL_DIR,
                 headers={"User-Agent": "Mozilla/5.0"},
             )

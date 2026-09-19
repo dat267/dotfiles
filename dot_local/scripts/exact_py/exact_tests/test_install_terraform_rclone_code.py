@@ -8,15 +8,18 @@ from unittest import mock
 
 import _loader
 
+shared = _loader.load("_shared")
 tf = _loader.load("install-terraform")
 rclone = _loader.load("install-rclone")
 code = _loader.load("install-code")
 
 
-def patch_platform(module, system, machine):
+def patch_platform(system, machine):
+    """Patch _shared's detection inputs (the scripts no longer import platform)."""
     return (
-        mock.patch.object(module.platform, "system", return_value=system),
-        mock.patch.object(module.platform, "machine", return_value=machine),
+        mock.patch.object(shared.platform, "system", return_value=system),
+        mock.patch.object(shared.platform, "machine", return_value=machine),
+        mock.patch.object(shared, "is_termux", return_value=False),
     )
 
 
@@ -47,33 +50,37 @@ class TestTerraformVersion(unittest.TestCase):
 
 
 class TestRclonePlatform(unittest.TestCase):
+    """rclone's vendor vocabulary via Platform.vendor: darwin speaks "osx"."""
+
+    def words(self, system, machine):
+        p1, p2, p3 = patch_platform(system, machine)
+        with p1, p2, p3:
+            return shared.Platform.detect().vendor(os=rclone.OS_WORDS, arch=rclone.ARCH_WORDS)
+
     def test_linux(self):
-        p1, p2 = patch_platform(rclone, "Linux", "x86_64")
-        with p1, p2:
-            self.assertEqual(rclone.get_platform_info(), ("linux", "amd64"))
+        self.assertEqual(self.words("Linux", "x86_64"), ("linux", "amd64"))
 
     def test_darwin_uses_osx(self):
-        p1, p2 = patch_platform(rclone, "Darwin", "arm64")
-        with p1, p2:
-            self.assertEqual(rclone.get_platform_info(), ("osx", "arm64"))
+        self.assertEqual(self.words("Darwin", "arm64"), ("osx", "arm64"))
 
     def test_unsupported_exits(self):
-        p1, p2 = patch_platform(rclone, "SunOS", "x86_64")
-        with p1, p2:
-            with self.assertRaises(SystemExit):
-                rclone.get_platform_info()
+        with self.assertRaises(SystemExit):
+            self.words("SunOS", "x86_64")
 
 
 class TestCodePlatform(unittest.TestCase):
+    """VS Code's vendor vocabulary via Platform.vendor: amd64 is "x64"."""
+
+    def words(self, system, machine):
+        p1, p2, p3 = patch_platform(system, machine)
+        with p1, p2, p3:
+            return shared.Platform.detect().vendor(os=code.OS_WORDS, arch=code.ARCH_WORDS)
+
     def test_linux_x64(self):
-        p1, p2 = patch_platform(code, "Linux", "x86_64")
-        with p1, p2:
-            self.assertEqual(code.get_platform_info(), ("linux", "x64"))
+        self.assertEqual(self.words("Linux", "x86_64"), ("linux", "x64"))
 
     def test_darwin_arm64(self):
-        p1, p2 = patch_platform(code, "Darwin", "aarch64")
-        with p1, p2:
-            self.assertEqual(code.get_platform_info(), ("darwin", "arm64"))
+        self.assertEqual(self.words("Darwin", "aarch64"), ("darwin", "arm64"))
 
 
 class TestCleanDirectory(unittest.TestCase):

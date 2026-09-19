@@ -5,8 +5,18 @@ from unittest import mock
 
 import _loader
 
+shared = _loader.load("_shared")
 install = _loader.load("install-tools")
 uninstall = _loader.load("uninstall-tools")
+
+
+def patch_platform(system="Linux", machine="x86_64"):
+    """Patch _shared's detection inputs: the scripts go through Platform.detect()."""
+    return (
+        mock.patch.object(shared.platform, "system", return_value=system),
+        mock.patch.object(shared.platform, "machine", return_value=machine),
+        mock.patch.object(shared, "is_termux", return_value=False),
+    )
 
 RELEASES = [
     {
@@ -44,11 +54,10 @@ class TestUninstallTools(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         tool = os.path.join(tmp, "toolA")
         open(tool, "w").close()
+        p1, p2, p3 = patch_platform()
         with mock.patch("sys.argv", ["uninstall_tools"]), mock.patch.object(
             uninstall, "INSTALL_DIR", tmp
-        ), mock.patch.object(
-            uninstall, "get_platform_info", return_value=("linux", "x86_64")
-        ), mock.patch.object(uninstall, "fetch_json", return_value=RELEASES):
+        ), p1, p2, p3, mock.patch.object(uninstall, "fetch_json", return_value=RELEASES):
             uninstall.main()
         self.assertFalse(os.path.exists(tool))
 
@@ -62,9 +71,10 @@ class TestUninstallTools(unittest.TestCase):
                 ],
             }
         ]
-        with mock.patch("sys.argv", ["uninstall_tools"]), mock.patch.object(
-            uninstall, "get_platform_info", return_value=("linux", "x86_64")
-        ), mock.patch.object(uninstall, "fetch_json", return_value=releases):
+        p1, p2, p3 = patch_platform()
+        with mock.patch("sys.argv", ["uninstall_tools"]), p1, p2, p3, mock.patch.object(
+            uninstall, "fetch_json", return_value=releases
+        ):
             with self.assertRaises(SystemExit) as ctx:
                 uninstall.main()
             self.assertEqual(ctx.exception.code, 0)
@@ -75,14 +85,13 @@ class TestInstallTools(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         payload = __import__("json").dumps(RELEASES).encode()
         fake_download = mock.mock_open(read_data=payload)
+        p1, p2, p3 = patch_platform()
         with mock.patch("sys.argv", ["install_tools"]), mock.patch.object(
             install, "INSTALL_DIR", tmp
-        ), mock.patch.object(
-            install, "get_platform_info", return_value=("linux", "x86_64")
-        ), mock.patch.object(
+        ), p1, p2, p3, mock.patch.object(
             install, "fetch_json", return_value=RELEASES
         ), mock.patch.object(
-            install, "install_github_release_binary"
+            install, "install_release_binary"
         ) as helper:
             install.main()
         # Both assets of the latest max/ release were considered; the

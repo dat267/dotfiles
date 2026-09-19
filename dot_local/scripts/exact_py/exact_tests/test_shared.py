@@ -9,7 +9,6 @@ from urllib.error import URLError
 import _loader
 
 shared = _loader.load("_shared")
-get_platform_info = shared.get_platform_info
 download = shared.download
 fetch_json = shared.fetch_json
 github_latest_tag = shared.github_latest_tag
@@ -190,35 +189,42 @@ class TestPlatform(unittest.TestCase):
         self.assertEqual((plat.os, plat.arch), ("linux", "x64"))
 
 
-class TestGetPlatformInfo(unittest.TestCase):
-    def run_with(self, system, machine):
-        with mock.patch("platform.system", return_value=system), mock.patch(
-            "platform.machine", return_value=machine
-        ):
-            return get_platform_info()
+class TestPlatformVendor(unittest.TestCase):
+    """vendor() — the one lookup for vendor download-URL vocabularies.
 
-    def test_linux_amd64(self):
-        self.assertEqual(self.run_with("Linux", "x86_64"), ("linux", "amd64"))
+    The install scripts used to carry six copies of get_platform_info that
+    differed only in the vendor's words (amd64 vs x64 vs x86_64; darwin vs
+    osx). vendor() maps canonical Platform values through a per-vendor
+    vocabulary; Termux presents as android but runs Linux binaries, so an
+    unmapped android speaks the vendor's "linux" word; anything genuinely
+    unsupported exits like those copies did."""
 
-    def test_linux_aarch64(self):
-        self.assertEqual(self.run_with("Linux", "aarch64"), ("linux", "arm64"))
+    OS = {"linux": "linux", "darwin": "osx", "windows": "windows"}
+    ARCH = {"x64": "amd64", "arm64": "arm64"}
 
-    def test_android_maps_to_linux(self):
-        self.assertEqual(self.run_with("Android", "x86_64"), ("linux", "amd64"))
+    def test_maps_canonical_to_vendor_words(self):
+        words = shared.Platform("linux", "x64").vendor(os=self.OS, arch=self.ARCH)
+        self.assertEqual(words, ("linux", "amd64"))
 
-    def test_windows_amd64(self):
-        self.assertEqual(self.run_with("Windows", "AMD64"), ("windows", "amd64"))
+    def test_darwin_speaks_the_vendor_osx_word(self):
+        words = shared.Platform("darwin", "arm64").vendor(os=self.OS, arch=self.ARCH)
+        self.assertEqual(words, ("osx", "arm64"))
 
-    def test_darwin_arm64(self):
-        self.assertEqual(self.run_with("Darwin", "arm64"), ("darwin", "arm64"))
+    def test_android_presents_as_the_linux_word(self):
+        words = shared.Platform("android", "arm64").vendor(os=self.OS, arch=self.ARCH)
+        self.assertEqual(words, ("linux", "arm64"))
 
-    def test_unsupported_os_exits(self):
+    def test_unmapped_os_exits(self):
         with self.assertRaises(SystemExit):
-            self.run_with("SunOS", "x86_64")
+            shared.Platform("freebsd", "x64").vendor(os=self.OS, arch=self.ARCH)
 
-    def test_unsupported_arch_exits(self):
+    def test_unmapped_arch_exits(self):
         with self.assertRaises(SystemExit):
-            self.run_with("Linux", "sparc")
+            shared.Platform("linux", "riscv").vendor(os=self.OS, arch=self.ARCH)
+
+    def test_axes_without_a_mapping_pass_through_canonical(self):
+        words = shared.Platform("linux", "arm64").vendor(os=self.OS)
+        self.assertEqual(words, ("linux", "arm64"))
 
 
 if __name__ == "__main__":
@@ -289,22 +295,52 @@ class TestIsTermux(unittest.TestCase):
         self.assertFalse(self._detect(False, {}))
 
 
-class TestInstallGithubReleaseBinary(unittest.TestCase):
-    """The one install seam: download → (extract) → chmod → atomic replace."""
+class TestInstallReleaseBinary(unittest.TestCase):
+    """The one install seam: download → (extract) → chmod → atomic replace.
+
+    Renamed from install_github_release_binary: the mechanics never cared
+    where the URL points (terraform's HashiCorp releases behave the same),
+    and it now installs several binaries from a single download — the yazi
+    zip carries yazi and ya.
+    """
 
     class FakeResponse(TestDownload.FakeResponse):
         pass
 
     def install(self, tmp, **kwargs):
-        return shared.install_github_release_binary(**kwargs, dest_dir=tmp)
+        return shared.install_release_binary(**kwargs, dest_dir=tmp)
 
-    def test_plain_binary_downloads_chmods_and_installs(self):
+    def test_single_name_downloads_chmods_and_installs(self):
         fake = self.FakeResponse([b"#!/bin/sh\n", b"echo hi"])
         with tempfile.TemporaryDirectory() as d:
-            dest = self.install(d, url="https://example.com/tool", binary_name="tool", opener=lambda req, timeout: fake)
+            dest = self.install(d, url="https://example.com/tool", binary_names="tool", opener=lambda req, timeout: fake)
             self.assertEqual(dest, os.path.join(d, "tool"))
             self.assertEqual(pathlib.Path(dest).read_bytes(), b"#!/bin/sh\necho hi")
             self.assertTrue(os.access(dest, os.X_OK))
+
+    def test_two_binaries_from_one_archive_in_one_download(self):
+        import zipfile
+
+        downloads = []
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("yazi-x86_64-unknown-linux-musl/yazi", "MAIN")
+            z.writestr("yazi-x86_64-unknown-linux-musl/ya", "HELPER")
+
+        def counting_opener(req, timeout):
+            downloads.append(req.full_url)
+            return self.FakeResponse([buf.getvalue()])
+
+        with tempfile.TemporaryDirectory() as d:
+            dest = self.install(
+                d, url="https://example.com/t.zip", binary_names=["yazi", "ya"],
+                extract="zip", opener=counting_opener,
+            )
+            self.assertEqual(downloads, ["https://example.com/t.zip"], "one download per call")
+            self.assertEqual(dest, [os.path.join(d, "yazi"), os.path.join(d, "ya")])
+            self.assertEqual(pathlib.Path(dest[0]).read_bytes(), b"MAIN")
+            self.assertEqual(pathlib.Path(dest[1]).read_bytes(), b"HELPER")
+            self.assertTrue(os.access(dest[0], os.X_OK))
 
     def test_zip_archive_binary_found_by_walk(self):
         import zipfile
@@ -314,7 +350,7 @@ class TestInstallGithubReleaseBinary(unittest.TestCase):
             z.writestr("nested/dir/tool", "BINARY")
         fake = self.FakeResponse([buf.getvalue()])
         with tempfile.TemporaryDirectory() as d:
-            dest = self.install(d, url="https://example.com/t.zip", binary_name="tool", extract="zip", opener=lambda req, timeout: fake)
+            dest = self.install(d, url="https://example.com/t.zip", binary_names="tool", extract="zip", opener=lambda req, timeout: fake)
             self.assertEqual(pathlib.Path(dest).read_bytes(), b"BINARY")
 
     def test_targz_archive_binary_found_by_walk(self):
@@ -328,7 +364,7 @@ class TestInstallGithubReleaseBinary(unittest.TestCase):
                 t.add(str(member), arcname="pkg/tool")
         fake = self.FakeResponse([buf.getvalue()])
         with tempfile.TemporaryDirectory() as d:
-            dest = self.install(d, url="https://example.com/t.tar.gz", binary_name="tool", extract="tar.gz", opener=lambda req, timeout: fake)
+            dest = self.install(d, url="https://example.com/t.tar.gz", binary_names="tool", extract="tar.gz", opener=lambda req, timeout: fake)
             self.assertEqual(pathlib.Path(dest).read_bytes(), b"TARBIN")
 
     def test_missing_binary_raises(self):
@@ -340,21 +376,21 @@ class TestInstallGithubReleaseBinary(unittest.TestCase):
         fake = self.FakeResponse([buf.getvalue()])
         with tempfile.TemporaryDirectory() as d:
             with self.assertRaises(RuntimeError):
-                self.install(d, url="https://example.com/t.zip", binary_name="tool", extract="zip", opener=lambda req, timeout: fake)
+                self.install(d, url="https://example.com/t.zip", binary_names="tool", extract="zip", opener=lambda req, timeout: fake)
 
     def test_existing_dest_replaced_atomically(self):
         fake = self.FakeResponse([b"new"])
         with tempfile.TemporaryDirectory() as d:
             old = pathlib.Path(d) / "tool"
             old.write_bytes(b"old")
-            dest = self.install(d, url="https://example.com/tool", binary_name="tool", opener=lambda req, timeout: fake)
+            dest = self.install(d, url="https://example.com/tool", binary_names="tool", opener=lambda req, timeout: fake)
             self.assertEqual(pathlib.Path(dest).read_bytes(), b"new")
 
     def test_no_chmod_on_windows(self):
         fake = self.FakeResponse([b"x"])
         with tempfile.TemporaryDirectory() as d:
             with mock.patch("os.name", "nt"):
-                dest = self.install(d, url="https://example.com/tool.exe", binary_name="tool.exe", opener=lambda req, timeout: fake)
+                dest = self.install(d, url="https://example.com/tool.exe", binary_names="tool.exe", opener=lambda req, timeout: fake)
             self.assertFalse(os.access(dest, os.X_OK))
 
 

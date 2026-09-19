@@ -77,43 +77,53 @@ def extract_archive(src, dest_dir):
             t.extractall(path=dest_dir)
 
 
-def install_github_release_binary(url, binary_name, dest_dir, *, extract=None, headers=None, opener=None, timeout=DEFAULT_TIMEOUT):
-    """Install one binary from a GitHub release: download → extract → chmod → atomic replace.
+def install_release_binary(url, binary_names, dest_dir, *, extract=None, headers=None, opener=None, timeout=DEFAULT_TIMEOUT):
+    """Install binary/binary list from a release URL: download → extract → chmod → atomic replace.
 
-    extract: None when url IS the binary; "zip" or "tar.gz" when it is an
-    archive containing binary_name (found anywhere in the tree). Returns the
-    dest path. Raises RuntimeError when the binary is missing from the
-    archive; network errors propagate from download().
+    binary_names is one name (returns the dest path) or a sequence of names
+    (downloads and extracts ONCE, returns a list of dest paths). extract:
+    None when url IS the binary; "zip" or "tar.gz" when it is an archive
+    containing the binaries (found anywhere in the tree). headers, opener and
+    timeout pass through to download(). Raises RuntimeError when a binary is
+    missing from the archive; network errors propagate from download().
     """
-    dest_path = os.path.join(dest_dir, binary_name)
+    names = [binary_names] if isinstance(binary_names, str) else list(binary_names)
+    dest_paths = [os.path.join(dest_dir, name) for name in names]
     os.makedirs(dest_dir, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp_dir:
         src_root = os.path.join(temp_dir, "payload")
         if extract is None:
-            src = download(url, os.path.join(temp_dir, binary_name), headers=headers, timeout=timeout, opener=opener)
+            staged = os.path.join(temp_dir, names[0])
+            download(url, staged, headers=headers, timeout=timeout, opener=opener)
+            src = {names[0]: staged}
         else:
             archive = os.path.join(temp_dir, f"payload.{ 'zip' if extract == 'zip' else 'tar.gz' }")
             download(url, archive, headers=headers, timeout=timeout, opener=opener)
             extract_archive(archive, src_root)
-            src = None
+            src = {}
+            remaining = set(names)
             for dirpath, _, filenames in os.walk(src_root):
-                if binary_name in filenames:
-                    src = os.path.join(dirpath, binary_name)
-                    break
-            if not src:
-                raise RuntimeError(f"binary '{binary_name}' not found in archive from {url}")
+                for name in list(remaining):
+                    if name in filenames:
+                        src[name] = os.path.join(dirpath, name)
+                        remaining.discard(name)
+            if remaining:
+                raise RuntimeError(f"binary '{sorted(remaining)[0]}' not found in archive from {url}")
 
         if os.name != "nt":
-            os.chmod(src, 0o755)
+            for path in src.values():
+                os.chmod(path, 0o755)
 
-        try:
-            if os.path.exists(dest_path):
-                os.remove(dest_path)
-        except Exception as e:
-            log(f"Warning: Could not remove existing file {dest_path}: {e}", "yellow")
+        for name, dest_path in zip(names, dest_paths):
+            try:
+                if os.path.exists(dest_path):
+                    os.remove(dest_path)
+            except Exception as e:
+                log(f"Warning: Could not remove existing file {dest_path}: {e}", "yellow")
 
-        shutil.move(src, dest_path)
-        return dest_path
+            shutil.move(src[name], dest_path)
+
+    return dest_paths[0] if isinstance(binary_names, str) else dest_paths
 
 COLORS = {
     "cyan": "\033[96m",
@@ -181,27 +191,30 @@ class Platform:
             return ".zip"
         return {"zip": ".tar.gz", "tar.gz": ".tar.gz", "gz": ".gz"}[kind]
 
+    def vendor(self, os=None, arch=None):
+        """(os_word, arch_word) in a vendor's download-URL vocabulary.
 
-def get_platform_info():
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-
-    if system in ("linux", "android"):
-        os_name = "linux"
-    elif system == "windows":
-        os_name = "windows"
-    elif system == "darwin":
-        os_name = "darwin"
-    else:
-        log(f"Error: OS '{system}' is not supported.", "red")
-        sys.exit(1)
-
-    if machine in ("x86_64", "amd64", "em64t"):
-        arch_name = "amd64"
-    elif machine in ("aarch64", "arm64"):
-        arch_name = "arm64"
-    else:
-        log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
-
-    return os_name, arch_name
+        os/arch map canonical values through a per-vendor dict (vendors
+        disagree: amd64 vs x64 vs x86_64, darwin vs osx). A dict must be
+        complete over the values it will see. Termux presents as android but
+        runs Linux binaries, so an unmapped android speaks the vendor's
+        "linux" word. Anything genuinely unsupported logs and exits — the
+        same contract the per-script get_platform_info copies had.
+        """
+        if os is None:
+            os_word = self.os
+        elif self.os in os:
+            os_word = os[self.os]
+        elif self.os == "android" and "linux" in os:
+            os_word = os["linux"]
+        else:
+            log(f"Error: OS '{self.os}' is not in the vendor vocabulary {sorted(os)}.", "red")
+            sys.exit(1)
+        if arch is None:
+            arch_word = self.arch
+        elif self.arch in arch:
+            arch_word = arch[self.arch]
+        else:
+            log(f"Error: Architecture '{self.arch}' is not in the vendor vocabulary {sorted(arch)}.", "red")
+            sys.exit(1)
+        return os_word, arch_word

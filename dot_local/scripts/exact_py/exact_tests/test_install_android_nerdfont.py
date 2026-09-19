@@ -5,16 +5,28 @@ from unittest import mock
 
 import _loader
 
+shared = _loader.load("_shared")
 sdk = _loader.load("install-android-sdk")
 nf = _loader.load("install-nerd-font")
 
 
+def patch_platform(system, machine):
+    """Patch _shared's detection inputs (the scripts no longer import platform)."""
+    return (
+        mock.patch.object(shared.platform, "system", return_value=system),
+        mock.patch.object(shared.platform, "machine", return_value=machine),
+        mock.patch.object(shared, "is_termux", return_value=False),
+    )
+
+
 class TestAndroidPlatform(unittest.TestCase):
+    """Google's SDK vocabulary via Platform.vendor: darwin is "mac", and
+    only x86_64 archives ship (arm64 exits)."""
+
     def select(self, system, machine):
-        with mock.patch.object(sdk.platform, "system", return_value=system), mock.patch.object(
-            sdk.platform, "machine", return_value=machine
-        ):
-            return sdk.get_platform_info()
+        p1, p2, p3 = patch_platform(system, machine)
+        with p1, p2, p3:
+            return shared.Platform.detect().vendor(os=sdk.OS_WORDS, arch=sdk.ARCH_WORDS)
 
     def test_linux(self):
         self.assertEqual(self.select("Linux", "x86_64"), ("linux", "x86_64"))
@@ -81,8 +93,7 @@ class TestNerdFont(unittest.TestCase):
         )
 
     def test_font_dir_posix(self):
-        with mock.patch.object(nf, "get_platform_info", return_value=("linux", "amd64")):
-            self.assertEqual(nf.font_dir(), os.path.expanduser("~/.local/share/fonts"))
+        self.assertEqual(nf.font_dir(), os.path.expanduser("~/.local/share/fonts"))
 
     def test_unknown_font_exits(self):
         with mock.patch("sys.argv", ["nf", "NotAFont"]):

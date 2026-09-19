@@ -1,37 +1,17 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import platform
 import shutil
 import sys
 import tarfile
 import tempfile
 import zipfile
 
-from _shared import download, log
+from _shared import Platform, download, log
 
-def get_platform_info():
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-
-    if system in ("linux", "android"):
-        os_name = "linux"
-    elif system == "windows":
-        os_name = "windows"
-    else:
-        log(f"Error: OS '{system}' is not supported for VS Code installation.", "red")
-        sys.exit(1)
-
-    if machine in ("x86_64", "amd64", "em64t"):
-        arch_name = "x64"
-    elif machine in ("aarch64", "arm64"):
-        arch_name = "arm64"
-    else:
-        log(f"Error: Architecture '{machine}' is not supported.", "red")
-        sys.exit(1)
-
-    return os_name, arch_name
-
+# VS Code's download vocabulary is the canonical one.
+OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
+ARCH_WORDS = {"x64": "x64", "arm64": "arm64"}
 
 def clean_directory(path):
     if os.path.exists(path):
@@ -113,7 +93,7 @@ def main():
     parser = argparse.ArgumentParser(description="Install VS Code (Portable) to ~/.local/opt or ~/Apps.")
     parser.parse_args()
 
-    os_name, arch_name = get_platform_info()
+    os_name, arch_name = Platform.detect().vendor(os=OS_WORDS, arch=ARCH_WORDS)
     if os_name == "windows":
         install_windows()
     elif os_name == "linux":
