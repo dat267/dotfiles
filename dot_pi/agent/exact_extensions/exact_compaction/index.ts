@@ -12,6 +12,9 @@
  *     and regenerated file lists so repeated compaction stays bounded instead of
  *     accumulating a summary that eventually cannot be re-emitted
  *   - split-turn prefix handling and file-ops formatting like stock compaction
+ *   - the session id plus opencode's routing headers, which pi attaches only on
+ *     its own stream path, so an opencode-go summarizer does not 400 with
+ *     MissingSessionID
  * On any failure it returns undefined and pi falls back to default compaction.
  */
 
@@ -53,7 +56,13 @@ type RegistryLike = {
 	complete(
 		model: Model,
 		context: unknown,
-		options?: { maxTokens?: number; signal?: AbortSignal; cacheRetention?: string },
+		options?: {
+			maxTokens?: number;
+			signal?: AbortSignal;
+			cacheRetention?: string;
+			sessionId?: string;
+			headers?: Record<string, string>;
+		},
 	): Promise<{
 		stopReason: string;
 		errorMessage?: string;
@@ -67,7 +76,20 @@ type CtxLike = {
 	model?: Model;
 	ui?: { notify(message: string, level?: string): void };
 	hasUI?: boolean;
+	sessionManager?: { getSessionId(): string };
 };
+
+const OPENCODE_HOST = "opencode.ai";
+
+/** opencode's gateway routes on its session headers; provider id or host decides. */
+function isOpenCodeModel(model: Model): boolean {
+	if (model.provider === "opencode" || model.provider === "opencode-go") return true;
+	try {
+		return new URL(model.baseUrl).hostname === OPENCODE_HOST;
+	} catch {
+		return false;
+	}
+}
 
 /**
  * Summarizer selection: PI_COMPACT_MODEL="provider/model-id" wins, otherwise
@@ -115,6 +137,7 @@ async function summarize(
 	model: Model,
 	prompt: string,
 	signal: AbortSignal,
+	sessionId?: string,
 ): Promise<{ text: string; usage?: unknown }> {
 	const response = await ctx.modelRegistry.complete(
 		model,
@@ -124,7 +147,15 @@ async function summarize(
 				{ role: "user", content: [{ type: "text", text: prompt }], timestamp: Date.now() },
 			],
 		},
-		{ maxTokens: Math.min(SUMMARY_MAX_TOKENS, model.maxTokens), signal, cacheRetention: "none" },
+		{
+			maxTokens: Math.min(SUMMARY_MAX_TOKENS, model.maxTokens),
+			signal,
+			cacheRetention: "none",
+			...(sessionId ? { sessionId } : {}),
+			...(sessionId && isOpenCodeModel(model)
+				? { headers: { "x-opencode-session": sessionId, "x-opencode-client": "pi" } }
+				: {}),
+		},
 	);
 	if (response.stopReason === "error") {
 		throw new Error(response.errorMessage || "summarizer error");
@@ -157,6 +188,7 @@ export default function (pi: ExtensionAPI) {
 			process.env.PI_COMPACT_MODEL,
 		);
 		if (!model) return; // fall back to default compaction
+		const sessionId = (ctx as unknown as CtxLike).sessionManager?.getSessionId();
 
 		try {
 			const mode = previousSummary ? "update" : "history";
@@ -176,6 +208,7 @@ export default function (pi: ExtensionAPI) {
 								customInstructions,
 							),
 							signal,
+							sessionId,
 						)
 					: Promise.resolve(undefined),
 				hasPrefix
@@ -187,6 +220,7 @@ export default function (pi: ExtensionAPI) {
 								"turn-prefix",
 							),
 							signal,
+							sessionId,
 						)
 					: Promise.resolve(undefined),
 			]);

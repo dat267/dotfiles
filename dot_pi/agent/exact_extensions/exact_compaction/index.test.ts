@@ -4,7 +4,7 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { combineUsage, pickSummarizer } from "./index.ts";
+import registerCompaction, { combineUsage, pickSummarizer } from "./index.ts";
 
 function makeRegistry(
 	configured: Record<string, boolean>,
@@ -73,6 +73,85 @@ void describe("pickSummarizer", () => {
 	void it("returns undefined with no override and no session model", () => {
 		const { registry } = makeRegistry({ "commandcode/z-ai/glm-5.3-flash": true });
 		assert.equal(pickSummarizer({ modelRegistry: registry }), undefined);
+	});
+});
+
+void describe("summarizer request routing", () => {
+	type Captured = { options?: Record<string, unknown> };
+
+	function makeCtx(model: any, captured: Captured) {
+		return {
+			model,
+			hasUI: false,
+			ui: { notify() {} },
+			sessionManager: { getSessionId: () => "sess-123" },
+			modelRegistry: {
+				find: () => undefined,
+				hasConfiguredAuth: () => true,
+				complete: async (_model: any, _context: any, options: any) => {
+					captured.options = options;
+					return {
+						stopReason: "stop",
+						content: [{ type: "text", text: "## Goal\n- ".padEnd(80, "x") }],
+						usage: undefined,
+					};
+				},
+			},
+		};
+	}
+
+	function makeEvent() {
+		return {
+			preparation: {
+				messagesToSummarize: [
+					{ role: "user", content: [{ type: "text", text: "hello" }], timestamp: Date.now() },
+				],
+				turnPrefixMessages: [],
+				isSplitTurn: false,
+				tokensBefore: 1000,
+				firstKeptEntryId: "entry-1",
+				previousSummary: undefined,
+				fileOps: { read: new Set<string>(), written: new Set<string>(), edited: new Set<string>() },
+			},
+			customInstructions: undefined,
+			signal: new AbortController().signal,
+		};
+	}
+
+	async function run(model: any): Promise<Captured> {
+		const handlers: Record<string, any> = {};
+		const pi = { on: (name: string, handler: any) => { handlers[name] = handler; } };
+		registerCompaction(pi as any);
+		const captured: Captured = {};
+		await handlers["session_before_compact"](makeEvent(), makeCtx(model, captured));
+		return captured;
+	}
+
+	void it("forwards the session id and opencode routing headers", async () => {
+		const captured = await run({
+			id: "deepseek-v4.1-flash",
+			provider: "opencode-go",
+			baseUrl: "https://opencode.ai/zen/go/v1",
+			maxTokens: 65536,
+			reasoning: false,
+		});
+		assert.equal(captured.options?.sessionId, "sess-123");
+		assert.deepEqual(captured.options?.headers, {
+			"x-opencode-session": "sess-123",
+			"x-opencode-client": "pi",
+		});
+	});
+
+	void it("forwards the session id but no opencode headers elsewhere", async () => {
+		const captured = await run({
+			id: "deepseek/deepseek-v4.1-flash",
+			provider: "commandcode",
+			baseUrl: "https://api.commandcode.ai/v1",
+			maxTokens: 65536,
+			reasoning: false,
+		});
+		assert.equal(captured.options?.sessionId, "sess-123");
+		assert.equal(captured.options?.headers, undefined);
 	});
 });
 
