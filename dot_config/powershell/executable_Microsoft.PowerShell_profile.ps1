@@ -97,26 +97,35 @@ $global:__dotfiles_profile_loaded = $true
         # CA already lands via GPO; no cafile, no bundle to keep in sync.
         # Persisted at User scope like the proxy creds below, because $env: alone
         # would only cover PowerShell sessions and miss GUI-launched apps.
-        # An explicit User-scope value (e.g. '0') is respected.
-        $nodeCa = [Environment]::GetEnvironmentVariable('NODE_USE_SYSTEM_CA', 'User')
-        if (-not $nodeCa) {
-            [Environment]::SetEnvironmentVariable('NODE_USE_SYSTEM_CA', '1', 'User')
-            $nodeCa = '1'
+        # The registry is touched only while the value is unset: once persisted,
+        # startup takes the in-memory fast path and skips the read entirely.
+        # Explicit values win over the default at either scope — a User-scope
+        # '0' is respected, and so is a process-level export (e.g. a one-off
+        # $env:NODE_USE_SYSTEM_CA='0'), which the registry read used to clobber.
+        if (-not $env:NODE_USE_SYSTEM_CA) {
+            $nodeCa = [Environment]::GetEnvironmentVariable('NODE_USE_SYSTEM_CA', 'User')
+            if (-not $nodeCa) {
+                [Environment]::SetEnvironmentVariable('NODE_USE_SYSTEM_CA', '1', 'User')
+                $nodeCa = '1'
+            }
+            $env:NODE_USE_SYSTEM_CA = $nodeCa
         }
-        $env:NODE_USE_SYSTEM_CA = $nodeCa
 
         # pi phones home on startup (version check + install telemetry, both to
         # pi.dev) and refreshes model catalogs over the network. PI_OFFLINE gates
         # all of it; prompting is untouched, so the network is first touched when
         # the first prompt is sent. Explicit `pi install` still works. Same
-        # User-scope persistence as above, with the same respect for an explicit
-        # '0'.
-        $piOffline = [Environment]::GetEnvironmentVariable('PI_OFFLINE', 'User')
-        if (-not $piOffline) {
-            [Environment]::SetEnvironmentVariable('PI_OFFLINE', '1', 'User')
-            $piOffline = '1'
+        # User-scope persistence and registry fast path as above — and the same
+        # respect for an explicit value at either scope, so a process-level
+        # $env:PI_OFFLINE='0' now survives startup instead of being overwritten.
+        if (-not $env:PI_OFFLINE) {
+            $piOffline = [Environment]::GetEnvironmentVariable('PI_OFFLINE', 'User')
+            if (-not $piOffline) {
+                [Environment]::SetEnvironmentVariable('PI_OFFLINE', '1', 'User')
+                $piOffline = '1'
+            }
+            $env:PI_OFFLINE = $piOffline
         }
-        $env:PI_OFFLINE = $piOffline
 
         # Python has no NODE_USE_SYSTEM_CA equivalent. certifi-based tools
         # (requests, pip, httpx) ship their own CA bundle and ignore the Windows

@@ -153,8 +153,4 @@ if (Get-Command wt.exe -ErrorAction SilentlyContinue) {
     $Shortcut.Hotkey = "CTRL+ALT+T"
     $Shortcut.Save()
 }
-# Ensure hx function alias exists if helix is found on Windows
-if ((Get-Command helix -ErrorAction SilentlyContinue) -and -not (Get-Command hx -ErrorAction SilentlyContinue)) {
-    Set-Alias -Name hx -Value helix -Scope CurrentUser -ErrorAction SilentlyContinue
-}
 {{ end -}}
