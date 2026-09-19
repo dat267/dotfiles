@@ -1,5 +1,5 @@
 /**
- * Smoke test for modelpin/index.ts — the session_start sync through the
+ * Smoke test for modeldefault/index.ts — the session_start sync through the
  * registration surface pi uses. The agent dir is pointed at a temp path;
  * the host is the shared fake (../testlib/fake-pi.ts), so pi's setModel /
  * availability semantics live in one place instead of being re-derived here.
@@ -36,7 +36,7 @@ function setup(opts: {
 	pollMs?: number;
 	timeoutMs?: number;
 }) {
-	const agentDir = mkdtempSync(join(tmpdir(), "modelpin-agent-"));
+	const agentDir = mkdtempSync(join(tmpdir(), "modeldefault-agent-"));
 	if (opts.agentSettings !== undefined) {
 		writeFileSync(
 			join(agentDir, "settings.json"),

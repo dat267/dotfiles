@@ -201,6 +201,22 @@ export function goalView(goal: GoalView | null): { goal: Record<string, unknown>
 	};
 }
 
+/** Human-facing next step after an auto-pause, keyed by the stop reason. */
+export function resumeHint(reason: BlockedReason): string {
+	switch (reason.code) {
+		case "api-auth":
+			return "Check the API key, then /goal resume.";
+		case "api-billing":
+			return "Add credits, then /goal resume.";
+		case "api-request":
+			return "Fix the request, then /goal resume.";
+		case "api-error":
+			return "/goal resume once the provider recovers.";
+		default:
+			return "/goal resume to continue.";
+	}
+}
+
 export function statusLine(goal: GoalView | null): string {
 	if (!goal) return "";
 	return `${goal.phase}${goal.armed ? " ▶" : ""} ${goal.turnsStarted} round${goal.turnsStarted === 1 ? "" : "s"}`;

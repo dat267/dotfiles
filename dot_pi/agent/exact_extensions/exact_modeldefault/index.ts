@@ -1,11 +1,11 @@
 /**
- * modelpin — every session starts on the default model.
+ * modeldefault — every session starts on the default model.
  *
  * pi scopes the model to the session: /model writes a model_change entry and
  * resuming restores it, so the settings default only reaches sessions that
- * never chose. This extension closes that gap from the other side — the pin
- * IS the settings default (what /model + Ctrl+S writes), read live, and every
- * session start syncs the session onto it.
+ * never chose. This extension closes that gap from the other side: the
+ * settings default (what /model + Ctrl+S writes) is the target, read live,
+ * and every session start syncs the session onto it.
  *
  * A manual switch lasts for the current run: setModel persists it into the
  * session, and the next start syncs back to the default. There is no
@@ -23,7 +23,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { readDefaultModelRef } from "./defaults.ts";
 
-export interface ModelPinOptions {
+export interface ModelDefaultOptions {
 	agentDir?: string;
 	/** Availability-wait tuning. pi's provider-auth snapshot is populated by an
 	 *  async refresh that can still be in flight when session_start fires; the
@@ -38,7 +38,7 @@ function refOf(model: { provider: string; id: string }): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function registerModelSync(pi: ExtensionAPI, options: ModelPinOptions = {}) {
+export function registerModelSync(pi: ExtensionAPI, options: ModelDefaultOptions = {}) {
 	const agentDir = options.agentDir ?? getAgentDir();
 	const pollMs = options.pollMs ?? 150;
 	const timeoutMs = options.timeoutMs ?? 4_000;
@@ -63,7 +63,7 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelPinOptions = {
 				inCatalog = true;
 				const applied = await pi.setModel(full as Parameters<typeof pi.setModel>[0]).catch(() => false);
 				if (applied !== false) {
-					ctx.ui.notify(`[modelpin] using default ${refOf(defaultRef)} (${reason})`, "info");
+					ctx.ui.notify(`[modeldefault] using default ${refOf(defaultRef)} (${reason})`, "info");
 					return;
 				}
 			}
@@ -73,7 +73,7 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelPinOptions = {
 
 		const current = ctx.model && ctx.model.provider !== "unknown" ? refOf(ctx.model) : "no model yet";
 		const why = inCatalog ? "no configured auth" : "no configured auth, or not in the catalog";
-		ctx.ui.notify(`[modelpin] default ${refOf(defaultRef)} is not available yet (${why}) — staying on ${current}`, "warning");
+		ctx.ui.notify(`[modeldefault] default ${refOf(defaultRef)} is not available yet (${why}) — staying on ${current}`, "warning");
 	}
 
 	pi.on("session_start", async (event, ctx) => {

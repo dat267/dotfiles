@@ -4,6 +4,7 @@ import { CUSTOM_TYPE, EVENT_TYPE, GoalMachine, TURN_TYPE, type Effect } from "./
 import {
 	goalStatusMessage,
 	goalView,
+	resumeHint,
 	statusLine,
 	truncateObjective,
 	type GoalView,
@@ -320,8 +321,9 @@ export default function piGoal(pi: ExtensionAPI) {
 			ctx,
 		);
 		const goal = machine.snapshot.goal;
-		if (err && goal?.phase === "paused" && goal.blockedReason?.code === "api-error") {
-			ctx.ui.notify(`Goal paused: ${err.message} Resume with /goal resume once the limit resets.`, "warning");
+		const reason = goal?.blockedReason;
+		if (err && goal?.phase === "paused" && reason?.code.startsWith("api-")) {
+			ctx.ui.notify(`Goal paused: ${reason.message} ${resumeHint(reason)}`, "warning");
 		}
 	});
 }

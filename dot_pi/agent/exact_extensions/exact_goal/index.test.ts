@@ -20,7 +20,7 @@ void describe("goal extension smoke", () => {
 	function boot() {
 		const fake = makeFakePi();
 		piGoal(fake.pi);
-		return { calls: fake.calls.all as Recorded[], events: fake.handlers, tools: fake.tools };
+		return { fake, calls: fake.calls.all as Recorded[], events: fake.handlers, tools: fake.tools };
 	}
 
 	const ctx = (entries: any[] = []) => makeFakePi({ entries }).ctx;
@@ -68,6 +68,49 @@ void describe("goal extension smoke", () => {
 		assert.ok(msg, "continuation round message sent");
 		assert.match(msg.message.content, /<goal_round>/);
 		assert.equal(calls.some(c => c.kind === "appendEntry"), false, "turn card is admitted at next agent_end");
+	});
+
+	void it("401 pauses with an auth notice instead of retrying", async () => {
+		const { fake, tools, events, calls } = boot();
+		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, fake.ctx);
+		calls.length = 0;
+		fake.calls.notifies.length = 0;
+		await events.after_provider_response({ status: 401, headers: {} }, fake.ctx);
+		await events.agent_settled({}, fake.ctx);
+		assert.equal(calls.some(c => c.kind === "sendMessage"), false, "a permanent error queues no round");
+		const pause = calls.find(c => c.kind === "appendEntry" && (c.data as any)?.operation === "pause");
+		assert.ok(pause, "goal paused on the first settle");
+		assert.equal((pause.data as any).goal.blockedReason.code, "api-auth");
+		const notice = fake.calls.notifies.at(-1)?.message ?? "";
+		assert.match(notice, /Goal paused/);
+		assert.match(notice, /API key/);
+		assert.doesNotMatch(notice, /limit resets/);
+	});
+
+	void it("402 pauses with a billing notice, not a request hint", async () => {
+		const { fake, tools, events, calls } = boot();
+		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, fake.ctx);
+		calls.length = 0;
+		fake.calls.notifies.length = 0;
+		await events.after_provider_response({ status: 402, headers: {} }, fake.ctx);
+		await events.agent_settled({}, fake.ctx);
+		assert.equal(calls.some(c => c.kind === "sendMessage"), false, "a billing block queues no round");
+		const pause = calls.find(c => c.kind === "appendEntry" && (c.data as any)?.operation === "pause");
+		assert.equal((pause?.data as any)?.goal.blockedReason.code, "api-billing");
+		const notice = fake.calls.notifies.at(-1)?.message ?? "";
+		assert.match(notice, /credits|billing/);
+		assert.doesNotMatch(notice, /Fix the request/);
+	});
+
+	void it("429 retries once before any pause notice", async () => {
+		const { fake, tools, events, calls } = boot();
+		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, fake.ctx);
+		calls.length = 0;
+		fake.calls.notifies.length = 0;
+		await events.after_provider_response({ status: 429, headers: { "retry-after": "2" } }, fake.ctx);
+		await events.agent_settled({}, fake.ctx);
+		assert.equal(calls.some(c => c.kind === "appendEntry"), false, "no pause on a transient error");
+		assert.match(fake.calls.notifies.at(-1)?.message ?? "", /retrying in 30s \(attempt 1\/3\)/);
 	});
 
 	void it("agent_end with no goal produces no effects", async () => {

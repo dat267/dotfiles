@@ -91,6 +91,22 @@ export const MAX_ERROR_RETRIES = 3;
 /** Backoff schedule per retry attempt: 30s → 60s → 120s. */
 export const RETRY_BACKOFF_MS = [30_000, 60_000, 120_000];
 
+/**
+ * Provider statuses worth another round: connection/request races and overload.
+ * Everything else in 4xx is permanent (bad key, unknown model, malformed
+ * request) — waiting cannot fix it, so it pauses on the first settle.
+ */
+export function isRetryableProviderStatus(status: number): boolean {
+	return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+}
+
+/** Pause reason for a permanent provider status; 401/403 credentials, 402 billing. */
+function permanentReasonCode(status: number): string {
+	if (status === 401 || status === 403) return "api-auth";
+	if (status === 402) return "api-billing";
+	return "api-request";
+}
+
 export interface DispatchResult {
 	effects: Effect[];
 	/** Text the caller should surface to a tool result (undefined = no reply). */
@@ -343,14 +359,19 @@ export class GoalMachine {
 			return { effects: [{ kind: "renderStatus" }] };
 		}
 
-		// Provider failure (429 rate limit, 5xx, …): retry with exponential
-		// backoff up to MAX_ERROR_RETRIES, then pause — retrying forever just
-		// burns rounds against a dead endpoint.
+		// Provider failure: retryable statuses (429 rate limit, 5xx, request
+		// races) back off up to MAX_ERROR_RETRIES, then pause — retrying forever
+		// just burns rounds against a dead endpoint. A permanent 4xx never
+		// recovers by waiting, so it pauses on the first settle.
 		if (providerError) {
 			const error = `Provider error ${providerError.status}: ${providerError.message}`;
-			if (this.errorRetries >= MAX_ERROR_RETRIES) {
+			const retryable = isRetryableProviderStatus(providerError.status);
+			if (!retryable || this.errorRetries >= MAX_ERROR_RETRIES) {
 				this.armed = false;
-				const reason = { code: "api-error", message: error };
+				const reason = {
+					code: retryable ? "api-error" : permanentReasonCode(providerError.status),
+					message: error,
+				};
 				const effects = this.commit("pause", {
 					...this.view,
 					phase: "paused",

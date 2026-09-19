@@ -220,6 +220,58 @@ void describe("GoalMachine.agent_settled", () => {
 		assert.equal(retry.attempt, 3);
 	});
 
+	// Permanent 4xx should not burn the backoff budget: a bad key or unknown
+	// model never recovers by waiting, so pause on the first settle with a
+	// reason that says what to fix.
+	void it("non-retryable 401 pauses immediately, no retry and no round", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
+		m.dispatch({ type: "goal_resume" });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+		const { effects } = m.dispatch({
+			type: "agent_settled",
+			contextUsage: USAGE,
+			providerError: { status: 401, message: "HTTP 401" },
+		});
+		assert.ok(!effects.some((e) => e.kind === "scheduleRetry"), "no backoff for a permanent error");
+		assert.ok(!effects.some((e) => e.kind === "sendMessage"), "no continuation round");
+		assert.equal(m.snapshot.armed, false);
+		assert.equal(m.snapshot.goal?.phase, "paused");
+		assert.equal(m.snapshot.goal?.blockedReason?.code, "api-auth");
+	});
+
+	void it("non-retryable 403 is auth, 400 is a request error", () => {
+		const codeFor = (status: number) => {
+			const m = new GoalMachine();
+			m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
+			m.dispatch({ type: "goal_resume" });
+			m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+			m.dispatch({ type: "agent_settled", contextUsage: USAGE, providerError: { status, message: `HTTP ${status}` } });
+			return m.snapshot.goal?.blockedReason?.code;
+		};
+		assert.equal(codeFor(403), "api-auth");
+		assert.equal(codeFor(402), "api-billing");
+		assert.equal(codeFor(400), "api-request");
+		assert.equal(codeFor(404), "api-request");
+		assert.equal(codeFor(422), "api-request");
+	});
+
+	void it("retryable statuses still take the backoff schedule", () => {
+		for (const status of [408, 409, 425, 429, 500, 502, 503]) {
+			const m = new GoalMachine();
+			m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
+			m.dispatch({ type: "goal_resume" });
+			m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
+			const { effects } = m.dispatch({
+				type: "agent_settled",
+				contextUsage: USAGE,
+				providerError: { status, message: `HTTP ${status}` },
+			});
+			assert.ok(effects.some((e) => e.kind === "scheduleRetry"), `${status} must retry`);
+			assert.equal(m.snapshot.goal?.phase, "active", `${status} must not pause on the first failure`);
+		}
+	});
+
 	void it("successful settle resets the retry counter", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });

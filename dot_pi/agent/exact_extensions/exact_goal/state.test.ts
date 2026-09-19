@@ -13,6 +13,7 @@ import {
 	truncateObjective,
 	goalView,
 	goalStatusMessage,
+	resumeHint,
 	type GoalChangeEntry,
 	type GoalTurnEntry,
 } from "./state.ts";
@@ -188,4 +189,13 @@ test("goalView omits blockedReason unless present, and reports null goal", () =>
 	assert.equal("blockedReason" in goalView(clean).goal!, false);
 
 	assert.deepEqual(goalView(null), { goal: null });
+});
+
+test("resumeHint names the fix for each provider pause reason", () => {
+	assert.match(resumeHint({ code: "api-auth", message: "HTTP 401" }), /API key/);
+	assert.match(resumeHint({ code: "api-billing", message: "HTTP 402" }), /credits/);
+	assert.match(resumeHint({ code: "api-request", message: "HTTP 400" }), /request/);
+	assert.match(resumeHint({ code: "api-error", message: "HTTP 500" }), /recovers/);
+	// Unknown codes still produce an actionable line rather than nothing.
+	assert.match(resumeHint({ code: "human-paused", message: "Paused by user." }), /\/goal resume/);
 });

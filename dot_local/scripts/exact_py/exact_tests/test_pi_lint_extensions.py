@@ -44,13 +44,13 @@ class TestDiscovery(PiplineCase):
 
 	def test_sorted_and_skips_node_modules(self):
 		self.make_ext("exact_usage", ["index.ts"])
-		self.make_ext("exact_modelpin", ["index.ts"])
+		self.make_ext("exact_modeldefault", ["index.ts"])
 		ext = self.make_ext("exact_goal", ["index.ts"])
 		(ext / "node_modules" / "pi").mkdir(parents=True)
 		(ext / "node_modules" / "pi" / "stray.ts").write_text("x")
 		self.assertEqual(
 			pi_lint.discover_extensions(self.root),
-			["exact_goal", "exact_modelpin", "exact_usage"],
+			["exact_goal", "exact_modeldefault", "exact_usage"],
 		)
 
 
@@ -123,7 +123,7 @@ class TestDeps(PiplineCase):
 		return pi_lint.ensure_deps(d, self.pi_pkg)
 
 	def test_creates_package_and_types_symlinks(self):
-		d = self.make_ext("exact_modelpin", ["index.ts"])
+		d = self.make_ext("exact_modeldefault", ["index.ts"])
 		self.assertTrue(self.ensure(d))
 		link = d / "node_modules" / "@earendil-works" / "pi-coding-agent"
 		self.assertTrue(link.is_dir())
@@ -141,7 +141,7 @@ class TestDeps(PiplineCase):
 			self.assertTrue((d / "node_modules" / "@earendil-works" / pkg).is_dir())
 
 	def test_no_op_when_already_set_up(self):
-		d = self.make_ext("exact_modelpin", ["index.ts"])
+		d = self.make_ext("exact_modeldefault", ["index.ts"])
 		self.ensure(d)
 		self.assertFalse(self.ensure(d))
 

@@ -1,5 +1,5 @@
 /**
- * modelpin/defaults.ts — the default model, read the way pi writes it.
+ * modeldefault/defaults.ts — the default model, read the way pi writes it.
  *
  * /model + Ctrl+S persists defaultProvider/defaultModel into the agent dir's
  * settings.json; that file is the single source of truth for "the default
