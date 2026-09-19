@@ -45,3 +45,14 @@ run_onchange_after_systemd-user-reload.sh.tmpl
 **/*.zcompdump*
 **/*.log
 **/node_modules
+
+# opencode runtime/plugin artifacts — written by opencode itself, never managed.
+# service.json holds the background-service password, so this also keeps it out
+# of `chezmoi add`. node_modules is covered by the global pattern above.
+.config/opencode/cli.json
+.config/opencode/dcp.jsonc
+.config/opencode/package.json
+.config/opencode/package-lock.json
+.config/opencode/bun.lock
+.config/opencode/.gitignore
+.config/opencode/service.json
