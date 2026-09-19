@@ -201,6 +201,12 @@ if [ "$DISTRO_NAME" = "android" ]; then
 	alias pst='termux-clipboard-get'
 	alias cpy='termux-clipboard-set'
 	alias terraform='termux-chroot terraform'
+	# playwright-core aborts with "Unsupported platform: android" whenever it
+	# computes its default browser cache, even when a browser is passed in.
+	# Setting this is what skips that check; there is no bundled download on
+	# Termux. Scripts launch the native Chromium as executablePath instead:
+	# $PREFIX/lib/chromium/chrome (pkg install x11-repo chromium).
+	export PLAYWRIGHT_BROWSERS_PATH="$HOME/.cache/ms-playwright"
 fi
 # Resolve sudo once for all package utilities
 SUDO=""
