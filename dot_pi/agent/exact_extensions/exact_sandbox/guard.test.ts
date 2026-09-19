@@ -14,9 +14,9 @@ import { defaultAllowlist } from "./policy.ts";
 const WS = "/home/dat/proj";
 const PI = "/home/dat/.local/lib/node_modules/@earendil-works/pi-coding-agent";
 const ALLOW = defaultAllowlist(WS);
-// The POSIX policy is pinned rather than inherited from the host, so this file
-// exercises the same rules on a Windows developer machine as on Linux.
-const POSIX = { platform: "linux" as const, home: "/home/dat" };
+// The home is pinned rather than inherited from the host, so this file
+// exercises the same rules on any host.
+const POSIX = { home: "/home/dat" };
 
 test("workspace targets pass", () => {
 	assert.equal(inspectPath("src/main.ts", WS, ALLOW), null);
@@ -26,9 +26,9 @@ test("workspace targets pass", () => {
 
 test("allowlist targets pass", () => {
 	const allow = defaultAllowlist(WS, POSIX);
-	assert.equal(inspectPath("/tmp/out.txt", WS, allow, "linux"), null);
-	assert.equal(inspectPath("/dev/null", WS, allow, "linux"), null);
-	assert.equal(inspectPath("/home/dat/go/bin/x", WS, allow, "linux"), null);
+	assert.equal(inspectPath("/tmp/out.txt", WS, allow), null);
+	assert.equal(inspectPath("/dev/null", WS, allow), null);
+	assert.equal(inspectPath("/home/dat/go/bin/x", WS, allow), null);
 });
 
 test("pi module path and run dir are blocked (write escapes removed)", () => {

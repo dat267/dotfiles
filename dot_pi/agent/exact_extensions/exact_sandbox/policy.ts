@@ -6,11 +6,9 @@
  * The prompt can never disagree with enforcement because both derive
  * from this list.
  *
- * The list is platform-aware. POSIX backends express the writable set as a
- * Landlock ruleset, so devices, temp and package caches can be listed freely.
- * On Windows the set is exactly what the extension has labelled Low
- * integrity, so it is deliberately minimal: every extra entry is a recursive
- * icacls pass and a wider write surface.
+ * POSIX backends express the writable set as a Landlock ruleset, so devices,
+ * temp and package caches can be listed freely. The workspace sandbox only
+ * ever enforces on Linux.
  */
 
 import { homedir } from "node:os";
@@ -18,12 +16,10 @@ import { homedir } from "node:os";
 /** How to resolve paths for a platform other than the running one. */
 export interface PathPolicy {
 	platform?: NodeJS.Platform;
-	/** Windows only: the Low-labelled directory TMP/TEMP are pointed at. */
-	scratch?: string;
 	/**
 	 * Home directory the `~` entries resolve against. Defaults to the host's.
-	 * Overridable so the POSIX list can be exercised from a Windows host (and
-	 * vice versa) without depending on where the test happens to run.
+	 * Overridable so the list can be exercised from any host without
+	 * depending on where the test happens to run.
 	 */
 	home?: string;
 }
@@ -51,11 +47,8 @@ function posixAllowlist(workspace: string, home: string): string[] {
 	];
 }
 
-/** Build the allowlist: workspace, scratch, devices, caches, GOPATH, Rust toolchains. */
+/** Build the allowlist: workspace, devices, caches, GOPATH, Rust toolchains. */
 export function defaultAllowlist(workspace: string, policy: PathPolicy = {}): string[] {
-	if ((policy.platform ?? process.platform) === "win32") {
-		return policy.scratch ? [workspace, policy.scratch] : [workspace];
-	}
 	return posixAllowlist(workspace, policy.home ?? homedir());
 }
 

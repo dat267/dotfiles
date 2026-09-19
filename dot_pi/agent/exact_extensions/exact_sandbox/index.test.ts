@@ -10,15 +10,14 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import piSandbox, { type SandboxMode } from "./index.ts";
+import piSandbox, { resolveMode, type SandboxMode } from "./index.ts";
 
 type Recorded = { kind: string; [k: string]: any };
 
 /**
  * Boot the extension with an injected backend result. Resolution itself is
- * environment-dependent (it compiles and probes a C gate), so the wiring
- * tests pin it: android no longer implies "no backend" — on a Termux with a
- * C compiler the preload backend resolves for real.
+ * environment-dependent (it compiles and probes the C gate), so the wiring
+ * tests pin it.
  */
 function boot(resolve: SandboxMode = { mode: "none", detail: "test backend unavailable" }) {
 	const calls: Recorded[] = [];
@@ -57,6 +56,27 @@ function makeCtx() {
 }
 
 void describe("sandbox extension smoke", () => {
+	void it("offers no backend on windows and android — yolo by platform, not by failure", () => {
+		// Workspace enforcement is Linux-only now. resolveMode must answer "none"
+		// with the platform detail immediately on win32/android — without probing
+		// a toolchain, compiling a gate, or labelling anything (the removed
+		// backends did all of that at load time).
+		for (const platform of ["win32", "android"] as const) {
+			const real = process.platform;
+			Object.defineProperty(process, "platform", { value: platform, configurable: true });
+			try {
+				const mode = resolveMode();
+				assert.equal(mode.mode, "none", `${platform}: no enforcing backend`);
+				assert.match(
+					mode.mode === "none" ? mode.detail : "",
+					/no kernel sandbox backend for this platform/,
+				);
+			} finally {
+				Object.defineProperty(process, "platform", { value: real, configurable: true });
+			}
+		}
+	});
+
 	void it("warns and pins the unenforced mode to the status line", async () => {
 		const { events } = boot();
 		const { ctx, status, notes } = makeCtx();
@@ -120,20 +140,5 @@ void describe("sandbox extension smoke", () => {
 		await commands.sandbox.handler("WS", ctx);
 		assert.match(notes.at(-1) ?? "", /unavailable/);
 		assert.equal(status.at(-1), "RW", "workspace cannot be enforced, so yolo stays");
-	});
-
-	void it("boots into workspace when the preload backend resolves", async () => {
-		const { events, commands } = boot({ mode: "preload", bin: "/cache/gate", lib: "/cache/gate-preload.so" });
-		const { ctx, status, notes } = makeCtx();
-		await events.session_start({}, ctx);
-		assert.equal(notes.length, 0, "no fallback warning — the gate enforces");
-		assert.equal(status[0], "WS", "workspace is the default on a working backend");
-
-		await commands.sandbox.handler("WS", ctx);
-		assert.match(notes.at(-1) ?? "", /userspace gate \(advisory\)/, "the detail is honest about the tier");
-		assert.equal(status.at(-1), "WS");
-
-		await commands.sandbox.handler("RO", ctx);
-		assert.equal(status.at(-1), "RO", "mode switches stay live on the preload backend");
 	});
 });

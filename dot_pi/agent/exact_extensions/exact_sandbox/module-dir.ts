@@ -9,8 +9,8 @@
  * prefer it, and never fall back to a value that is obviously not a path.
  *
  * The rule throws instead of returning a data URL: a wrong directory is worse
- * than a loud failure, because every later use (compiling gate-win.c, labelling
- * the gate binary) would fail in a way that reads like a missing toolchain.
+ * than a loud failure, because every later use (compiling gate.c) would fail
+ * in a way that reads like a missing toolchain.
  */
 
 /** A value usable as a directory: a non-empty string that is not a data URL. */

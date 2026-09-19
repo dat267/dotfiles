@@ -2,21 +2,17 @@
  * Tests for sandbox/policy.ts — single source of truth for the
  * writable-path policy: enforcement list and prompt prose.
  *
- * The list is platform-aware. On Windows the writable set is exactly the
- * paths the extension has labelled Low integrity, so it is deliberately
- * smaller than the POSIX list: anything else is read-only by construction.
+ * The workspace sandbox only enforces on Linux, so the list is the POSIX
+ * one; it is pinned via `home` so it reads identically on any host.
  */
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { homedir } from "node:os";
 import { defaultAllowlist, writablePathsNote } from "./policy.ts";
 
-void describe("policy (posix)", () => {
-	// Pin the platform and home so the POSIX list is exercised identically on a
-	// Linux or a Windows host; otherwise the host's win32 default leaks in and
-	// these become accidental failures.
-	const posix = { platform: "linux" as const, home: "/home/dat" };
+void describe("policy", () => {
+	// Pin the home so the list is exercised identically on any host.
+	const posix = { home: "/home/dat" };
 
 	void it("every allowlist entry (except workspace) appears in the note", () => {
 		const workspace = "/data/work";
@@ -57,33 +53,5 @@ void describe("policy (posix)", () => {
 	void it("defaultAllowlist covers the agent state directory ~/.pi", () => {
 		const list = defaultAllowlist("/data/work", posix);
 		assert.ok(list.includes(posix.home + "/.pi"), "missing ~/.pi (agent state, extension deploys)");
-	});
-});
-
-void describe("policy (windows)", () => {
-	const win = { platform: "win32" as const };
-
-	void it("allows exactly the workspace and the labelled scratch directory", () => {
-		const list = defaultAllowlist("C:\\work", { ...win, scratch: "C:\\cache\\tmp" });
-		assert.deepEqual(list, ["C:\\work", "C:\\cache\\tmp"]);
-	});
-
-	void it("allows only the workspace when no scratch directory is configured", () => {
-		assert.deepEqual(defaultAllowlist("C:\\work", win), ["C:\\work"]);
-	});
-
-	void it("does not carry POSIX-only entries onto Windows", () => {
-		const list = defaultAllowlist("C:\\work", { ...win, scratch: "C:\\cache\\tmp" });
-		for (const posix of ["/tmp", "/dev", "/proc", "/sys", "/var/tmp"]) {
-			assert.ok(!list.includes(posix), `POSIX path ${posix} leaked into the Windows allowlist`);
-		}
-		assert.ok(!list.some((p) => p.startsWith(homedir())), "POSIX home paths leaked");
-	});
-
-	void it("the note advertises the scratch directory, not /tmp", () => {
-		const note = writablePathsNote("C:\\work", { ...win, scratch: "C:\\cache\\tmp" });
-		assert.ok(note.includes("C:\\work"), "note missing the workspace");
-		assert.ok(note.includes("C:\\cache\\tmp"), "note missing the scratch directory");
-		assert.ok(!note.includes("/tmp"), "note advertises /tmp on Windows");
 	});
 });
