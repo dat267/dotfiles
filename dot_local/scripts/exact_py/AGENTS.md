@@ -11,7 +11,7 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 ## Structure
 
 - `executable_yazi-*.py` — Yazi media/translate helpers, invoked via `keymap.toml` bindings
-- `executable_install-*.py` — Tool installers, each downloads latest GitHub release to `~/.local/bin/`
+- `executable_install-*.py` — Tool installers; most download the latest GitHub release to `~/.local/bin/`; `install-pi.py` installs/updates the npm package instead (`npm install -g --ignore-scripts @earendil-works/pi-coding-agent`, Node >= 22.19 engines floor, `--check`/`--force`)
 - `executable_gim.py` — install private Go binaries over SSH (`gim <repo[@version]>`)
 - `executable_dotfiles.py` — rclone + git sync (`dotfiles up`/`dotfiles down`)
 - `executable_lsp.py` — LSP server installer (gopls, pyright, etc.)
