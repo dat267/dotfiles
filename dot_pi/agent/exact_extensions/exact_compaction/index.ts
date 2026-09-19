@@ -85,6 +85,31 @@ export function pickSummarizer(
 	return ctx.model;
 }
 
+export function combineUsage(first?: Usage, second?: Usage): Usage | undefined {
+	if (!first) return second;
+	if (!second) return first;
+	return {
+		input: (first.input ?? 0) + (second.input ?? 0),
+		output: (first.output ?? 0) + (second.output ?? 0),
+		cacheRead: (first.cacheRead ?? 0) + (second.cacheRead ?? 0),
+		cacheWrite: (first.cacheWrite ?? 0) + (second.cacheWrite ?? 0),
+		...(first.cacheWrite1h !== undefined || second.cacheWrite1h !== undefined
+			? { cacheWrite1h: (first.cacheWrite1h ?? 0) + (second.cacheWrite1h ?? 0) }
+			: {}),
+		...(first.reasoning !== undefined || second.reasoning !== undefined
+			? { reasoning: (first.reasoning ?? 0) + (second.reasoning ?? 0) }
+			: {}),
+		totalTokens: (first.totalTokens ?? 0) + (second.totalTokens ?? 0),
+		cost: {
+			input: (first.cost?.input ?? 0) + (second.cost?.input ?? 0),
+			output: (first.cost?.output ?? 0) + (second.cost?.output ?? 0),
+			cacheRead: (first.cost?.cacheRead ?? 0) + (second.cost?.cacheRead ?? 0),
+			cacheWrite: (first.cost?.cacheWrite ?? 0) + (second.cost?.cacheWrite ?? 0),
+			total: (first.cost?.total ?? 0) + (second.cost?.total ?? 0),
+		},
+	};
+}
+
 async function summarize(
 	ctx: CtxLike,
 	model: Model,
@@ -181,7 +206,7 @@ export default function (pi: ExtensionAPI) {
 					summary,
 					firstKeptEntryId,
 					tokensBefore,
-					usage: (historyResult?.usage ?? prefixResult?.usage) as Usage,
+					usage: combineUsage(historyResult?.usage as Usage | undefined, prefixResult?.usage as Usage | undefined),
 					details: { readFiles: lists.readFiles, modifiedFiles: lists.modifiedFiles },
 				},
 			};
