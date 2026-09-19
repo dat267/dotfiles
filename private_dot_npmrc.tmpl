@@ -1,10 +1,21 @@
 # User-level global install location.
-# Linux: `npm i -g` installs into ~/.local (binaries in ~/.local/bin, already on
-# PATH via dot_profile) instead of /usr/lib/node_modules, which needs root.
 # Windows: npm has no lib/bin split — it drops node_modules and the .cmd shims
 # straight into the prefix dir — so keep npm's conventional %APPDATA%\npm,
 # which the Node installer already puts on PATH.
-prefix={{ if eq .chezmoi.os "windows" }}${APPDATA}/npm{{ else }}${HOME}/.local{{ end }}
+# Linux + Cloud Shell: no prefix at all. Cloud Shell's node is nvm-managed
+# (system-wide NVM_DIR), and nvm refuses to load while a prefix is set —
+# "nvm is not compatible with the npm config 'prefix' option" on every shell
+# startup. Under nvm the prefix belongs to nvm's per-version layout, so
+# `npm i -g` should follow NVM_DIR like on any nvm machine.
+# Linux otherwise: `npm i -g` installs into ~/.local (binaries in ~/.local/bin,
+# already on PATH via dot_profile) instead of /usr/lib/node_modules, which
+# needs root.
+{{- if eq .chezmoi.os "windows" }}
+prefix=${APPDATA}/npm
+{{- else if env "CLOUD_SHELL" }}
+{{- else }}
+prefix=${HOME}/.local
+{{- end }}
 
 # Retained from the pre-existing ~/.npmrc: allow installing deps from any git host.
 allow-git=all
