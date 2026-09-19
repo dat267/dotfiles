@@ -18,6 +18,11 @@ export interface FakePiOptions {
 	/** ms until the snapshot becomes visible — models pi's async
 	 *  availability refresh, which is still in flight at session_start. */
 	availableAfterMs?: number;
+	/** ms until setModel stops refusing. Independent of the snapshot above:
+	 *  in production the registry catalogs the model while setModel's
+		* configured-auth gate is still pending (separate stores, separate
+		* races) — the split brain behind the boot warning. */
+	authAfterMs?: number;
 	/** Initial ctx.model. */
 	current?: FakeModel;
 	/** Durable entries replayed via ctx.sessionManager.getBranch(). */
@@ -50,6 +55,7 @@ export function makeFakePi(options: FakePiOptions = {}): FakePi {
 	const all: Array<{ kind: string; [k: string]: unknown }> = [];
 	const catalog = options.catalog ?? [];
 	const readyAt = Date.now() + (options.availableAfterMs ?? 0);
+	const authReadyAt = Date.now() + (options.authAfterMs ?? 0);
 	const visible = () => (Date.now() >= readyAt ? catalog : []);
 	let current = options.current;
 	const handlers = new Map<string, Array<(event: unknown, ctx: unknown) => Promise<void>>>();
@@ -109,6 +115,7 @@ export function makeFakePi(options: FakePiOptions = {}): FakePi {
 		// with the previous model, exactly like AgentSession.setModel.
 		setModel: async (model: FakeModel) => {
 			if (!visible().some((m) => m.provider === model.provider && m.id === model.id)) return false;
+			if (Date.now() < authReadyAt) return false;
 			const previousModel = current;
 			current = model;
 			calls.modelChanges.push(model);

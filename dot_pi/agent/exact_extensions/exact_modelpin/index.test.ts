@@ -30,6 +30,9 @@ function setup(opts: {
 	current?: { provider: string; id: string; contextWindow?: number };
 	/** When set, the available snapshot starts empty and fills after this many ms. */
 	availableAfterMs?: number;
+	/** When set, setModel refuses until this many ms have passed (the
+		* configured-auth gate) while the catalog is already present. */
+	authAfterMs?: number;
 	pollMs?: number;
 	timeoutMs?: number;
 }) {
@@ -45,6 +48,7 @@ function setup(opts: {
 		catalog: CATALOG,
 		current: opts.current,
 		availableAfterMs: opts.availableAfterMs,
+		authAfterMs: opts.authAfterMs,
 	});
 	registerModelSync(fake.pi, { agentDir, pollMs: opts.pollMs, timeoutMs: opts.timeoutMs });
 
@@ -130,6 +134,26 @@ void describe("availability race at startup", () => {
 		await h.sessionStart();
 		assert.equal(h.fake.calls.modelChanges.length, 1, "sync must land once the provider becomes available");
 		assert.match(h.notice(), /glm-5\.3-flash/);
+	});
+
+	void it("retries a refused switch until the auth gate lands", async () => {
+		// The production split brain: the registry catalogs the model instantly,
+		// but setModel's configured-auth gate is still pending — one attempt
+		// gets refused and the session boots on the unknown placeholder with
+		// pi's "No models available" warning. The sync must keep polling the
+		// actual gate until the window closes.
+		const h = setup({
+			agentSettings: { defaultProvider: "hyper", defaultModel: "glm-5.3-flash" },
+			current: { provider: "hyper", id: "deepseek-v4-flash", contextWindow: 1_000_000 },
+			authAfterMs: 100,
+			pollMs: 20,
+			timeoutMs: 2_000,
+		});
+		await h.sessionStart();
+		assert.equal(h.fake.calls.modelChanges.length, 1, "sync must retry past the refusal and land");
+		assert.equal(h.fake.calls.modelChanges[0].id, "glm-5.3-flash");
+		assert.match(h.notice(), /glm-5\.3-flash/);
+		assert.doesNotMatch(h.notice(), /refused/);
 	});
 
 	void it("warns only after the wait is exhausted", async () => {
