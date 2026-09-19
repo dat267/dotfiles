@@ -12,6 +12,11 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "fullscreenScrollbar" "auto" $current }}
 {{- $_ := setValueAtPath "outputPad" 1 $current }}
 {{- $_ := setValueAtPath "editorPaddingX" 1 $current }}
+{{- /* Pin the thinking default: without it pi falls back to DEFAULT_THINKING_LEVEL
+     "medium", which clamps to glm-5.3-flash's supported levels as "high" on a
+     clean boot but "low" after modelpin's setModel re-sync re-derives the level
+     from a model-less session's "off" — the thinking level kept flapping. */}}
+{{- $_ := setValueAtPath "defaultThinkingLevel" "high" $current }}
 {{- /* Compaction uses pi's defaults (reserveTokens 16384, keepRecentTokens 20000).
      Strip any block pi or a manual edit may have persisted into the deployed file. */}}
 {{- $_ := unset $current "compaction" }}
