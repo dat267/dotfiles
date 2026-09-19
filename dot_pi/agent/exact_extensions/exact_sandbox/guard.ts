@@ -43,10 +43,20 @@ function realResolve(path: string): string {
 	}
 }
 
+const realpathCache = new Map<string, string>();
+
+function cachedRealResolve(path: string): string {
+	const cached = realpathCache.get(path);
+	if (cached !== undefined) return cached;
+	const resolved = realResolve(path);
+	realpathCache.set(path, resolved);
+	return resolved;
+}
+
 function isAllowed(resolved: string, allowlist: readonly string[]): boolean {
 	for (const prefix of allowlist) {
 		if (resolved === prefix || resolved.startsWith(prefix + posix.sep)) return true;
-		const real = realResolve(prefix);
+		const real = cachedRealResolve(prefix);
 		if (resolved === real || resolved.startsWith(real + posix.sep)) return true;
 	}
 	return false;
@@ -59,7 +69,7 @@ export function inspectPath(
 	allowlist: readonly string[],
 ): string | null {
 	const resolved = realResolve(resolveArg(target, workspace));
-	const realWorkspace = realResolve(workspace);
+	const realWorkspace = cachedRealResolve(workspace);
 	if (!isAllowed(resolved, allowlist) && !(resolved === realWorkspace || resolved.startsWith(realWorkspace + posix.sep))) {
 		return `sandbox blocks ${resolved}: outside the workspace`;
 	}
