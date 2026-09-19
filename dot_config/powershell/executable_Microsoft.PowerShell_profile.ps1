@@ -111,20 +111,11 @@ $global:__dotfiles_profile_loaded = $true
             $env:NODE_USE_SYSTEM_CA = $nodeCa
         }
 
-        # pi phones home on startup (version check + install telemetry, both to
-        # pi.dev) and refreshes model catalogs over the network. PI_OFFLINE gates
-        # all of it; prompting is untouched, so the network is first touched when
-        # the first prompt is sent. Explicit `pi install` still works. Same
-        # User-scope persistence and registry fast path as above — and the same
-        # respect for an explicit value at either scope, so a process-level
-        # $env:PI_OFFLINE='0' now survives startup instead of being overwritten.
-        if (-not $env:PI_OFFLINE) {
-            $piOffline = [Environment]::GetEnvironmentVariable('PI_OFFLINE', 'User')
-            if (-not $piOffline) {
-                [Environment]::SetEnvironmentVariable('PI_OFFLINE', '1', 'User')
-                $piOffline = '1'
-            }
-            $env:PI_OFFLINE = $piOffline
+        # PI_OFFLINE was removed: besides the startup phone-home it also gated
+        # `pi update`, which failed with "Could not determine latest pi
+        # version." Clear the User-scope value earlier profiles persisted.
+        if ([Environment]::GetEnvironmentVariable('PI_OFFLINE', 'User')) {
+            [Environment]::SetEnvironmentVariable('PI_OFFLINE', $null, 'User')
         }
 
         # Python has no NODE_USE_SYSTEM_CA equivalent. certifi-based tools

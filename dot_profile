@@ -92,14 +92,6 @@ export NODE_COMPILE_CACHE="$HOME/.cache/node-compile-cache"
 # This is the switch that fixes them without NODE_EXTRA_CA_CERTS, which would
 # have to be set per-tool and per-machine. 121 bundled -> 847 on this box.
 export NODE_USE_SYSTEM_CA=1
-# pi phones home on startup — a version check and install telemetry, both to
-# pi.dev — and refreshes model catalogs over the network. PI_OFFLINE gates all
-# of it (verified with a loopback proxy trap: 2 CONNECTs to pi.dev at startup,
-# none with this set). Prompting is untouched: the LLM call is not gated, so
-# the network is first touched when the first prompt is sent. Catalogs fall
-# back to the local cache; the custom providers are static catalogs anyway.
-# Explicit `pi install` still works — only the *checks* are disabled.
-export PI_OFFLINE=1
 # Python has no NODE_USE_SYSTEM_CA equivalent: certifi-based tools (requests,
 # pip, httpx) ship their own CA bundle and ignore the OS store, so a locally
 # added — or corporate — CA is invisible to them while curl, openssl and
