@@ -65,6 +65,54 @@ class TestCommandPlanning(PiplineCase):
 		self.assertEqual(cmd[-2:], [str(d / "index.test.ts"), str(d / "index.ts")])
 
 
+class TestResolvePiPackage(unittest.TestCase):
+	"""resolve_pi_package finds the installed pi package wherever npm put it:
+	~/.local prefix first, then the global root (nvm installs) — the hardcoded
+	~/.local path broke the lints on machines where pi ships via npm -g."""
+
+	def setUp(self):
+		self.tmp = tempfile.mkdtemp(prefix="pi-lint-test-")
+		self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+
+	def pkg(self, rel):
+		d = _Path(self.tmp) / rel / "@earendil-works" / "pi-coding-agent"
+		d.mkdir(parents=True, exist_ok=True)
+		return d
+
+	def test_global_root_when_the_local_prefix_lacks_pi(self):
+		self.pkg("global-node-modules")
+		resolved = pi_lint.resolve_pi_package(
+			local_root=_Path(self.tmp) / "local-node-modules",
+			global_root=_Path(self.tmp) / "global-node-modules",
+		)
+		self.assertEqual(resolved, _Path(self.tmp) / "global-node-modules" / "@earendil-works" / "pi-coding-agent")
+
+	def test_local_prefix_wins_when_present(self):
+		local = self.pkg("local-node-modules")
+		self.pkg("global-node-modules")
+		resolved = pi_lint.resolve_pi_package(
+			local_root=_Path(self.tmp) / "local-node-modules",
+			global_root=_Path(self.tmp) / "global-node-modules",
+		)
+		self.assertEqual(resolved, local)
+
+	def test_missing_global_root_is_skipped_not_fatal(self):
+		local = self.pkg("local-node-modules")
+		resolved = pi_lint.resolve_pi_package(
+			local_root=_Path(self.tmp) / "local-node-modules",
+			global_root=_Path(self.tmp) / "no-such-root",
+		)
+		self.assertEqual(resolved, local)
+
+	def test_clear_exit_when_no_install_has_pi(self):
+		with self.assertRaises(SystemExit) as ctx:
+			pi_lint.resolve_pi_package(
+				local_root=_Path(self.tmp) / "no-local",
+				global_root=_Path(self.tmp) / "no-global",
+			)
+		self.assertIn("pi package", str(ctx.exception.code))
+
+
 class TestDeps(PiplineCase):
 	def setUp(self):
 		super().setUp()
@@ -72,8 +120,7 @@ class TestDeps(PiplineCase):
 		(self.pi_pkg / "node_modules" / "@types" / "node").mkdir(parents=True)
 
 	def ensure(self, d):
-		with patch.object(pi_lint, "PI_PACKAGE", self.pi_pkg):
-			return pi_lint.ensure_deps(d)
+		return pi_lint.ensure_deps(d, self.pi_pkg)
 
 	def test_creates_package_and_types_symlinks(self):
 		d = self.make_ext("exact_modelpin", ["index.ts"])
@@ -82,6 +129,17 @@ class TestDeps(PiplineCase):
 		self.assertTrue(link.is_dir())
 		self.assertTrue((d / "node_modules" / "@types" / "node").exists())
 
+	def test_links_every_scoped_package_the_pi_package_ships(self):
+		# Extensions import @earendil-works/pi-ai and pi-tui, which the pi
+		# package vendors under its own node_modules — unresolved, every model
+		# type degrades to any and tsc drowns in TS7006/TS2307.
+		for pkg in ("pi-ai", "pi-tui"):
+			(self.pi_pkg / "node_modules" / "@earendil-works" / pkg).mkdir(parents=True)
+		d = self.make_ext("exact_providers", ["index.ts"])
+		self.assertTrue(self.ensure(d))
+		for pkg in ("pi-ai", "pi-tui"):
+			self.assertTrue((d / "node_modules" / "@earendil-works" / pkg).is_dir())
+
 	def test_no_op_when_already_set_up(self):
 		d = self.make_ext("exact_modelpin", ["index.ts"])
 		self.ensure(d)
@@ -89,6 +147,12 @@ class TestDeps(PiplineCase):
 
 
 class TestAggregation(PiplineCase):
+	def setUp(self):
+		super().setUp()
+		# Hermetic: never probe the machine's npm installs from these tests.
+		self.fake_pkg = self.root / "pi-pkg"
+		(self.fake_pkg / "node_modules" / "@types" / "node").mkdir(parents=True)
+
 	def test_reports_each_directory(self):
 		self.make_ext("exact_a", ["index.ts"])
 		self.make_ext("exact_b", ["index.ts"])
@@ -100,7 +164,7 @@ class TestAggregation(PiplineCase):
 			return subprocess.CompletedProcess(
 				cmd, 0 if ok else 1, stdout="" if ok else "error TS2322: bad\nnpm notice run npx", stderr="")
 
-		results = pi_lint.run_lint(self.root, runner=fake_run)
+		results = pi_lint.run_lint(self.root, runner=fake_run, pi_pkg=self.fake_pkg)
 		self.assertEqual({name: ok for name, ok, _ in results}, {"exact_a": True, "exact_b": False})
 		# tsc resolves --types from the cwd, so each lint must run IN its dir.
 		self.assertEqual(seen_cwd, [self.root / "dot_pi" / "agent" / "exact_extensions" / "exact_a",
@@ -112,7 +176,7 @@ class TestAggregation(PiplineCase):
 		def noisy_run(cmd, cwd, **kw):
 			return subprocess.CompletedProcess(cmd, 1, stdout="error TS1: x\n", stderr="npm notice run npx")
 
-		_, _, output = pi_lint.run_lint(self.root, runner=noisy_run)[0]
+		_, _, output = pi_lint.run_lint(self.root, runner=noisy_run, pi_pkg=self.fake_pkg)[0]
 		self.assertEqual(output, "error TS1: x")
 
 	def test_exit_code_zero_only_when_all_pass(self):

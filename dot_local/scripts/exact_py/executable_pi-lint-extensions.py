@@ -21,7 +21,6 @@ import sys
 from pathlib import Path
 
 TSC_VERSION = "5.7"
-PI_PACKAGE = Path.home() / ".local/lib/node_modules/@earendil-works/pi-coding-agent"
 
 TSC_FLAGS = [
 	"--noEmit", "--strict", "--noUnusedLocals", "--noUnusedParameters",
@@ -52,11 +51,35 @@ def plan_command(ext_dir):
 	return ["npx", "-y", "-p", f"typescript@{TSC_VERSION}", "tsc", *TSC_FLAGS, *files]
 
 
-def ensure_deps(ext_dir):
-	"""Create the per-dir node_modules symlink layout; True if anything changed."""
-	pi_pkg = Path(PI_PACKAGE)
-	if not pi_pkg.is_dir():
-		raise SystemExit(f"pi package not installed: {pi_pkg}")
+def resolve_pi_package(local_root=None, global_root=None):
+	"""The installed pi coding-agent package, for tsc resolution.
+
+	Probes the ~/.local npm prefix first (npm --prefix installs), then
+	`npm root -g` (nvm and other global installs); both probes are injectable
+	for tests, and a missing global root is skipped rather than fatal. Exits
+	with a clear message when neither location has the package.
+	"""
+	if local_root is None:
+		local_root = Path.home() / ".local/lib/node_modules"
+	candidates = [Path(local_root) / "@earendil-works" / "pi-coding-agent"]
+	if global_root is None:
+		proc = subprocess.run(["npm", "root", "-g"], capture_output=True, text=True)
+		global_root = proc.stdout.strip() if proc.returncode == 0 else None
+	if global_root:
+		candidates.append(Path(global_root) / "@earendil-works" / "pi-coding-agent")
+	for candidate in candidates:
+		if candidate.is_dir():
+			return candidate
+	roots = ", ".join(str(c.parents[1]) for c in candidates)
+	raise SystemExit(f"pi package not installed in any of: {roots}")
+
+
+def ensure_deps(ext_dir, pi_pkg):
+	"""Create the per-dir node_modules symlink layout; True if anything changed.
+
+	Links the pi package itself, every @earendil-works/* package it vendors
+	under its node_modules (pi-ai, pi-tui, …), and its @types/node.
+	"""
 	changed = False
 	nm = ext_dir / "node_modules"
 	pkg_link = nm / "@earendil-works" / "pi-coding-agent"
@@ -64,6 +87,14 @@ def ensure_deps(ext_dir):
 		pkg_link.parent.mkdir(parents=True, exist_ok=True)
 		os.symlink(pi_pkg, pkg_link)
 		changed = True
+	vendored = pi_pkg / "node_modules" / "@earendil-works"
+	if vendored.is_dir():
+		for pkg in sorted(vendored.iterdir()):
+			link = nm / "@earendil-works" / pkg.name
+			if not link.exists():
+				link.parent.mkdir(parents=True, exist_ok=True)
+				os.symlink(pkg, link)
+				changed = True
 	types_link = nm / "@types" / "node"
 	if not types_link.exists():
 		types_link.parent.mkdir(parents=True, exist_ok=True)
@@ -72,19 +103,21 @@ def ensure_deps(ext_dir):
 	return changed
 
 
-def run_lint(root, runner=None, only=None):
+def run_lint(root, runner=None, only=None, pi_pkg=None):
 	"""Lint each extension; returns [(name, ok, output)] in discovery order.
 
-	Each tsc runs with cwd set to the extension dir — tsc resolves --types
-	from the working directory, so the per-dir node_modules layout counts.
+	The pi package is resolved once per run (injectable for tests). Each tsc
+	runs with cwd set to the extension dir — tsc resolves --types from the
+	working directory, so the per-dir node_modules layout counts.
 	"""
 	run = runner or (lambda cmd, cwd: subprocess.run(cmd, capture_output=True, text=True, cwd=cwd))
+	pi_pkg = pi_pkg or resolve_pi_package()
 	results = []
 	for name in discover_extensions(root):
 		if only and name != only:
 			continue
 		ext_dir = root / EXTENSIONS_REL / name
-		ensure_deps(ext_dir)
+		ensure_deps(ext_dir, pi_pkg)
 		proc = run(plan_command(ext_dir), ext_dir)
 		output = "\n".join(
 			line for line in ((proc.stdout or "") + (proc.stderr or "")).splitlines()
