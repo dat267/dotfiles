@@ -61,6 +61,6 @@ For multi-step work, state a plan with one check per step:
 2. [step] -> verify: [command]
 ```
 
-Follow the **tdd** skill for the failing-test loop. Follow the **diagnosing-bugs** skill when the cause is not obvious. Weak goals such as "make it work" force constant clarification.
+Follow the **tdd** skill for the failing-test loop. Follow the **systematic-debugging** skill when the cause is not obvious. Weak goals such as "make it work" force constant clarification.
 
 Gate: run the tests and show the command with its output. The task is not done while any test is red.
