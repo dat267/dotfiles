@@ -27,6 +27,10 @@ export interface FakePiOptions {
 	current?: FakeModel;
 	/** Durable entries replayed via ctx.sessionManager.getBranch(). */
 	entries?: unknown[];
+	/** Answer ctx.ui.confirm returns. Defaults to true (accept). */
+	confirmResult?: boolean;
+	/** ctx.hasPendingMessages() — queued user input awaiting delivery. */
+	hasPendingMessages?: boolean;
 }
 
 export interface FakePi {
@@ -36,6 +40,7 @@ export interface FakePi {
 		entries: Array<{ entryType: string; data: unknown }>;
 		messages: Array<{ message: unknown; opts: unknown }>;
 		notifies: Array<{ message: string; level?: string }>;
+		confirms: Array<{ title: string; message?: string }>;
 		modelChanges: FakeModel[];
 		/** Live kind-tagged stream of every captured host call and registration. */
 		all: Array<{ kind: string; [k: string]: unknown }>;
@@ -63,6 +68,7 @@ export function makeFakePi(options: FakePiOptions = {}): FakePi {
 		entries: [] as Array<{ entryType: string; data: unknown }>,
 		messages: [] as Array<{ message: unknown; opts: unknown }>,
 		notifies: [] as Array<{ message: string; level?: string }>,
+		confirms: [] as Array<{ title: string; message?: string }>,
 		modelChanges: [] as FakeModel[],
 		all,
 	};
@@ -134,6 +140,7 @@ export function makeFakePi(options: FakePiOptions = {}): FakePi {
 			getBranch: () => options.entries ?? [],
 		},
 		getContextUsage: () => ({ tokens: 100_000, contextWindow: 1_000_000, percent: 10 }),
+		hasPendingMessages: () => options.hasPendingMessages ?? false,
 		signal: { aborted: false },
 		modelRegistry: {
 			getAvailable: () => visible(),
@@ -143,6 +150,10 @@ export function makeFakePi(options: FakePiOptions = {}): FakePi {
 			// Identity styling — assertions verify structure, not color codes.
 			theme: { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t },
 			notify: (message: string, level?: string) => calls.notifies.push({ message, level }),
+			confirm: async (title: string, message?: string) => {
+				calls.confirms.push({ title, message });
+				return options.confirmResult ?? true;
+			},
 			setStatus: (key: string, value: unknown) => all.push({ kind: "setStatus", key, value }),
 			setWidget: (key: string, value: unknown) => all.push({ kind: "setWidget", key, value }),
 		},

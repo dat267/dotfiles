@@ -209,4 +209,104 @@ void describe("goal extension smoke", () => {
 		});
 	});
 
+	void describe("goal tool exposure", () => {
+		const activeSets = (calls: Recorded[]) =>
+			calls.filter((c) => c.kind === "setActiveTools").map((c) => [...(c.names as string[])].sort());
+
+		void it("only create_goal is exposed while no goal is active", async () => {
+			const { events, calls } = boot();
+			await events.session_start({ reason: "startup" }, ctx());
+			assert.deepEqual(activeSets(calls).at(-1), ["create_goal"]);
+		});
+
+		void it("get_goal/update_goal appear while active and are dropped once complete", async () => {
+			const { tools, events, calls } = boot();
+			await events.session_start({ reason: "startup" }, ctx());
+			await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
+			assert.deepEqual(activeSets(calls).at(-1), ["create_goal", "get_goal", "update_goal"]);
+
+			const parsed = JSON.parse((await tools.get_goal.execute("id", {}, {}, () => {}, ctx())).content[0].text);
+			await tools.update_goal.execute("id", { goal_id: parsed.goal.id, revision: parsed.goal.revision, action: "complete" }, {}, () => {}, ctx());
+			assert.deepEqual(activeSets(calls).at(-1), ["create_goal"]);
+		});
+	});
+
+	void describe("/goal set over an existing goal", () => {
+		function harness(confirmResult: boolean) {
+			const fake = makeFakePi({ confirmResult });
+			piGoal(fake.pi);
+			return { fake, command: fake.commands["goal"] };
+		}
+
+		async function withGoal(confirmResult: boolean) {
+			const h = harness(confirmResult);
+			await h.fake.emit("session_start", { reason: "startup" });
+			await h.fake.tools.create_goal.execute("id", { objective: "first" }, {}, () => {}, h.fake.ctx);
+			h.fake.calls.all.length = 0;
+			h.fake.calls.notifies.length = 0;
+			return h;
+		}
+
+		const ops = (calls: Recorded[]) => calls.filter((c) => c.kind === "appendEntry").map((c) => (c.data as any)?.operation);
+
+		void it("asks before replacing, then tombstones the old goal and creates the new one", async () => {
+			const { fake, command } = await withGoal(true);
+			await command.handler("set second", fake.ctx);
+			assert.equal(fake.calls.confirms.length, 1, "one confirmation prompt");
+			assert.match(fake.calls.confirms[0].title, /replace/i);
+			assert.deepEqual(ops(fake.calls.all), ["clear", "create"]);
+		});
+
+		void it("declining leaves the existing goal untouched", async () => {
+			const { fake, command } = await withGoal(false);
+			await command.handler("set second", fake.ctx);
+			assert.deepEqual(ops(fake.calls.all), []);
+			const parsed = JSON.parse((await fake.tools.get_goal.execute("id", {}, {}, () => {}, fake.ctx)).content[0].text);
+			assert.equal(parsed.goal.objective, "first");
+		});
+
+		void it("no prompt when no goal exists", async () => {
+			const { fake, command } = harness(true);
+			await fake.emit("session_start", { reason: "startup" });
+			fake.calls.all.length = 0;
+			await command.handler("set fresh", fake.ctx);
+			assert.equal(fake.calls.confirms.length, 0);
+			assert.deepEqual(ops(fake.calls.all), ["create"]);
+		});
+	});
+
+	void describe("session_start reload", () => {
+		void it("persists the pause and tells the human, without starting a turn", async () => {
+			const fake = makeFakePi({
+				entries: [{
+					type: "custom",
+					customType: "pi-goal",
+					data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", createdAt: 1, updatedAt: 1 } },
+				}],
+			});
+			piGoal(fake.pi);
+			await fake.emit("session_start", { reason: "reload" });
+
+			const pause = fake.calls.entries.find((e) => (e.data as any)?.operation === "pause");
+			assert.ok(pause, "reload persists the pause");
+			assert.equal((pause.data as any).goal.blockedReason.code, "reloaded");
+			assert.match(fake.calls.notifies.at(-1)?.message ?? "", /reload/i);
+			assert.equal(fake.calls.messages.length, 0, "reload starts no LLM turn");
+		});
+
+		void it("startup keeps the goal active and disarmed", async () => {
+			const fake = makeFakePi({
+				entries: [{
+					type: "custom",
+					customType: "pi-goal",
+					data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", createdAt: 1, updatedAt: 1 } },
+				}],
+			});
+			piGoal(fake.pi);
+			await fake.emit("session_start", { reason: "startup" });
+			assert.equal(fake.calls.entries.length, 0, "startup writes nothing");
+			assert.match(fake.calls.notifies.at(-1)?.message ?? "", /restored/i);
+		});
+	});
+
 });

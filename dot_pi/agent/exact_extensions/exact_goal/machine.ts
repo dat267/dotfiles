@@ -5,7 +5,7 @@
  * Effects are plain data; the caller (index.ts) performs all I/O.
  */
 
-import { applyChange, createGoalState, foldGoal, goalRoundPrompt, toSnapshot, wrapupContext, type GoalChangeEntry, type GoalOperation, type GoalSnapshot, type GoalTurnEntry, type GoalView } from "./state.ts";
+import { applyChange, createGoalState, foldGoal, goalRoundPrompt, SETTINGS_TYPE, toSnapshot, truncateObjective, wrapupContext, type GoalChangeEntry, type GoalOperation, type GoalSnapshot, type GoalTurnEntry, type GoalView } from "./state.ts";
 
 export const CUSTOM_TYPE = "pi-goal";
 export const TURN_TYPE = "pi-goal-turn";
@@ -14,6 +14,8 @@ export const EVENT_TYPE = "pi-goal-event";
 export interface SessionStartEvent {
 	type: "session_start";
 	entries: { customType: string; data: unknown }[];
+	/** Why this session started. "reload" must not resume a live goal silently. */
+	reason?: string;
 }
 
 export interface GoalCreateEvent {
@@ -43,6 +45,8 @@ export interface AgentSettledEvent {
 	contextUsage: { tokens: number | null; contextWindow: number };
 	/** Set when the last provider response was an HTTP error — pauses the loop instead of queueing another round. */
 	providerError?: ProviderError;
+	/** Queued user input: it owns the next turn, so the goal yields this settle. */
+	hasPendingMessages?: boolean;
 }
 
 export interface RetryDueEvent {
@@ -77,7 +81,13 @@ export interface GoalSetEvent {
 	objective: string;
 }
 
-export type GoalEvent = SessionStartEvent | GoalCreateEvent | GoalResumeEvent | AgentEndEvent | AgentSettledEvent | RetryDueEvent | GoalUpdateEvent | GoalPauseEvent | GoalClearEvent | BannerToggleEvent | GoalSetEvent;
+/** Human-confirmed replacement of a live goal: tombstone the old, create the new. */
+export interface GoalReplaceEvent {
+	type: "goal_replace";
+	objective: string;
+}
+
+export type GoalEvent = SessionStartEvent | GoalCreateEvent | GoalResumeEvent | AgentEndEvent | AgentSettledEvent | RetryDueEvent | GoalUpdateEvent | GoalPauseEvent | GoalClearEvent | BannerToggleEvent | GoalSetEvent | GoalReplaceEvent;
 
 export type Effect =
 	| { kind: "appendEntry"; entryType: string; data: unknown }
@@ -139,7 +149,7 @@ export class GoalMachine {
 	dispatch(event: GoalEvent): DispatchResult {
 		switch (event.type) {
 			case "session_start":
-				return this.sessionStart(event.entries as { customType: string; data: unknown }[]);
+				return this.sessionStart(event.entries as { customType: string; data: unknown }[], event.reason);
 			case "goal_create":
 				return this.goalCreate(event.objective);
 			case "goal_resume":
@@ -147,7 +157,7 @@ export class GoalMachine {
 			case "agent_end":
 				return this.agentEnd(event.contextUsage, event.aborted);
 			case "agent_settled":
-				return this.agentSettled(event.contextUsage, event.providerError);
+				return this.agentSettled(event.contextUsage, event.providerError, event.hasPendingMessages);
 			case "retry_due":
 				return this.retryDue();
 			case "goal_update":
@@ -158,9 +168,16 @@ export class GoalMachine {
 				return this.goalClear(event.id, event.revision);
 			case "banner_toggle":
 				this.bannerEnabled = !this.bannerEnabled;
-				return { effects: [{ kind: "renderStatus" }] };
+				return {
+					effects: [
+						{ kind: "appendEntry", entryType: SETTINGS_TYPE, data: { bannerEnabled: this.bannerEnabled, timestamp: Date.now() } },
+						{ kind: "renderStatus" },
+					],
+				};
 			case "goal_set":
 				return this.goalSet(event.objective);
+			case "goal_replace":
+				return this.goalReplace(event.objective);
 		}
 	}
 
@@ -354,8 +371,14 @@ export class GoalMachine {
 		return { effects };
 	}
 
-	private agentSettled(_usage: { tokens: number | null; contextWindow: number }, providerError?: ProviderError): DispatchResult {
+	private agentSettled(_usage: { tokens: number | null; contextWindow: number }, providerError?: ProviderError, hasPendingMessages?: boolean): DispatchResult {
 		if (!this.view || this.view.phase !== "active" || !this.armed) {
+			return { effects: [{ kind: "renderStatus" }] };
+		}
+
+		// Queued user input is a stronger claim on the next turn than the goal's
+		// continuation. Yield here; the settle after their turn resumes the loop.
+		if (hasPendingMessages) {
 			return { effects: [{ kind: "renderStatus" }] };
 		}
 
@@ -435,11 +458,28 @@ export class GoalMachine {
 		return { effects: [...effects, ...this.queueRound()] };
 	}
 
-	private sessionStart(entries: { customType: string; data: unknown }[]): DispatchResult {
+	/**
+	 * Replace the goal the human already confirmed replacing. The old goal is
+	 * tombstoned rather than overwritten so replay still validates every step.
+	 */
+	private goalReplace(objective: string): DispatchResult {
+		// A completed goal is terminal: applyChange accepts create over it.
+		if (!this.view || this.view.phase === "complete") return this.goalSet(objective);
+
+		const cleared = this.commit("clear", null, { id: this.view.id, revision: this.view.revision });
+		const next = createGoalState(objective);
+		this.armed = true;
+		this.pendingTurn = null;
+		const created = this.commit("create", next);
+		return { effects: [...cleared, ...created, ...this.queueRound()] };
+	}
+
+	private sessionStart(entries: { customType: string; data: unknown }[], reason?: string): DispatchResult {
+		let folded;
 		try {
-			this.view = foldGoal(
+			folded = foldGoal(
 				entries
-					.filter((e) => e.customType === CUSTOM_TYPE || e.customType === TURN_TYPE)
+					.filter((e) => e.customType === CUSTOM_TYPE || e.customType === TURN_TYPE || e.customType === SETTINGS_TYPE)
 					.map((e) => ({ customType: e.customType, data: e.data })),
 			);
 		} catch (err) {
@@ -456,10 +496,39 @@ export class GoalMachine {
 				}],
 			};
 		}
+		this.view = folded.goal;
+		this.bannerEnabled = folded.bannerEnabled;
 		// Activation is never inherited: reload, resume, fork, and startup all disarm.
 		this.armed = false;
 		this.pendingTurn = null;
 		this.createdThisRun = false;
+
+		// A reload is not a fresh start. Persist the stop so the paused goal is
+		// visible in the transcript and on the next command, not only in memory.
+		if (reason === "reload" && this.view?.phase === "active") {
+			const objective = truncateObjective(this.view.objective);
+			try {
+				const effects = this.commit("pause", {
+					...this.view,
+					phase: "paused",
+					blockedReason: { code: "reloaded", message: "Pi reloaded; the goal did not resume." },
+					revision: this.view.revision + 1,
+					updatedAt: Date.now(),
+				});
+				effects.push({ kind: "notify", message: `Goal paused after reload: ${objective}\nUse /goal resume to continue.`, level: "info" });
+				return { effects };
+			} catch (err) {
+				// A rejected pause (clock skew, a future updatedAt) must not cost the
+				// goal: applyChange throws before commit mutates anything.
+				return {
+					effects: [
+						{ kind: "notify", message: `Goal not paused after reload: ${err instanceof Error ? err.message : String(err)}`, level: "warning" },
+						{ kind: "renderStatus" },
+					],
+				};
+			}
+		}
+
 		return { effects: [{ kind: "renderStatus" }] };
 	}
 }

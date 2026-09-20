@@ -52,10 +52,12 @@ export default function piGoal(pi: ExtensionAPI) {
 
 	/** Execute the machine's effects against the host. */
 	function apply(effects: Effect[], ctx?: ExtensionContext) {
+		let mutated = false;
 		for (const effect of effects) {
 			switch (effect.kind) {
 				case "appendEntry":
 					pi.appendEntry(effect.entryType, effect.data);
+					mutated = true;
 					break;
 				case "sendMessage":
 					pi.sendMessage(
@@ -85,6 +87,8 @@ export default function piGoal(pi: ExtensionAPI) {
 					break;
 			}
 		}
+		// Tool exposure mirrors the goal phase, and only a state mutation moves it.
+		if (mutated) syncGoalTools(pi);
 	}
 
 	function updateStatusBar(ctx: ExtensionContext) {
@@ -107,11 +111,22 @@ export default function piGoal(pi: ExtensionAPI) {
 	}
 
 	function syncGoalTools(pi: ExtensionAPI) {
-		const active = new Set(pi.getActiveTools());
-		active.add("get_goal");
-		active.add("create_goal");
-		active.add("update_goal");
-		pi.setActiveTools(Array.from(active));
+		const desired = new Set(pi.getActiveTools());
+		// create_goal stays available: the model may be asked to set a goal.
+		desired.add("create_goal");
+		// get_goal/update_goal only mean something while a goal is being pursued.
+		// Leaving them exposed invites goal calls in unrelated sessions.
+		const pursuing = machine.snapshot.goal?.phase === "active";
+		for (const name of ["get_goal", "update_goal"]) {
+			if (pursuing) desired.add(name);
+			else desired.delete(name);
+		}
+		const next = Array.from(desired);
+		const current = pi.getActiveTools();
+		// setActiveTools writes a session entry; only call it on a real change.
+		if (next.length !== current.length || next.some((name) => !current.includes(name))) {
+			pi.setActiveTools(next);
+		}
 	}
 
 	// Continuation prompts and wrap-up notices (sent via sendMessage, in LLM context).
@@ -260,9 +275,21 @@ export default function piGoal(pi: ExtensionAPI) {
 				case "resume":
 					run({ type: "goal_resume" }, () => "Goal resumed.");
 					break;
-				case "set":
+				case "set": {
+					// Replacing a live goal is a destructive edit: confirm, then
+					// tombstone the old one so replay still validates every step.
+					if (goal && goal.phase !== "complete") {
+						const ok = await ctx.ui.confirm(
+							"Replace goal?",
+							`Current: ${truncateObjective(goal.objective, 120)}\n\nNew: ${truncateObjective(cmd.objective, 120)}`,
+						);
+						if (!ok) return;
+						run({ type: "goal_replace", objective: cmd.objective }, () => "Goal replaced.");
+						break;
+					}
 					run({ type: "goal_set", objective: cmd.objective }, () => "Goal set.");
 					break;
+				}
 				case "error":
 					ctx.ui.notify(cmd.message, "warning");
 					break;
@@ -273,20 +300,25 @@ export default function piGoal(pi: ExtensionAPI) {
 	// Deterministic trigger removed: 'goal: ' prompts now run as plain turns.
 	// Goal entry is model-driven (create_goal judgment) or human-driven (/goal set).
 
-	pi.on("session_start", (_event, ctx) => {
+	pi.on("session_start", (event, ctx) => {
 		clearRetryTimer();
+		const reason = (event as { reason?: string } | undefined)?.reason;
+		let result;
 		try {
 			const entries = ctx.sessionManager.getBranch();
-			machine.dispatch({
+			result = machine.dispatch({
 				type: "session_start",
+				reason,
 				// Machine owns goal-entry filtering; we only strip non-custom entries.
 				entries: entries
 					.filter((e) => e.type === "custom")
 					.map((e) => ({ customType: (e as any).customType as string, data: (e as any).data })),
 			});
 		} catch {
-			machine.dispatch({ type: "session_start", entries: [] });
+			result = machine.dispatch({ type: "session_start", entries: [] });
 		}
+		// A reload returns a durable pause here; apply it before touching the UI again.
+		apply(result.effects, ctx);
 		syncGoalTools(pi);
 		updateStatusBar(ctx);
 		const { goal } = machine.snapshot;
@@ -317,6 +349,7 @@ export default function piGoal(pi: ExtensionAPI) {
 				type: "agent_settled",
 				contextUsage: usage ?? { tokens: null, contextWindow: 0 },
 				providerError: err,
+				hasPendingMessages: ctx.hasPendingMessages?.() ?? false,
 			}).effects,
 			ctx,
 		);

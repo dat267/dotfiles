@@ -5,7 +5,7 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 import { GoalMachine } from "./machine.ts";
-import { createGoalState, type GoalChangeEntry, type GoalTurnEntry } from "./state.ts";
+import { createGoalState, type GoalChangeEntry, type GoalSnapshot, type GoalTurnEntry } from "./state.ts";
 
 const CUSTOM_TYPE = "pi-goal";
 const TURN_TYPE = "pi-goal-turn";
@@ -585,5 +585,154 @@ void describe("GoalMachine round-trip (write shape replays via fold)", () => {
 			],
 		});
 		assert.equal(m.snapshot.goal?.objective, "test");
+	});
+});
+
+void describe("GoalMachine.session_start reload", () => {
+	/** A legal pause entry for the given create entry's goal. */
+	function pausedEntry(goal: GoalSnapshot) {
+		return {
+			customType: CUSTOM_TYPE,
+			data: {
+				operation: "pause" as const,
+				goal: { ...goal, phase: "paused" as const, revision: 2, blockedReason: { code: "human-paused", message: "Paused by user." }, updatedAt: goal.updatedAt + 1 },
+				timestamp: goal.updatedAt + 1,
+			},
+		};
+	}
+
+	void it("reload pauses an active goal durably and tells the human", () => {
+		const m = new GoalMachine();
+		const { effects } = m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")], reason: "reload" });
+		const entry = effects.find((e) => e.kind === "appendEntry") as { data: GoalChangeEntry } | undefined;
+		assert.equal(entry?.data.operation, "pause");
+		assert.equal(entry?.data.goal?.blockedReason?.code, "reloaded");
+		assert.equal(m.snapshot.goal?.phase, "paused");
+		assert.equal(m.snapshot.armed, false);
+		assert.equal(effects.some((e) => e.kind === "sendMessage"), false, "reload must not start an LLM turn");
+		const notify = effects.find((e) => e.kind === "notify") as { message: string } | undefined;
+		assert.match(notify?.message ?? "", /reload/i);
+		assert.match(notify?.message ?? "", /\/goal resume/);
+	});
+
+	void it("clock skew: a rejected reload pause keeps the goal instead of dropping it", () => {
+		// A future updatedAt (machine clock moved back) makes the pause commit
+		// illegal. Losing the goal here would be a silent data loss on reload.
+		const g = createGoalState("test", Date.now() + 60_000);
+		const m = new GoalMachine();
+		const { effects } = m.dispatch({ type: "session_start", entries: [makeChangeEntry("create", g)], reason: "reload" });
+		assert.equal(m.snapshot.goal?.id, g.id, "goal survives the failed pause");
+		assert.equal(m.snapshot.goal?.phase, "active");
+		const notify = effects.find((e) => e.kind === "notify") as { level: string; message: string } | undefined;
+		assert.equal(notify?.level, "warning");
+		assert.match(notify?.message ?? "", /not paused/i);
+	});
+
+	void it("reload leaves an already-paused goal alone", () => {
+		const g = createGoalState("test");
+		const m = new GoalMachine();
+		const { effects } = m.dispatch({
+			type: "session_start",
+			entries: [makeChangeEntry("create", g), pausedEntry(g)],
+			reason: "reload",
+		});
+		assert.equal(effects.some((e) => e.kind === "appendEntry"), false);
+		assert.equal(m.snapshot.goal?.phase, "paused");
+	});
+
+	void it("startup and resume keep the phase active, merely disarmed", () => {
+		for (const reason of ["startup", "resume", "new", "fork"]) {
+			const m = new GoalMachine();
+			const { effects } = m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")], reason });
+			assert.equal(effects.some((e) => e.kind === "appendEntry"), false, `${reason} writes nothing`);
+			assert.equal(m.snapshot.goal?.phase, "active", `${reason} keeps the phase`);
+			assert.equal(m.snapshot.armed, false, `${reason} disarms`);
+		}
+	});
+});
+
+void describe("GoalMachine banner persistence", () => {
+	void it("banner_toggle appends a durable settings entry", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		assert.equal(m.snapshot.bannerEnabled, false);
+		const { effects } = m.dispatch({ type: "banner_toggle" });
+		assert.equal(m.snapshot.bannerEnabled, true);
+		const entry = effects.find((e) => e.kind === "appendEntry") as { entryType: string; data: { bannerEnabled: boolean } } | undefined;
+		assert.equal(entry?.entryType, "pi-goal-settings");
+		assert.equal(entry?.data.bannerEnabled, true);
+		assert.ok(effects.some((e) => e.kind === "renderStatus"));
+	});
+
+	void it("a fresh session restores the banner flag instead of defaulting it off", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "banner_toggle" });
+		const mirrored = { customType: "pi-goal-settings", data: { bannerEnabled: true, timestamp: Date.now() } };
+
+		const fresh = new GoalMachine();
+		fresh.dispatch({ type: "session_start", entries: [makeChangeEntry("create"), mirrored] });
+		assert.equal(fresh.snapshot.bannerEnabled, true);
+	});
+});
+
+void describe("GoalMachine.goal_replace", () => {
+	void it("replaces a live goal: clear tombstone then create, round queued", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "first" });
+		const before = m.snapshot.goal!;
+
+		const { effects } = m.dispatch({ type: "goal_replace", objective: "second" });
+		const entries = effects.filter((e) => e.kind === "appendEntry") as { data: GoalChangeEntry }[];
+		assert.equal(entries.length, 2, "clear then create");
+		assert.equal(entries[0].data.operation, "clear");
+		assert.deepEqual(entries[0].data.cleared, { id: before.id, revision: before.revision });
+		assert.equal(entries[1].data.operation, "create");
+		assert.equal(m.snapshot.goal?.objective, "second");
+		assert.equal(m.snapshot.goal?.revision, 1);
+		assert.equal(m.snapshot.armed, true);
+		assert.ok(effects.some((e) => e.kind === "sendMessage"), "expected immediate round");
+	});
+
+	void it("with no goal it behaves like goal_set", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		const { effects } = m.dispatch({ type: "goal_replace", objective: "only" });
+		const entries = effects.filter((e) => e.kind === "appendEntry") as { data: GoalChangeEntry }[];
+		assert.equal(entries.length, 1);
+		assert.equal(entries[0].data.operation, "create");
+		assert.equal(m.snapshot.goal?.objective, "only");
+	});
+
+	void it("replacing a completed goal needs no tombstone", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "first" });
+		const g = m.snapshot.goal!;
+		m.dispatch({ type: "goal_update", goal_id: g.id, revision: g.revision, action: "complete" });
+		const { effects } = m.dispatch({ type: "goal_replace", objective: "second" });
+		const entries = effects.filter((e) => e.kind === "appendEntry") as { data: GoalChangeEntry }[];
+		assert.equal(entries.length, 1);
+		assert.equal(entries[0].data.operation, "create");
+	});
+});
+
+void describe("GoalMachine.agent_settled under user input", () => {
+	void it("pending user messages suppress the continuation round", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "do it" });
+		const { effects } = m.dispatch({ type: "agent_settled", contextUsage: USAGE, hasPendingMessages: true });
+		assert.equal(effects.some((e) => e.kind === "sendMessage"), false);
+		assert.equal(m.snapshot.pendingTurn, null);
+	});
+
+	void it("no pending messages: the round is queued as before", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "do it" });
+		const { effects } = m.dispatch({ type: "agent_settled", contextUsage: USAGE, hasPendingMessages: false });
+		assert.ok(effects.some((e) => e.kind === "sendMessage"));
 	});
 });

@@ -9,6 +9,7 @@ import {
 	applyChange,
 	createGoalState,
 	foldGoal,
+	goalRoundPrompt,
 	statusLine,
 	truncateObjective,
 	goalView,
@@ -28,6 +29,10 @@ function turn(goalId: string, revision: number, turn: number, timestamp: number)
 	return { customType: "pi-goal-turn", data: { goalId, revision, turn, timestamp } };
 }
 
+function settings(bannerEnabled: boolean, timestamp: number): { customType: string; data: unknown } {
+	return { customType: "pi-goal-settings", data: { bannerEnabled, timestamp } };
+}
+
 test("create produces a revision-1 active goal", () => {
 	const g = createGoalState("do the thing", T0);
 	assert.equal(g.revision, 1);
@@ -39,7 +44,7 @@ test("fold replays lifecycle changes and turn entries", () => {
 	const g = createGoalState("obj", T0);
 	const paused = { ...g, phase: "paused", blockedReason: { code: "human-paused", message: "m" }, revision: 2, updatedAt: T0 + 100 };
 	const resumed = { ...g, phase: "active", revision: 3, updatedAt: T0 + 200 };
-	const view = foldGoal([
+	const { goal: view } = foldGoal([
 		change("create", g, T0),
 		turn(g.id, 1, 1, T0 + 10),
 		change("pause", paused, T0 + 100),
@@ -54,7 +59,7 @@ test("fold replays lifecycle changes and turn entries", () => {
 
 test("fold returns null after a clear tombstone", () => {
 	const g = createGoalState("obj", T0);
-	const view = foldGoal([
+	const { goal: view } = foldGoal([
 		change("create", g, T0),
 		change("clear", null, T0 + 100, { id: g.id, revision: g.revision }),
 	]);
@@ -103,7 +108,7 @@ test("fold rejects non-sequential goal turns", () => {
 test("fold ignores turn entries from a previous goal", () => {
 	const g1 = createGoalState("first", T0);
 	const g2 = { ...createGoalState("second"), createdAt: T0 + 500 };
-	const view = foldGoal([
+	const { goal: view } = foldGoal([
 		change("create", g1, T0),
 		turn(g1.id, 1, 1, T0 + 10),
 		change("clear", null, T0 + 100, { id: g1.id, revision: 1 }),
@@ -198,4 +203,55 @@ test("resumeHint names the fix for each provider pause reason", () => {
 	assert.match(resumeHint({ code: "api-error", message: "HTTP 500" }), /recovers/);
 	// Unknown codes still produce an actionable line rather than nothing.
 	assert.match(resumeHint({ code: "human-paused", message: "Paused by user." }), /\/goal resume/);
+});
+
+test("fold reports bannerEnabled from the last settings entry", () => {
+	const g = createGoalState("obj", T0);
+	// No settings entry: the default stays off, as before the flag was durable.
+	assert.equal(foldGoal([]).bannerEnabled, false);
+	assert.equal(foldGoal([change("create", g, T0)]).bannerEnabled, false);
+
+	const folded = foldGoal([
+		change("create", g, T0),
+		settings(true, T0 + 1),
+		settings(false, T0 + 2),
+		settings(true, T0 + 3),
+	]);
+	assert.equal(folded.bannerEnabled, true);
+	assert.equal(folded.goal?.id, g.id);
+});
+
+test("fold keeps the banner flag after the goal is cleared", () => {
+	const g = createGoalState("obj", T0);
+	const folded = foldGoal([
+		change("create", g, T0),
+		settings(true, T0 + 1),
+		change("clear", null, T0 + 2, { id: g.id, revision: g.revision }),
+	]);
+	assert.equal(folded.goal, null);
+	assert.equal(folded.bannerEnabled, true);
+});
+
+test("createGoalState stamps the state version", () => {
+	assert.equal(createGoalState("obj", T0).version, 1);
+});
+
+test("applyChange rejects a state version this reader cannot interpret", () => {
+	const g = { ...createGoalState("obj", T0), version: 2 };
+	assert.throws(
+		() => applyChange(null, { operation: "create", goal: g, timestamp: T0 }),
+		/unsupported goal state version/,
+	);
+	// A missing version stays readable: entries written before the field existed are v1.
+	const legacy = { ...createGoalState("obj", T0) };
+	delete (legacy as { version?: number }).version;
+	assert.doesNotThrow(() => applyChange(null, { operation: "create", goal: legacy, timestamp: T0 }));
+});
+
+test("goalRoundPrompt frames the objective as untrusted user data", () => {
+	const g = { ...createGoalState("delete every table in prod", T0), armed: true, turnsStarted: 2 };
+	const prompt = goalRoundPrompt(g, 3);
+	assert.match(prompt, /<untrusted_objective>delete every table in prod<\/untrusted_objective>/);
+	assert.match(prompt, /user-provided data/);
+	assert.match(prompt, /Round 3\./);
 });
