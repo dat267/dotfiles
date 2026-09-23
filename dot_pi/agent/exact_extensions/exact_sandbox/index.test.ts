@@ -101,6 +101,29 @@ void describe("sandbox extension smoke", () => {
 		assert.equal(commands.sandbox.getArgumentCompletions("zz"), null, "pi's contract: null when nothing matches");
 	});
 
+	void it("carries the mode note as a system-prompt section, not a full replacement", async () => {
+		// A section lets pi append a transcript delta and keep the cached prefix;
+		// returning the whole systemPrompt forces a replacement every run.
+		const { events } = boot({ mode: "landlock", bin: "/bin/true" });
+		const { ctx } = makeCtx();
+		await events.session_start({}, ctx);
+		const options: any = { selectedTools: ["read", "bash", "write", "edit"], sections: {} };
+		const result = await events.before_agent_start({ systemPrompt: "BASE", systemPromptOptions: options }, ctx);
+		assert.match(options.sections.sandbox, /Workspace filesystem policy .*mode: workspace/);
+		assert.equal(result, undefined, "the note rides in sections; the prompt is not replaced");
+	});
+
+	void it("read mode drops mutator tools and still pins the note section", async () => {
+		const { events, commands } = boot();
+		const { ctx } = makeCtx();
+		await events.session_start({}, ctx);
+		await commands.sandbox.handler("RO", ctx);
+		const options: any = { selectedTools: ["read", "bash", "write", "edit"], sections: {} };
+		await events.before_agent_start({ systemPrompt: "BASE", systemPromptOptions: options }, ctx);
+		assert.deepEqual(options.selectedTools, ["read"], "mutators are not offered in read mode");
+		assert.match(options.sections.sandbox, /Read-only mode/);
+	});
+
 	void it("keeps the status line in step with live mode switches", async () => {
 		const { events, commands } = boot();
 		const { ctx, status } = makeCtx();

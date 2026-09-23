@@ -123,17 +123,14 @@ export default function (pi: ExtensionAPI, resolve: () => SandboxMode = resolveM
 
 	pi.on("before_agent_start", async (event, ctx) => {
 		if (active === "read") {
-			const opt = event.systemPromptOptions;
-			if (opt && Array.isArray(opt.selectedTools)) {
-				opt.selectedTools = (opt.selectedTools as string[]).filter(
-					(t) => !(MUTATOR_TOOLS as readonly string[]).includes(t),
-				);
-			}
+			event.systemPromptOptions.selectedTools = event.systemPromptOptions.selectedTools.filter(
+				(t) => !(MUTATOR_TOOLS as readonly string[]).includes(t),
+			);
 		}
-		return {
-			systemPrompt: event.systemPrompt + "\n\n"
-				+ promptNote(active, sandbox.mode, ctx.cwd),
-		};
+		// Ride in sections so pi appends a transcript delta and keeps the cached
+		// prefix; returning systemPrompt would replace the whole prompt every run.
+		// The note still reaches the model on every request.
+		event.systemPromptOptions.sections.sandbox = promptNote(active, sandbox.mode, ctx.cwd);
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
