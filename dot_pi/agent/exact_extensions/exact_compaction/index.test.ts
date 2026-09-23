@@ -127,10 +127,29 @@ void describe("summarizer request routing", () => {
 		return captured;
 	}
 
-	void it("forwards the session id and opencode routing headers", async () => {
+	void it("leaves the opencode routing header to pi and only adds client attribution", async () => {
+		// Built-in opencode providers attach x-opencode-session from sessionId
+		// themselves (pi-ai's withOpenCodeSessionHeader); re-sending it here is
+		// duplicate. The client header is not attached on the registry path.
 		const captured = await run({
 			id: "deepseek-v4.1-flash",
 			provider: "opencode-go",
+			baseUrl: "https://opencode.ai/zen/go/v1",
+			maxTokens: 65536,
+			reasoning: false,
+		});
+		assert.equal(captured.options?.sessionId, "sess-123");
+		assert.deepEqual(captured.options?.headers, {
+			"x-opencode-client": "pi",
+		});
+	});
+
+	void it("supplies the routing header for a host-matched custom opencode provider", async () => {
+		// A custom provider pointed at opencode.ai is not wrapped by pi's
+		// opencode provider factory, so nothing else adds the session header.
+		const captured = await run({
+			id: "zen-model",
+			provider: "zen-proxy",
 			baseUrl: "https://opencode.ai/zen/go/v1",
 			maxTokens: 65536,
 			reasoning: false,

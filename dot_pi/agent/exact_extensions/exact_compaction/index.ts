@@ -12,13 +12,13 @@
  *     and regenerated file lists so repeated compaction stays bounded instead of
  *     accumulating a summary that eventually cannot be re-emitted
  *   - split-turn prefix handling and file-ops formatting like stock compaction
- *   - the session id plus opencode's routing headers, which pi attaches only on
- *     its own stream path, so an opencode-go summarizer does not 400 with
- *     MissingSessionID
+ *   - the session id (pi attaches opencode's routing header from it) plus the
+ *     opencode client attribution header, which pi does not attach on the
+ *     registry path
  * On any failure it returns undefined and pi falls back to default compaction.
  */
 
-import type { CompactionResult, ExtensionAPI, ModelRegistry } from "@earendil-works/pi-coding-agent";
+import type { CompactionResult, ExtensionAPI, ExtensionContext, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { convertToLlm, serializeConversation } from "@earendil-works/pi-coding-agent";
 import {
 	buildSummarizerPrompt,
@@ -43,40 +43,20 @@ function parseOverride(
 
 // Model and Usage live in @earendil-works/pi-ai, which extension dirs cannot
 // import directly (it is a dependency of the pi package, not resolvable from
-// here) — derive both from pi's exported surface instead.
+// the deployed location) — derive both from pi's exported surface instead.
 type Model = NonNullable<ReturnType<ModelRegistry["find"]>>;
 type Usage = CompactionResult["usage"];
 
 /** Text budget for the summary — well above stock's ~13k, no reasoning tokens. */
 const SUMMARY_MAX_TOKENS = 32_768;
 
-type RegistryLike = {
-	find(provider: string, modelId: string): Model | undefined;
-	hasConfiguredAuth(model: Model): boolean;
-	complete(
-		model: Model,
-		context: unknown,
-		options?: {
-			maxTokens?: number;
-			signal?: AbortSignal;
-			cacheRetention?: string;
-			sessionId?: string;
-			headers?: Record<string, string>;
-		},
-	): Promise<{
-		stopReason: string;
-		errorMessage?: string;
-		content: Array<{ type: string; text?: string }>;
-		usage?: unknown;
-	}>;
-};
+/** Registry call shapes, derived from pi so upstream drift is a compile error. */
+type CompleteOptions = NonNullable<Parameters<ModelRegistry["complete"]>[2]>;
+type CompleteResponse = Awaited<ReturnType<ModelRegistry["complete"]>>;
 
-type CtxLike = {
-	modelRegistry: RegistryLike;
-	model?: Model;
-	ui?: { notify(message: string, level?: string): void };
-	hasUI?: boolean;
-	sessionManager?: { getSessionId(): string };
+/** The summarizer only needs the registry and the current session model. */
+type SummarizerContext = Pick<ExtensionContext, "modelRegistry"> & {
+	model?: ExtensionContext["model"];
 };
 
 const OPENCODE_HOST = "opencode.ai";
@@ -91,12 +71,33 @@ function isOpenCodeModel(model: Model): boolean {
 	}
 }
 
+/** Providers pi wraps with opencode's session-header adapter itself. */
+const BUILTIN_OPENCODE_PROVIDERS = ["opencode", "opencode-go"] as const;
+
+/**
+ * Opencode request headers for the registry path. Built-in providers attach
+ * x-opencode-session from `options.sessionId`; a host-matched custom provider is
+ * not wrapped by that factory and still needs it here. The client header is
+ * attribution and never rides the registry path.
+ */
+function opencodeAttributionHeaders(
+	model: Model,
+	sessionId: string,
+): Record<string, string> | undefined {
+	if (!isOpenCodeModel(model)) return undefined;
+	const headers: Record<string, string> = { "x-opencode-client": "pi" };
+	if (!(BUILTIN_OPENCODE_PROVIDERS as readonly string[]).includes(model.provider)) {
+		headers["x-opencode-session"] = sessionId;
+	}
+	return headers;
+}
+
 /**
  * Summarizer selection: PI_COMPACT_MODEL="provider/model-id" wins, otherwise
  * the current session model. No other fallbacks.
  */
 export function pickSummarizer(
-	ctx: CtxLike,
+	ctx: SummarizerContext,
 	envModel?: string,
 ): Model | undefined {
 	const override = parseOverride(envModel);
@@ -133,13 +134,21 @@ export function combineUsage(first?: Usage, second?: Usage): Usage | undefined {
 }
 
 async function summarize(
-	ctx: CtxLike,
+	ctx: ExtensionContext,
 	model: Model,
 	prompt: string,
 	signal: AbortSignal,
 	sessionId?: string,
-): Promise<{ text: string; usage?: unknown }> {
-	const response = await ctx.modelRegistry.complete(
+): Promise<{ text: string; usage?: Usage }> {
+	const headers = sessionId ? opencodeAttributionHeaders(model, sessionId) : undefined;
+	const options: CompleteOptions = {
+		maxTokens: Math.min(SUMMARY_MAX_TOKENS, model.maxTokens),
+		signal,
+		cacheRetention: "none",
+		...(sessionId ? { sessionId } : {}),
+		...(headers ? { headers } : {}),
+	};
+	const response: CompleteResponse = await ctx.modelRegistry.complete(
 		model,
 		{
 			systemPrompt: SUMMARIZER_SYSTEM_PROMPT,
@@ -147,15 +156,7 @@ async function summarize(
 				{ role: "user", content: [{ type: "text", text: prompt }], timestamp: Date.now() },
 			],
 		},
-		{
-			maxTokens: Math.min(SUMMARY_MAX_TOKENS, model.maxTokens),
-			signal,
-			cacheRetention: "none",
-			...(sessionId ? { sessionId } : {}),
-			...(sessionId && isOpenCodeModel(model)
-				? { headers: { "x-opencode-session": sessionId, "x-opencode-client": "pi" } }
-				: {}),
-		},
+		options,
 	);
 	if (response.stopReason === "error") {
 		throw new Error(response.errorMessage || "summarizer error");
@@ -167,7 +168,7 @@ async function summarize(
 		.filter((c): c is { type: "text"; text: string } => c.type === "text")
 		.map((c) => c.text)
 		.join("\n");
-	return { text, usage: response.usage as Usage | undefined };
+	return { text, usage: response.usage };
 }
 
 export default function (pi: ExtensionAPI) {
@@ -183,12 +184,9 @@ export default function (pi: ExtensionAPI) {
 			fileOps,
 		} = preparation;
 
-		const model = pickSummarizer(
-			ctx as unknown as CtxLike,
-			process.env.PI_COMPACT_MODEL,
-		);
+		const model = pickSummarizer(ctx, process.env.PI_COMPACT_MODEL);
 		if (!model) return; // fall back to default compaction
-		const sessionId = (ctx as unknown as CtxLike).sessionManager?.getSessionId();
+		const sessionId = ctx.sessionManager.getSessionId();
 
 		try {
 			const mode = previousSummary ? "update" : "history";
@@ -199,7 +197,7 @@ export default function (pi: ExtensionAPI) {
 			const [historyResult, prefixResult] = await Promise.all([
 				hasHistory
 					? summarize(
-							ctx as unknown as CtxLike,
+							ctx,
 							model,
 							buildSummarizerPrompt(
 								serializeConversation(convertToLlm(messagesToSummarize)),
@@ -213,7 +211,7 @@ export default function (pi: ExtensionAPI) {
 					: Promise.resolve(undefined),
 				hasPrefix
 					? summarize(
-							ctx as unknown as CtxLike,
+							ctx,
 							model,
 							buildSummarizerPrompt(
 								serializeConversation(convertToLlm(turnPrefixMessages)),
@@ -240,7 +238,7 @@ export default function (pi: ExtensionAPI) {
 					summary,
 					firstKeptEntryId,
 					tokensBefore,
-					usage: combineUsage(historyResult?.usage as Usage | undefined, prefixResult?.usage as Usage | undefined),
+					usage: combineUsage(historyResult?.usage, prefixResult?.usage),
 					details: { readFiles: lists.readFiles, modifiedFiles: lists.modifiedFiles },
 				},
 			};
