@@ -3,7 +3,9 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "tuiMode" "fullscreen" $current }}
 {{- $_ := setValueAtPath "fullscreenExitOutput" "resume-hint" $current }}
 {{- $_ := setValueAtPath "hideThinkingBlock" true $current }}
-{{- $_ := setValueAtPath "theme" "dark" $current }}
+{{- /* Follow the terminal's light/dark appearance. Automatic mode stores the
+     light theme first and the dark theme second. */}}
+{{- $_ := setValueAtPath "theme" "light/dark" $current }}
 {{- $_ := setValueAtPath "steeringMode" "one-at-a-time" $current }}
 {{- $_ := setValueAtPath "transport" "auto" $current }}
 {{- $_ := setValueAtPath "markdown.mermaid" "streaming" $current }}
