@@ -6,7 +6,6 @@ playlist (launching one if needed). Runs are non-blocking: mpv replaces
 this process via execv.
 """
 import os
-import shutil
 import socket
 import string
 import sys
@@ -45,6 +44,73 @@ def send_files_to_mpv(conn: socket.socket | BinaryIO, files: Iterable[str]) -> N
         sys.exit(1)
 
 
+def _is_own_copy(candidate: str, self_path: str) -> bool:
+    """True when candidate is this wrapper, by path or by identical content.
+
+    The deployed copy sits elsewhere on PATH, so running this file straight out
+    of the repo would otherwise resolve to the deployed wrapper and recurse.
+    """
+    if os.path.realpath(candidate) == os.path.realpath(self_path):
+        return True
+    try:
+        if os.path.getsize(candidate) != os.path.getsize(self_path):
+            return False
+        with open(candidate, "rb") as cand, open(self_path, "rb") as own:
+            return cand.read() == own.read()
+    except OSError:
+        return False
+
+
+def pick_mpv(paths: Iterable[str], self_path: str) -> str | None:
+    """First mpv executable in paths that is not this wrapper.
+
+    This script is itself called ``mpv`` and sits earlier on PATH than the real
+    player, so ``shutil.which("mpv")`` returns this very file. Exec'ing that
+    re-runs the wrapper instead of starting mpv, which spins forever without
+    ever opening a window.
+    """
+    for directory in paths:
+        if not directory:
+            continue
+        candidate = os.path.join(directory, "mpv")
+        if os.path.isdir(candidate) or not os.access(candidate, os.X_OK):
+            continue
+        if _is_own_copy(candidate, self_path):
+            continue
+        return candidate
+    return None
+
+
+def find_mpv_binary() -> str | None:
+    """Resolve the real mpv on PATH, ignoring this wrapper."""
+    return pick_mpv(os.environ.get("PATH", "").split(os.pathsep), __file__)
+
+
+DEPTH_ENV = "MPV_WRAPPER_DEPTH"
+
+
+def exec_mpv(mpv_binary: str, argv: list[str]) -> None:
+    """Replace this process with mpv, refusing to re-exec this wrapper.
+
+    If the resolved binary is the wrapper again (a stale deployed copy, a
+    symlink, an odd PATH) exec'ing would spin forever and freeze the desktop
+    instead of opening a window, so fail fast on the second pass.
+    """
+    if os.environ.get(DEPTH_ENV):
+        print(
+            "mpv: the mpv on PATH is this wrapper; refusing to re-exec it",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    # execv inherits os.environ, so the next pass can detect itself.
+    os.environ[DEPTH_ENV] = "1"
+    try:
+        os.execv(mpv_binary, argv)
+    except Exception as e:
+        print(f"Error starting mpv: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def start_mpv(mpv_binary: str, options: list[str], files: Iterable[str], socket_path: str) -> None:
     mpv_command = [
         mpv_binary,
@@ -56,17 +122,13 @@ def start_mpv(mpv_binary: str, options: list[str], files: Iterable[str], socket_
         mpv_command.append("--")
         mpv_command.extend(files)
 
-    try:
-        os.execv(mpv_binary, mpv_command)
-    except Exception as e:
-        print(f"Error starting mpv: {e}", file=sys.stderr)
-        sys.exit(1)
+    exec_mpv(mpv_binary, mpv_command)
 
 
 def main() -> None:
-    mpv_binary = shutil.which("mpv")
+    mpv_binary = find_mpv_binary()
     if not mpv_binary:
-        print("mpv: command not found", file=sys.stderr)
+        print("mpv: no mpv executable on PATH besides this wrapper", file=sys.stderr)
         sys.exit(1)
 
     options = []
@@ -86,11 +148,8 @@ def main() -> None:
     files = [os.path.abspath(f) if not is_url(f) else f for f in files]
 
     if not files:
-        try:
-            os.execv(mpv_binary, [mpv_binary] + options)
-        except Exception as e:
-            print(f"Error starting mpv: {e}", file=sys.stderr)
-            sys.exit(1)
+        exec_mpv(mpv_binary, [mpv_binary] + options)
+        return
 
     socket_path = get_socket_path()
 
