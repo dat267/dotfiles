@@ -9,16 +9,21 @@ lifecycle scripts, and skipping them shrinks the supply-chain surface.
 
 Node floor (22.19.0) is pi's package.json engines requirement.
 
+Windows ships npm and pi as .cmd shims, so the launcher probes ask for
+those names first and fall back to `npm prefix -g` when a freshly
+installed shim is not yet on this process's PATH.
+
 Extensions, settings, and auth material are NOT handled here — they are
 chezmoi-deployed from dot_pi/ in the dotfiles repo.
 """
 import argparse
+import os
 import re
 import shutil
 import subprocess
 import sys
 
-from _shared import log
+from _shared import Platform, log
 
 PKG = "@earendil-works/pi-coding-agent"
 
@@ -49,6 +54,45 @@ def npm_install_command(npm_path):
     return [npm_path, "install", "-g", "--ignore-scripts", PKG]
 
 
+def launcher_names(name, plat):
+    """PATH names to probe for a command, most specific first.
+
+    npm and pi are .cmd shims on Windows. Native Python appends PATHEXT when
+    probing, but a Python started from Git Bash or MSYS has os.name == "posix"
+    and does not, so ask for the shim explicitly.
+    """
+    if plat.is_windows:
+        return [name + plat.script_ext, name]
+    return [name]
+
+
+def find_launcher(name, plat, which=None):
+    """First launcher on PATH across launcher_names(), or None."""
+    which = which or shutil.which
+    for candidate in launcher_names(name, plat):
+        found = which(candidate)
+        if found:
+            return found
+    return None
+
+
+def global_bin(name, prefix, plat):
+    """Path of a globally installed npm command under `npm prefix -g`.
+
+    npm drops Windows shims into the prefix directory itself; POSIX installs
+    put them in prefix/bin.
+    """
+    if plat.is_windows:
+        return os.path.join(prefix, name + plat.script_ext)
+    return os.path.join(prefix, "bin", name)
+
+
+def npm_global_prefix(npm_path, run):
+    """`npm prefix -g` output, or None when npm cannot report it."""
+    result = run([npm_path, "prefix", "-g"])
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
 def parse_pi_version(output):
     """First semver token in `pi --version` output, or None."""
     if not output:
@@ -61,7 +105,7 @@ def _subprocess_run(cmd):
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
-def main(argv=None, run=None):
+def main(argv=None, run=None, plat=None):
     parser = argparse.ArgumentParser(
         description="Install/update pi via npm (npm install -g --ignore-scripts).")
     parser.add_argument("--check", action="store_true",
@@ -71,8 +115,9 @@ def main(argv=None, run=None):
     args = parser.parse_args(argv)
 
     run = run or _subprocess_run
+    plat = plat or Platform.detect()
 
-    node = shutil.which("node")
+    node = find_launcher("node", plat)
     if not node:
         log("Error: node not found on PATH.", "red")
         log(f"Install Node >= {'.'.join(map(str, NODE_FLOOR))} first "
@@ -85,12 +130,12 @@ def main(argv=None, run=None):
             f"is too old; pi needs >= {'.'.join(map(str, NODE_FLOOR))}.", "red")
         return 1
 
-    npm = shutil.which("npm")
+    npm = find_launcher("npm", plat)
     if not npm:
         log("Error: npm not found on PATH (it ships with node).", "red")
         return 1
 
-    pi_bin = shutil.which("pi")
+    pi_bin = find_launcher("pi", plat)
     current = None
     if pi_bin:
         result = run([pi_bin, "--version"])
@@ -132,7 +177,14 @@ def main(argv=None, run=None):
             print(result.stderr.strip(), file=sys.stderr)
         return 1
 
-    pi_bin = shutil.which("pi")
+    pi_bin = find_launcher("pi", plat)
+    if pi_bin is None and plat.is_windows:
+        # A fresh npm global directory is not always inherited into this
+        # process's PATH, so fall back to the shim inside npm's global prefix.
+        prefix = npm_global_prefix(npm, run)
+        candidate = global_bin("pi", prefix, plat) if prefix else None
+        if candidate and os.path.exists(candidate):
+            pi_bin = candidate
     installed = None
     if pi_bin:
         result = run([pi_bin, "--version"])

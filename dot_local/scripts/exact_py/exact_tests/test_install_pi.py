@@ -1,15 +1,26 @@
+import os
 import unittest
 from unittest import mock
 
 import _loader
 
 pi = _loader.load("install-pi")
+shared = _loader.load("_shared")
 
 PKG = "@earendil-works/pi-coding-agent"
 
 
 def proc(stdout="", returncode=0):
     return mock.Mock(stdout=stdout, returncode=returncode, stderr="boom")
+
+
+def _stem(path):
+    """Command name without its directory or Windows launcher extension."""
+    base = path.replace("\\", "/").rsplit("/", 1)[-1].lower()
+    for ext in (".cmd", ".exe", ".bat"):
+        if base.endswith(ext):
+            return base[: -len(ext)]
+    return base
 
 
 class TestParseNodeVersion(unittest.TestCase):
@@ -74,9 +85,9 @@ class FakeRunner:
                 return proc("npm ERR! code EACCES", returncode=1)
             self.pi_version = self.npm_view  # fresh install reports the latest
             return proc("added 1 package in 3s")
-        if cmd[0].endswith("node"):
+        if _stem(cmd[0]) == "node":
             return proc(self.node)
-        if cmd[0].endswith("npm"):
+        if _stem(cmd[0]) == "npm":
             return proc(self.npm_view)
         # pi --version before install: only report if a version was seeded
         if self.pi_version:
@@ -84,7 +95,7 @@ class FakeRunner:
         return proc("command not found", returncode=1)
 
 
-def run_with(which_map, runner, argv=None, **runner_kwargs):
+def run_with(which_map, runner, argv=None, plat=None, **runner_kwargs):
     runner = runner if callable(runner) else FakeRunner(**runner_kwargs)
     which_map = {"node": "/usr/bin/node", **which_map}
 
@@ -95,7 +106,7 @@ def run_with(which_map, runner, argv=None, **runner_kwargs):
         return which_map.get(name)
 
     with mock.patch.object(pi.shutil, "which", side_effect=which):
-        code = pi.main(argv=argv or [], run=runner)
+        code = pi.main(argv=argv or [], run=runner, plat=plat)
     return code, runner
 
 
@@ -187,6 +198,88 @@ class TestMain(unittest.TestCase):
         code, runner = run_with({"npm": "/usr/bin/npm", "pi": None}, runner)
         self.assertEqual(code, 0)
         self.assertEqual(len([c for c in runner.calls if c[1:3] == ["install", "-g"]]), 1)
+
+
+class TestLauncherResolution(unittest.TestCase):
+    """Windows ships npm and pi as .cmd shims; PATH probing must ask for them."""
+
+    def test_windows_tries_cmd_shim_first(self):
+        win = shared.Platform("windows", "x64")
+        self.assertEqual(pi.launcher_names("npm", win), ["npm.cmd", "npm"])
+
+    def test_posix_uses_bare_name(self):
+        lin = shared.Platform("linux", "x64")
+        self.assertEqual(pi.launcher_names("npm", lin), ["npm"])
+
+    def test_find_launcher_accepts_cmd_shim(self):
+        win = shared.Platform("windows", "x64")
+        seen = []
+
+        def which(name):
+            seen.append(name)
+            return r"C:\node\npm.cmd" if name == "npm.cmd" else None
+
+        with mock.patch.object(pi.shutil, "which", side_effect=which):
+            self.assertEqual(pi.find_launcher("npm", win), r"C:\node\npm.cmd")
+        self.assertEqual(seen, ["npm.cmd"])
+
+    def test_global_bin_windows_is_prefix_root(self):
+        win = shared.Platform("windows", "x64")
+        self.assertEqual(
+            pi.global_bin("pi", r"C:\Users\me\AppData\Roaming\npm", win),
+            os.path.join(r"C:\Users\me\AppData\Roaming\npm", "pi.cmd"))
+
+    def test_global_bin_posix_is_prefix_bin(self):
+        lin = shared.Platform("linux", "x64")
+        self.assertEqual(pi.global_bin("pi", "/usr/local", lin), "/usr/local/bin/pi")
+
+
+class TestWindowsMain(unittest.TestCase):
+    """End-to-end main() on Windows: .cmd shims, and a shim that lands off PATH."""
+
+    WIN_NPM = r"C:\node\npm.cmd"
+    WIN_PREFIX = r"C:\Users\me\AppData\Roaming\npm"
+
+    def _which(self, runner, pi_found=None):
+        def which(name):
+            table = {
+                "node.cmd": None, "node": r"C:\node\node.exe",
+                "npm.cmd": self.WIN_NPM, "npm": None,
+                "pi.cmd": None, "pi": None,
+            }
+            if runner.pi_version and name in ("pi.cmd", "pi"):
+                return pi_found
+            return table.get(name)
+        return which
+
+    def test_windows_install_targets_cmd_shim(self):
+        win = shared.Platform("windows", "x64")
+        runner = FakeRunner(pi_version=None)
+        with mock.patch.object(pi.shutil, "which",
+                               side_effect=self._which(runner, pi_found=r"C:\node\pi.cmd")):
+            code = pi.main(argv=[], run=runner, plat=win)
+        self.assertEqual(code, 0)
+        install = [c for c in runner.calls if c[1:3] == ["install", "-g"]]
+        self.assertEqual(len(install), 1)
+        self.assertTrue(install[0][0].endswith("npm.cmd"))
+
+    def test_windows_falls_back_to_npm_global_prefix(self):
+        win = shared.Platform("windows", "x64")
+
+        class PrefixRunner(FakeRunner):
+            def __call__(self, cmd):
+                if cmd[1:3] == ["prefix", "-g"]:
+                    self.calls.append(list(cmd))
+                    return proc(TestWindowsMain.WIN_PREFIX)
+                return super().__call__(cmd)
+
+        runner = PrefixRunner(pi_version=None)
+        shim = os.path.join(self.WIN_PREFIX, "pi.cmd")
+        with mock.patch.object(pi.shutil, "which", side_effect=self._which(runner)), \
+             mock.patch.object(pi.os.path, "exists", side_effect=lambda p: p == shim):
+            code = pi.main(argv=[], run=runner, plat=win)
+        self.assertEqual(code, 0)
+        self.assertIn(shim, [c[0] for c in runner.calls])
 
 
 if __name__ == "__main__":
