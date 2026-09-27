@@ -295,6 +295,48 @@ class TestIsTermux(unittest.TestCase):
         self.assertFalse(self._detect(False, {}))
 
 
+class TestExtractArchive(unittest.TestCase):
+    """extract_archive handles each kind installers ship: .zip, .tar.gz,
+    and (helix) .tar.xz."""
+
+    def test_zip(self):
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "a.zip")
+            with zipfile.ZipFile(src, "w") as z:
+                z.writestr("pkg/tool", "Z")
+            out = os.path.join(d, "out")
+            shared.extract_archive(src, out)
+            self.assertEqual(pathlib.Path(out, "pkg", "tool").read_text(), "Z")
+
+    def test_targz(self):
+        import tarfile
+
+        with tempfile.TemporaryDirectory() as d:
+            member = pathlib.Path(d, "tool")
+            member.write_text("G")
+            src = os.path.join(d, "a.tar.gz")
+            with tarfile.open(src, "w:gz") as t:
+                t.add(str(member), arcname="pkg/tool")
+            out = os.path.join(d, "out")
+            shared.extract_archive(src, out)
+            self.assertEqual(pathlib.Path(out, "pkg", "tool").read_text(), "G")
+
+    def test_tarxz(self):
+        import tarfile
+
+        with tempfile.TemporaryDirectory() as d:
+            member = pathlib.Path(d, "hx")
+            member.write_text("X")
+            src = os.path.join(d, "a.tar.xz")
+            with tarfile.open(src, "w:xz") as t:
+                t.add(str(member), arcname="helix-1/hx")
+            out = os.path.join(d, "out")
+            shared.extract_archive(src, out)
+            self.assertEqual(pathlib.Path(out, "helix-1", "hx").read_text(), "X")
+
+
 class TestInstallReleaseBinary(unittest.TestCase):
     """The one install seam: download → (extract) → chmod → atomic replace.
 

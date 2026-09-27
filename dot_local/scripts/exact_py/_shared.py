@@ -67,13 +67,14 @@ def is_termux():
 
 
 def extract_archive(src, dest_dir):
-    """Extract .zip or .tar.gz archive into dest_dir."""
+    """Extract .zip, .tar.gz or .tar.xz archive into dest_dir."""
     os.makedirs(dest_dir, exist_ok=True)
     if src.endswith(".zip"):
         with zipfile.ZipFile(src, "r") as z:
             z.extractall(dest_dir)
     else:
-        with tarfile.open(src, "r:gz") as t:
+        mode = "r:xz" if src.endswith(".tar.xz") else "r:gz"
+        with tarfile.open(src, mode) as t:
             t.extractall(path=dest_dir)
 
 
