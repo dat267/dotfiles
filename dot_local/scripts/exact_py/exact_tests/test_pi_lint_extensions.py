@@ -57,18 +57,27 @@ class TestDiscovery(PiplineCase):
 class TestCommandPlanning(PiplineCase):
 	def test_strict_flags_and_all_ts_files(self):
 		d = self.make_ext("exact_goal", ["index.ts", "index.test.ts"])
-		cmd = pi_lint.plan_command(d)
+		cmd = pi_lint.plan_command(d, npx="npx")
 		self.assertEqual(cmd[0:4], ["npx", "-y", "-p", f"typescript@{TS}"])
 		self.assertIn("tsc", cmd)
 		for flag in ("--noEmit", "--strict", "--noUnusedLocals", "--noUnusedParameters"):
 			self.assertIn(flag, cmd, flag)
 		self.assertEqual(cmd[-2:], [str(d / "index.test.ts"), str(d / "index.ts")])
 
+	def test_npx_is_resolved_through_which(self):
+		# Windows: a bare "npx" is a shell script CreateProcess cannot launch.
+		d = self.make_ext("exact_goal", ["index.ts"])
+		with patch.object(pi_lint.shutil, "which", return_value=r"C:\node\npx.cmd"):
+			cmd = pi_lint.plan_command(d)
+		self.assertEqual(cmd[0], r"C:\node\npx.cmd")
+
 
 class TestResolvePiPackage(unittest.TestCase):
 	"""resolve_pi_package finds the installed pi package wherever npm put it:
-	~/.local prefix first, then the global root (nvm installs) — the hardcoded
-	~/.local path broke the lints on machines where pi ships via npm -g."""
+	the fixed ~/.local (unix) and ~/Apps/pi (Windows) prefixes first, then the
+	global root (nvm, nvm-windows) — the hardcoded ~/.local path broke the
+	lints on machines where pi ships via npm -g. Every probe is injected so a
+	real install on the test machine cannot leak into these cases."""
 
 	def setUp(self):
 		self.tmp = tempfile.mkdtemp(prefix="pi-lint-test-")
@@ -79,38 +88,54 @@ class TestResolvePiPackage(unittest.TestCase):
 		d.mkdir(parents=True, exist_ok=True)
 		return d
 
-	def test_global_root_when_the_local_prefix_lacks_pi(self):
+	def resolve(self, **kwargs):
+		"""resolve_pi_package with all three probes pinned under self.tmp."""
+		kwargs.setdefault("local_root", _Path(self.tmp) / "local-node-modules")
+		kwargs.setdefault("windows_root", _Path(self.tmp) / "no-apps")
+		kwargs.setdefault("global_root", _Path(self.tmp) / "global-node-modules")
+		return pi_lint.resolve_pi_package(**kwargs)
+
+	def test_global_root_when_no_fixed_prefix_has_pi(self):
 		self.pkg("global-node-modules")
-		resolved = pi_lint.resolve_pi_package(
-			local_root=_Path(self.tmp) / "local-node-modules",
-			global_root=_Path(self.tmp) / "global-node-modules",
-		)
-		self.assertEqual(resolved, _Path(self.tmp) / "global-node-modules" / "@earendil-works" / "pi-coding-agent")
+		self.assertEqual(
+			self.resolve(),
+			_Path(self.tmp) / "global-node-modules" / "@earendil-works" / "pi-coding-agent")
 
 	def test_local_prefix_wins_when_present(self):
 		local = self.pkg("local-node-modules")
 		self.pkg("global-node-modules")
-		resolved = pi_lint.resolve_pi_package(
-			local_root=_Path(self.tmp) / "local-node-modules",
-			global_root=_Path(self.tmp) / "global-node-modules",
-		)
-		self.assertEqual(resolved, local)
+		self.assertEqual(self.resolve(), local)
+
+	def test_windows_apps_prefix_is_probed(self):
+		windows = self.pkg("apps-pi-node-modules")
+		self.assertEqual(
+			self.resolve(windows_root=_Path(self.tmp) / "apps-pi-node-modules"), windows)
+
+	def test_local_prefix_wins_over_windows_prefix(self):
+		local = self.pkg("local-node-modules")
+		self.pkg("apps-pi-node-modules")
+		self.assertEqual(
+			self.resolve(windows_root=_Path(self.tmp) / "apps-pi-node-modules"), local)
 
 	def test_missing_global_root_is_skipped_not_fatal(self):
 		local = self.pkg("local-node-modules")
-		resolved = pi_lint.resolve_pi_package(
-			local_root=_Path(self.tmp) / "local-node-modules",
-			global_root=_Path(self.tmp) / "no-such-root",
-		)
-		self.assertEqual(resolved, local)
+		self.assertEqual(self.resolve(global_root=_Path(self.tmp) / "no-such-root"), local)
 
 	def test_clear_exit_when_no_install_has_pi(self):
 		with self.assertRaises(SystemExit) as ctx:
-			pi_lint.resolve_pi_package(
+			self.resolve(
 				local_root=_Path(self.tmp) / "no-local",
+				windows_root=_Path(self.tmp) / "no-apps",
 				global_root=_Path(self.tmp) / "no-global",
 			)
 		self.assertIn("pi package", str(ctx.exception.code))
+
+	def test_npm_is_not_invoked_when_a_fixed_prefix_matches(self):
+		"""A Windows run must not shell out to npm when ~/Apps/pi already has pi."""
+		local = self.pkg("local-node-modules")
+		with patch.object(pi_lint.subprocess, "run",
+		                  side_effect=AssertionError("npm must not run")):
+			self.assertEqual(self.resolve(global_root=None), local)
 
 
 class TestDeps(PiplineCase):
@@ -144,6 +169,37 @@ class TestDeps(PiplineCase):
 		d = self.make_ext("exact_modeldefault", ["index.ts"])
 		self.ensure(d)
 		self.assertFalse(self.ensure(d))
+
+	def test_repoints_a_link_left_dangling_by_a_node_upgrade(self):
+		# The old npm global path is gone; exists() is false for the stale link,
+		# and recreating it blindly used to die with FileExistsError.
+		d = self.make_ext("exact_modeldefault", ["index.ts"])
+		link = d / "node_modules" / "@earendil-works" / "pi-coding-agent"
+		link.parent.mkdir(parents=True)
+		os.symlink(self.root / "gone-v24.20.0" / "pi-coding-agent", link)
+		self.assertFalse(link.exists())
+		self.assertTrue(self.ensure(d))
+		self.assertTrue(link.is_dir())
+		self.assertEqual(os.readlink(link), str(self.pi_pkg))
+
+	def test_repoints_a_link_to_a_previous_pi_fix_prefix(self):
+		d = self.make_ext("exact_modeldefault", ["index.ts"])
+		old = self.root / "nvm-node-modules" / "pi-coding-agent"
+		old.mkdir(parents=True)
+		link = d / "node_modules" / "@earendil-works" / "pi-coding-agent"
+		link.parent.mkdir(parents=True)
+		os.symlink(old, link)
+		self.assertTrue(self.ensure(d))
+		self.assertEqual(os.readlink(link), str(self.pi_pkg))
+
+	def test_leaves_a_real_directory_in_place(self):
+		# A user's own node_modules is not ours to delete.
+		d = self.make_ext("exact_modeldefault", ["index.ts"])
+		link = d / "node_modules" / "@earendil-works" / "pi-coding-agent"
+		link.mkdir(parents=True)
+		self.ensure(d)
+		self.assertTrue(link.is_dir())
+		self.assertFalse(link.is_symlink())
 
 
 class TestAggregation(PiplineCase):

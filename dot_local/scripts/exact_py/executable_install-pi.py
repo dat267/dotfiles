@@ -8,11 +8,13 @@ passed per pi's documented install command: pi needs no dependency
 lifecycle scripts, and skipping them shrinks the supply-chain surface.
 
 Unlike a plain `npm install -g`, the install is pinned to a fixed prefix
-(~/.local on unix, ~/Apps on Windows) with `npm install -g --prefix`, so
-`pi` does not live inside the node version directory an nvm/fnm upgrade
-replaces. The package lands in <prefix>/lib/node_modules and npm's shim
-in <prefix>/bin (unix) or <prefix> (Windows). An existing pi elsewhere
-in npm's global prefix is migrated, not treated as up to date.
+(~/.local on unix, ~/Apps/pi on Windows) with `npm install -g --prefix`,
+so `pi` does not live inside the node version directory an nvm/fnm upgrade
+replaces. npm then places the package at <prefix>/lib/node_modules (unix)
+or <prefix>/node_modules (Windows), and the launcher at <prefix>/bin/pi
+(unix) or <prefix>/pi.cmd, <prefix>/pi.ps1, <prefix>/pi (Windows). An
+existing pi elsewhere in npm's global prefix is migrated, not treated as
+up to date.
 
 Node floor (22.19.0) is pi's package.json engines requirement.
 
@@ -37,10 +39,10 @@ PKG = "@earendil-works/pi-coding-agent"
 # pi's engines field: ">=22.19.0"
 NODE_FLOOR = (22, 19, 0)
 
-# Fixed install prefixes: outside any node version directory, and already
-# on PATH (~/.local/bin on unix, ~/Apps on Windows).
+# Fixed install prefixes: outside any node version directory, and on PATH
+# (~/.local/bin on unix; ~/Apps/pi is added by the PowerShell profile).
 POSIX_PREFIX = "~/.local"
-WINDOWS_PREFIX = "~/Apps"
+WINDOWS_PREFIX = "~/Apps/pi"
 
 _SEMVER = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?")
 

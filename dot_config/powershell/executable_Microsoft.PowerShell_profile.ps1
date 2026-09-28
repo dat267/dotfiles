@@ -41,7 +41,8 @@ $global:__dotfiles_profile_loaded = $true
             "$HOME/.config/powershell/scripts/windows",
             "$HOME/Apps/nvim-win64/bin",
             "$HOME/Apps/pwsh",
-            "$HOME/Apps/7z"
+            "$HOME/Apps/7z",
+            "$HOME/Apps/pi"
         )
     }
     elseif ($IsLinux) {

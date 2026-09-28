@@ -67,10 +67,10 @@ class TestInstallPrefix(unittest.TestCase):
             pi.install_prefix(shared.Platform("linux", "x64")),
             os.path.expanduser("~/.local"))
 
-    def test_windows_default_is_apps(self):
+    def test_windows_default_is_apps_pi(self):
         self.assertEqual(
             pi.install_prefix(shared.Platform("windows", "x64")),
-            os.path.expanduser("~/Apps"))
+            os.path.expanduser("~/Apps/pi"))
 
     def test_explicit_override_expands_tilde(self):
         self.assertEqual(
@@ -318,7 +318,7 @@ class TestWindowsMain(unittest.TestCase):
     """End-to-end main() on Windows: .cmd shims, and a shim that lands off PATH."""
 
     WIN_NPM = r"C:\node\npm.cmd"
-    WIN_PREFIX = os.path.expanduser("~/Apps")
+    WIN_PREFIX = os.path.expanduser("~/Apps/pi")
 
     def _which(self, runner, pi_found=None):
         def which(name):

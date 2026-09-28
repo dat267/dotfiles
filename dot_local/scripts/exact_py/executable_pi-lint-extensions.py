@@ -16,6 +16,7 @@ Run: pi-lint-extensions [--root REPO] [--dir NAME] [--quiet]
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -45,61 +46,89 @@ def discover_extensions(root):
 	return names
 
 
-def plan_command(ext_dir):
-	"""The tsc argv for one extension: strict flags plus every .ts file."""
+def plan_command(ext_dir, npx=None):
+	"""The tsc argv for one extension: strict flags plus every .ts file.
+
+	npx goes through shutil.which so Windows resolves npx.cmd — a bare
+	"npx" is a shell script there and CreateProcess cannot launch it.
+	"""
+	if npx is None:
+		npx = shutil.which("npx") or "npx"
 	files = sorted(str(p) for p in ext_dir.rglob("*.ts") if "node_modules" not in p.parts)
-	return ["npx", "-y", "-p", f"typescript@{TSC_VERSION}", "tsc", *TSC_FLAGS, *files]
+	return [npx, "-y", "-p", f"typescript@{TSC_VERSION}", "tsc", *TSC_FLAGS, *files]
 
 
-def resolve_pi_package(local_root=None, global_root=None):
+def resolve_pi_package(local_root=None, global_root=None, windows_root=None):
 	"""The installed pi coding-agent package, for tsc resolution.
 
-	Probes the ~/.local npm prefix first (npm --prefix installs), then
-	`npm root -g` (nvm and other global installs); both probes are injectable
-	for tests, and a missing global root is skipped rather than fatal. Exits
-	with a clear message when neither location has the package.
+	Probes the fixed npm prefixes — ~/.local (unix) and ~/Apps/pi (Windows) —
+	then `npm root -g` (nvm, nvm-windows, other globals). npm is only invoked
+	when both fixed prefixes miss, and through shutil.which so Windows uses
+	npm.cmd (a bare "npm" is not launchable there). All three roots are
+	injectable for tests; a missing global root is skipped rather than fatal.
+	Exits with a clear message when no location has the package.
 	"""
 	if local_root is None:
 		local_root = Path.home() / ".local/lib/node_modules"
-	candidates = [Path(local_root) / "@earendil-works" / "pi-coding-agent"]
-	if global_root is None:
-		proc = subprocess.run(["npm", "root", "-g"], capture_output=True, text=True)
-		global_root = proc.stdout.strip() if proc.returncode == 0 else None
-	if global_root:
-		candidates.append(Path(global_root) / "@earendil-works" / "pi-coding-agent")
+	if windows_root is None:
+		windows_root = Path.home() / "Apps/pi/node_modules"
+
+	def package_under(root):
+		return Path(root) / "@earendil-works" / "pi-coding-agent"
+
+	candidates = [package_under(local_root), package_under(windows_root)]
 	for candidate in candidates:
 		if candidate.is_dir():
 			return candidate
+
+	if global_root is None:
+		npm = shutil.which("npm") or "npm"
+		proc = subprocess.run([npm, "root", "-g"], capture_output=True, text=True)
+		global_root = proc.stdout.strip() if proc.returncode == 0 else None
+	if global_root:
+		candidate = package_under(global_root)
+		if candidate.is_dir():
+			return candidate
+		candidates.append(candidate)
 	roots = ", ".join(str(c.parents[1]) for c in candidates)
 	raise SystemExit(f"pi package not installed in any of: {roots}")
+
+
+def ensure_symlink(link, target):
+	"""Point `link` at `target`, creating or repointing it; True if changed.
+
+	is_symlink() rather than exists() because a node upgrade leaves the old
+	links dangling: exists() is false for them, and symlink() then dies with
+	EEXIST on the path the dangling link still occupies. A real file or dir
+	in the way is left alone (the caller's own node_modules, say).
+	"""
+	if link.is_symlink():
+		if os.readlink(link) == str(target):
+			return False
+		link.unlink()
+	elif link.exists():
+		return False
+	link.parent.mkdir(parents=True, exist_ok=True)
+	os.symlink(target, link)
+	return True
 
 
 def ensure_deps(ext_dir, pi_pkg):
 	"""Create the per-dir node_modules symlink layout; True if anything changed.
 
 	Links the pi package itself, every @earendil-works/* package it vendors
-	under its node_modules (pi-ai, pi-tui, …), and its @types/node.
+	under its node_modules (pi-ai, pi-tui, …), and its @types/node. Links are
+	repointed when pi moved (npm global prefix → ~/.local, node upgrade).
 	"""
 	changed = False
 	nm = ext_dir / "node_modules"
-	pkg_link = nm / "@earendil-works" / "pi-coding-agent"
-	if not pkg_link.exists():
-		pkg_link.parent.mkdir(parents=True, exist_ok=True)
-		os.symlink(pi_pkg, pkg_link)
-		changed = True
+	changed |= ensure_symlink(nm / "@earendil-works" / "pi-coding-agent", pi_pkg)
 	vendored = pi_pkg / "node_modules" / "@earendil-works"
 	if vendored.is_dir():
 		for pkg in sorted(vendored.iterdir()):
-			link = nm / "@earendil-works" / pkg.name
-			if not link.exists():
-				link.parent.mkdir(parents=True, exist_ok=True)
-				os.symlink(pkg, link)
-				changed = True
-	types_link = nm / "@types" / "node"
-	if not types_link.exists():
-		types_link.parent.mkdir(parents=True, exist_ok=True)
-		os.symlink(pi_pkg / "node_modules" / "@types" / "node", types_link)
-		changed = True
+			changed |= ensure_symlink(nm / "@earendil-works" / pkg.name, pkg)
+	changed |= ensure_symlink(nm / "@types" / "node",
+	                         pi_pkg / "node_modules" / "@types" / "node")
 	return changed
 
 
