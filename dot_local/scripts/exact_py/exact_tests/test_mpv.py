@@ -36,11 +36,11 @@ class TestGetSocketPath(unittest.TestCase):
             "os.environ",
             {"UMPV_SOCKET_DIR": "/a", "XDG_RUNTIME_DIR": "/b", "HOME": "/c"},
         ):
-            self.assertEqual(mpv.get_socket_path(), "/a/.mpv_single_socket")
+            self.assertEqual(mpv.get_socket_path(), os.path.join("/a", ".mpv_single_socket"))
 
     def test_xdg_fallback(self):
         with mock.patch.dict("os.environ", {"XDG_RUNTIME_DIR": "/b", "HOME": "/c"}):
-            self.assertEqual(mpv.get_socket_path(), "/b/.mpv_single_socket")
+            self.assertEqual(mpv.get_socket_path(), os.path.join("/b", ".mpv_single_socket"))
 
     def test_home_fallback(self):
         env = mock.patch.dict("os.environ", {"HOME": "/c"}, clear=False)
@@ -49,7 +49,7 @@ class TestGetSocketPath(unittest.TestCase):
 
             os.environ.pop("UMPV_SOCKET_DIR", None)
             os.environ.pop("XDG_RUNTIME_DIR", None)
-            self.assertEqual(mpv.get_socket_path(), "/c/.mpv_single_socket")
+            self.assertEqual(mpv.get_socket_path(), os.path.join("/c", ".mpv_single_socket"))
 
 
 class TestSendFiles(unittest.TestCase):

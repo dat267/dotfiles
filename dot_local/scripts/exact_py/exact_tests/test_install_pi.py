@@ -311,7 +311,10 @@ class TestLauncherResolution(unittest.TestCase):
 
     def test_global_bin_posix_is_prefix_bin(self):
         lin = shared.Platform("linux", "x64")
-        self.assertEqual(pi.global_bin("pi", "/usr/local", lin), "/usr/local/bin/pi")
+        # os.path.join, not a literal: the expectation must follow the host's
+        # separators, this suite also runs on Windows.
+        self.assertEqual(pi.global_bin("pi", "/usr/local", lin),
+                         os.path.join("/usr/local", "bin", "pi"))
 
 
 class TestWindowsMain(unittest.TestCase):

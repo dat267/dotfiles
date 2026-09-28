@@ -71,13 +71,15 @@ class TestHelixVerifyCommand(unittest.TestCase):
     which wants an explicit path."""
 
     def test_unix_runs_the_binary(self):
-        self.assertEqual(helix.verify_command("/o/helix", "linux"), ["/o/helix/hx"])
+        self.assertEqual(helix.verify_command("/o/helix", "linux"),
+                         [os.path.join("/o/helix", "hx")])
 
     def test_windows_runs_the_exe(self):
         self.assertEqual(helix.verify_command(r"C:\h", "windows"), [os.path.join(r"C:\h", "hx.exe")])
 
     def test_android_goes_through_glibc_runner(self):
-        self.assertEqual(helix.verify_command("/o/helix", "android"), ["grun", "/o/helix/hx"])
+        self.assertEqual(helix.verify_command("/o/helix", "android"),
+                         ["grun", os.path.join("/o/helix", "hx")])
 
 
 class TestHelixMain(unittest.TestCase):

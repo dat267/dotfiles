@@ -1,0 +1,71 @@
+name: windows
+
+# Windows coverage for the exact_py scripts. The dotfiles themselves are
+# exercised on the machines that run them; this job exists because the Windows
+# layout cannot be reproduced on Linux — npm installs a global package into
+# <prefix>\node_modules with its pi.cmd/pi.ps1 shims in the prefix root, and
+# several scripts branch on Platform.detect().
+#
+# Note AGENTS.md says automation belongs in chezmoi lifecycle hooks with no CI
+# configs. This overrides that for Windows coverage only; .github is listed in
+# .chezmoiignore so it is never deployed into $HOME.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "dot_local/scripts/exact_py/**"
+      - "dot_pi/**"
+      - ".github/workflows/windows.yml"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # pi's engines field wants >= 22.19.0, and the installer refuses older.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Python script tests
+        working-directory: dot_local/scripts/exact_py
+        run: python -m unittest discover -s exact_tests
+
+      # No --prefix: exercises the Windows default (~\Apps\pi), and since the
+      # runner's PATH has no profile entry, also the absolute-path shim probe.
+      - name: Install pi into the default Windows prefix
+        run: python dot_local/scripts/exact_py/executable_install-pi.py
+
+      - name: Assert the npm --prefix layout
+        shell: pwsh
+        run: |
+          $prefix = Join-Path $env:USERPROFILE "Apps\pi"
+          $expected = @(
+            (Join-Path $prefix "pi.cmd"),
+            (Join-Path $prefix "node_modules\@earendil-works\pi-coding-agent\package.json")
+          )
+          foreach ($p in $expected) {
+            if (-not (Test-Path -LiteralPath $p)) { throw "missing after install: $p" }
+          }
+          Get-ChildItem -LiteralPath $prefix -Name
+          & (Join-Path $prefix "pi.cmd") --version
+
+      - name: Installer reports up to date
+        run: python dot_local/scripts/exact_py/executable_install-pi.py --check
+
+      # Resolves ~/Apps/pi/node_modules, symlinks each extension's deps and
+      # runs npx.cmd — a bare "npx" is a shell script Windows cannot launch.
+      - name: pi-lint-extensions
+        run: python dot_local/scripts/exact_py/executable_pi-lint-extensions.py
