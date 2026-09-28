@@ -6,7 +6,7 @@ Guidelines for AI agents working in this dotfiles repository.
 
 `dot_` → deployed dotfile (`dot_vimrc` → `~/.vimrc`) · `private_` → mode 0600 (never remove from SSH/gitconfig) · `executable_` → executable bit, prefix stripped · `modify_` → modifies an existing file on deploy · `run_once_` / `run_onchange_` → lifecycle hooks · `*.tmpl` → Go template. Prefixes stack (`private_executable_`, `executable_dot_`).
 
-Edit source files (`dot_*` prefix), never deployed versions. Preserve `{{- ... -}}` trimming and `{{ if eq .chezmoi.os "..." }}` guards. Never quote `%s`/`%s1` in unix Yazi rules: Yazi escapes those paths. Windows rules quote them on purpose, see `dot_config/yazi/yazi.toml`. No linter/formatter configs, no CI/Makefile: automation is chezmoi lifecycle hooks. Never commit secrets; use OS credential stores.
+Edit source files (`dot_*` prefix), never deployed versions. Preserve `{{- ... -}}` trimming and `{{ if eq .chezmoi.os "..." }}` guards. Never quote `%s`/`%s1` in unix Yazi rules: Yazi escapes those paths. Windows rules quote them on purpose, see `dot_config/yazi/yazi.toml`. No linter/formatter configs and no Makefile: automation is chezmoi lifecycle hooks. The one CI config is `.github/workflows/windows.yml`, which exists because the Windows npm layout and `.cmd` launchers cannot be exercised on Linux — it only runs the `exact_py` test suite and the pi installer. Never commit secrets; use OS credential stores.
 
 ## Layout
 
@@ -25,6 +25,7 @@ chezmoi diff                                 # verify before applying
 chezmoi apply --force <target-path>          # targeted deploy; a full apply fails on the mimeapps.list TTY conflict
 python3 script.py --help                      # verify a new CLI script parses
 pi-lint-extensions.py                         # tsc --strict every pi extension; node --test does not typecheck
+The Windows job runs on push (paths under `dot_local/scripts/exact_py/` or `dot_pi/`) and on every PR: `gh workflow run windows` or the Actions tab.
 node --test index.test.ts                     # extension unit tests, from the extension directory
 python3 -m unittest discover -s exact_tests   # Python script tests, from dot_local/scripts/exact_py/
 ```
