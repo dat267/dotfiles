@@ -9,6 +9,7 @@ import socket
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 import _loader
 import http.client as _http
