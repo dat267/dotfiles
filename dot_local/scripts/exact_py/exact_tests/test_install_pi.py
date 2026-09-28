@@ -51,9 +51,53 @@ class TestNodeFloor(unittest.TestCase):
 
 
 class TestCommandConstruction(unittest.TestCase):
-    def test_npm_install_is_global_and_scriptless(self):
-        cmd = pi.npm_install_command("/usr/bin/npm")
-        self.assertEqual(cmd, ["/usr/bin/npm", "install", "-g", "--ignore-scripts", PKG])
+    def test_npm_install_is_global_scriptless_and_prefixed(self):
+        cmd = pi.npm_install_command("/usr/bin/npm", "/home/u/.local")
+        self.assertEqual(
+            cmd,
+            ["/usr/bin/npm", "install", "-g", "--prefix", "/home/u/.local",
+             "--ignore-scripts", PKG])
+
+
+class TestInstallPrefix(unittest.TestCase):
+    """pi installs into a fixed prefix, not npm's node-version-bound global."""
+
+    def test_posix_default_is_local(self):
+        self.assertEqual(
+            pi.install_prefix(shared.Platform("linux", "x64")),
+            os.path.expanduser("~/.local"))
+
+    def test_windows_default_is_apps(self):
+        self.assertEqual(
+            pi.install_prefix(shared.Platform("windows", "x64")),
+            os.path.expanduser("~/Apps"))
+
+    def test_explicit_override_expands_tilde(self):
+        self.assertEqual(
+            pi.install_prefix(shared.Platform("linux", "x64"), "~/custom"),
+            os.path.expanduser("~/custom"))
+
+
+class TestPrefixHelpers(unittest.TestCase):
+    def test_under_prefix_posix(self):
+        lin = shared.Platform("linux", "x64")
+        prefix = os.path.expanduser("~/.local")
+        self.assertTrue(pi.under_prefix(os.path.join(prefix, "bin", "pi"), prefix, lin))
+        self.assertFalse(pi.under_prefix("/usr/local/bin/pi", prefix, lin))
+
+    def test_under_prefix_windows(self):
+        win = shared.Platform("windows", "x64")
+        prefix = os.path.expanduser("~/Apps")
+        self.assertTrue(pi.under_prefix(os.path.join(prefix, "pi.cmd"), prefix, win))
+        self.assertFalse(pi.under_prefix(r"C:\node\pi.cmd", prefix, win))
+
+    def test_path_contains(self):
+        prefix = os.path.expanduser("~/.local")
+        path_env = os.pathsep.join(["/usr/bin", os.path.join(prefix, "bin")])
+        self.assertTrue(pi.path_contains(os.path.join(prefix, "bin"), path_env))
+
+    def test_path_contains_false_when_absent(self):
+        self.assertFalse(pi.path_contains(os.path.expanduser("~/.local/bin"), "/usr/bin:/x"))
 
 
 class TestParsePiVersion(unittest.TestCase):
@@ -97,12 +141,16 @@ class FakeRunner:
 
 def run_with(which_map, runner, argv=None, plat=None, **runner_kwargs):
     runner = runner if callable(runner) else FakeRunner(**runner_kwargs)
+    plat = plat or shared.Platform("linux", "x64")
+    shim = pi.global_bin("pi", pi.install_prefix(plat), plat)
     which_map = {"node": "/usr/bin/node", **which_map}
 
     def which(name):
-        # a successful `npm install -g` puts the pi shim on PATH
-        if name == "pi" and which_map.get("pi") is None and runner.pi_version:
-            return "/usr/bin/pi"
+        # a successful install puts the shim in the prefix, and a pi already
+        # there is the installed one — not the PATH copy
+        if which_map.get("pi") is None and runner.pi_version:
+            if name in (shim, "pi"):
+                return shim
         return which_map.get(name)
 
     with mock.patch.object(pi.shutil, "which", side_effect=which):
@@ -123,8 +171,7 @@ class TestMain(unittest.TestCase):
 
     def test_already_latest_skips_install(self):
         runner = FakeRunner(pi_version="3.0.1")
-        code, runner = run_with(
-            {"npm": "/usr/bin/npm", "pi": "/usr/bin/pi"}, runner)
+        code, runner = run_with({"npm": "/usr/bin/npm"}, runner)
         self.assertEqual(code, 0)
         self.assertEqual([c for c in runner.calls if c[1:3] == ["install", "-g"]], [])
 
@@ -144,8 +191,7 @@ class TestMain(unittest.TestCase):
 
     def test_check_current_exits_zero_without_install(self):
         runner = FakeRunner(pi_version="3.0.1")
-        code, runner = run_with(
-            {"npm": "/usr/bin/npm", "pi": "/usr/bin/pi"}, runner, argv=["--check"])
+        code, runner = run_with({"npm": "/usr/bin/npm"}, runner, argv=["--check"])
         self.assertEqual(code, 0)
         self.assertEqual([c for c in runner.calls if c[1:3] == ["install", "-g"]], [])
 
@@ -199,6 +245,40 @@ class TestMain(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(len([c for c in runner.calls if c[1:3] == ["install", "-g"]]), 1)
 
+    def test_install_targets_local_prefix(self):
+        runner = FakeRunner(pi_version=None)
+        code, runner = run_with({"npm": "/usr/bin/npm", "pi": None}, runner)
+        self.assertEqual(code, 0)
+        install = [c for c in runner.calls if c[1:3] == ["install", "-g"]][0]
+        self.assertEqual(
+            install[install.index("--prefix") + 1],
+            os.path.expanduser("~/.local"))
+
+    def test_migrates_even_when_path_pi_is_latest(self):
+        # A current-but-elsewhere pi (nvm global) must not short-circuit the
+        # move into the prefix: the install is a migration, not an update.
+        runner = FakeRunner(pi_version="3.0.1")
+        code, runner = run_with({"npm": "/usr/bin/npm", "pi": "/usr/bin/pi"}, runner)
+        self.assertEqual(code, 0)
+        self.assertEqual(len([c for c in runner.calls if c[1:3] == ["install", "-g"]]), 1)
+
+    def test_prefix_shim_resolves_off_path(self):
+        """The ~/.local/bin shim is used even when PATH has no pi at all."""
+        lin = shared.Platform("linux", "x64")
+        shim = os.path.join(os.path.expanduser("~/.local"), "bin", "pi")
+        runner = FakeRunner(pi_version=None)
+
+        def which(name):
+            table = {"node": "/usr/bin/node", "npm": "/usr/bin/npm"}
+            if name == shim and runner.pi_version:
+                return shim
+            return table.get(name)
+
+        with mock.patch.object(pi.shutil, "which", side_effect=which):
+            code = pi.main(argv=[], run=runner, plat=lin)
+        self.assertEqual(code, 0)
+        self.assertIn(shim, [c[0] for c in runner.calls])
+
 
 class TestLauncherResolution(unittest.TestCase):
     """Windows ships npm and pi as .cmd shims; PATH probing must ask for them."""
@@ -238,7 +318,7 @@ class TestWindowsMain(unittest.TestCase):
     """End-to-end main() on Windows: .cmd shims, and a shim that lands off PATH."""
 
     WIN_NPM = r"C:\node\npm.cmd"
-    WIN_PREFIX = r"C:\Users\me\AppData\Roaming\npm"
+    WIN_PREFIX = os.path.expanduser("~/Apps")
 
     def _which(self, runner, pi_found=None):
         def which(name):
@@ -262,21 +342,20 @@ class TestWindowsMain(unittest.TestCase):
         install = [c for c in runner.calls if c[1:3] == ["install", "-g"]]
         self.assertEqual(len(install), 1)
         self.assertTrue(install[0][0].endswith("npm.cmd"))
+        self.assertEqual(install[0][install[0].index("--prefix") + 1], self.WIN_PREFIX)
 
-    def test_windows_falls_back_to_npm_global_prefix(self):
+    def test_windows_install_targets_apps_prefix(self):
         win = shared.Platform("windows", "x64")
-
-        class PrefixRunner(FakeRunner):
-            def __call__(self, cmd):
-                if cmd[1:3] == ["prefix", "-g"]:
-                    self.calls.append(list(cmd))
-                    return proc(TestWindowsMain.WIN_PREFIX)
-                return super().__call__(cmd)
-
-        runner = PrefixRunner(pi_version=None)
         shim = os.path.join(self.WIN_PREFIX, "pi.cmd")
-        with mock.patch.object(pi.shutil, "which", side_effect=self._which(runner)), \
-             mock.patch.object(pi.os.path, "exists", side_effect=lambda p: p == shim):
+        runner = FakeRunner(pi_version=None)
+
+        def which(name):
+            table = {"node": r"C:\node\node.exe", "npm.cmd": self.WIN_NPM}
+            if name == shim and runner.pi_version:
+                return shim
+            return table.get(name)
+
+        with mock.patch.object(pi.shutil, "which", side_effect=which):
             code = pi.main(argv=[], run=runner, plat=win)
         self.assertEqual(code, 0)
         self.assertIn(shim, [c[0] for c in runner.calls])
