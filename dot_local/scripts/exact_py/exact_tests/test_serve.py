@@ -298,6 +298,18 @@ class TestHelpers(unittest.TestCase):
             # A leading double slash is still root-relative, not an absolute escape.
             self.assertEqual(self.mod.safe_join(real, "//etc/passwd"), os.path.join(real, "etc", "passwd"))
 
+    def test_display_path_relative_to_cwd(self):
+        with mock.patch.object(self.mod.os, "getcwd", return_value=os.path.join(os.sep, "root")):
+            self.assertEqual(self.mod.display_path(os.path.join(os.sep, "root", "sub")), "sub")
+
+    def test_display_path_falls_back_when_relpath_cannot_express_it(self):
+        # Windows: serving a path on another drive raises ValueError; the
+        # banner must fall back to the absolute path, not kill the server.
+        with mock.patch.object(self.mod.os.path, "relpath",
+                               side_effect=ValueError("path is on mount 'C:', start on mount 'D:'")):
+            self.assertEqual(self.mod.display_path(os.path.join(os.sep, "somewhere", "else")),
+                             os.path.join(os.sep, "somewhere", "else"))
+
     def test_format_urls_puts_lan_first_and_localhost_last(self):
         urls = self.mod.format_urls(["192.168.1.5", "10.0.0.2"], 8000)
         self.assertEqual(urls, ["http://192.168.1.5:8000/", "http://10.0.0.2:8000/", "http://localhost:8000/"])

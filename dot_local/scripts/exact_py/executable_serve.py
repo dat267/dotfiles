@@ -328,6 +328,19 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
+def display_path(target):
+    """Path for the banner: relative to the cwd when that is expressible.
+
+    os.path.relpath raises ValueError on Windows when the path is on another
+    drive than the cwd (serving D:\ while sitting on C:), which used to kill
+    the server before it listened. Show the absolute path instead.
+    """
+    try:
+        return os.path.relpath(target, os.getcwd()) or target
+    except ValueError:
+        return target
+
+
 def main(argv=None):
     args = parse_args(argv)
     target = os.path.realpath(os.path.expanduser(args.path))
@@ -349,7 +362,7 @@ def main(argv=None):
         return 1
     port = server.server_address[1]
     urls = format_urls(guess_lan_ips(), port, share_path, token)
-    eprint(f"serving {os.path.relpath(target, os.getcwd()) or target}")
+    eprint(f"serving {display_path(target)}")
     for url in urls:
         eprint(f"  {url}")
     if token:
