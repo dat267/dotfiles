@@ -41,7 +41,24 @@ jobs:
 
       - name: Python script tests
         working-directory: dot_local/scripts/exact_py
-        run: python -m unittest discover -s exact_tests
+        shell: pwsh
+        run: |
+          $p = Start-Process python -ArgumentList "-m","unittest","discover","-s","exact_tests" `
+            -RedirectStandardOutput test-out.txt -RedirectStandardError test-err.txt `
+            -NoNewWindow -Wait -PassThru
+          Get-Content test-out.txt, test-err.txt
+          if ($p.ExitCode -ne 0) {
+            # Job logs are only readable with repo admin rights; annotations are
+            # public, so republish each unittest failure as one.
+            $lines = Get-Content test-err.txt
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+              if ($lines[$i] -match '^(FAIL|ERROR): ') {
+                $detail = if ($i + 1 -lt $lines.Count) { $lines[$i + 1].Trim() } else { '' }
+                "::error::$($lines[$i]) :: $detail"
+              }
+            }
+            exit 1
+          }
 
       # No --prefix: exercises the Windows default (~\Apps\pi), and since the
       # runner's PATH has no profile entry, also the absolute-path shim probe.

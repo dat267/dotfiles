@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest import mock
 
@@ -50,21 +51,31 @@ class TestConcat(unittest.TestCase):
 
 
 class TestTranscode(unittest.TestCase):
+    """Expectations follow the module's own abspath/dirname/join, so they hold
+    with either separator — /d/video.avi resolves under the current drive on
+    Windows."""
+
+    def expected(self, src, name):
+        return os.path.join(os.path.dirname(os.path.abspath(src)), name)
+
     def test_new_extension(self):
         cmd = run(transcode, ["/d/video.avi"], stdin_reply="mp4")
-        self.assertEqual(cmd, ["ffmpeg", "-i", "/d/video.avi", "-y", "/d/video.mp4"])
+        self.assertEqual(
+            cmd,
+            ["ffmpeg", "-i", os.path.abspath("/d/video.avi"),
+             "-y", self.expected("/d/video.avi", "video.mp4")])
 
     def test_same_extension_gets_suffix(self):
         cmd = run(transcode, ["/d/video.mp4"], stdin_reply="mp4")
-        self.assertEqual(cmd[-1], "/d/video_transcoded.mp4")
+        self.assertEqual(cmd[-1], self.expected("/d/video.mp4", "video_transcoded.mp4"))
 
     def test_leading_dot_stripped(self):
         cmd = run(transcode, ["/d/video.avi"], stdin_reply=".mkv")
-        self.assertEqual(cmd[-1], "/d/video.mkv")
+        self.assertEqual(cmd[-1], self.expected("/d/video.avi", "video.mkv"))
 
     def test_extension_case_insensitive(self):
         cmd = run(transcode, ["/d/video.MP4"], stdin_reply="mp4")
-        self.assertEqual(cmd[-1], "/d/video_transcoded.mp4")
+        self.assertEqual(cmd[-1], self.expected("/d/video.MP4", "video_transcoded.mp4"))
 
 
 if __name__ == "__main__":
