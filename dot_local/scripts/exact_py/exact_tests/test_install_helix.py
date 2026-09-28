@@ -7,6 +7,12 @@ import _loader
 
 helix = _loader.load("install-helix")
 
+# The layout tests assert the unix branch: ~/.local/opt/helix plus a
+# ~/.local/bin/hx symlink. Windows installs to ~/Apps/helix and symlinks
+# nothing, and those tests never patch the detected platform.
+IS_WINDOWS = os.name == "nt"
+UNIX_LAYOUT = "asserts the unix ~/.local/opt + ~/.local/bin layout"
+
 
 class TestHelixAssetNaming(unittest.TestCase):
     """helix-editor/helix assets embed the version: helix-<tag>-<target>.<ext>.
@@ -124,6 +130,7 @@ class TestHelixMain(unittest.TestCase):
             code = helix.main()
         return code
 
+    @unittest.skipIf(IS_WINDOWS, UNIX_LAYOUT)
     def test_installs_dir_and_symlinks_the_binary(self):
         code = self.run_main()
         self.assertEqual(code, 0)
@@ -135,6 +142,7 @@ class TestHelixMain(unittest.TestCase):
         self.assertTrue(os.path.islink(link), "unix installs must symlink into ~/.local/bin")
         self.assertEqual(os.path.realpath(link), os.path.realpath(os.path.join(installed, "hx")))
 
+    @unittest.skipIf(IS_WINDOWS, UNIX_LAYOUT)
     def test_replaces_an_existing_install(self):
         installed = os.path.join(self.bin_dir, ".local", "opt", "helix")
         os.makedirs(installed)

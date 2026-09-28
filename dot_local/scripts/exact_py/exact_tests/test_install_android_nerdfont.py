@@ -93,7 +93,16 @@ class TestNerdFont(unittest.TestCase):
         )
 
     def test_font_dir_posix(self):
-        self.assertEqual(nf.font_dir(), os.path.expanduser("~/.local/share/fonts"))
+        p1, p2, p3 = patch_platform("Linux", "x86_64")
+        with p1, p2, p3:
+            self.assertEqual(nf.font_dir(), os.path.expanduser("~/.local/share/fonts"))
+
+    def test_font_dir_windows(self):
+        p1, p2, p3 = patch_platform("Windows", "AMD64")
+        with p1, p2, p3:
+            self.assertEqual(
+                nf.font_dir(),
+                os.path.expandvars(r"%USERPROFILE%\AppData\Local\Microsoft\Windows\Fonts"))
 
     def test_unknown_font_exits(self):
         with mock.patch("sys.argv", ["nf", "NotAFont"]):

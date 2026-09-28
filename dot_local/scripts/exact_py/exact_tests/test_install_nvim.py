@@ -8,6 +8,12 @@ import _loader
 shared = _loader.load("_shared")
 nvim = _loader.load("install-nvim")
 
+# The layout tests assert the unix branch: ~/.local/opt/nvim plus a
+# ~/.local/bin/nvim symlink. Windows installs to ~/Apps/nvim and symlinks
+# nothing, and those tests never patch the detected platform.
+IS_WINDOWS = os.name == "nt"
+UNIX_LAYOUT = "asserts the unix ~/.local/opt + ~/.local/bin layout"
+
 
 def patch_platform(system, machine):
     """Patch _shared's detection inputs (install-nvim imports no platform)."""
@@ -94,6 +100,7 @@ class TestNvimMain(unittest.TestCase):
             code = nvim.main()
         return code
 
+    @unittest.skipIf(IS_WINDOWS, UNIX_LAYOUT)
     def test_installs_dir_and_symlinks_the_binary(self):
         code = self.run_main()
         self.assertEqual(code, 0)
@@ -104,6 +111,7 @@ class TestNvimMain(unittest.TestCase):
         self.assertTrue(os.path.islink(link), "unix installs must symlink into ~/.local/bin")
         self.assertEqual(os.path.realpath(link), os.path.realpath(os.path.join(installed, "bin", "nvim")))
 
+    @unittest.skipIf(IS_WINDOWS, UNIX_LAYOUT)
     def test_replaces_an_existing_install(self):
         installed = os.path.join(self.bin_dir, ".local", "opt", "nvim")
         os.makedirs(installed)

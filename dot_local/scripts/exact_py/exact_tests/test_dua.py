@@ -83,6 +83,12 @@ class TestAggregateTotals(unittest.TestCase):
         self.assertEqual(dua.aggregate_totals(raw, children, "c"), 40)
 
 
+# Windows os.stat reports st_nlink = 1, so the product's hardlink dedup (which
+# keys off st_nlink > 1) cannot trigger there; real dua dedupes via the file
+# index. Counted-when-asked still holds, so only the dedup cases are skipped.
+NO_HARDLINK_DEDUP = "Windows stat reports st_nlink = 1, so hardlinks are not deduped"
+
+
 class TestWalk(unittest.TestCase):
     def setUp(self):
         self.tree = make_tree({
@@ -131,6 +137,7 @@ class TestWalk(unittest.TestCase):
         names = [os.path.basename(p) for _, p in r.largest]
         self.assertIn("big1", names)
 
+    @unittest.skipIf(IS_WINDOWS, NO_HARDLINK_DEDUP)
     def test_hardlinks_deduped_by_default(self):
         if not hasattr(os, "link"):
             self.skipTest(SKIP_NO_LINK)
@@ -144,6 +151,7 @@ class TestWalk(unittest.TestCase):
         own = dir_own_sizes(root, "a", "b")
         self.assertEqual(dua.aggregate_totals(r.raw, r.children, root), own + 6 + 6)
 
+    @unittest.skipIf(IS_WINDOWS, NO_HARDLINK_DEDUP)
     def test_hardlinks_deduped_same_dir(self):
         # Same-directory links never need REFER — runs everywhere, exercises
         # the same (st_dev, st_ino) dedup path in the accumulator.
@@ -171,8 +179,10 @@ class TestWalk(unittest.TestCase):
         os.symlink(os.path.join(root, "real"), os.path.join(root, "link"))
         r = dua.walk(root, threads=1, apparent=True)
         total = dua.aggregate_totals(r.raw, r.children, root)
-        # symlinked dir not followed: its target counted once, plus link bytes
-        self.assertEqual(total, dua_apparent_size(root) + len(os.readlink(os.path.join(root, "link"))))
+        # symlinked dir not followed: its target counted once, plus the link's
+        # own lstat size (the target path length on POSIX, 0 on Windows)
+        link_size = os.lstat(os.path.join(root, "link")).st_size
+        self.assertEqual(total, dua_apparent_size(root) + link_size)
 
     def test_relative_dot_input(self):
         # regression: walk(".") feeds raw/children with relative keys, but the
@@ -679,6 +689,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(lines[1], f"{f.format(dua_apparent_size(a)):>11} " + a)
         self.assertEqual(lines[2], f"{f.format(dua_apparent_size(a) + dua_apparent_size(b)):>11} total")
 
+    @unittest.skipIf(IS_WINDOWS, NO_HARDLINK_DEDUP)
     def test_hardlinked_top_file_zeroed(self):
         if not hasattr(os, "link"):
             self.skipTest("os.link unavailable on this platform (Termux-Android bionic)")

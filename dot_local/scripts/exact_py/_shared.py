@@ -11,6 +11,26 @@ import zipfile
 DEFAULT_TIMEOUT = 60
 
 
+def widen_output_encoding():
+    """Stop non-ASCII log glyphs from crashing on a Windows console.
+
+    Windows pipes default to the ANSI code page (cp1252), where the check
+    marks and arrows in log() lines raise UnicodeEncodeError. Keep each
+    stream's encoding and substitute what it cannot represent.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (ValueError, OSError):
+            pass
+
+
+widen_output_encoding()
+
+
 def fetch_json(url, timeout=5, opener=None):
     """GET url, return parsed JSON or None on failure.
 

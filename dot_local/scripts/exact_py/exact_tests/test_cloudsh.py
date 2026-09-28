@@ -1,5 +1,6 @@
 import ast
 import re
+import shutil
 import unittest
 import pathlib
 
@@ -66,9 +67,14 @@ class TestAddrPattern(unittest.TestCase):
 
 import _loader
 
-mod = _loader.load("cloudsh")
+# executable_cloudsh.py is a Cloud Shell wrapper: it sys.exit(1)s at import time
+# when gcloud is absent, so the module cannot be loaded on a plain runner.
+# The pattern tests above read the file with AST instead and still run.
+HAVE_GCLOUD = shutil.which("gcloud") is not None
+mod = _loader.load("cloudsh") if HAVE_GCLOUD else None
 
 
+@unittest.skipUnless(HAVE_GCLOUD, "cloudsh needs gcloud on PATH (Cloud Shell only)")
 class TestSshCmd(unittest.TestCase):
     """Mirrors gcloud's argv: interactive sessions must run the remote login
     shell (the Cloud Shell sshd kills bare sessions right after the banner),
