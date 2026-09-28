@@ -108,6 +108,7 @@ class TestServeFile(ServeTestBase):
         self.assertIn("hello.txt", text)
         self.assertIn("sub/", text)
 
+    @unittest.skipIf(os.name == "nt", "Windows filenames cannot contain < or >")
     def test_listing_escapes_html_in_names(self):
         nasty = os.path.join(self.root, "evil<img src=x onerror=alert(1)>.txt")
         with open(nasty, "w") as fh:

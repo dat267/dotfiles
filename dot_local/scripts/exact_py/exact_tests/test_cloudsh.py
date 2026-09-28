@@ -8,7 +8,7 @@ PY_DIR = pathlib.Path(__file__).resolve().parent.parent
 
 def extract_patterns():
     """cloudsh runs gcloud at import time, so pull the regex literals out with AST."""
-    source = (PY_DIR / "executable_cloudsh.py").read_text()
+    source = (PY_DIR / "executable_cloudsh.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     patterns = {}
     for node in tree.body:

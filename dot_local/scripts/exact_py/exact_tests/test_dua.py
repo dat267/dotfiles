@@ -39,6 +39,7 @@ def _cross_dir_link_ok():
 
 
 CROSS_DIR_LINK = _cross_dir_link_ok()
+IS_WINDOWS = os.name == "nt"
 SKIP_NO_LINK = "os.link unavailable on this platform (Termux-Android bionic)"
 SKIP_NO_REFER = "cross-directory link() denied by sandbox (Landlock REFER; deploy patched gate)"
 
@@ -99,11 +100,12 @@ class TestWalk(unittest.TestCase):
         self.assertEqual(os.path.basename(result.children[self.tree][0]), "deep")
 
     def test_disk_mode_ignores_dir_sizes(self):
-        # dua: dirs contribute 0 in disk-usage mode
+        # dua: dirs contribute 0 in disk-usage mode. Expected via the product's
+        # own size helper, whose st_blocks fallback covers Windows.
         result = dua.walk(self.tree, threads=1)
-        blocks = sum(os.stat(os.path.join(dp, name)).st_blocks
+        blocks = sum(dua._file_size(os.stat(os.path.join(dp, name)), apparent=False)
                      for dp, _, fn in os.walk(self.tree) for name in fn)
-        self.assertEqual(dua.aggregate_totals(result.raw, result.children, self.tree), blocks * 512)
+        self.assertEqual(dua.aggregate_totals(result.raw, result.children, self.tree), blocks)
 
     def test_threaded_walk_same_total(self):
         for threads in (1, 2, 4):
@@ -188,6 +190,7 @@ class TestWalk(unittest.TestCase):
         finally:
             os.chdir(cwd)
 
+    @unittest.skipIf(IS_WINDOWS, "chmod cannot deny directory access on Windows")
     def test_unreadable_dir_is_skipped_not_fatal(self):
         root = make_tree({"ok.txt": b"fine"})
         sub = os.path.join(root, "locked")
@@ -729,6 +732,7 @@ class TestMain(unittest.TestCase):
         big = dua_apparent_size(os.path.join(root, "big"))
         self.assertEqual(lines, [f"{fm.format(big):>10} big"])  # single entry -> no total
 
+    @unittest.skipIf(IS_WINDOWS, "chmod cannot deny directory access on Windows")
     def test_io_error_suffix_on_lines(self):
         root = make_tree({"ok.txt": b"fine"})
         sub = os.path.join(root, "locked")

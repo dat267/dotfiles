@@ -48,13 +48,20 @@ jobs:
             -NoNewWindow -Wait -PassThru
           Get-Content test-out.txt, test-err.txt
           if ($p.ExitCode -ne 0) {
-            # Job logs are only readable with repo admin rights; annotations are
-            # public, so republish each unittest failure as one.
+            # Job logs need repo admin rights. The step summary renders on the
+            # public run page, so it carries the full output; annotations then
+            # place each failure on the page (GitHub caps them per step).
+            Add-Content $env:GITHUB_STEP_SUMMARY "## unittest failures"
+            Add-Content $env:GITHUB_STEP_SUMMARY '```'
+            Get-Content test-err.txt | Add-Content $env:GITHUB_STEP_SUMMARY
+            Add-Content $env:GITHUB_STEP_SUMMARY '```'
             $lines = Get-Content test-err.txt
             for ($i = 0; $i -lt $lines.Count; $i++) {
               if ($lines[$i] -match '^(FAIL|ERROR): ') {
-                $detail = if ($i + 1 -lt $lines.Count) { $lines[$i + 1].Trim() } else { '' }
-                "::error::$($lines[$i]) :: $detail"
+                $end = [Math]::Min($i + 6, $lines.Count - 1)
+                $detail = ($lines[$i..$end] | Where-Object { $_ -notmatch '^-+$' } |
+                  ForEach-Object { $_.Trim() }) -join ' | '
+                "::error::$detail"
               }
             }
             exit 1
