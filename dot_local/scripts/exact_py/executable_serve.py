@@ -51,6 +51,18 @@ def safe_join(root, url_path):
     return target
 
 
+class _ReusableHTTPServer(http.server.ThreadingHTTPServer):
+    """ThreadingHTTPServer, without SO_REUSEADDR where that means hijacking.
+
+    On Windows SO_REUSEADDR lets a second socket take over a port another
+    process is listening on, so bind_server's walk-forward would silently
+    bind a busy port instead of stepping past it. Elsewhere it is what makes
+    an immediate restart after TIME_WAIT work.
+    """
+
+    allow_reuse_address = os.name != "nt"
+
+
 def make_server(root, host="0.0.0.0", port=DEFAULT_PORT, upload=False, token=None, once=False, only=None):
     """Build a ThreadingHTTPServer serving `root`; port 0 picks any free port.
 
@@ -59,7 +71,7 @@ def make_server(root, host="0.0.0.0", port=DEFAULT_PORT, upload=False, token=Non
     """
     root = os.path.realpath(root)
     handler = _make_handler(root, upload=upload, token=token, only=only)
-    server = http.server.ThreadingHTTPServer((host, port), handler)
+    server = _ReusableHTTPServer((host, port), handler)
     server.exit_after_request = once
     return server
 

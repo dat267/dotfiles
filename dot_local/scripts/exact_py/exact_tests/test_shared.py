@@ -431,9 +431,12 @@ class TestInstallReleaseBinary(unittest.TestCase):
     def test_no_chmod_on_windows(self):
         fake = self.FakeResponse([b"x"])
         with tempfile.TemporaryDirectory() as d:
-            with mock.patch("os.name", "nt"):
+            # os.access(X_OK) is always true on Windows, so assert the actual
+            # behaviour instead: the binary is installed without a chmod call.
+            with mock.patch("os.name", "nt"), mock.patch("os.chmod") as chmod:
                 dest = self.install(d, url="https://example.com/tool.exe", binary_names="tool.exe", opener=lambda req, timeout: fake)
-            self.assertFalse(os.access(dest, os.X_OK))
+            chmod.assert_not_called()
+            self.assertTrue(os.path.exists(dest))
 
 
 class TestRealUrlopenConvention(unittest.TestCase):

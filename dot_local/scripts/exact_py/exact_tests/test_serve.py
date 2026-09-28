@@ -251,30 +251,37 @@ class TestOnce(unittest.TestCase):
             with socket.socket() as probe:
                 probe.bind(("127.0.0.1", 0))
                 port = probe.getsockname()[1]
-            proc = subprocess.Popen(
-                [sys.executable, script, root, "--bind", "127.0.0.1", "--port", str(port), "--no-qr", "--once"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            try:
-                url = f"http://127.0.0.1:{port}/one.txt"
-                deadline = time.time() + 15
-                result = None
-                while time.time() < deadline:
-                    try:
-                        result = _fetch(url)
-                        break
-                    except OSError:
-                        time.sleep(0.2)
-                self.assertIsNotNone(result, "server never answered")
-                status, _, body = result
-                self.assertEqual(status, 200)
-                self.assertEqual(body, b"payload")
-                self.assertIsNotNone(proc.wait(timeout=10), "--once process did not exit")
-            finally:
-                if proc.poll() is None:
-                    proc.kill()
-                    proc.wait(timeout=5)
+            log_path = os.path.join(root, "serve-stderr.txt")
+            with open(log_path, "wb") as err_log:
+                proc = subprocess.Popen(
+                    [sys.executable, "-u", script, root, "--bind", "127.0.0.1",
+                     "--port", str(port), "--no-qr", "--once"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=err_log,
+                )
+                try:
+                    url = f"http://127.0.0.1:{port}/one.txt"
+                    deadline = time.time() + 15
+                    result = None
+                    while time.time() < deadline:
+                        try:
+                            result = _fetch(url)
+                            break
+                        except OSError:
+                            time.sleep(0.2)
+                    if result is None:
+                        # stderr goes to a file, not a pipe: the failure then
+                        # carries the child's own diagnosis.
+                        with open(log_path, "rb") as captured:
+                            self.fail(f"server never answered; stderr={captured.read(2000)!r}")
+                    status, _, body = result
+                    self.assertEqual(status, 200)
+                    self.assertEqual(body, b"payload")
+                    self.assertIsNotNone(proc.wait(timeout=10), "--once process did not exit")
+                finally:
+                    if proc.poll() is None:
+                        proc.kill()
+                        proc.wait(timeout=5)
 
 
 class TestHelpers(unittest.TestCase):

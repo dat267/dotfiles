@@ -94,6 +94,16 @@ def resolve_pi_package(local_root=None, global_root=None, windows_root=None):
 	raise SystemExit(f"pi package not installed in any of: {roots}")
 
 
+def points_at(link, target):
+	"""True when `link` already resolves to `target`.
+
+	Compares resolved paths rather than os.readlink output: on Windows readlink
+	returns the stored target, which os.symlink wrote with a \\?\ prefix, so a
+	link the code itself created would never look like it matches.
+	"""
+	return os.path.realpath(str(link)) == os.path.realpath(str(target))
+
+
 def ensure_symlink(link, target):
 	"""Point `link` at `target`, creating or repointing it; True if changed.
 
@@ -103,7 +113,7 @@ def ensure_symlink(link, target):
 	in the way is left alone (the caller's own node_modules, say).
 	"""
 	if link.is_symlink():
-		if os.readlink(link) == str(target):
+		if points_at(link, target):
 			return False
 		link.unlink()
 	elif link.exists():

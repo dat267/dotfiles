@@ -28,20 +28,26 @@ class TestGetUptime(unittest.TestCase):
 
 
 class TestGetMemInfo(unittest.TestCase):
+    # The /proc branch is Linux-only; Windows takes the wmic branch. Pin the
+    # probe so the expectation is about parsing, not about the host.
     def test_gb_above_threshold(self):
         data = "MemTotal:       32768000 kB\n"
-        with mock.patch("builtins.open", mock.mock_open(read_data=data)):
+        with mock.patch.object(sysinfo.os.path, "exists", return_value=True), \
+                mock.patch("builtins.open", mock.mock_open(read_data=data)):
             self.assertEqual(sysinfo.get_mem_info(), "31 GB")
 
     def test_mb_below_threshold(self):
         data = "MemTotal:       512000 kB\n"
-        with mock.patch("builtins.open", mock.mock_open(read_data=data)):
+        with mock.patch.object(sysinfo.os.path, "exists", return_value=True), \
+                mock.patch("builtins.open", mock.mock_open(read_data=data)):
             self.assertEqual(sysinfo.get_mem_info(), "500 MB")
 
     def test_unknown_on_error(self):
-        with mock.patch("builtins.open", side_effect=OSError):
-            with mock.patch.object(sysinfo.os.path, "exists", return_value=False):
-                self.assertEqual(sysinfo.get_mem_info(), "?")
+        with mock.patch("builtins.open", side_effect=OSError), \
+                mock.patch.object(sysinfo.os.path, "exists", return_value=False), \
+                mock.patch.object(sysinfo.subprocess, "run",
+                                  return_value=mock.Mock(returncode=1, stdout="")):
+            self.assertEqual(sysinfo.get_mem_info(), "?")
 
 
 class TestGetDiskUsage(unittest.TestCase):

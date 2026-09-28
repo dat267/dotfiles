@@ -180,7 +180,7 @@ class TestDeps(PiplineCase):
 		self.assertFalse(link.exists())
 		self.assertTrue(self.ensure(d))
 		self.assertTrue(link.is_dir())
-		self.assertEqual(os.readlink(link), str(self.pi_pkg))
+		self.assertTrue(pi_lint.points_at(link, self.pi_pkg))
 
 	def test_repoints_a_link_to_a_previous_pi_fix_prefix(self):
 		d = self.make_ext("exact_modeldefault", ["index.ts"])
@@ -190,7 +190,7 @@ class TestDeps(PiplineCase):
 		link.parent.mkdir(parents=True)
 		os.symlink(old, link)
 		self.assertTrue(self.ensure(d))
-		self.assertEqual(os.readlink(link), str(self.pi_pkg))
+		self.assertTrue(pi_lint.points_at(link, self.pi_pkg))
 
 	def test_leaves_a_real_directory_in_place(self):
 		# A user's own node_modules is not ours to delete.

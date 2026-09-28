@@ -119,6 +119,7 @@ class TestPickMpv(unittest.TestCase):
             mpv.pick_mpv([copy_dir, self.bin_dir], self.wrapper), self.real
         )
 
+    @unittest.skipIf(os.name == "nt", "os.access X_OK is always true on Windows")
     def test_skips_non_executable(self):
         blocked_dir = os.path.join(self.tmp, "blocked")
         os.makedirs(blocked_dir)
