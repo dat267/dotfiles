@@ -1,5 +1,5 @@
 /**
- * modeldefault — every session starts on the default model.
+ * auto-default — every session starts on the default model.
  *
  * pi scopes the model to the session: /model writes a model_change entry and
  * resuming restores it, so the settings default only reaches sessions that
@@ -63,7 +63,7 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelDefaultOptions
 				inCatalog = true;
 				const applied = await pi.setModel(full as Parameters<typeof pi.setModel>[0]).catch(() => false);
 				if (applied !== false) {
-					ctx.ui.notify(`[modeldefault] using default ${refOf(defaultRef)} (${reason})`, "info");
+					ctx.ui.notify(`[auto-default] using default ${refOf(defaultRef)} (${reason})`, "info");
 					return;
 				}
 			}
@@ -73,7 +73,7 @@ export function registerModelSync(pi: ExtensionAPI, options: ModelDefaultOptions
 
 		const current = ctx.model && ctx.model.provider !== "unknown" ? refOf(ctx.model) : "no model yet";
 		const why = inCatalog ? "no configured auth" : "no configured auth, or not in the catalog";
-		ctx.ui.notify(`[modeldefault] default ${refOf(defaultRef)} is not available yet (${why}) — staying on ${current}`, "warning");
+		ctx.ui.notify(`[auto-default] default ${refOf(defaultRef)} is not available yet (${why}) — staying on ${current}`, "warning");
 	}
 
 	pi.on("session_start", async (event, ctx) => {

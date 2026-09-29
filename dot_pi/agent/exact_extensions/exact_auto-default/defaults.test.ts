@@ -1,5 +1,5 @@
 /**
- * Tests for modeldefault/defaults.ts — reading the default model the way /model
+ * Tests for auto-default/defaults.ts — reading the default model the way /model
  * + Ctrl+S writes it.
  */
 
@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { readDefaultModelRef } from "./defaults.ts";
 
 function agentDir(settings: unknown): string {
-	const dir = mkdtempSync(join(tmpdir(), "modeldefault-agent-"));
+	const dir = mkdtempSync(join(tmpdir(), "auto-default-agent-"));
 	writeFileSync(join(dir, "settings.json"), typeof settings === "string" ? settings : JSON.stringify(settings));
 	return dir;
 }
@@ -32,7 +32,7 @@ void describe("readDefaultModelRef", () => {
 
 	void it("returns undefined for a corrupted or missing settings file", () => {
 		assert.equal(readDefaultModelRef(agentDir("{ not json")), undefined);
-		assert.equal(readDefaultModelRef(join(tmpdir(), "modeldefault-nope")), undefined);
+		assert.equal(readDefaultModelRef(join(tmpdir(), "auto-default-nope")), undefined);
 	});
 
 	void it("ignores non-string values", () => {
