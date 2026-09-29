@@ -87,15 +87,21 @@ def is_termux():
 
 
 def extract_archive(src, dest_dir):
-    """Extract .zip, .tar.gz or .tar.xz archive into dest_dir."""
+    """Extract a .zip, .tar.gz or .tar.xz archive into dest_dir.
+
+    The kind is sniffed rather than read off the filename: the same installer
+    downloads a zip on Windows and a tar.gz on Linux, and it stages the
+    payload under one fixed name (nvim.archive), which tarfile used to be
+    handed as gzip — "not a gzip file". tarfile's "r:*" opens any of the
+    compressed tar flavours, so only the zip case needs a branch.
+    """
     os.makedirs(dest_dir, exist_ok=True)
-    if src.endswith(".zip"):
+    if zipfile.is_zipfile(src):
         with zipfile.ZipFile(src, "r") as z:
             z.extractall(dest_dir)
-    else:
-        mode = "r:xz" if src.endswith(".tar.xz") else "r:gz"
-        with tarfile.open(src, mode) as t:
-            t.extractall(path=dest_dir)
+        return
+    with tarfile.open(src, "r:*") as t:
+        t.extractall(path=dest_dir)
 
 
 def install_release_binary(url, binary_names, dest_dir, *, extract=None, headers=None, opener=None, timeout=DEFAULT_TIMEOUT):

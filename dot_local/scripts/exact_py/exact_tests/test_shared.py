@@ -363,6 +363,33 @@ class TestExtractArchive(unittest.TestCase):
             shared.extract_archive(src, out)
             self.assertEqual(pathlib.Path(out, "helix-1", "hx").read_text(), "X")
 
+    def test_zip_without_an_extension(self):
+        # install-nvim stages the payload as "nvim.archive"; on Windows that
+        # download is a zip, which the extension-based branch handed to
+        # tarfile ("not a gzip file").
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "nvim.archive")
+            with zipfile.ZipFile(src, "w") as z:
+                z.writestr("nvim-win64/bin/nvim.exe", "Z")
+            out = os.path.join(d, "out")
+            shared.extract_archive(src, out)
+            self.assertEqual(pathlib.Path(out, "nvim-win64", "bin", "nvim.exe").read_text(), "Z")
+
+    def test_targz_without_an_extension(self):
+        import tarfile
+
+        with tempfile.TemporaryDirectory() as d:
+            member = pathlib.Path(d, "nvim")
+            member.write_text("G")
+            src = os.path.join(d, "nvim.archive")
+            with tarfile.open(src, "w:gz") as t:
+                t.add(str(member), arcname="nvim-linux-x86_64/bin/nvim")
+            out = os.path.join(d, "out")
+            shared.extract_archive(src, out)
+            self.assertEqual(pathlib.Path(out, "nvim-linux-x86_64", "bin", "nvim").read_text(), "G")
+
 
 class TestInstallReleaseBinary(unittest.TestCase):
     """The one install seam: download → (extract) → chmod → atomic replace.
