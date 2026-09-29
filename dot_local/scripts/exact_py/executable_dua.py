@@ -123,18 +123,28 @@ def _dir_contribution(d, apparent):
         return 0
 
 
-# Windows os.stat reports st_nlink == 1 for hardlinks, so there the (st_dev,
-# st_ino) index has to see every file; elsewhere the st_nlink > 1 test is what
-# keeps it small. See _hardlink_key.
+# Windows serves DirEntry.stat() from the directory listing, which carries no
+# file identity: st_dev, st_ino and st_nlink all come back 0. The index that
+# hardlink dedup needs is only available from os.stat there (and the nlink test
+# cannot be trusted either), so Windows pays one syscall per file and indexes
+# every file; elsewhere the st_nlink > 1 test keeps the index small.
+ENTRY_STAT_NEEDS_PATH = os.name == "nt"
 NLINK_UNRELIABLE = os.name == "nt"
+
+
+def _entry_stat(e):
+    """lstat-like stat for a scandir entry, with a usable identity on Windows."""
+    if ENTRY_STAT_NEEDS_PATH:
+        return os.stat(e.path, follow_symlinks=False)
+    return e.stat(follow_symlinks=False)
 
 
 def _hardlink_key(st):
     """(st_dev, st_ino) identity when this entry could be a second link, else None.
 
-    An st_ino of 0 means the filesystem exposes no file identity at all (FAT,
-    some network shares), so those files are never deduped — deduping them by a
-    constant key would collapse the whole tree to one file.
+    An st_ino of 0 means no identity is available (a Windows listing before
+    _entry_stat, FAT, some network shares), so those files are never deduped —
+    deduping them by a constant key would collapse the whole tree to one file.
     """
     if not st.st_ino:
         return None
@@ -171,7 +181,7 @@ def _scan(roots, acc, apparent, count_hard_links, top_n, progress=None,
                         if e.is_dir(follow_symlinks=False):
                             subs.append(e.path)
                             continue
-                        st = e.stat(follow_symlinks=False)
+                        st = _entry_stat(e)
                     except OSError:
                         continue
                     size = _file_size(st, apparent)

@@ -233,10 +233,13 @@ class _FakeStat:
 
 
 class _FakeEntry:
-    def __init__(self, path, stat):
+    def __init__(self, path, stat, listing_stat=None):
         self.path = path
         self.name = os.path.basename(path)
         self._stat = stat
+        # What DirEntry.stat() would return: on Windows that is the directory
+        # listing, which carries no file identity.
+        self._listing_stat = listing_stat if listing_stat is not None else stat
 
     def is_dir(self, follow_symlinks=True):
         return False
@@ -245,7 +248,7 @@ class _FakeEntry:
         return False
 
     def stat(self, follow_symlinks=True):
-        return self._stat
+        return self._listing_stat
 
 
 class TestHardlinkDedupeSeam(unittest.TestCase):
@@ -267,8 +270,9 @@ class TestHardlinkDedupeSeam(unittest.TestCase):
         acc = dua.WalkResult()
         patch = (unittest.mock.patch.object(dua, "NLINK_UNRELIABLE", nlink_unreliable)
                  if nlink_unreliable is not None else nullcontext())
-        with patch, unittest.mock.patch.object(dua.os, "scandir",
-                                              lambda path: nullcontext(iter(entries))):
+        with patch, unittest.mock.patch.object(dua, "ENTRY_STAT_NEEDS_PATH", False), \
+                unittest.mock.patch.object(dua.os, "scandir",
+                                          lambda path: nullcontext(iter(entries))):
             dua._scan(["/fake"], acc, apparent=True,
                       count_hard_links=count_hard_links, top_n=0, top_target="/fake")
         return acc
@@ -299,6 +303,23 @@ class TestHardlinkDedupeSeam(unittest.TestCase):
         entries = [_FakeEntry("/fake/one", blind), _FakeEntry("/fake/two", blind)]
         acc = self._run(count_hard_links=False, entries=entries, nlink_unreliable=True)
         self.assertEqual(acc.raw["/fake"], 10 + 10)
+
+    def test_windows_takes_the_identity_from_os_stat_not_the_listing(self):
+        """Windows DirEntry.stat() is served from the directory listing, which
+        carries no file index, so the scan has to stat the path."""
+        identity = _FakeStat(size=10, nlink=2, dev=7, ino=42)
+        listing = _FakeStat(size=3, nlink=0, dev=0, ino=0)
+        entry = _FakeEntry("/fake/one", identity, listing_stat=listing)
+        acc = dua.WalkResult()
+        with unittest.mock.patch.object(dua, "ENTRY_STAT_NEEDS_PATH", True), \
+                unittest.mock.patch.object(dua.os, "stat",
+                                           lambda path, follow_symlinks=True: identity), \
+                unittest.mock.patch.object(dua.os, "scandir",
+                                           lambda path: nullcontext(iter([entry]))):
+            dua._scan(["/fake"], acc, apparent=True,
+                      count_hard_links=False, top_n=0, top_target="/fake")
+        # 10 is the os.stat size; the listing (3) would mean entry.stat() won.
+        self.assertEqual(acc.top, {"one": 10})
 
 
 class TestScanPipeline(unittest.TestCase):
