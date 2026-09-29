@@ -95,5 +95,20 @@ class TestSshCmd(unittest.TestCase):
         self.assertEqual(cmd[-2:], ["user@1.2.3.4", "ls -l"])
 
 
+class TestRemoteCommand(unittest.TestCase):
+    """The whole positional list is the remote command. Regression: the port
+    joined argv[1:] and silently dropped the first word, so `cloudsh ls -la`
+    ran `-la` and `cloudsh 'echo hi'` ran nothing."""
+
+    def test_joins_every_positional(self):
+        self.assertEqual(mod.build_command(["ls", "-la"]), "ls -la")
+
+    def test_keeps_the_first_word(self):
+        self.assertEqual(mod.build_command(["echo", "hi"]), "echo hi")
+
+    def test_empty_is_interactive(self):
+        self.assertEqual(mod.build_command([]), "")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -86,12 +86,19 @@ def build_ssh_cmd(
     return cmd
 
 
+def build_command(argv: list[str]) -> str:
+    """Remote command from the parsed positionals; empty means interactive.
+
+    Every positional is part of the command (`cloudsh ls -la` runs `ls -la`).
+    """
+    return " ".join(argv)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SSH into Google Cloud Shell.")
     parser.add_argument('command', nargs='*', help='Command to run on remote')
     args = parser.parse_args()
-    # Preserve original behavior of sys.argv[2:] (first positional arg is dropped)
-    command = " ".join(args.command[1:] if args.command else [])
+    command = build_command(args.command)
 
     port, addr, key, project = resolve_target()
     cmd = build_ssh_cmd(command, port, addr, key, project)
