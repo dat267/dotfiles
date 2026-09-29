@@ -17,6 +17,10 @@ name: windows
 # walks the source tree, and the extension node_modules symlinks pi-lint
 # creates can be dangling, which makes chezmoi fail with ENOENT while loading.
 #
+# Everything below the unittest step runs through .github/scripts/step-report.ps1:
+# the job log needs repo admin rights, so a failure has to report itself through
+# an annotation and the step summary instead.
+#
 # Note AGENTS.md says automation belongs in chezmoi lifecycle hooks with no CI
 # configs. This overrides that for Windows coverage only; .github is listed in
 # .chezmoiignore so it is never deployed into $HOME.
@@ -61,9 +65,6 @@ jobs:
             -NoNewWindow -Wait -PassThru
           Get-Content test-out.txt, test-err.txt
           if ($p.ExitCode -ne 0) {
-            # Job logs need repo admin rights. The step summary renders on the
-            # public run page, so it carries the full output; annotations then
-            # place each failure on the page (GitHub caps them per step).
             Add-Content $env:GITHUB_STEP_SUMMARY "## unittest failures"
             Add-Content $env:GITHUB_STEP_SUMMARY '```'
             Get-Content test-err.txt | Add-Content $env:GITHUB_STEP_SUMMARY
@@ -95,13 +96,14 @@ jobs:
             Invoke-WebRequest -Uri $url -OutFile $zip
             Expand-Archive -Path $zip -DestinationPath (Join-Path $env:RUNNER_TEMP "chezmoi-bin") -Force
             $chezmoi = (Resolve-Path (Join-Path $env:RUNNER_TEMP "chezmoi-bin\chezmoi.exe")).Path
-            $chezmoi --version
+            Invoke-Native "chezmoi --version" { & $chezmoi --version } | Out-Null
             $dest = Join-Path $env:RUNNER_TEMP "home"
             New-Item -ItemType Directory -Force -Path $dest | Out-Null
-            & $chezmoi --source $PWD.Path --destination $dest `
-              --config (Join-Path $env:RUNNER_TEMP "chezmoi.toml") --no-tty `
-              --exclude=scripts,externals apply --force
-            if ($LASTEXITCODE -ne 0) { throw "chezmoi apply failed ($LASTEXITCODE)" }
+            Invoke-Native "chezmoi apply" {
+              & $chezmoi --source $PWD.Path --destination $dest `
+                --config (Join-Path $env:RUNNER_TEMP "chezmoi.toml") --no-tty `
+                --exclude=scripts,externals apply --force
+            } | Out-Null
             # No CHEZMOI_* prefix: chezmoi reads those as config keys.
             "DOTFILES_CHEZMOI=$chezmoi" | Add-Content $env:GITHUB_ENV
             "RENDERED_HOME=$dest" | Add-Content $env:GITHUB_ENV
@@ -136,8 +138,9 @@ jobs:
               )) {
               $out = Join-Path $env:RUNNER_TEMP ([IO.Path]::GetFileNameWithoutExtension($t))
               # --file: without it the argument is executed as a literal template.
-              & $env:DOTFILES_CHEZMOI execute-template --file $t | Set-Content -Path $out -Encoding utf8
-              if ($LASTEXITCODE -ne 0) { throw "execute-template $t failed ($LASTEXITCODE)" }
+              Invoke-Native "execute-template $t" {
+                & $env:DOTFILES_CHEZMOI execute-template --file $t
+              } | Set-Content -Path $out -Encoding utf8
               $files += $out
             }
             # The junction script is the one place that maps LOCALAPPDATA to the
@@ -169,8 +172,9 @@ jobs:
         run: |
           . .github/scripts/step-report.ps1
           Invoke-WithReport "install-pi" {
-            python dot_local/scripts/exact_py/executable_install-pi.py
-            if ($LASTEXITCODE -ne 0) { throw "install-pi.py exited $LASTEXITCODE" }
+            Invoke-Native "install-pi.py" {
+              python dot_local/scripts/exact_py/executable_install-pi.py
+            } | Out-Null
           }
 
       - name: Assert the npm --prefix layout
@@ -187,8 +191,7 @@ jobs:
               if (-not (Test-Path -LiteralPath $p)) { throw "missing after install: $p" }
             }
             Get-ChildItem -LiteralPath $prefix -Name
-            & (Join-Path $prefix "pi.cmd") --version
-            if ($LASTEXITCODE -ne 0) { throw "pi.cmd --version exited $LASTEXITCODE" }
+            Invoke-Native "pi.cmd --version" { & (Join-Path $prefix "pi.cmd") --version } | Out-Null
           }
 
       - name: Installer reports up to date
@@ -196,8 +199,9 @@ jobs:
         run: |
           . .github/scripts/step-report.ps1
           Invoke-WithReport "install-pi-check" {
-            python dot_local/scripts/exact_py/executable_install-pi.py --check
-            if ($LASTEXITCODE -ne 0) { throw "install-pi.py --check exited $LASTEXITCODE" }
+            Invoke-Native "install-pi.py --check" {
+              python dot_local/scripts/exact_py/executable_install-pi.py --check
+            } | Out-Null
           }
 
       # Resolves %USERPROFILE%\Apps\pi\node_modules, symlinks each extension's
@@ -208,8 +212,9 @@ jobs:
         run: |
           . .github/scripts/step-report.ps1
           Invoke-WithReport "pi-lint" {
-            python dot_local/scripts/exact_py/executable_pi-lint-extensions.py
-            if ($LASTEXITCODE -ne 0) { throw "pi-lint-extensions.py exited $LASTEXITCODE" }
+            Invoke-Native "pi-lint-extensions.py" {
+              python dot_local/scripts/exact_py/executable_pi-lint-extensions.py
+            } | Out-Null
           }
 
       # The one real install into ~/Apps: exercises the Windows asset, the zip
@@ -220,8 +225,9 @@ jobs:
         run: |
           . .github/scripts/step-report.ps1
           Invoke-WithReport "install-nvim" {
-            python dot_local/scripts/exact_py/executable_install-nvim.py
-            if ($LASTEXITCODE -ne 0) { throw "install-nvim.py exited $LASTEXITCODE" }
+            Invoke-Native "install-nvim.py" {
+              python dot_local/scripts/exact_py/executable_install-nvim.py
+            } | Out-Null
           }
 
       - name: nvim is reachable from the deployed profile
@@ -231,8 +237,7 @@ jobs:
           Invoke-WithReport "nvim-profile" {
             $exe = Join-Path $env:USERPROFILE "Apps\nvim\bin\nvim.exe"
             if (-not (Test-Path -LiteralPath $exe)) { throw "missing after install: $exe" }
-            & $exe --version | Select-Object -First 1
-            if ($LASTEXITCODE -ne 0) { throw "nvim.exe --version exited $LASTEXITCODE" }
+            Invoke-Native "nvim.exe --version" { & $exe --version } | Select-Object -First 1
             # install-nvim.py's dir and the profile's PATH entry have to agree:
             # they were Apps\nvim-win64 vs Apps\nvim, which installs nvim into a
             # directory nothing looks in.
