@@ -3,9 +3,9 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "tuiMode" "fullscreen" $current }}
 {{- $_ := setValueAtPath "fullscreenExitOutput" "resume-hint" $current }}
 {{- $_ := setValueAtPath "hideThinkingBlock" true $current }}
-{{- /* Follow the terminal's light/dark appearance. Automatic mode stores the
-     light theme first and the dark theme second. */}}
-{{- $_ := setValueAtPath "theme" "light/dark" $current }}
+{{- /* system: pi derives its colors from the terminal's foreground, background,
+     and ANSI palette, and rebuilds them when the terminal switches light/dark. */}}
+{{- $_ := setValueAtPath "theme" "system" $current }}
 {{- $_ := setValueAtPath "steeringMode" "one-at-a-time" $current }}
 {{- $_ := setValueAtPath "transport" "auto" $current }}
 {{- $_ := setValueAtPath "markdown.mermaid" "streaming" $current }}
