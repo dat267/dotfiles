@@ -1,5 +1,5 @@
 /**
- * sandbox/policy.ts — single source of truth for the writable-path policy.
+ * permissions/policy.ts — single source of truth for the writable-path policy.
  *
  * defaultAllowlist() is what the gate and inspectPath enforce;
  * writablePathsNote() renders the same list into system-prompt prose.

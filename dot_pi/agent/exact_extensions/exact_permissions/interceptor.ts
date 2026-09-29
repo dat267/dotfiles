@@ -1,5 +1,5 @@
 /**
- * sandbox/interceptor.ts — pure function for tool-call interceptor logic.
+ * permissions/interceptor.ts — pure function for tool-call interceptor logic.
  *
  * Extracted from index.ts to make the security-critical dispatch testable.
  * Decides: block, wrap in gate, or pass through. There is no approval path —
@@ -33,7 +33,7 @@ export interface InterceptorInput {
 }
 
 /**
- * System-prompt note for the sandbox extension.
+ * System-prompt note for the permissions extension.
  * Pure function of mode + policy → markdown string.
  */
 export function promptNote(
@@ -43,21 +43,21 @@ export function promptNote(
 	home?: string,
 ): string {
 	const shared =
-		`Workspace filesystem policy (sandbox extension, mode: ${active}):\n` +
+		`Workspace filesystem policy (permissions extension, mode: ${active}):\n` +
 		`- ${writablePathsNote(workspace, { home })}\n` +
 		`- Every other directory is read-only for writes. Reads are allowed everywhere.\n` +
 		`- Use /tmp for scratch files and test artifacts.\n` +
 		`- Deployments (chezmoi apply, extension installs/removals) are executed by the user in their own terminal, never by the agent. Stage changes inside the workspace and give the user the exact commands.\n` +
 		`- Common blocked paths: ~/.config/, ~/.ssh/, ~/.local/bin/, ~/.gnupg/, /etc/, /usr/, /opt/. These return Permission denied.`;
 	switch (active) {
-		case "read":
+		case "read-only":
 			return shared + `\n- Read-only mode: bash, write, edit, and powershell calls are always blocked. You cannot modify anything.`;
-		case "workspace":
+		case "workspace-write":
 			return shared + `\n- Enforcement: shell commands run under a kernel-level Landlock gate (blocked writes return Permission denied from the OS); write and edit targets are checked in-process with symlink resolution.`;
-		case "yolo":
+		case "full-access":
 			return sandbox === "none"
-				? `Workspace filesystem sandbox is DISABLED (yolo mode) — no kernel sandbox backend is available on this platform, so the workspace sandbox cannot be enforced and all filesystem writes are unrestricted.`
-				: `Workspace filesystem sandbox is DISABLED (yolo mode, /sandbox WS to re-enable). All filesystem writes are unrestricted.`;
+				? `Workspace filesystem sandbox is DISABLED (full-access mode) — no kernel sandbox backend is available on this platform, so the workspace sandbox cannot be enforced and all filesystem writes are unrestricted.`
+				: `Workspace filesystem sandbox is DISABLED (full-access mode, /permissions WW to re-enable). All filesystem writes are unrestricted.`;
 	}
 }
 
@@ -75,22 +75,22 @@ export function interceptToolCall(input: InterceptorInput): InterceptorResult {
 	const isMutator = isBash || isPowerShell || isWrite || isEdit;
 
 	switch (active) {
-		case "yolo":
+		case "full-access":
 			return { action: "pass" };
 
-		case "read":
+		case "read-only":
 			if (isMutator) {
-				return { action: "block", reason: "sandbox: read-only mode — bash/write/edit are disabled" };
+				return { action: "block", reason: "permissions: read-only mode — bash/write/edit are disabled" };
 			}
 			return { action: "pass" };
 
-		case "workspace": {
+		case "workspace-write": {
 			// Invariant: workspace is only ever active with a backend — defaultMode
 			// and switchMode both guarantee it. Fail closed if that is ever violated.
 			if (sandboxMode === "none") {
 				return {
 					action: "block",
-					reason: "sandbox: workspace mode needs a kernel backend, and none is available",
+					reason: "permissions: workspace mode needs a kernel backend, and none is available",
 				};
 			}
 			const allowlist = defaultAllowlist(workspace);
@@ -106,7 +106,7 @@ export function interceptToolCall(input: InterceptorInput): InterceptorResult {
 			if (isPowerShell) {
 				return {
 					action: "block",
-					reason: "sandbox: powershell cannot be gated by the Landlock bash gate — use bash, or /sandbox RW to lift the sandbox",
+					reason: "permissions: powershell cannot be gated by the Landlock bash gate — use bash, or /permissions FA to lift the sandbox",
 				};
 			}
 			if (isWrite || isEdit) {

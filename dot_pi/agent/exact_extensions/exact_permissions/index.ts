@@ -1,22 +1,23 @@
 /**
- * Sandbox — three human-chosen modes, default chosen at load.
+ * Permissions — three human-chosen modes, default chosen at load.
  *
- *   read        — read-only: bash/write/edit are removed from the prompt
- *                 AND blocked in-process.
- *   workspace   — kernel enforcement scoped to the current workspace plus an
- *                 allowlist. One backend: Landlock on Linux (gate compiled
- *                 from gate.c). The former Windows low-integrity and
- *                 Android/Termux LD_PRELOAD backends are removed — those
- *                 platforms have no enforcing backend.
- *   yolo        — everything unrestricted.
+ *   read-only        — read-only: bash/write/edit are removed from the prompt
+ *                      AND blocked in-process.
+ *   workspace-write  — kernel enforcement scoped to the current workspace plus
+ *                      an allowlist. One backend: Landlock on Linux (gate
+ *                      compiled from gate.c). The former Windows low-integrity
+ *                      and Android/Termux LD_PRELOAD backends are removed —
+ *                      those platforms have no enforcing backend.
+ *   full-access      — everything unrestricted.
  *
- * workspace is preferred. Where no backend can enforce it (non-Linux, failed
- * compile, failed probe) the default is yolo, announced with a warning —
- * there is no approval mode and the agent is never asked to confirm a command.
+ * workspace-write is preferred. Where no backend can enforce it (non-Linux,
+ * failed compile, failed probe) the default is full-access, announced with a
+ * warning — there is no approval mode and the agent is never asked to confirm
+ * a command.
  *
- * Modes switch live via `/sandbox <code>` (RO read-only, WS workspace,
- * RW read-write); the system prompt note (injected each turn) always states
- * the active mode.
+ * Modes switch live via `/permissions <code>` (RO read-only, WW
+ * workspace-write, FA full-access); the system prompt note (injected each
+ * turn) always states the active mode.
  */
 
 import { spawnSync } from "node:child_process";
@@ -43,7 +44,7 @@ const MODULE_DIR = resolveModuleDir({
 	metaUrl: (import.meta as unknown as { url?: string }).url,
 	fileURLToPath,
 });
-const CACHE_DIR = join(homedir(), ".cache", "pi", "sandbox");
+const CACHE_DIR = join(homedir(), ".cache", "pi", "permissions");
 const BUILD_LOG = join(CACHE_DIR, "build.log");
 
 export type SandboxMode =
@@ -100,11 +101,11 @@ export function resolveMode(): SandboxMode {
 const MUTATOR_TOOLS = ["bash", "write", "edit", "powershell"] as const;
 
 /** Status-line key for the persistent mode indicator. */
-const STATUS_KEY = "sandbox";
+const STATUS_KEY = "permissions";
 
 export default function (pi: ExtensionAPI, resolve: () => SandboxMode = resolveMode) {
 	const sandbox = resolve();
-	// Preferred: kernel mode. Where it is unavailable, yolo — with a warning.
+	// Preferred: kernel mode. Where it is unavailable, full-access — with a warning.
 	let active: ActiveMode = defaultMode(sandbox.mode);
 
 	// Registered on every backend: the footer word is the one surface that
@@ -114,7 +115,7 @@ export default function (pi: ExtensionAPI, resolve: () => SandboxMode = resolveM
 	pi.on("session_start", async (_event, ctx) => {
 		if (sandbox.mode === "none") {
 			ctx.ui.notify(
-				`[sandbox] ${sandbox.detail} — no kernel sandbox available; defaulting to yolo (all writes unrestricted). /sandbox RO switches to read-only.`,
+				`[permissions] ${sandbox.detail} — no kernel sandbox available; defaulting to FA (full access, all writes unrestricted). /permissions RO switches to read-only.`,
 				"warning",
 			);
 		}
@@ -122,7 +123,7 @@ export default function (pi: ExtensionAPI, resolve: () => SandboxMode = resolveM
 	});
 
 	pi.on("before_agent_start", async (event, ctx) => {
-		if (active === "read") {
+		if (active === "read-only") {
 			event.systemPromptOptions.selectedTools = event.systemPromptOptions.selectedTools.filter(
 				(t) => !(MUTATOR_TOOLS as readonly string[]).includes(t),
 			);
@@ -130,7 +131,7 @@ export default function (pi: ExtensionAPI, resolve: () => SandboxMode = resolveM
 		// Ride in sections so pi appends a transcript delta and keeps the cached
 		// prefix; returning systemPrompt would replace the whole prompt every run.
 		// The note still reaches the model on every request.
-		event.systemPromptOptions.sections.sandbox = promptNote(active, sandbox.mode, ctx.cwd);
+		event.systemPromptOptions.sections.permissions = promptNote(active, sandbox.mode, ctx.cwd);
 	});
 
 	pi.on("tool_call", async (event, ctx) => {
@@ -170,15 +171,15 @@ export default function (pi: ExtensionAPI, resolve: () => SandboxMode = resolveM
 		active = mode;
 		// Keep the persistent indicator in step with the live mode.
 		ctx.ui.setStatus(STATUS_KEY, statusLine(mode));
-		if (warning) ctx.ui.notify(`[sandbox] ${warning}`, "warning");
-		else ctx.ui.notify(`[sandbox] Mode: ${modeDetail(mode, sandbox.mode)}`, "info");
+		if (warning) ctx.ui.notify(`[permissions] ${warning}`, "warning");
+		else ctx.ui.notify(`[permissions] Mode: ${modeDetail(mode, sandbox.mode)}`, "info");
 	}
 
 	// One command, the footer's codes as its verbs. The old /readonly and /yolo
 	// are gone — a switch is always explicit, so a bare invocation is free to
 	// mean "tell me the mode", and the query names the code it would set.
-	pi.registerCommand("sandbox", {
-		description: "Set the mode: /sandbox RO|WS|RW — bare shows the current mode",
+	pi.registerCommand("permissions", {
+		description: "Set the mode: /permissions RO|WW|FA — bare shows the current mode",
 		getArgumentCompletions: (prefix: string) => {
 			// pi's contract is `null` for "nothing to offer", an empty list is not
 			// the same thing. The codes come from the same table as the parser.
@@ -188,12 +189,12 @@ export default function (pi: ExtensionAPI, resolve: () => SandboxMode = resolveM
 		handler: async (args, ctx) => {
 			const arg = args.trim();
 			if (arg === "" || arg === "status") {
-				ctx.ui.notify(`[sandbox] Current mode: ${statusLine(active)} — ${modeDetail(active, sandbox.mode)}`, "info");
+				ctx.ui.notify(`[permissions] Current mode: ${statusLine(active)} — ${modeDetail(active, sandbox.mode)}`, "info");
 				return;
 			}
 			const requested = modeFromCode(arg);
 			if (!requested) {
-				ctx.ui.notify(`[sandbox] unknown mode "${arg}" — /sandbox RO|WS|RW`, "warning");
+				ctx.ui.notify(`[permissions] unknown mode "${arg}" — /permissions RO|WW|FA`, "warning");
 				return;
 			}
 			applyMode(requested, ctx);

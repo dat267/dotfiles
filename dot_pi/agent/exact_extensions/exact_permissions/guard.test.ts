@@ -1,5 +1,5 @@
 /**
- * Tests for sandbox pure logic.
+ * Tests for permissions pure logic.
  * Run: node --test guard.test.ts
  */
 

@@ -71,7 +71,7 @@ export function inspectPath(
 	const resolved = realResolve(resolveArg(target, workspace));
 	const realWorkspace = cachedRealResolve(workspace);
 	if (!isAllowed(resolved, allowlist) && !(resolved === realWorkspace || resolved.startsWith(realWorkspace + posix.sep))) {
-		return `sandbox blocks ${resolved}: outside the workspace`;
+		return `permissions blocks ${resolved}: outside the workspace`;
 	}
 	return null;
 }

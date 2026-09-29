@@ -1,5 +1,5 @@
 /**
- * sandbox/module-dir.ts — where this extension lives on disk.
+ * permissions/module-dir.ts — where this extension lives on disk.
  *
  * pi loads extensions as data-URL modules on Bun, so `import.meta.url` is
  * `file:///data:…` and `import.meta.dirname` is `data:…` — both point at the
@@ -49,5 +49,5 @@ export function resolveModuleDir(input: ModuleDirInput): string {
 		if (metaUrl.startsWith("file://")) return fileURLToPath(new URL(".", metaUrl).href);
 		return metaUrl;
 	}
-	throw new Error("sandbox: cannot resolve the extension directory");
+	throw new Error("permissions: cannot resolve the extension directory");
 }

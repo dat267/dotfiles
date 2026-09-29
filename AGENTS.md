@@ -33,14 +33,14 @@ python3 -m unittest discover -s exact_tests   # Python script tests, from dot_lo
 Chezmoi source is the authoritative reference. Clone and grep it (`internal/chezmoi/` = mechanics, `internal/cmd/` = commands and template funcs):
 `git clone --depth 1 https://github.com/twpayne/chezmoi.git /tmp/chezmoi`
 
-## Sandbox (pi)
+## Permissions (pi)
 
-`~/.pi/agent/extensions/sandbox` wraps every `bash` call in a kernel gate; `write`/`edit` are path-checked in-process. Linux compiles `gate.c` and enforces Landlock. Other platforms have no backend and default to `yolo` with a startup warning. There is no approval mode: the agent is never asked to confirm a command.
+`~/.pi/agent/extensions/permissions` wraps every `bash` call in a kernel gate; `write`/`edit` are path-checked in-process. Linux compiles `gate.c` and enforces Landlock. Other platforms have no backend and default to `full-access` with a startup warning. There is no approval mode: the agent is never asked to confirm a command.
 
 - **Writable**: workspace (chezmoi source dir), `/tmp`, `/var/tmp`, `/dev`, `/proc`, `/sys`, `~/.cache`, `~/.npm`, `~/.cargo`, `~/go`, `~/.pi` (agent state: extension and skill deploys, settings, sessions; contains credentials, a risk the user accepted).
 - **Blocked**: a full `chezmoi apply` (writes boltdb plus `~/.profile`/`~/.ssh/`/`~/.config/` outside the allowlist); `sudo`; writes to `~/.ssh/`, `~/.config/`, `~/.local/bin/`, `~/.gnupg/`. Deploy with a targeted `chezmoi apply --force <path>`. When the target is outside the writable allowlist, stage the source in the workspace and hand the user the command.
-- **Modes** via `/sandbox <code>`: `RO` read-only, `WS` workspace (kernel-enforced), `RW` yolo. The code is pinned to the status line, the only surface that survives `pi -c`.
+- **Modes** via `/permissions <code>`: `RO` read-only, `WW` workspace (kernel-enforced), `FA` full access. The code is pinned to the status line, the only surface that survives `pi -c`.
 
-Gate interface, removed backends, extension spawn rules, and gate test coverage: `docs/sandbox.md`.
+Gate interface, removed backends, extension spawn rules, and gate test coverage: `docs/permissions.md`.
 
 `README.md`, `AGENTS.md`, `LICENSE` are in `.chezmoiignore`: never deployed.

@@ -122,4 +122,4 @@ Match the repo's commit style from step 3. If its workflow wants a branch or PR,
 - Documentation only: never change code, configs, or scripts in a doc pass.
 - Never push — hand the user the command.
 - Stage explicit paths; never `git add -A`.
-- If a write is blocked (sandbox or permissions), stop and hand the user the command instead of working around it.
+- If a write is blocked (permissions), stop and hand the user the command instead of working around it.

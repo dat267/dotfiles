@@ -1,11 +1,11 @@
 /**
- * Tests for sandbox/module-dir.ts — where the extension is allowed to think it
+ * Tests for permissions/module-dir.ts — where the extension is allowed to think it
  * lives.
  *
  * pi runs extensions on Bun as data-URL modules, so `import.meta.dirname` and
  * `import.meta.url` are the encoded source, not a path. These tests pin the
  * resolution rule so a regression cannot quietly hand a data URL to the C
- * compiler or to `statSync` and demote the sandbox to yolo again.
+ * compiler or to `statSync` and demote the sandbox to full-access again.
  */
 
 import { describe, it } from "node:test";
@@ -19,8 +19,8 @@ function mustNotBeCalled(url: string): string {
 
 void describe("isRealPath", () => {
 	it("accepts a normal absolute path", () => {
-		assert.equal(isRealPath("C:/Users/x/.pi/agent/extensions/sandbox"), true);
-		assert.equal(isRealPath("/home/x/.pi/agent/extensions/sandbox"), true);
+		assert.equal(isRealPath("C:/Users/x/.pi/agent/extensions/permissions"), true);
+		assert.equal(isRealPath("/home/x/.pi/agent/extensions/permissions"), true);
 	});
 
 	it("rejects empty and non-string values", () => {
@@ -40,22 +40,22 @@ void describe("isRealPath", () => {
 void describe("resolveModuleDir", () => {
 	it("prefers the loader-injected __dirname over everything else", () => {
 		const dir = resolveModuleDir({
-			loaderDirname: "C:/Users/x/.pi/agent/extensions/sandbox",
+			loaderDirname: "C:/Users/x/.pi/agent/extensions/permissions",
 			metaDirname: "data:text\\javascript;base64,AAA",
 			metaUrl: "file:///data:text/javascript;base64,AAA",
 			fileURLToPath: mustNotBeCalled,
 		});
-		assert.equal(dir, "C:/Users/x/.pi/agent/extensions/sandbox");
+		assert.equal(dir, "C:/Users/x/.pi/agent/extensions/permissions");
 	});
 
 	it("ignores a data-URL __dirname and falls back to import.meta.dirname", () => {
 		const dir = resolveModuleDir({
 			loaderDirname: "data:text\\javascript;base64,AAA",
-			metaDirname: "C:/real/extensions/sandbox",
+			metaDirname: "C:/real/extensions/permissions",
 			metaUrl: "file:///data:text/javascript;base64,AAA",
 			fileURLToPath: mustNotBeCalled,
 		});
-		assert.equal(dir, "C:/real/extensions/sandbox");
+		assert.equal(dir, "C:/real/extensions/permissions");
 	});
 
 	it("resolves a genuine file:// import.meta.url as a last resort", () => {
@@ -63,14 +63,14 @@ void describe("resolveModuleDir", () => {
 		const dir = resolveModuleDir({
 			loaderDirname: undefined,
 			metaDirname: undefined,
-			metaUrl: "file:///C:/Users/x/.pi/agent/extensions/sandbox/index.ts",
+			metaUrl: "file:///C:/Users/x/.pi/agent/extensions/permissions/index.ts",
 			fileURLToPath: (url) => {
 				seen = url;
 				return "C:\\Users\\x\\.pi\\agent\\extensions\\sandbox\\";
 			},
 		});
 		assert.equal(dir, "C:\\Users\\x\\.pi\\agent\\extensions\\sandbox\\");
-		assert.equal(seen, "file:///C:/Users/x/.pi/agent/extensions/sandbox/");
+		assert.equal(seen, "file:///C:/Users/x/.pi/agent/extensions/permissions/");
 	});
 
 	it("throws rather than returning a data URL when no source is usable", () => {

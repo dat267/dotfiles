@@ -1,22 +1,22 @@
 /**
- * sandbox/modes.ts — pure mode-switching rules and human-facing detail
+ * permissions/modes.ts — pure mode-switching rules and human-facing detail
  * strings, so index.ts commands stay thin and the rules stay testable.
  *
- * workspace (enforced) is preferred, on the one backend that offers it:
- * Landlock on Linux. Where none is available the fallback is yolo, announced
- * with a warning and pinned to the status line — there is no approval mode
- * and the agent is never asked to confirm a command.
+ * workspace-write (enforced) is preferred, on the one backend that offers it:
+ * Landlock on Linux. Where none is available the fallback is full-access,
+ * announced with a warning and pinned to the status line — there is no approval
+ * mode and the agent is never asked to confirm a command.
  */
 
-export type ActiveMode = "read" | "workspace" | "yolo";
+export type ActiveMode = "read-only" | "workspace-write" | "full-access";
 
 /** What can enforce workspace mode on this machine. */
 export type SandboxBackend = "landlock" | "none";
 
 const DETAILS: Record<ActiveMode, string> = {
-	read: "read-only (bash/write/edit disabled)",
-	workspace: "kernel-enforced workspace",
-	yolo: "unrestricted (all writes allowed)",
+	"read-only": "read-only (bash/write/edit disabled)",
+	"workspace-write": "kernel-enforced workspace",
+	"full-access": "unrestricted (all writes allowed)",
 };
 
 const ENFORCED_DETAIL: Record<Exclude<SandboxBackend, "none">, string> = {
@@ -25,16 +25,16 @@ const ENFORCED_DETAIL: Record<Exclude<SandboxBackend, "none">, string> = {
 
 /** Detail for the current mode, naming the backend when one is in force. */
 export function modeDetail(active: ActiveMode, sandbox: SandboxBackend): string {
-	if (active === "workspace" && sandbox !== "none") return ENFORCED_DETAIL[sandbox];
+	if (active === "workspace-write" && sandbox !== "none") return ENFORCED_DETAIL[sandbox];
 	return DETAILS[active];
 }
 
-/** Two-letter mode codes, shared by the footer and `/sandbox <code>`.
- * RO read-only, WS workspace (kernel-enforced), RW read-write (yolo). */
+/** Two-letter mode codes, shared by the footer and `/permissions <code>`.
+ * RO read-only, WW workspace-write, FA full-access. */
 const MODE_CODE: Record<ActiveMode, string> = {
-	read: "RO",
-	workspace: "WS",
-	yolo: "RW",
+	"read-only": "RO",
+	"workspace-write": "WW",
+	"full-access": "FA",
 };
 
 /**
@@ -44,19 +44,19 @@ const MODE_CODE: Record<ActiveMode, string> = {
  * must never depend on remembering a toast — including the ordinary enforced
  * default. Two letters on purpose — the statusline is shared with the context
  * percentage, model and project, and truncates on narrow terminals; the full
- * name stays available in the switch toasts and a bare /sandbox.
+ * name stays available in the switch toasts and a bare /permissions.
  */
 export function statusLine(active: ActiveMode): string {
 	return MODE_CODE[active];
 }
 
-/** Parse a `/sandbox <code>` argument into a mode; undefined when not a code. */
+/** Parse a `/permissions <code>` argument into a mode; undefined when not a code. */
 export function modeFromCode(arg: string): ActiveMode | undefined {
 	const code = arg.trim().toUpperCase();
 	return (Object.keys(MODE_CODE) as ActiveMode[]).find((mode) => MODE_CODE[mode] === code);
 }
 
-/** A `/sandbox` argument completion: the code, and what it means. */
+/** A `/permissions` argument completion: the code, and what it means. */
 export interface ModeCompletion {
 	value: string;
 	label: string;
@@ -64,7 +64,7 @@ export interface ModeCompletion {
 }
 
 /**
- * `/sandbox <code>` arguments matching `prefix`, for argument autocomplete.
+ * `/permissions <code>` arguments matching `prefix`, for argument autocomplete.
  * Derived from the same tables as the parser and the footer, so the three
  * cannot drift; the prefixes are matched the way the parser reads them
  * (trimmed, case-insensitive). An empty result means "nothing to offer" —
@@ -81,17 +81,17 @@ export function modeCompletions(prefix: string): ModeCompletion[] {
 		}));
 }
 
-/** Default mode: the kernel sandbox when any backend can enforce it, else yolo. */
+/** Default mode: the kernel sandbox when any backend can enforce it, else full-access. */
 export function defaultMode(sandbox: SandboxBackend): ActiveMode {
-	return sandbox === "none" ? "yolo" : "workspace";
+	return sandbox === "none" ? "full-access" : "workspace-write";
 }
 
-/** Apply a mode switch. Workspace with no backend falls back to yolo. */
+/** Apply a mode switch. Workspace with no backend falls back to full-access. */
 export function switchMode(requested: ActiveMode, sandbox: SandboxBackend): { mode: ActiveMode; warning?: string } {
-	if (requested === "workspace" && sandbox === "none") {
+	if (requested === "workspace-write" && sandbox === "none") {
 		return {
-			mode: "yolo",
-			warning: "the kernel sandbox backend is unavailable on this platform — cannot enforce the workspace sandbox; using yolo (unrestricted)",
+			mode: "full-access",
+			warning: "the kernel sandbox backend is unavailable on this platform — cannot enforce the workspace sandbox; using full access (unrestricted)",
 		};
 	}
 	return { mode: requested };

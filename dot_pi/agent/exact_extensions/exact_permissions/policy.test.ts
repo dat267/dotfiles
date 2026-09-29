@@ -1,5 +1,5 @@
 /**
- * Tests for sandbox/policy.ts — single source of truth for the
+ * Tests for permissions/policy.ts — single source of truth for the
  * writable-path policy: enforcement list and prompt prose.
  *
  * The workspace sandbox only enforces on Linux, so the list is the POSIX
