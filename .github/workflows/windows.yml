@@ -87,22 +87,25 @@ jobs:
       - name: Render the dotfiles into a throwaway home
         shell: pwsh
         run: |
-          $version = "2.72.2"
-          $zip = Join-Path $env:RUNNER_TEMP "chezmoi.zip"
-          $url = "https://github.com/twpayne/chezmoi/releases/download/v$version/chezmoi_${version}_windows_amd64.zip"
-          Invoke-WebRequest -Uri $url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath (Join-Path $env:RUNNER_TEMP "chezmoi-bin") -Force
-          $chezmoi = (Resolve-Path (Join-Path $env:RUNNER_TEMP "chezmoi-bin\chezmoi.exe")).Path
-          $chezmoi --version
-          $dest = Join-Path $env:RUNNER_TEMP "home"
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          & $chezmoi --source $PWD.Path --destination $dest `
-            --config (Join-Path $env:RUNNER_TEMP "chezmoi.toml") --no-tty `
-            --exclude=scripts,externals apply --force
-          if ($LASTEXITCODE -ne 0) { throw "chezmoi apply failed ($LASTEXITCODE)" }
-          # No CHEZMOI_* prefix: chezmoi reads those as config keys.
-          "DOTFILES_CHEZMOI=$chezmoi" | Add-Content $env:GITHUB_ENV
-          "RENDERED_HOME=$dest" | Add-Content $env:GITHUB_ENV
+          . .github/scripts/step-report.ps1
+          Invoke-WithReport "chezmoi-render" {
+            $version = "2.72.2"
+            $zip = Join-Path $env:RUNNER_TEMP "chezmoi.zip"
+            $url = "https://github.com/twpayne/chezmoi/releases/download/v$version/chezmoi_${version}_windows_amd64.zip"
+            Invoke-WebRequest -Uri $url -OutFile $zip
+            Expand-Archive -Path $zip -DestinationPath (Join-Path $env:RUNNER_TEMP "chezmoi-bin") -Force
+            $chezmoi = (Resolve-Path (Join-Path $env:RUNNER_TEMP "chezmoi-bin\chezmoi.exe")).Path
+            $chezmoi --version
+            $dest = Join-Path $env:RUNNER_TEMP "home"
+            New-Item -ItemType Directory -Force -Path $dest | Out-Null
+            & $chezmoi --source $PWD.Path --destination $dest `
+              --config (Join-Path $env:RUNNER_TEMP "chezmoi.toml") --no-tty `
+              --exclude=scripts,externals apply --force
+            if ($LASTEXITCODE -ne 0) { throw "chezmoi apply failed ($LASTEXITCODE)" }
+            # No CHEZMOI_* prefix: chezmoi reads those as config keys.
+            "DOTFILES_CHEZMOI=$chezmoi" | Add-Content $env:GITHUB_ENV
+            "RENDERED_HOME=$dest" | Add-Content $env:GITHUB_ENV
+          }
 
       # The deployed profile is the only thing that puts ~/Apps/* on PATH, and
       # the run_ scripts are the bootstrap and the junction setup: none of it is
@@ -110,97 +113,132 @@ jobs:
       - name: Windows-only scripts render and parse
         shell: pwsh
         run: |
-          $dest = $env:RENDERED_HOME
-          $profilePath = Join-Path $dest ".config\powershell\Microsoft.PowerShell_profile.ps1"
-          if (-not (Test-Path -LiteralPath $profilePath)) { throw "profile was not deployed to $profilePath" }
+          . .github/scripts/step-report.ps1
+          Invoke-WithReport "windows-scripts" {
+            $dest = $env:RENDERED_HOME
+            $profilePath = Join-Path $dest ".config\powershell\Microsoft.PowerShell_profile.ps1"
+            if (-not (Test-Path -LiteralPath $profilePath)) { throw "profile was not deployed to $profilePath" }
 
-          $checks = @(
-            @{ File = $profilePath; Pattern = 'Apps[\\/]pi'; What = "the pi PATH entry" },
-            @{ File = $profilePath; Pattern = 'Apps[\\/]nvim[\\/]bin'; What = "nvim's install dir on PATH" }
-          )
-          foreach ($c in $checks) {
-            if ((Get-Content -Raw $c.File) -notmatch $c.Pattern) {
-              throw "$($c.File) does not contain $($c.What) ($($c.Pattern))"
+            $checks = @(
+              @{ File = $profilePath; Pattern = 'Apps[\\/]pi'; What = "the pi PATH entry" },
+              @{ File = $profilePath; Pattern = 'Apps[\\/]nvim[\\/]bin'; What = "nvim's install dir on PATH" }
+            )
+            foreach ($c in $checks) {
+              if ((Get-Content -Raw $c.File) -notmatch $c.Pattern) {
+                throw "$($c.File) does not contain $($c.What) ($($c.Pattern))"
+              }
             }
-          }
 
-          $files = @($profilePath)
-          foreach ($t in @(
-              "run_once_before_bootstrap-local-configs.ps1.tmpl",
-              "run_onchange_after_create-junctions.ps1.tmpl"
-            )) {
-            $out = Join-Path $env:RUNNER_TEMP ([IO.Path]::GetFileNameWithoutExtension($t))
-            # --file: without it the argument is executed as a literal template.
-            & $env:DOTFILES_CHEZMOI execute-template --file $t | Set-Content -Path $out -Encoding utf8
-            if ($LASTEXITCODE -ne 0) { throw "execute-template $t failed ($LASTEXITCODE)" }
-            $files += $out
-          }
-          # The junction script is the one place that maps LOCALAPPDATA to the
-          # XDG config dirs; an empty render would silently deploy nothing.
-          $junctions = Get-Content -Raw (Join-Path $env:RUNNER_TEMP "run_onchange_after_create-junctions.ps1")
-          if ($junctions -notmatch 'Test-SameTarget' -or $junctions -notmatch 'New-UniqueBackupPath') {
-            throw "the junction script rendered without its junction helpers"
-          }
-
-          $bad = @()
-          foreach ($file in $files) {
-            Write-Host "--- $file"
-            $errors = $null
-            [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$null, [ref]$errors) | Out-Null
-            if ($errors -and $errors.Count -gt 0) {
-              foreach ($e in $errors) { Write-Host "$($e.Extent.StartLineNumber): $($e.Message)" }
-              $bad += $file
+            $files = @($profilePath)
+            foreach ($t in @(
+                "run_once_before_bootstrap-local-configs.ps1.tmpl",
+                "run_onchange_after_create-junctions.ps1.tmpl"
+              )) {
+              $out = Join-Path $env:RUNNER_TEMP ([IO.Path]::GetFileNameWithoutExtension($t))
+              # --file: without it the argument is executed as a literal template.
+              & $env:DOTFILES_CHEZMOI execute-template --file $t | Set-Content -Path $out -Encoding utf8
+              if ($LASTEXITCODE -ne 0) { throw "execute-template $t failed ($LASTEXITCODE)" }
+              $files += $out
             }
+            # The junction script is the one place that maps LOCALAPPDATA to the
+            # XDG config dirs; an empty render would silently deploy nothing.
+            $junctions = Get-Content -Raw (Join-Path $env:RUNNER_TEMP "run_onchange_after_create-junctions.ps1")
+            if ($junctions -notmatch 'Test-SameTarget' -or $junctions -notmatch 'New-UniqueBackupPath') {
+              throw "the junction script rendered without its junction helpers"
+            }
+
+            $bad = @()
+            foreach ($file in $files) {
+              Write-Host "--- $file"
+              $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$null, [ref]$errors) | Out-Null
+              if ($errors -and $errors.Count -gt 0) {
+                foreach ($e in $errors) { Write-Host "$($e.Extent.StartLineNumber): $($e.Message)" }
+                $bad += $file
+              }
+            }
+            if ($bad.Count -gt 0) { throw "PowerShell syntax errors in: $($bad -join ', ')" }
+            "parsed $($files.Count) PowerShell files"
           }
-          if ($bad.Count -gt 0) { throw "PowerShell syntax errors in: $($bad -join ', ')" }
-          "parsed $($files.Count) PowerShell files"
 
       # No --prefix: exercises the Windows default (%USERPROFILE%\Apps\pi), and
       # since the runner's PATH has no profile entry, also the absolute-path
       # shim probe.
       - name: Install pi into the default Windows prefix
-        run: python dot_local/scripts/exact_py/executable_install-pi.py
+        shell: pwsh
+        run: |
+          . .github/scripts/step-report.ps1
+          Invoke-WithReport "install-pi" {
+            python dot_local/scripts/exact_py/executable_install-pi.py
+            if ($LASTEXITCODE -ne 0) { throw "install-pi.py exited $LASTEXITCODE" }
+          }
 
       - name: Assert the npm --prefix layout
         shell: pwsh
         run: |
-          $prefix = Join-Path $env:USERPROFILE "Apps\pi"
-          $expected = @(
-            (Join-Path $prefix "pi.cmd"),
-            (Join-Path $prefix "node_modules\@earendil-works\pi-coding-agent\package.json")
-          )
-          foreach ($p in $expected) {
-            if (-not (Test-Path -LiteralPath $p)) { throw "missing after install: $p" }
+          . .github/scripts/step-report.ps1
+          Invoke-WithReport "pi-layout" {
+            $prefix = Join-Path $env:USERPROFILE "Apps\pi"
+            $expected = @(
+              (Join-Path $prefix "pi.cmd"),
+              (Join-Path $prefix "node_modules\@earendil-works\pi-coding-agent\package.json")
+            )
+            foreach ($p in $expected) {
+              if (-not (Test-Path -LiteralPath $p)) { throw "missing after install: $p" }
+            }
+            Get-ChildItem -LiteralPath $prefix -Name
+            & (Join-Path $prefix "pi.cmd") --version
+            if ($LASTEXITCODE -ne 0) { throw "pi.cmd --version exited $LASTEXITCODE" }
           }
-          Get-ChildItem -LiteralPath $prefix -Name
-          & (Join-Path $prefix "pi.cmd") --version
 
       - name: Installer reports up to date
-        run: python dot_local/scripts/exact_py/executable_install-pi.py --check
+        shell: pwsh
+        run: |
+          . .github/scripts/step-report.ps1
+          Invoke-WithReport "install-pi-check" {
+            python dot_local/scripts/exact_py/executable_install-pi.py --check
+            if ($LASTEXITCODE -ne 0) { throw "install-pi.py --check exited $LASTEXITCODE" }
+          }
 
       # Resolves %USERPROFILE%\Apps\pi\node_modules, symlinks each extension's
       # deps and runs npx.cmd — a bare "npx" is a shell script Windows cannot
       # launch.
       - name: pi-lint-extensions
-        run: python dot_local/scripts/exact_py/executable_pi-lint-extensions.py
+        shell: pwsh
+        run: |
+          . .github/scripts/step-report.ps1
+          Invoke-WithReport "pi-lint" {
+            python dot_local/scripts/exact_py/executable_pi-lint-extensions.py
+            if ($LASTEXITCODE -ne 0) { throw "pi-lint-extensions.py exited $LASTEXITCODE" }
+          }
 
       # The one real install into ~/Apps: exercises the Windows asset, the zip
       # extraction, the install dir layout and the binary's own --version check
       # outside Linux.
       - name: Install nvim into the Windows prefix
-        run: python dot_local/scripts/exact_py/executable_install-nvim.py
+        shell: pwsh
+        run: |
+          . .github/scripts/step-report.ps1
+          Invoke-WithReport "install-nvim" {
+            python dot_local/scripts/exact_py/executable_install-nvim.py
+            if ($LASTEXITCODE -ne 0) { throw "install-nvim.py exited $LASTEXITCODE" }
+          }
 
       - name: nvim is reachable from the deployed profile
         shell: pwsh
         run: |
-          $exe = Join-Path $env:USERPROFILE "Apps\nvim\bin\nvim.exe"
-          if (-not (Test-Path -LiteralPath $exe)) { throw "missing after install: $exe" }
-          & $exe --version | Select-Object -First 1
-          # install-nvim.py's dir and the profile's PATH entry have to agree:
-          # they were Apps\nvim-win64 vs Apps\nvim, which installs nvim into a
-          # directory nothing looks in.
-          $profilePath = Join-Path $env:RENDERED_HOME ".config\powershell\Microsoft.PowerShell_profile.ps1"
-          $rel = $exe.Substring($env:USERPROFILE.Length).TrimStart('\').Replace('\', '/')
-          if ((Get-Content -Raw $profilePath).Replace('\', '/') -notmatch [regex]::Escape($rel)) {
-            throw "the profile does not put $rel on PATH"
+          . .github/scripts/step-report.ps1
+          Invoke-WithReport "nvim-profile" {
+            $exe = Join-Path $env:USERPROFILE "Apps\nvim\bin\nvim.exe"
+            if (-not (Test-Path -LiteralPath $exe)) { throw "missing after install: $exe" }
+            & $exe --version | Select-Object -First 1
+            if ($LASTEXITCODE -ne 0) { throw "nvim.exe --version exited $LASTEXITCODE" }
+            # install-nvim.py's dir and the profile's PATH entry have to agree:
+            # they were Apps\nvim-win64 vs Apps\nvim, which installs nvim into a
+            # directory nothing looks in.
+            $profilePath = Join-Path $env:RENDERED_HOME ".config\powershell\Microsoft.PowerShell_profile.ps1"
+            $rel = $exe.Substring($env:USERPROFILE.Length).TrimStart('\').Replace('\', '/')
+            if ((Get-Content -Raw $profilePath).Replace('\', '/') -notmatch [regex]::Escape($rel)) {
+              throw "the profile does not put $rel on PATH"
+            }
           }
