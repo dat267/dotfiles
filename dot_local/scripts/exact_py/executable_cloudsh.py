@@ -8,9 +8,6 @@ import re
 import shutil
 
 gcloud: str | None = shutil.which("gcloud")
-if not gcloud:
-    sys.stderr.write("gcloud not found\n")
-    sys.exit(1)
 
 port_pattern = r"-[pP]\s([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])(?!\d)"
 addr_pattern = r"\S*@\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
@@ -94,11 +91,15 @@ def build_command(argv: list[str]) -> str:
     return " ".join(argv)
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="SSH into Google Cloud Shell.")
     parser.add_argument('command', nargs='*', help='Command to run on remote')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     command = build_command(args.command)
+
+    if not gcloud:
+        sys.stderr.write("gcloud not found\n")
+        return 1
 
     port, addr, key, project = resolve_target()
     cmd = build_ssh_cmd(command, port, addr, key, project)
@@ -107,4 +108,9 @@ if __name__ == "__main__":
     try:
         subprocess.check_call(cmd)
     except subprocess.CalledProcessError as e:
-        sys.exit(e.returncode)
+        return e.returncode
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

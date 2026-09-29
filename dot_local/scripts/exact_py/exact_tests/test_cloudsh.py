@@ -1,26 +1,13 @@
-import ast
 import re
-import shutil
 import unittest
-import pathlib
 
-PY_DIR = pathlib.Path(__file__).resolve().parent.parent
+import _loader
 
+# executable_cloudsh.py computes `gcloud` at import but no longer exits there,
+# so the module loads on a runner without gcloud and its pure helpers run.
+mod = _loader.load("cloudsh")
 
-def extract_patterns():
-    """cloudsh runs gcloud at import time, so pull the regex literals out with AST."""
-    source = (PY_DIR / "executable_cloudsh.py").read_text(encoding="utf-8")
-    tree = ast.parse(source)
-    patterns = {}
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name) and isinstance(node.value, ast.Constant):
-                    patterns[target.id] = node.value.value
-    return patterns
-
-
-PATTERNS = extract_patterns()
+PATTERNS = {"port_pattern": mod.port_pattern, "addr_pattern": mod.addr_pattern}
 
 
 class TestPortPattern(unittest.TestCase):
@@ -65,16 +52,6 @@ class TestAddrPattern(unittest.TestCase):
         self.assertIsNone(self.re.search("ssh hostname-only"))
 
 
-import _loader
-
-# executable_cloudsh.py is a Cloud Shell wrapper: it sys.exit(1)s at import time
-# when gcloud is absent, so the module cannot be loaded on a plain runner.
-# The pattern tests above read the file with AST instead and still run.
-HAVE_GCLOUD = shutil.which("gcloud") is not None
-mod = _loader.load("cloudsh") if HAVE_GCLOUD else None
-
-
-@unittest.skipUnless(HAVE_GCLOUD, "cloudsh needs gcloud on PATH (Cloud Shell only)")
 class TestSshCmd(unittest.TestCase):
     """Mirrors gcloud's argv: interactive sessions must run the remote login
     shell (the Cloud Shell sshd kills bare sessions right after the banner),
