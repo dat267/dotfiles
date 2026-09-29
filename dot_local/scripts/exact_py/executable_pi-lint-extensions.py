@@ -21,6 +21,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from _shared import windows_home
+
 TSC_VERSION = "5.7"
 
 TSC_FLAGS = [
@@ -61,17 +63,17 @@ def plan_command(ext_dir, npx=None):
 def resolve_pi_package(local_root=None, global_root=None, windows_root=None):
 	"""The installed pi coding-agent package, for tsc resolution.
 
-	Probes the fixed npm prefixes — ~/.local (unix) and ~/Apps/pi (Windows) —
-	then `npm root -g` (nvm, nvm-windows, other globals). npm is only invoked
-	when both fixed prefixes miss, and through shutil.which so Windows uses
-	npm.cmd (a bare "npm" is not launchable there). All three roots are
-	injectable for tests; a missing global root is skipped rather than fatal.
-	Exits with a clear message when no location has the package.
+	Probes the fixed npm prefixes — ~/.local (unix) and %USERPROFILE%\Apps\pi
+	(Windows) — then `npm root -g` (nvm, nvm-windows, other globals). npm is
+	only invoked when both fixed prefixes miss, and through shutil.which so
+	Windows uses npm.cmd (a bare "npm" is not launchable there). All three
+	roots are injectable for tests; a missing global root is skipped rather
+	than fatal. Exits with a clear message when no location has the package.
 	"""
 	if local_root is None:
 		local_root = Path.home() / ".local/lib/node_modules"
 	if windows_root is None:
-		windows_root = Path.home() / "Apps/pi/node_modules"
+		windows_root = Path(windows_home("Apps", "pi", "node_modules"))
 
 	def package_under(root):
 		return Path(root) / "@earendil-works" / "pi-coding-agent"

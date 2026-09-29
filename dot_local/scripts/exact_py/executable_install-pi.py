@@ -32,7 +32,7 @@ import shutil
 import subprocess
 import sys
 
-from _shared import Platform, log
+from _shared import Platform, log, windows_home
 
 PKG = "@earendil-works/pi-coding-agent"
 
@@ -40,9 +40,11 @@ PKG = "@earendil-works/pi-coding-agent"
 NODE_FLOOR = (22, 19, 0)
 
 # Fixed install prefixes: outside any node version directory, and on PATH
-# (~/.local/bin on unix; ~/Apps/pi is added by the PowerShell profile).
+# (~/.local/bin on unix; the Windows prefix is added by the PowerShell profile).
 POSIX_PREFIX = "~/.local"
-WINDOWS_PREFIX = "~/Apps/pi"
+# Relative to the Windows profile, not to ~: MSYS2/Cygwin ~ is not %USERPROFILE%.
+WINDOWS_PREFIX_PARTS = ("Apps", "pi")
+WINDOWS_PREFIX = "~/" + "/".join(WINDOWS_PREFIX_PARTS)
 
 _SEMVER = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?")
 
@@ -72,7 +74,9 @@ def install_prefix(plat, override=None):
     """The npm prefix pi installs into; ~ paths expanded."""
     if override:
         return os.path.expanduser(override)
-    return os.path.expanduser(WINDOWS_PREFIX if plat.is_windows else POSIX_PREFIX)
+    if plat.is_windows:
+        return windows_home(*WINDOWS_PREFIX_PARTS)
+    return os.path.expanduser(POSIX_PREFIX)
 
 
 def bin_dir(prefix, plat):

@@ -7,7 +7,7 @@ import sys
 import tempfile
 import zipfile
 
-from _shared import download, log
+from _shared import download, log, windows_home
 
 def clean_directory(path):
     if os.path.exists(path):
@@ -23,7 +23,7 @@ def clean_directory(path):
 
 
 def install_windows():
-    install_path = os.path.expanduser("~/Apps/Firefox")
+    install_path = windows_home("Apps", "Firefox")
     url = "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US&archive=zip"
 
     log("Downloading Firefox for Windows (ZIP)...", "cyan")

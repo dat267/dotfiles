@@ -7,7 +7,7 @@ import tarfile
 import tempfile
 import zipfile
 
-from _shared import Platform, download, log
+from _shared import Platform, download, log, windows_home
 
 # VS Code's download vocabulary is the canonical one.
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
@@ -26,7 +26,7 @@ def clean_directory(path):
 
 
 def install_windows():
-    install_path = os.path.expanduser("~/Apps/VSCode")
+    install_path = windows_home("Apps", "VSCode")
     url = "https://code.visualstudio.com/sha/download?build=stable&os=win32-x64-archive"
 
     log("Downloading VS Code for Windows (Portable Zip)...", "cyan")

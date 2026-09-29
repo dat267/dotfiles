@@ -13,7 +13,7 @@ import subprocess
 import sys
 import tempfile
 
-from _shared import Platform, download, extract_archive, github_latest_tag, log
+from _shared import Platform, download, extract_archive, github_latest_tag, log, windows_home
 
 REPO = "neovim/neovim"
 
@@ -45,7 +45,7 @@ def download_url(tag, os_name, arch):
 
 def install_dir(os_name):
     if os_name == "windows":
-        return os.path.expanduser("~/Apps/nvim")
+        return windows_home("Apps", "nvim")
     return os.path.expanduser("~/.local/opt/nvim")
 
 

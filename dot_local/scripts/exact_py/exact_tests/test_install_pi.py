@@ -70,7 +70,15 @@ class TestInstallPrefix(unittest.TestCase):
     def test_windows_default_is_apps_pi(self):
         self.assertEqual(
             pi.install_prefix(shared.Platform("windows", "x64")),
-            os.path.expanduser("~/Apps/pi"))
+            shared.windows_home("Apps", "pi"))
+
+    def test_windows_default_follows_the_windows_profile(self):
+        """MSYS2/Cygwin ~ is the emulated home, not the profile the PATH entry
+        the PowerShell profile adds lives in."""
+        profile = os.path.join(os.sep, "Users", "me")
+        with mock.patch.dict(os.environ, {"USERPROFILE": profile}):
+            self.assertEqual(pi.install_prefix(shared.Platform("windows", "x64")),
+                             os.path.join(profile, "Apps", "pi"))
 
     def test_explicit_override_expands_tilde(self):
         self.assertEqual(
@@ -87,7 +95,7 @@ class TestPrefixHelpers(unittest.TestCase):
 
     def test_under_prefix_windows(self):
         win = shared.Platform("windows", "x64")
-        prefix = os.path.expanduser("~/Apps")
+        prefix = shared.windows_home("Apps")
         self.assertTrue(pi.under_prefix(os.path.join(prefix, "pi.cmd"), prefix, win))
         self.assertFalse(pi.under_prefix(r"C:\node\pi.cmd", prefix, win))
 
@@ -321,7 +329,7 @@ class TestWindowsMain(unittest.TestCase):
     """End-to-end main() on Windows: .cmd shims, and a shim that lands off PATH."""
 
     WIN_NPM = r"C:\node\npm.cmd"
-    WIN_PREFIX = os.path.expanduser("~/Apps/pi")
+    WIN_PREFIX = shared.windows_home("Apps", "pi")
 
     def _which(self, runner, pi_found=None):
         def which(name):

@@ -12,6 +12,7 @@ $global:__dotfiles_profile_loaded = $true
         # first (no enumeration), then native where.exe as bounded fallback.
         $editor = $null
         foreach ($p in @(
+                "$HOME\Apps\nvim\bin\nvim.exe",
                 "$HOME\Apps\nvim-win64\bin\nvim.exe",
                 "$env:LOCALAPPDATA\nvim\bin\nvim.exe",
                 "$HOME\scoop\apps\nvim\current\nvim.exe",
@@ -39,6 +40,9 @@ $global:__dotfiles_profile_loaded = $true
     if ($IsWindows) {
         $paths += @(
             "$HOME/.config/powershell/scripts/windows",
+            # install-nvim.py extracts to $HOME/Apps/nvim (~/Apps/<tool> like
+            # pwsh and 7z); the nvim-win64 entry is the older manual unzip.
+            "$HOME/Apps/nvim/bin",
             "$HOME/Apps/nvim-win64/bin",
             "$HOME/Apps/pwsh",
             "$HOME/Apps/7z",

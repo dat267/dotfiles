@@ -163,24 +163,47 @@ def log(message, color=None):
         print(message)
 
 
+def windows_home(*parts):
+    """A path under the Windows user profile: windows_home("Apps", "pi").
+
+    Not expanduser("~"): a POSIX-emulated Python on Windows (MSYS2, Cygwin)
+    resolves that to the emulated home (C:\\msys64\\home\\me), while the PATH
+    entries and the dotfiles on the machine are the Windows ones. On native
+    Windows USERPROFILE is the home expanduser returns anyway.
+    """
+    return os.path.join(os.environ.get("USERPROFILE") or os.path.expanduser("~"), *parts)
+
+
 class Platform:
     """Detected platform plus the vocabulary install scripts keep re-deriving:
     executable/launcher extensions, venv bin dir, archive extensions, Termux
     prefix. Construct directly for tests; use detect() at runtime."""
 
-    def __init__(self, os_name, arch):
+    def __init__(self, os_name, arch, posix_python=None):
         self.os = os_name      # linux | windows | darwin | android
         self.arch = arch       # arm64 | x64
+        # True for a POSIX-emulated Python on Windows (MSYS2, Cygwin): Windows
+        # release assets and %USERPROFILE% install dirs, but venvs whose
+        # launchers live in bin/ like any other.
+        self.posix_python = posix_python if posix_python is not None else os_name != "windows"
 
     @classmethod
     def detect(cls):
         """Runtime detection: Termux marker remaps Linux to Android,
-        machine is normalized to arm64/x64."""
+        MSYS2/Cygwin remap to Windows, machine is normalized to arm64/x64."""
         system = platform.system().lower()
         machine = platform.machine().lower()
         arch = "arm64" if ("arm" in machine or "aarch64" in machine) else "x64"
+        # Those Pythons report "MSYS_NT-10.0-19045" and "CYGWIN_NT-10.0-19045".
+        # The machine is Windows, so a release has to be the Windows build: the
+        # Linux tarballs would not even execute there.
+        if system.startswith(("msys", "cygwin")):
+            system = "windows"
+            posix_python = True
+        else:
+            posix_python = None
         os_name = "android" if system == "linux" and is_termux() else system
-        return cls(os_name, arch)
+        return cls(os_name, arch, posix_python)
 
     @property
     def is_windows(self):
@@ -200,7 +223,10 @@ class Platform:
 
     @property
     def venv_bin(self):
-        return "Scripts" if self.is_windows else "bin"
+        # Keyed off the interpreter flavor, not the remapped os: a
+        # POSIX-emulated Python on Windows installs venv launchers into bin/
+        # like any other, even though it takes the Windows release assets.
+        return "bin" if self.posix_python else "Scripts"
 
     @property
     def termux_prefix(self):

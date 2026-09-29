@@ -123,6 +123,26 @@ def _dir_contribution(d, apparent):
         return 0
 
 
+# Windows os.stat reports st_nlink == 1 for hardlinks, so there the (st_dev,
+# st_ino) index has to see every file; elsewhere the st_nlink > 1 test is what
+# keeps it small. See _hardlink_key.
+NLINK_UNRELIABLE = os.name == "nt"
+
+
+def _hardlink_key(st):
+    """(st_dev, st_ino) identity when this entry could be a second link, else None.
+
+    An st_ino of 0 means the filesystem exposes no file identity at all (FAT,
+    some network shares), so those files are never deduped — deduping them by a
+    constant key would collapse the whole tree to one file.
+    """
+    if not st.st_ino:
+        return None
+    if st.st_nlink > 1 or NLINK_UNRELIABLE:
+        return (st.st_dev, st.st_ino)
+    return None
+
+
 def _scan(roots, acc, apparent, count_hard_links, top_n, progress=None,
           top_target=None, dir_budget=0):
     """Core traversal: iterative BFS over `roots`, mutating the accumulator.
@@ -156,13 +176,14 @@ def _scan(roots, acc, apparent, count_hard_links, top_n, progress=None,
                         continue
                     size = _file_size(st, apparent)
                     deduped = False
-                    if st.st_nlink > 1 and seen is not None:
-                        key = (st.st_dev, st.st_ino)
-                        if key in seen:
-                            deduped = True
-                            size = 0
-                        else:
-                            seen.add(key)
+                    if seen is not None:
+                        key = _hardlink_key(st)
+                        if key is not None:
+                            if key in seen:
+                                deduped = True
+                                size = 0
+                            else:
+                                seen.add(key)
                     acc.files += 1
                     direct += size
                     if top_target is not None and d == top_target and not e.is_symlink():

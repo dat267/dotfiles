@@ -83,10 +83,8 @@ class TestAggregateTotals(unittest.TestCase):
         self.assertEqual(dua.aggregate_totals(raw, children, "c"), 40)
 
 
-# Windows os.stat reports st_nlink = 1, so the product's hardlink dedup (which
-# keys off st_nlink > 1) cannot trigger there; real dua dedupes via the file
-# index. Counted-when-asked still holds, so only the dedup cases are skipped.
-NO_HARDLINK_DEDUP = "Windows stat reports st_nlink = 1, so hardlinks are not deduped"
+# Windows os.stat reports st_nlink = 1 for hardlinks, so the product keys off
+# the (st_dev, st_ino) file index there (NLINK_UNRELIABLE) instead.
 
 
 class TestWalk(unittest.TestCase):
@@ -137,7 +135,6 @@ class TestWalk(unittest.TestCase):
         names = [os.path.basename(p) for _, p in r.largest]
         self.assertIn("big1", names)
 
-    @unittest.skipIf(IS_WINDOWS, NO_HARDLINK_DEDUP)
     def test_hardlinks_deduped_by_default(self):
         if not hasattr(os, "link"):
             self.skipTest(SKIP_NO_LINK)
@@ -151,7 +148,6 @@ class TestWalk(unittest.TestCase):
         own = dir_own_sizes(root, "a", "b")
         self.assertEqual(dua.aggregate_totals(r.raw, r.children, root), own + 6 + 6)
 
-    @unittest.skipIf(IS_WINDOWS, NO_HARDLINK_DEDUP)
     def test_hardlinks_deduped_same_dir(self):
         # Same-directory links never need REFER — runs everywhere, exercises
         # the same (st_dev, st_ino) dedup path in the accumulator.
@@ -253,21 +249,26 @@ class _FakeEntry:
 
 
 class TestHardlinkDedupeSeam(unittest.TestCase):
-    """The dedupe branch (st_nlink > 1 keyed on (st_dev, st_ino)) only runs on
-    filesystems that can expose linked files, so the os.link-based tests skip on
-    Termux bionic. Driving _scan's scandir seam keeps it covered everywhere."""
+    """The dedupe branch ((st_dev, st_ino), gated by st_nlink or by Windows'
+    unreliable nlink) only runs on filesystems that can expose linked files, so
+    the os.link-based tests skip on Termux bionic. Driving _scan's scandir seam
+    keeps it covered everywhere."""
 
-    def _run(self, count_hard_links):
-        shared = _FakeStat(size=10, nlink=2, dev=7, ino=42)
-        other = _FakeStat(size=5, nlink=1, dev=7, ino=43)
-        entries = [
-            _FakeEntry("/fake/one", shared),
-            _FakeEntry("/fake/two", shared),  # same inode: second link
-            _FakeEntry("/fake/three", other),
-        ]
+    SHARED = _FakeStat(size=10, nlink=2, dev=7, ino=42)
+    OTHER = _FakeStat(size=5, nlink=1, dev=7, ino=43)
+
+    def _run(self, count_hard_links, entries=None, nlink_unreliable=None):
+        if entries is None:
+            entries = [
+                _FakeEntry("/fake/one", self.SHARED),
+                _FakeEntry("/fake/two", self.SHARED),  # same inode: second link
+                _FakeEntry("/fake/three", self.OTHER),
+            ]
         acc = dua.WalkResult()
-        with unittest.mock.patch.object(dua.os, "scandir",
-                                        lambda path: nullcontext(iter(entries))):
+        patch = (unittest.mock.patch.object(dua, "NLINK_UNRELIABLE", nlink_unreliable)
+                 if nlink_unreliable is not None else nullcontext())
+        with patch, unittest.mock.patch.object(dua.os, "scandir",
+                                              lambda path: nullcontext(iter(entries))):
             dua._scan(["/fake"], acc, apparent=True,
                       count_hard_links=count_hard_links, top_n=0, top_target="/fake")
         return acc
@@ -282,6 +283,22 @@ class TestHardlinkDedupeSeam(unittest.TestCase):
         acc = self._run(count_hard_links=True)
         self.assertEqual(acc.raw["/fake"], 10 + 10 + 5)
         self.assertEqual(acc.top, {"one": 10, "two": 10, "three": 5})
+
+    def test_windows_dedupes_files_whose_nlink_is_one(self):
+        # Windows reports st_nlink == 1 even for hardlinks, so with
+        # NLINK_UNRELIABLE the file index alone must catch the second link.
+        linked = _FakeStat(size=10, nlink=1, dev=7, ino=42)
+        entries = [_FakeEntry("/fake/one", linked), _FakeEntry("/fake/two", linked)]
+        acc = self._run(count_hard_links=False, entries=entries, nlink_unreliable=True)
+        self.assertEqual(acc.raw["/fake"], 10 + 0)
+
+    def test_no_identity_is_never_deduped(self):
+        # FAT and some network shares report st_ino == 0: keying on that would
+        # collapse every file in the tree into one.
+        blind = _FakeStat(size=10, nlink=2, dev=7, ino=0)
+        entries = [_FakeEntry("/fake/one", blind), _FakeEntry("/fake/two", blind)]
+        acc = self._run(count_hard_links=False, entries=entries, nlink_unreliable=True)
+        self.assertEqual(acc.raw["/fake"], 10 + 10)
 
 
 class TestScanPipeline(unittest.TestCase):
@@ -689,7 +706,6 @@ class TestMain(unittest.TestCase):
         self.assertEqual(lines[1], f"{f.format(dua_apparent_size(a)):>11} " + a)
         self.assertEqual(lines[2], f"{f.format(dua_apparent_size(a) + dua_apparent_size(b)):>11} total")
 
-    @unittest.skipIf(IS_WINDOWS, NO_HARDLINK_DEDUP)
     def test_hardlinked_top_file_zeroed(self):
         if not hasattr(os, "link"):
             self.skipTest("os.link unavailable on this platform (Termux-Android bionic)")

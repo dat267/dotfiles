@@ -25,7 +25,7 @@ chezmoi diff                                 # verify before applying
 chezmoi apply --force <target-path>          # targeted deploy; a full apply fails on the mimeapps.list TTY conflict
 python3 script.py --help                      # verify a new CLI script parses
 pi-lint-extensions.py                         # tsc --strict every pi extension; node --test does not typecheck
-The Windows job runs on push (paths under `dot_local/scripts/exact_py/` or `dot_pi/`) and on every PR: `gh workflow run windows` or the Actions tab.
+The Windows job runs on push (paths under `dot_local/scripts/exact_py/`, `dot_pi/`, `dot_config/powershell/`, `run_*.ps1.tmpl`) and on every PR: `gh workflow run windows` or the Actions tab. It also renders every template into a throwaway home and PowerShell-parses the profile and the two Windows run_ scripts.
 node --test index.test.ts                     # extension unit tests, from the extension directory
 python3 -m unittest discover -s exact_tests   # Python script tests, from dot_local/scripts/exact_py/
 ```

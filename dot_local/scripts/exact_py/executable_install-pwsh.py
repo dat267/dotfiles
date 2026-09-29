@@ -7,7 +7,7 @@ import tarfile
 import tempfile
 import zipfile
 
-from _shared import Platform, download, fetch_json, log
+from _shared import Platform, download, fetch_json, log, windows_home
 
 # PowerShell's download vocabulary is the canonical one.
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
@@ -92,7 +92,7 @@ def main():
 
     archive_ext = "zip" if os_name == "windows" else "tar.gz"
     if os_name == "windows":
-        install_path = os.path.expanduser("~/Apps/pwsh")
+        install_path = windows_home("Apps", "pwsh")
     else:
         install_path = os.path.expanduser("~/.local/opt/powershell")
 

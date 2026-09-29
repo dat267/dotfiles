@@ -57,7 +57,8 @@ class TestNvimAssetNaming(unittest.TestCase):
 
     def test_install_dir(self):
         self.assertEqual(nvim.install_dir("linux"), os.path.expanduser("~/.local/opt/nvim"))
-        self.assertEqual(nvim.install_dir("windows"), os.path.expanduser("~/Apps/nvim"))
+        # windows_home, not expanduser: MSYS2/Cygwin ~ is the emulated home.
+        self.assertEqual(nvim.install_dir("windows"), shared.windows_home("Apps", "nvim"))
 
 
 class TestNvimMain(unittest.TestCase):

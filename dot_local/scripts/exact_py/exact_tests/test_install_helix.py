@@ -6,6 +6,7 @@ from unittest import mock
 import _loader
 
 helix = _loader.load("install-helix")
+shared = _loader.load("_shared")
 
 # The layout tests assert the unix branch: ~/.local/opt/helix plus a
 # ~/.local/bin/hx symlink. Windows installs to ~/Apps/helix and symlinks
@@ -69,7 +70,8 @@ class TestHelixAssetNaming(unittest.TestCase):
 
     def test_install_dir(self):
         self.assertEqual(helix.install_dir("linux"), os.path.expanduser("~/.local/opt/helix"))
-        self.assertEqual(helix.install_dir("windows"), os.path.expanduser("~/Apps/helix"))
+        # windows_home, not expanduser: MSYS2/Cygwin ~ is the emulated home.
+        self.assertEqual(helix.install_dir("windows"), shared.windows_home("Apps", "helix"))
 
 
 class TestHelixVerifyCommand(unittest.TestCase):

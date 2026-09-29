@@ -9,7 +9,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-from _shared import Platform, download, log
+from _shared import Platform, download, log, windows_home
 
 # Go's download vocabulary is the canonical one.
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
@@ -74,7 +74,7 @@ def main():
     log(f"Latest Go release: {go_version}", "green")
 
     if os_name == "windows":
-        install_path = os.path.expanduser("~/Apps/go")
+        install_path = windows_home("Apps", "go")
         archive_ext = "zip"
     else:
         install_path = os.path.expanduser("~/.local/opt/go")

@@ -188,6 +188,33 @@ class TestPlatform(unittest.TestCase):
             plat = shared.Platform.detect()
         self.assertEqual((plat.os, plat.arch), ("linux", "x64"))
 
+    def test_detect_msys_and_cygwin_are_windows_underneath(self):
+        # Those Pythons report "MSYS_NT-10.0-19045" / "CYGWIN_NT-10.0-19045";
+        # the Linux release tarballs would not execute on the machine.
+        for system in ("MSYS_NT-10.0-19045", "CYGWIN_NT-10.0-19045"):
+            with mock.patch("platform.system", return_value=system), mock.patch(
+                "platform.machine", return_value="x86_64"
+            ):
+                plat = shared.Platform.detect()
+            self.assertEqual((plat.os, plat.arch), ("windows", "x64"), system)
+            self.assertTrue(plat.is_windows)
+            self.assertEqual(plat.exe_ext, ".exe")
+            # ... but a venv made by a POSIX-emulated Python uses bin/.
+            self.assertEqual(plat.venv_bin, "bin")
+
+    def test_windows_home_prefers_userprofile(self):
+        # MSYS2/Cygwin expanduser("~") is the emulated home, not the Windows
+        # profile the dotfiles and PATH come from.
+        with mock.patch.dict(os.environ, {"USERPROFILE": os.path.join(os.sep, "Users", "me")}):
+            self.assertEqual(shared.windows_home("Apps", "pi"),
+                             os.path.join(os.sep, "Users", "me", "Apps", "pi"))
+
+    def test_windows_home_falls_back_to_tilde(self):
+        env = {k: v for k, v in os.environ.items() if k != "USERPROFILE"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertEqual(shared.windows_home("Apps"),
+                             os.path.join(os.path.expanduser("~"), "Apps"))
+
 
 class TestPlatformVendor(unittest.TestCase):
     """vendor() — the one lookup for vendor download-URL vocabularies.
