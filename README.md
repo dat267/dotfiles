@@ -36,7 +36,7 @@ separately after the first apply.
 | **PowerShell** | Profile + custom `Utils.psm1` module |
 | **VS Code** | Settings + snippet files across languages |
 | **SSH** | Client config (Tailscale/CGNAT hosts) |
-| **AI** | opencode (minimal config), Pi (agent config, extensions, skills — including `permissions`: kernel-enforced read-only outside the workspace via Landlock) |
+| **AI** | opencode (minimal config), Pi (agent config, extensions, skills) |
 
 ## Platform Support
 

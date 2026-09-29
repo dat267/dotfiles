@@ -33,14 +33,10 @@ python3 -m unittest discover -s exact_tests   # Python script tests, from dot_lo
 Chezmoi source is the authoritative reference. Clone and grep it (`internal/chezmoi/` = mechanics, `internal/cmd/` = commands and template funcs):
 `git clone --depth 1 https://github.com/twpayne/chezmoi.git /tmp/chezmoi`
 
-## Permissions (pi)
+## Filesystem policy
 
-`~/.pi/agent/extensions/permissions` wraps every `bash` call in a kernel gate; `write`/`edit` are path-checked in-process. Linux compiles `gate.c` and enforces Landlock. Other platforms have no backend and default to `full-access` with a startup warning. There is no approval mode: the agent is never asked to confirm a command.
+There is no pi sandbox or permissions extension: writes and `bash` calls run with the OS permissions of the account that started pi. The former Landlock gate, the `/permissions` modes, and their status-line indicator are gone.
 
-- **Writable**: workspace (chezmoi source dir), `/tmp`, `/var/tmp`, `/dev`, `/proc`, `/sys`, `~/.cache`, `~/.npm`, `~/.cargo`, `~/go`, `~/.pi` (agent state: extension and skill deploys, settings, sessions; contains credentials, a risk the user accepted).
-- **Blocked**: a full `chezmoi apply` (writes boltdb plus `~/.profile`/`~/.ssh/`/`~/.config/` outside the allowlist); `sudo`; writes to `~/.ssh/`, `~/.config/`, `~/.local/bin/`, `~/.gnupg/`. Deploy with a targeted `chezmoi apply --force <path>`. When the target is outside the writable allowlist, stage the source in the workspace and hand the user the command.
-- **Modes** via `/permissions <code>`: `RO` read-only, `WW` workspace (kernel-enforced), `FA` full access. The code is pinned to the status line, the only surface that survives `pi -c`.
-
-Gate interface, removed backends, extension spawn rules, and gate test coverage: `docs/permissions.md`.
+Deployments (`chezmoi apply`) and `sudo` are still run by the user in their own terminal, never by the agent: stage source changes in the workspace and hand over the command.
 
 `README.md`, `AGENTS.md`, `LICENSE` are in `.chezmoiignore`: never deployed.
