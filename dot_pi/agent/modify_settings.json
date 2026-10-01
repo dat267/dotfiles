@@ -1,6 +1,9 @@
 chezmoi:modify-template
 {{- $current := fromJson (.chezmoi.stdin | default "{}") }}
 {{- $_ := setValueAtPath "tuiMode" "fullscreen" $current }}
+{{- /* "header" keeps the startup header (version and key hints) and hides the model
+     scope line and the loaded-resource listing. */}}
+{{- $_ := setValueAtPath "quietStartup" "header" $current }}
 {{- $_ := setValueAtPath "fullscreenExitOutput" "resume-hint" $current }}
 {{- $_ := setValueAtPath "hideThinkingBlock" true $current }}
 {{- /* system: pi derives its colors from the terminal's foreground, background,
@@ -30,9 +33,11 @@ chezmoi:modify-template
      list already persisted into the deployed file has to be evicted here. */}}
 {{- $_ := unset $current "defaultTools" }}
 {{- /* Native Windows: pi's bash fallback finds %SystemRoot%\System32\bash.exe (the WSL shim)
-     whenever WSL is installed, so drop the bash tool and use the native powershell tool. */}}
+     whenever WSL is installed, so drop the bash tool and use the native powershell tool.
+     A list of only +name/-name entries mutates the inherited defaults instead of
+     replacing them, so a future default (grep, find, ls) is not silently dropped. */}}
 {{- if eq .chezmoi.os "windows" }}
-{{- $_ := setValueAtPath "defaultTools" (list "read" "powershell" "edit" "write") $current }}
+{{- $_ := setValueAtPath "defaultTools" (list "-bash" "+powershell") $current }}
 {{- end }}
 {{ toPrettyJson $current }}
 
