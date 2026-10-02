@@ -28,10 +28,16 @@ chezmoi:modify-template
      32768-token summary budget; keepRecentTokens stays at pi's default 20000. */}}
 {{- $_ := unset $current "compaction" }}
 {{- $_ := setValueAtPath "compaction.reserveTokens" 40960 $current }}
-{{- /* defaultTools is deliberately unmanaged: pi's own defaults (read, bash, edit,
-     write) are the tool set we want. A modify template only merges, so the key has
-     to be evicted to drop anything pi or a manual edit persisted into the deployed
-     file (previously the codemode entry). */}}
+{{- /* defaultTools is deliberately unmanaged on Linux and macOS: pi's own defaults
+     (read, bash, edit, write) are the tool set we want. A modify template only merges,
+     so the key is evicted first to drop anything pi or a manual edit persisted into
+     the deployed file. Native Windows is different: pi's bash fallback resolves to the
+     WSL shim (%SystemRoot%\System32\bash.exe) whenever WSL is installed, so drop the
+     bash tool and add the native powershell tool. Only -name/+name entries, so the
+     delta mutates pi's inherited selection instead of replacing it. */}}
 {{- $_ := unset $current "defaultTools" }}
+{{- if eq .chezmoi.os "windows" }}
+{{- $_ := setValueAtPath "defaultTools" (list "-bash" "+powershell") $current }}
+{{- end }}
 {{ toPrettyJson $current }}
 
