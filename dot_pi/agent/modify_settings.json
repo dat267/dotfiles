@@ -28,18 +28,10 @@ chezmoi:modify-template
      32768-token summary budget; keepRecentTokens stays at pi's default 20000. */}}
 {{- $_ := unset $current "compaction" }}
 {{- $_ := setValueAtPath "compaction.reserveTokens" 40960 $current }}
-{{- /* defaultTools: pi's defaults (read, bash, edit, write) plus codemode. A list of
-     only +name/-name entries mutates the inherited selection instead of replacing it,
-     so a default pi adds later (grep, find, ls) is not silently dropped. unset first:
-     a modify template only merges, so an explicit list already persisted into the
-     deployed file has to be evicted. */}}
+{{- /* defaultTools is deliberately unmanaged: pi's own defaults (read, bash, edit,
+     write) are the tool set we want. A modify template only merges, so the key has
+     to be evicted to drop anything pi or a manual edit persisted into the deployed
+     file (previously the codemode entry). */}}
 {{- $_ := unset $current "defaultTools" }}
-{{- $tools := list "+codemode" }}
-{{- /* Native Windows: pi's bash fallback finds %SystemRoot%\System32\bash.exe (the WSL shim)
-     whenever WSL is installed, so drop the bash tool and use the native powershell tool. */}}
-{{- if eq .chezmoi.os "windows" }}
-{{- $tools = list "-bash" "+powershell" "+codemode" }}
-{{- end }}
-{{- $_ := setValueAtPath "defaultTools" $tools $current }}
 {{ toPrettyJson $current }}
 
