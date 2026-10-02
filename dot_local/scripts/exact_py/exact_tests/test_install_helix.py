@@ -5,7 +5,7 @@ from unittest import mock
 
 import _loader
 
-helix = _loader.load("install-helix")
+helix = _loader.load("install_helix")
 shared = _loader.load("_shared")
 
 # The layout tests assert the unix branch: ~/.local/opt/helix plus a
@@ -96,7 +96,7 @@ class TestHelixMain(unittest.TestCase):
     real executable (current_exe is canonicalized, so the symlink is fine)."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="install-helix-test-")
+        self.tmp = tempfile.mkdtemp(prefix="install_helix-test-")
         self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
         self.bin_dir = os.path.join(self.tmp, "bin-root")
 

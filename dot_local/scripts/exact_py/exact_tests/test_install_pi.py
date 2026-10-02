@@ -4,7 +4,7 @@ from unittest import mock
 
 import _loader
 
-pi = _loader.load("install-pi")
+pi = _loader.load("install_pi")
 shared = _loader.load("_shared")
 
 PKG = "@earendil-works/pi-coding-agent"

@@ -3,11 +3,11 @@ from unittest import mock
 
 import _loader
 
-compress = _loader.load("yazi-compress")
+compress = _loader.load("yazi_compress")
 
 
 def run_main(argv):
-    """Run yazi-compress main() with 7z available and stdin drained."""
+    """Run yazi_compress main() with 7z available and stdin drained."""
     recorded = {}
 
     def fake_run(cmd, **kwargs):
@@ -15,7 +15,7 @@ def run_main(argv):
         return mock.Mock(returncode=0)
 
     with mock.patch.object(compress.shutil, "which", return_value="/usr/bin/7z"), mock.patch.object(
-        compress.sys, "argv", ["yazi-compress"] + argv
+        compress.sys, "argv", ["yazi_compress"] + argv
     ), mock.patch.object(compress.subprocess, "run", side_effect=fake_run), mock.patch.object(
         compress, "input_flush", return_value=""
     ):

@@ -6,9 +6,9 @@ from unittest import mock
 import _loader
 
 shared = _loader.load("_shared")
-aws = _loader.load("install-aws")
-gcloud = _loader.load("install-gcloud")
-yazi = _loader.load("install-yazi")
+aws = _loader.load("install_aws")
+gcloud = _loader.load("install_gcloud")
+yazi = _loader.load("install_yazi")
 
 
 def patch_platform(system, machine):

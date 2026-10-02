@@ -1,4 +1,4 @@
-"""Load py/ scripts as modules despite the executable_ prefix and hyphens."""
+"""Load py/ scripts as modules despite the executable_ prefix."""
 import importlib.machinery
 import importlib.util
 import os
@@ -34,7 +34,7 @@ if str(PY_DIR) not in sys.path:
 
 
 def load(stem: str):
-    """Import a script by name without the executable_ prefix (e.g. 'yazi-rename')."""
+    """Import a script by name without the executable_ prefix (e.g. 'yazi_rename')."""
     if stem == "_shared":
         path = PY_DIR / "_shared.py"
     else:

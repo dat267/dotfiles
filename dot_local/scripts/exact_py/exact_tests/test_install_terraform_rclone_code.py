@@ -9,9 +9,9 @@ from unittest import mock
 import _loader
 
 shared = _loader.load("_shared")
-tf = _loader.load("install-terraform")
-rclone = _loader.load("install-rclone")
-code = _loader.load("install-code")
+tf = _loader.load("install_terraform")
+rclone = _loader.load("install_rclone")
+code = _loader.load("install_code")
 
 
 def patch_platform(system, machine):
@@ -88,12 +88,12 @@ class TestCleanDirectory(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         target = os.path.join(tmp, "sub")
         os.makedirs(target)
-        vsx = _loader.load("install-vscode")
+        vsx = _loader.load("install_vscode")
         vsx.clean_directory(target)
         self.assertFalse(os.path.exists(target))
 
     def test_noop_when_missing(self):
-        vsx = _loader.load("install-vscode")
+        vsx = _loader.load("install_vscode")
         with mock.patch.object(vsx.shutil, "rmtree") as rmtree, mock.patch.object(vsx.os, "remove") as remove:
             self.assertIsNone(vsx.clean_directory("/nonexistent/path/xyz"))  # must not raise
         rmtree.assert_not_called()

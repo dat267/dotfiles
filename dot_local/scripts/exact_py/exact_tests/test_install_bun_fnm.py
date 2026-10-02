@@ -5,8 +5,8 @@ from unittest import mock
 
 import _loader
 
-bun = _loader.load("install-bun")
-fnm = _loader.load("install-fnm")
+bun = _loader.load("install_bun")
+fnm = _loader.load("install_fnm")
 
 
 def platform_patch(module, system, machine):

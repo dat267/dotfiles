@@ -2,7 +2,7 @@ import unittest
 
 import _loader
 
-split = _loader.load("yazi-ffmpeg-split")
+split = _loader.load("yazi_ffmpeg_split")
 
 
 class TestParseTs(unittest.TestCase):

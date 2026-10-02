@@ -6,8 +6,8 @@ from unittest import mock
 import _loader
 
 shared = _loader.load("_shared")
-install = _loader.load("install-tools")
-uninstall = _loader.load("uninstall-tools")
+install = _loader.load("install_tools")
+uninstall = _loader.load("uninstall_tools")
 
 
 def patch_platform(system="Linux", machine="x86_64"):

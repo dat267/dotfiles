@@ -4,11 +4,11 @@ from unittest import mock
 import _loader
 
 shared = _loader.load("_shared")
-dua = _loader.load("install-dua")
+dua = _loader.load("install_dua")
 
 
 def patch_platform(system, machine):
-    """Patch _shared's detection inputs (install-dua imports no platform)."""
+    """Patch _shared's detection inputs (install_dua imports no platform)."""
     return (
         mock.patch.object(shared.platform, "system", return_value=system),
         mock.patch.object(shared.platform, "machine", return_value=machine),

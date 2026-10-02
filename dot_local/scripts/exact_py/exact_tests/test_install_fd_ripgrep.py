@@ -3,8 +3,8 @@ from unittest import mock
 
 import _loader
 
-fd = _loader.load("install-fd")
-rg = _loader.load("install-ripgrep")
+fd = _loader.load("install_fd")
+rg = _loader.load("install_ripgrep")
 
 
 def platform_patch(module, system, machine):

@@ -4,26 +4,26 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 
 ## Naming convention
 
-- Deployed name = filename minus the `executable_` prefix; words are **hyphen-separated** (never underscores): `install-aws.py`, `yazi-ffmpeg-split.py`, `url-decode-rename.py`
-- Grouped by prefix: `install-<tool>.py` / `uninstall-<tools>.py` installers, `yazi-*.py` Yazi helpers
+- Deployed name = filename minus the `executable_` prefix; words are **underscore-separated** (snake_case): `install_aws.py`, `yazi_ffmpeg_split.py`, `url_decode_rename.py`
+- Grouped by prefix: `install_<tool>.py` / `uninstall_<tools>.py` installers, `yazi_*.py` Yazi helpers
 - Standalone tools keep a bare name: `cloudsh.py`, `dotfiles.py`, `lsp.py`, `sysinfo.py`, `mpv` (extensionless drop-in)
 
 ## Structure
 
-- `executable_yazi-*.py` — Yazi media/translate helpers, invoked via `keymap.toml` bindings
-- `executable_install-*.py` — Tool installers; most download the latest GitHub release to `~/.local/bin/`; `install-pi.py` installs/updates the npm package instead (`npm install -g --ignore-scripts @earendil-works/pi-coding-agent`, Node >= 22.19 engines floor, `--check`/`--force`)
+- `executable_yazi_*.py` — Yazi media/translate helpers, invoked via `keymap.toml` bindings
+- `executable_install_*.py` — Tool installers; most download the latest GitHub release to `~/.local/bin/`; `install_pi.py` installs/updates the npm package instead (`npm install -g --ignore-scripts @earendil-works/pi-coding-agent`, Node >= 22.19 engines floor, `--check`/`--force`)
 - `executable_gim.py` — install private Go binaries over SSH (`gim <repo[@version]>`)
 - `executable_dotfiles.py` — rclone + git sync (`dotfiles up`/`dotfiles down`)
 - `executable_lsp.py` — LSP server installer (gopls, pyright, etc.)
 - `executable_cloudsh.py` — GCP Cloud Shell SSH tunnel
-- `executable_sysinfo.py`, `executable_url-decode-rename.py`, `executable_mpv`
+- `executable_sysinfo.py`, `executable_url_decode_rename.py`, `executable_mpv`
 - Shell-friendly converters: `executable_jsonfmt.py` (pretty/minify/sort JSON), `executable_epoch.py` (epoch↔ISO), `executable_csvtable.py` (CSV→aligned table), `executable_dupfind.py` (duplicate files by size+hash), `executable_b64.py` (base64 encode/decode for binary blobs)
 - `executable_dua.py` — dua-style disk usage analyzer (aggregate/largest-files, fork-parallel via `-t`, hardlink dedupe)
 - `executable_crypt.py` — pure Python ChaCha20-Poly1305 + scrypt authenticated file encryption
 - `executable_serve.py` — LAN file share: serves a dir or single file with URLs + ASCII QR, optional `--token`, `--upload`, `--once`, port auto-increment; QR needs `qrencode` and degrades to URLs only
 - `executable_extract.py` — archive extractor: zip/tar via stdlib, .7z/.rar via `7z`/`unrar`; refuses absolute or `..` member paths, refuses a non-empty destination without `--force`, `-C`/`-l`/`-f`/`-q` flags
 - `executable_ports.py` — listening sockets via `ss -tlnp`, classified exposed/bound/local
-- `executable_hyper-catalog.py` — regenerates the hyper provider's model catalog (pi extension) from the live `/v1/models` API; `--check` reports drift without writing
+- `executable_hyper_catalog.py` — regenerates the hyper provider's model catalog (pi extension) from the live `/v1/models` API; `--check` reports drift without writing
 - `_shared.py` — shared module (platform detection, colored logging, helpers)
 
 ## Conventions
@@ -38,7 +38,7 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 ## Tests
 
 - `exact_tests/` — stdlib `unittest`, one module per script, run with `python3 -m unittest discover -s exact_tests` (deployed as `tests/`)
-- `exact_tests/_loader.py` imports scripts by path (handles `executable_` prefix, hyphens/underscores, extensionless `mpv`)
+- `exact_tests/_loader.py` imports scripts by path (handles `executable_` prefix, hyphen or underscore stems, extensionless `mpv`)
 - Network and install side effects are mocked; only pure logic and main()-driven command construction are tested
 - `@unittest.expectedFailure` marks verified script bugs (see class docstrings in `test_cloudsh.py`, `test_install_android_nerdfont.py`)
 

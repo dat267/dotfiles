@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reorder audio or subtitle tracks in media files (promote one to first).
 
-Usage: yazi-ffmpeg-streams.py {audio,subtitle} [files...] [--dir DIR]
+Usage: yazi_ffmpeg_streams.py {audio,subtitle} [files...] [--dir DIR]
 
 For .mkv files with mkvmerge installed, uses mkvmerge --track-order
 (lossless remux). Otherwise re-muxes with ffmpeg. Interactive via Yazi.

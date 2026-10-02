@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""hyper-catalog — regenerate hyper/catalog.ts from the live /v1/models API.
+"""hyper_catalog — regenerate hyper/catalog.ts from the live /v1/models API.
 
 hyper publishes authoritative pricing, context windows, output caps, effort
 levels, and vision flags at GET https://hyper.charm.land/v1/models. The
@@ -18,8 +18,8 @@ Auth: --api-key flag > $HYPER_API_KEY > ~/.pi/agent/auth.json (provider id
 "hyper"), same precedence as the extension.
 
 Run from the repo root (or pass --file):
-    hyper-catalog --check    # report drift, change nothing, exit 1 on drift
-    hyper-catalog            # rewrite the CATALOG array in place
+    hyper_catalog --check    # report drift, change nothing, exit 1 on drift
+    hyper_catalog            # rewrite the CATALOG array in place
 """
 
 import argparse

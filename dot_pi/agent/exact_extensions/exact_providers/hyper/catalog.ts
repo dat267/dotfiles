@@ -4,7 +4,7 @@
  * CATALOG holds compact records (only fields that vary between models);
  * buildModels() fills the invariants (api, provider, baseUrl, input, compat).
  * Data fields (cost, limits, efforts, vision) are generated from the live
- * API — regenerate with `hyper-catalog` (dot_local/scripts/exact_py), never
+ * API — regenerate with `hyper_catalog` (dot_local/scripts/exact_py), never
  * by hand; display names and model selection stay curated. Still no
  * fetchModels overlay at startup (see index.ts).
  */

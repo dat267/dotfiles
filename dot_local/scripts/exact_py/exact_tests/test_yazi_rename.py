@@ -2,7 +2,7 @@ import unittest
 
 import _loader
 
-fmt_path = _loader.load("yazi-rename").fmt_path
+fmt_path = _loader.load("yazi_rename").fmt_path
 
 
 class TestFmtPath(unittest.TestCase):

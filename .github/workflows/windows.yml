@@ -13,8 +13,8 @@ name: windows
 # Start Menu shortcut, and the profile writes HKCU and exports the certificate
 # store, so both are rendered and PowerShell-parsed here instead of executed.
 #
-# The render and parse steps run before pi-lint-extensions on purpose: chezmoi
-# walks the source tree, and the extension node_modules symlinks pi-lint
+# The render and parse steps run before pi_lint_extensions on purpose: chezmoi
+# walks the source tree, and the extension node_modules symlinks pi_lint_extensions
 # creates can be dangling, which makes chezmoi fail with ENOENT while loading.
 #
 # Everything below the unittest step runs through .github/scripts/step-report.ps1:
@@ -171,9 +171,9 @@ jobs:
         shell: pwsh
         run: |
           . .github/scripts/step-report.ps1
-          Invoke-WithReport "install-pi" {
-            Invoke-Native "install-pi.py" {
-              python dot_local/scripts/exact_py/executable_install-pi.py
+          Invoke-WithReport "install_pi" {
+            Invoke-Native "install_pi.py" {
+              python dot_local/scripts/exact_py/executable_install_pi.py
             } | Out-Null
           }
 
@@ -198,22 +198,22 @@ jobs:
         shell: pwsh
         run: |
           . .github/scripts/step-report.ps1
-          Invoke-WithReport "install-pi-check" {
-            Invoke-Native "install-pi.py --check" {
-              python dot_local/scripts/exact_py/executable_install-pi.py --check
+          Invoke-WithReport "install_pi-check" {
+            Invoke-Native "install_pi.py --check" {
+              python dot_local/scripts/exact_py/executable_install_pi.py --check
             } | Out-Null
           }
 
       # Resolves %USERPROFILE%\Apps\pi\node_modules, symlinks each extension's
       # deps and runs npx.cmd — a bare "npx" is a shell script Windows cannot
       # launch.
-      - name: pi-lint-extensions
+      - name: pi_lint_extensions
         shell: pwsh
         run: |
           . .github/scripts/step-report.ps1
-          Invoke-WithReport "pi-lint" {
-            Invoke-Native "pi-lint-extensions.py" {
-              python dot_local/scripts/exact_py/executable_pi-lint-extensions.py
+          Invoke-WithReport "pi_lint" {
+            Invoke-Native "pi_lint_extensions.py" {
+              python dot_local/scripts/exact_py/executable_pi_lint_extensions.py
             } | Out-Null
           }
 
@@ -224,9 +224,9 @@ jobs:
         shell: pwsh
         run: |
           . .github/scripts/step-report.ps1
-          Invoke-WithReport "install-nvim" {
-            Invoke-Native "install-nvim.py" {
-              python dot_local/scripts/exact_py/executable_install-nvim.py
+          Invoke-WithReport "install_nvim" {
+            Invoke-Native "install_nvim.py" {
+              python dot_local/scripts/exact_py/executable_install_nvim.py
             } | Out-Null
           }
 
@@ -238,7 +238,7 @@ jobs:
             $exe = Join-Path $env:USERPROFILE "Apps\nvim\bin\nvim.exe"
             if (-not (Test-Path -LiteralPath $exe)) { throw "missing after install: $exe" }
             Invoke-Native "nvim.exe --version" { & $exe --version } | Select-Object -First 1
-            # install-nvim.py's dir and the profile's PATH entry have to agree:
+            # install_nvim.py's dir and the profile's PATH entry have to agree:
             # they were Apps\nvim-win64 vs Apps\nvim, which installs nvim into a
             # directory nothing looks in.
             $profilePath = Join-Path $env:RENDERED_HOME ".config\powershell\Microsoft.PowerShell_profile.ps1"

@@ -46,7 +46,7 @@ class TestFetchJson(unittest.TestCase):
         urlopen(url, data=None, timeout=...). Passing the timeout positionally
         binds it to `data` and raises TypeError, which fetch_json swallows into
         None — the install scripts then report a missing release asset, which
-        is what install-pwsh did. The (req, timeout) doubles above cannot catch
+        is what install_pwsh did. The (req, timeout) doubles above cannot catch
         that; this one mirrors the signature urlopen actually has."""
         seen = {}
 
@@ -364,7 +364,7 @@ class TestExtractArchive(unittest.TestCase):
             self.assertEqual(pathlib.Path(out, "helix-1", "hx").read_text(), "X")
 
     def test_zip_without_an_extension(self):
-        # install-nvim stages the payload as "nvim.archive"; on Windows that
+        # install_nvim stages the payload as "nvim.archive"; on Windows that
         # download is a zip, which the extension-based branch handed to
         # tarfile ("not a gzip file").
         import zipfile

@@ -4,8 +4,8 @@ from unittest import mock
 
 import _loader
 
-concat = _loader.load("yazi-ffmpeg-concat")
-transcode = _loader.load("yazi-ffmpeg-transcode")
+concat = _loader.load("yazi_ffmpeg_concat")
+transcode = _loader.load("yazi_ffmpeg_transcode")
 
 
 def run(module, argv, stdin_reply=""):

@@ -4,7 +4,7 @@ from unittest import mock
 
 import _loader
 
-streams = _loader.load("yazi-ffmpeg-streams")
+streams = _loader.load("yazi_ffmpeg_streams")
 
 FFPROBE_JSON = json.dumps(
     {

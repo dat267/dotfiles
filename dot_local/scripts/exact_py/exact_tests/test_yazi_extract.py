@@ -4,7 +4,7 @@ import unittest
 
 import _loader
 
-get_dest_dir = _loader.load("yazi-extract").get_dest_dir
+get_dest_dir = _loader.load("yazi_extract").get_dest_dir
 
 
 class TestGetDestDir(unittest.TestCase):

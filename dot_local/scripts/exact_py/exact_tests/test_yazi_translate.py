@@ -5,7 +5,7 @@ from unittest import mock
 
 import _loader
 
-yt = _loader.load("yazi-translate")
+yt = _loader.load("yazi_translate")
 
 
 class TestGuessLang(unittest.TestCase):

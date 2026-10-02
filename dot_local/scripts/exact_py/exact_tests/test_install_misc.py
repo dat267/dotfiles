@@ -5,12 +5,12 @@ from unittest import mock
 import _loader
 
 shared = _loader.load("_shared")
-lf = _loader.load("install-lf")
-firefox = _loader.load("install-firefox")
-opencode = _loader.load("install-opencode")
-aws = _loader.load("install-aws")
-pwsh = _loader.load("install-pwsh")
-go = _loader.load("install-go")
+lf = _loader.load("install_lf")
+firefox = _loader.load("install_firefox")
+opencode = _loader.load("install_opencode")
+aws = _loader.load("install_aws")
+pwsh = _loader.load("install_pwsh")
+go = _loader.load("install_go")
 
 
 class TestSmokeInstallers(unittest.TestCase):
@@ -75,7 +75,7 @@ class TestSmokeInstallers(unittest.TestCase):
 
 class TestFirefoxGuard(unittest.TestCase):
     def test_non_windows_exits_zero(self):
-        with mock.patch("sys.argv", ["install-firefox"]), mock.patch.object(
+        with mock.patch("sys.argv", ["install_firefox"]), mock.patch.object(
             firefox.platform, "system", return_value="Linux"
         ):
             with self.assertRaises(SystemExit) as ctx:

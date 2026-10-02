@@ -1,4 +1,4 @@
-"""Tests for hyper-catalog — regenerate hyper/catalog.ts from /v1/models.
+"""Tests for hyper_catalog — regenerate hyper/catalog.ts from /v1/models.
 
 Seams: the pure mapping (API model record -> compact catalog entry), the
 regeneration of the CATALOG array inside catalog.ts (surgical splice, rest of
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import _loader
 
-hyper_catalog = _loader.load("hyper-catalog")
+hyper_catalog = _loader.load("hyper_catalog")
 
 # A faithful slice of the live /v1/models response (values seen 2026-09-17):
 # glm-5.3-flash is fully in sync with nothing to change, deepseek-v4-pro has

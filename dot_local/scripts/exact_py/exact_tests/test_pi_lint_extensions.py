@@ -1,4 +1,4 @@
-"""Tests for pi-lint-extensions: per-extension tsc --strict as a regular,
+"""Tests for pi_lint_extensions: per-extension tsc --strict as a regular,
 one-command practice. The pure seams (discovery, command planning, exit
 aggregation) are tested directly; the filesystem effects run against tmp.
 """
@@ -14,7 +14,7 @@ import _loader
 
 _Path = pathlib.Path
 
-pi_lint = _loader.load("pi-lint-extensions")
+pi_lint = _loader.load("pi_lint_extensions")
 
 TS = pi_lint.TSC_VERSION
 

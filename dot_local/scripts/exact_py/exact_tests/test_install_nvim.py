@@ -6,7 +6,7 @@ from unittest import mock
 import _loader
 
 shared = _loader.load("_shared")
-nvim = _loader.load("install-nvim")
+nvim = _loader.load("install_nvim")
 
 # The layout tests assert the unix branch: ~/.local/opt/nvim plus a
 # ~/.local/bin/nvim symlink. Windows installs to ~/Apps/nvim and symlinks
@@ -16,7 +16,7 @@ UNIX_LAYOUT = "asserts the unix ~/.local/opt + ~/.local/bin layout"
 
 
 def patch_platform(system, machine):
-    """Patch _shared's detection inputs (install-nvim imports no platform)."""
+    """Patch _shared's detection inputs (install_nvim imports no platform)."""
     return (
         mock.patch.object(shared.platform, "system", return_value=system),
         mock.patch.object(shared.platform, "machine", return_value=machine),
@@ -67,7 +67,7 @@ class TestNvimMain(unittest.TestCase):
     (share/nvim/runtime, lib/nvim/parser)."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="install-nvim-test-")
+        self.tmp = tempfile.mkdtemp(prefix="install_nvim-test-")
         self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
         self.bin_dir = os.path.join(self.tmp, "bin-root")
 

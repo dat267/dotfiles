@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""pi-lint-extensions — typecheck every pi extension with tsc --strict.
+"""pi_lint_extensions — typecheck every pi extension with tsc --strict.
 
 node --test strips types and never typechecks, so extension debt (unused
 declarations, nullability, bad narrowing) ships silently. This runs
@@ -11,7 +11,7 @@ per-dir node_modules layout (symlink to the installed pi package plus its
 @types/node) is created on demand — tsc resolves @earendil-works/* imports
 and the --types node entry through it.
 
-Run: pi-lint-extensions [--root REPO] [--dir NAME] [--quiet]
+Run: pi_lint_extensions [--root REPO] [--dir NAME] [--quiet]
 """
 
 import argparse

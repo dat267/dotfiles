@@ -1,49 +1,49 @@
 [[mgr.prepend_keymap]]
 on = ["t", "f"]
-run = "shell '$HOME/.local/scripts/py/yazi-translate.py --rename %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi_translate.py --rename %S 2>&1' --block"
 desc = "Translate filename"
 
 [[mgr.prepend_keymap]]
 on = ["t", "c"]
-run = "shell '$HOME/.local/scripts/py/yazi-translate.py --quiet --file %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi_translate.py --quiet --file %S 2>&1' --block"
 desc = "Translate content"
 
 [[mgr.prepend_keymap]]
 on = ["z", "x"]
-run = "shell '$HOME/.local/scripts/py/yazi-extract.py %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi_extract.py %S 2>&1' --block"
 desc = "Extract"
 
 [[mgr.prepend_keymap]]
 on = ["z", "c"]
-run = "shell '$HOME/.local/scripts/py/yazi-compress.py 7z %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi_compress.py 7z %S 2>&1' --block"
 desc = "Comp 7z"
 
 [[mgr.prepend_keymap]]
 on = ["z", "z"]
-run = "shell '$HOME/.local/scripts/py/yazi-compress.py zip %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi_compress.py zip %S 2>&1' --block"
 desc = "Comp zip"
 
 [[mgr.prepend_keymap]]
 on = ["z", "n"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-concat.py %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi_ffmpeg_concat.py %S 2>&1' --block"
 desc = "Concat"
 
 [[mgr.prepend_keymap]]
 on = ["z", "t"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-transcode.py %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi_ffmpeg_transcode.py %S 2>&1' --block"
 desc = "Transcode"
 
 [[mgr.prepend_keymap]]
 on = ["z", "s"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-split.py %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi_ffmpeg_split.py %S 2>&1' --block"
 desc = "Split"
 
 [[mgr.prepend_keymap]]
 on = ["z", "r"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-streams.py subtitle %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi_ffmpeg_streams.py subtitle %S 2>&1' --block"
 desc = "Reorder subtitles"
 
 [[mgr.prepend_keymap]]
 on = ["z", "a"]
-run = "shell '$HOME/.local/scripts/py/yazi-ffmpeg-streams.py audio %S 2>&1' --block"
+run = "shell '$HOME/.local/scripts/py/yazi_ffmpeg_streams.py audio %S 2>&1' --block"
 desc = "Reorder audio"

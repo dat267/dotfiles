@@ -40,7 +40,7 @@ $global:__dotfiles_profile_loaded = $true
     if ($IsWindows) {
         $paths += @(
             "$HOME/.config/powershell/scripts/windows",
-            # install-nvim.py extracts to $HOME/Apps/nvim (~/Apps/<tool> like
+            # install_nvim.py extracts to $HOME/Apps/nvim (~/Apps/<tool> like
             # pwsh and 7z); the nvim-win64 entry is the older manual unzip.
             "$HOME/Apps/nvim/bin",
             "$HOME/Apps/nvim-win64/bin",

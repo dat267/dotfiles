@@ -2,7 +2,7 @@
 
 Every `scripts/py/<name>` reference in the yazi configs must resolve to a
 script in the chezmoi source. The reverse is NOT asserted — standalone
-tools (sysinfo, dotfiles, yazi-rename, installers) are invoked manually.
+tools (sysinfo, dotfiles, yazi_rename, installers) are invoked manually.
 """
 
 import pathlib
@@ -55,13 +55,13 @@ class TestYaziConfigReferencesScripts(unittest.TestCase):
         drop references and still pass the existence check above."""
         refs = referenced_scripts()
         for expected in (
-            "yazi-compress.py",
-            "yazi-extract.py",
-            "yazi-ffmpeg-concat.py",
-            "yazi-ffmpeg-split.py",
-            "yazi-ffmpeg-streams.py",
-            "yazi-ffmpeg-transcode.py",
-            "yazi-translate.py",
+            "yazi_compress.py",
+            "yazi_extract.py",
+            "yazi_ffmpeg_concat.py",
+            "yazi_ffmpeg_split.py",
+            "yazi_ffmpeg_streams.py",
+            "yazi_ffmpeg_transcode.py",
+            "yazi_translate.py",
         ):
             self.assertIn(expected, refs)
 

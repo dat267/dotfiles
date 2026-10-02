@@ -6,8 +6,8 @@ from unittest import mock
 import _loader
 
 shared = _loader.load("_shared")
-sdk = _loader.load("install-android-sdk")
-nf = _loader.load("install-nerd-font")
+sdk = _loader.load("install_android_sdk")
+nf = _loader.load("install_nerd_font")
 
 
 def patch_platform(system, machine):

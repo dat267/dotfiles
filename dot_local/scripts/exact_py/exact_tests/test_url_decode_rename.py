@@ -4,7 +4,7 @@ import unittest
 
 import _loader
 
-udr = _loader.load("url-decode-rename")
+udr = _loader.load("url_decode_rename")
 
 
 class TestRenameFiles(unittest.TestCase):
