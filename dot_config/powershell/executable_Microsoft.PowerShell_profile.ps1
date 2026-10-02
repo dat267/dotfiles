@@ -34,12 +34,16 @@ $global:__dotfiles_profile_loaded = $true
         "$HOME/.local/scripts/py",
         "$HOME/.local/scripts/ps1",
         "$HOME/.local/bin",
-        "$HOME/bin"
+        "$HOME/bin",
+        "$HOME/.local/share/mise/shims"
     )
 
     if ($IsWindows) {
         $paths += @(
             "$HOME/.config/powershell/scripts/windows",
+            # mise's Windows data dir is %LOCALAPPDATA%\mise (not $HOME/.local/share),
+            # so its shims live under LOCALAPPDATA.
+            "$env:LOCALAPPDATA\mise\shims",
             # install_nvim.py extracts to $HOME/Apps/nvim (~/Apps/<tool> like
             # pwsh and 7z); the nvim-win64 entry is the older manual unzip.
             "$HOME/Apps/nvim/bin",

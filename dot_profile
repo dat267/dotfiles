@@ -130,6 +130,7 @@ if [ ! -d "$HOME/tmp" ]; then
 	mkdir -p "$HOME/.cargo/bin" "$HOME/.local/bin" "$HOME/.vim/backup" "$HOME/bin" "$HOME/logs" "$HOME/repos" "$HOME/tmp"
 fi
 prepend_paths \
+	"$HOME/.local/share/mise/shims" \
 	"$PYENV_ROOT/bin" \
 	"$HOME/.local/scripts/py" \
 	"$HOME/.local/scripts/sh" \
