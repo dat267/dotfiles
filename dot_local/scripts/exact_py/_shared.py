@@ -5,6 +5,7 @@ import shutil
 import sys
 import tempfile
 import tarfile
+import urllib.parse
 import urllib.request
 import zipfile
 
@@ -31,6 +32,21 @@ def widen_output_encoding():
 widen_output_encoding()
 
 
+def _auth_headers(url):
+    """Bearer token for api.github.com, never for any other host.
+
+    CI runners share an egress IP and the unauthenticated GitHub API allows
+    only 60 requests/hour, which the release lookups blow through and report as
+    "could not determine the latest release". The Actions token raises that to
+    5000/hour. Scoping the header to api.github.com keeps the token from
+    leaking on the arbitrary URLs fetch_json also serves.
+    """
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if token and urllib.parse.urlsplit(url).hostname == "api.github.com":
+        return {"Authorization": f"Bearer {token}"}
+    return {}
+
+
 def fetch_json(url, timeout=5, opener=None):
     """GET url, return parsed JSON or None on failure.
 
@@ -41,8 +57,9 @@ def fetch_json(url, timeout=5, opener=None):
     network failure came to be reported as a missing release asset.
     """
     open_url = opener or urllib.request.urlopen
+    headers = {"User-Agent": "Mozilla/5.0", **_auth_headers(url)}
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        req = urllib.request.Request(url, headers=headers)
         with open_url(req, timeout=timeout) as response:
             return json.loads(response.read().decode())
     except Exception:

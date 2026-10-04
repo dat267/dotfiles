@@ -44,6 +44,10 @@ jobs:
   test:
     runs-on: windows-latest
     timeout-minutes: 25
+    # Shared egress IP: without a token the GitHub API allows 60 requests/hour
+    # and the release lookups fail as "could not determine the latest release".
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
 

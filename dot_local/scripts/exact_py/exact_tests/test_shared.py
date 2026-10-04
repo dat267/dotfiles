@@ -69,6 +69,31 @@ class TestFetchJson(unittest.TestCase):
         fetch_json("https://api.example.com/x", timeout=11, opener=opener)
         self.assertEqual(seen["timeout"], 11)
 
+    def test_github_token_scoped_to_api_github(self):
+        seen = {}
+
+        def opener(req, timeout):
+            seen["auth"] = req.headers.get("Authorization")
+            return self.FakeResponse()
+
+        with mock.patch.dict(os.environ, {"GITHUB_TOKEN": "secret"}):
+            fetch_json("https://api.github.com/repos/x/y/releases/latest", opener=opener)
+            self.assertEqual(seen["auth"], "Bearer secret")
+            fetch_json("https://api.example.com/x", opener=opener)
+            self.assertIsNone(seen["auth"])
+
+    def test_no_auth_header_without_token(self):
+        seen = {}
+
+        def opener(req, timeout):
+            seen["auth"] = req.headers.get("Authorization")
+            return self.FakeResponse()
+
+        clean = {k: v for k, v in os.environ.items() if k not in ("GITHUB_TOKEN", "GH_TOKEN")}
+        with mock.patch.dict(os.environ, clean, clear=True):
+            fetch_json("https://api.github.com/x", opener=opener)
+        self.assertIsNone(seen["auth"])
+
 
 class TestGithubLatestTag(unittest.TestCase):
     def test_returns_tag_name_with_v_stripped(self):
