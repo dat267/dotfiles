@@ -48,6 +48,17 @@ class IsRootTest(unittest.TestCase):
         self.assertFalse(mod.is_root(os.path.join(HOME, "repos")))
 
 
+class SubcommandTest(unittest.TestCase):
+    def test_detected(self):
+        for name in ("install", "remove", "uninstall", "update", "list",
+                     "config", "auth", "mcp"):
+            self.assertTrue(mod.is_subcommand([name]), name)
+
+    def test_flags_and_empty_are_not_subcommands(self):
+        self.assertFalse(mod.is_subcommand([]))
+        self.assertFalse(mod.is_subcommand(["--model", "update"]))
+
+
 class PlanWritableTest(unittest.TestCase):
     def exists_all(self, *_):
         return True
@@ -134,28 +145,6 @@ class ConfigRwPathsTest(unittest.TestCase):
 
     def test_missing_file_is_empty(self):
         self.assertEqual(mod.config_rw_paths(env={"PI_SANDBOX_RW_FILE": "/no/such/file"}), [])
-
-
-class DefaultContinueTest(unittest.TestCase):
-    def test_added_when_absent(self):
-        self.assertEqual(mod.with_default_continue(["--model", "x"], {}),
-                         ["-c", "--model", "x"])
-
-    def test_not_duplicated(self):
-        self.assertEqual(mod.with_default_continue(["-c", "--model", "x"], {}),
-                         ["-c", "--model", "x"])
-
-    def test_session_flags_suppress(self):
-        for flag in ("-c", "--continue", "-r", "--resume", "--session",
-                     "--session-id", "--fork", "--no-session", "--export"):
-            self.assertEqual(mod.with_default_continue([flag], {}), [flag], flag)
-
-    def test_equals_form_suppresses(self):
-        self.assertEqual(mod.with_default_continue(["--session=abc"], {}),
-                         ["--session=abc"])
-
-    def test_opt_out(self):
-        self.assertEqual(mod.with_default_continue([], {"PI_SANDBOX_NO_CONTINUE": "1"}), [])
 
 
 class BuildArgvTest(unittest.TestCase):
@@ -305,20 +294,19 @@ class MainTest(unittest.TestCase):
         _, args = self.calls[0]
         self.assertEqual(args[args.index("--") + 1:], ["/usr/bin/pi", "-c", "hello world"])
 
-    def test_default_continue_added(self):
+    def test_normal_launch_sandboxes_without_continue(self):
         self.run_main(env=self.base_env(), argv=["--model", "x"])
         _, args = self.calls[0]
-        self.assertEqual(args[args.index("--") + 1:], ["/usr/bin/pi", "-c", "--model", "x"])
+        self.assertEqual(args[args.index("--") + 1:], ["/usr/bin/pi", "--model", "x"])
 
-    def test_no_continue_env(self):
-        self.run_main(env=self.base_env(PI_SANDBOX_NO_CONTINUE="1"), argv=[])
-        _, args = self.calls[0]
-        self.assertEqual(args[args.index("--") + 1:], ["/usr/bin/pi"])
+    def test_update_runs_pi_directly(self):
+        self.run_main(env=self.base_env(), argv=["update"])
+        self.assertEqual(self.calls[0][0], "/usr/bin/pi")
+        self.assertEqual(self.calls[0][1], ["/usr/bin/pi", "update"])
 
-    def test_session_flag_suppresses_continue(self):
-        self.run_main(env=self.base_env(), argv=["--resume"])
-        _, args = self.calls[0]
-        self.assertEqual(args[args.index("--") + 1:], ["/usr/bin/pi", "--resume"])
+    def test_install_runs_pi_directly(self):
+        self.run_main(env=self.base_env(), argv=["install", "npm:foo"])
+        self.assertEqual(self.calls[0][1], ["/usr/bin/pi", "install", "npm:foo"])
 
 
 if __name__ == "__main__":

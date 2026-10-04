@@ -9,7 +9,6 @@ gate, the in-process write/edit tools are covered too.
 
 Configuration is by environment variable so every argument passes through to
 pi unchanged (pi_sandbox -c ... runs pi -c ...):
-
   PI_SANDBOX_MODE       ww (default) | ro | fa
                           ww  workspace-write: cwd writable, rest read-only
                           ro  read-only: cwd is read-only too; pi state still
@@ -19,7 +18,6 @@ pi unchanged (pi_sandbox -c ... runs pi -c ...):
   PI_SANDBOX_RW         extra writable paths, os.pathsep-separated; also the
                         lines of ~/.config/pi_sandbox/rw (see below)
   PI_SANDBOX_RW_FILE    read extra paths from this file instead
-  PI_SANDBOX_NO_CONTINUE  do not add pi's -c/--continue default
   PI_SANDBOX_PI         pi executable (default: pi resolved from PATH)
   PI_SANDBOX_BWRAP      bwrap executable (default: bwrap resolved from PATH)
   PI_SANDBOX_DRY_RUN    print the bwrap command instead of running it
@@ -41,6 +39,12 @@ pi runs directly, with a warning, when bwrap is missing, the platform is not
 Linux, the sandbox probe fails (for example user namespaces are disabled),
 PI_SANDBOX_MODE=fa, or PI_SANDBOX_DISABLE=1. A nested launch (PI_BWRAP=1) also
 runs directly instead of stacking a second sandbox.
+
+Maintenance subcommands (install, remove, uninstall, update, list, config,
+auth, mcp) always run directly: they maintain pi itself, which lives outside
+the writable allowlist. Arguments are otherwise passed through untouched, so
+add -c yourself when you want to continue a session. The Termux fallback is
+silent: there is no bwrap to use on Android.
 
 Run: pi_sandbox [pi arguments...]
 """
@@ -74,11 +78,11 @@ DEFAULT_WRITABLE = (
 SSH_CONFIG_DIR = "/etc/ssh/ssh_config.d"
 
 
-# pi flags that already pick a session; -c must not be added alongside them.
-# --fork conflicts with -c/--continue; the --session* family selects explicitly.
-SESSION_FLAGS = (
-    "-c", "--continue", "-r", "--resume", "--session", "--session-id",
-    "--fork", "--no-session", "--export",
+# Top-level commands that act on pi itself rather than run a session. They stay
+# outside the sandbox: update/install write pi's global install, which is
+# read-only there, and sandboxing a subcommand buys nothing.
+SUBCOMMANDS = (
+    "install", "remove", "uninstall", "update", "list", "config", "auth", "mcp",
 )
 
 
@@ -172,20 +176,14 @@ def plan_writable(workspace, mode, extra_rw=(), home=HOME, exists=os.path.exists
     return kept
 
 
-def with_default_continue(argv, env):
-    """Prepend pi's -c/--continue unless a session flag is already present.
+def is_subcommand(argv):
+    """True when the first argument is a pi maintenance subcommand."""
+    return bool(argv) and argv[0] in SUBCOMMANDS
 
-    The sandbox script is the pi launcher, so it continues the project's most
-    recent session by default. Callers that select a session themselves ("-r",
-    "--session", "--fork", "--no-session", ...) are left untouched, as is an
-    explicit PI_SANDBOX_NO_CONTINUE=1.
-    """
-    if env_flag(env, "PI_SANDBOX_NO_CONTINUE"):
-        return list(argv)
-    for arg in argv:
-        if arg in SESSION_FLAGS or any(arg.startswith(f + "=") for f in SESSION_FLAGS):
-            return list(argv)
-    return ["-c", *argv]
+
+def is_termux(env=None):
+    env = os.environ if env is None else env
+    return bool(env.get("TERMUX_VERSION")) or "com.termux" in env.get("PREFIX", "")
 
 
 def build_bwrap_argv(bwrap, pi, pi_args, workspace, writable, ssh_config_dir=None):
@@ -234,10 +232,11 @@ def main(argv=None, env=None, execvp=os.execvp, which=shutil.which,
          exists=os.path.exists, isdir=os.path.isdir, probe=probe_bwrap, is_linux=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     env = os.environ if env is None else env
-    argv = with_default_continue(argv, env)
-    quiet = env_flag(env, "PI_SANDBOX_QUIET")
+    quiet = env_flag(env, "PI_SANDBOX_QUIET") or is_termux(env)
     if is_linux is None:
         is_linux = sys.platform.startswith("linux")
+
+    subcommand = is_subcommand(argv)
 
     pi = env.get("PI_SANDBOX_PI") or which("pi")
     if not pi:
@@ -246,6 +245,9 @@ def main(argv=None, env=None, execvp=os.execvp, which=shutil.which,
 
     def run_pi():
         execvp(pi, [pi, *argv])
+
+    if subcommand:
+        return run_pi()
 
     mode = normalize_mode(env.get("PI_SANDBOX_MODE"))
     if env_flag(env, "PI_SANDBOX_DISABLE") or env_flag(env, "PI_BWRAP") or mode == "fa":
