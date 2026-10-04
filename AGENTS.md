@@ -35,7 +35,7 @@ Chezmoi source is the authoritative reference. Clone and grep it (`internal/chez
 
 ## Filesystem policy
 
-There is no in-process pi sandbox or permissions extension any more, so no `/permissions` modes or status-line indicator. The kernel boundary now comes from `pi_sandbox` (`dot_local/scripts/exact_py/executable_pi_sandbox.py`), a bubblewrap launcher aliased to `pi` in `dot_profile`: the root filesystem is read-only and only the workspace, pi's state and caches, and `/tmp` are writable. The agent's own `bash` calls run with the OS permissions of the account, so they are only constrained when pi itself was started through `pi_sandbox`.
+There is no in-process pi sandbox or permissions extension any more, so no `/permissions` modes or status-line indicator. The kernel boundary now comes from `pi_sandbox` (`dot_local/scripts/exact_py/executable_pi_sandbox.py`), a bubblewrap launcher aliased to `pi` in `dot_profile`: the root filesystem is read-only and only the workspace, pi's state and caches, `~/.ssh/known_hosts`, and `/tmp` are writable. Extra writable paths persist in `~/.config/pi_sandbox/rw` (one path per line) or `PI_SANDBOX_RW`; the system ssh config drop-in dir is masked and `known_hosts` is writable so `ssh`/`git push` work under the user namespace. The agent's own `bash` calls run with the OS permissions of the account, so they are only constrained when pi itself was started through `pi_sandbox`.
 
 Deployments (`chezmoi apply`) and `sudo` are still run by the user in their own terminal, never by the agent: stage source changes in the workspace and hand over the command.
 

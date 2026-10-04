@@ -16,12 +16,26 @@ pi unchanged (pi_sandbox -c ... runs pi -c ...):
                               writable so sessions and caches keep working
                           fa  full-access: run pi with no sandbox
   PI_SANDBOX_WORKSPACE  directory to expose (default: current directory)
-  PI_SANDBOX_RW         extra writable paths, os.pathsep-separated
+  PI_SANDBOX_RW         extra writable paths, os.pathsep-separated; also the
+                        lines of ~/.config/pi_sandbox/rw (see below)
+  PI_SANDBOX_RW_FILE    read extra paths from this file instead
   PI_SANDBOX_NO_CONTINUE  do not add pi's -c/--continue default
   PI_SANDBOX_PI         pi executable (default: pi resolved from PATH)
   PI_SANDBOX_BWRAP      bwrap executable (default: bwrap resolved from PATH)
   PI_SANDBOX_DRY_RUN    print the bwrap command instead of running it
   PI_SANDBOX_QUIET      suppress the fallback warning
+
+Extra writable paths persist across runs in ~/.config/pi_sandbox/rw, one
+absolute (or ~-prefixed) path per line, blank lines and # comments ignored.
+That is the convenient place for machine-specific state a tool needs
+(~/.local/bin, ~/repos, ~/.config/mise, ...) without widening the defaults.
+
+ssh works from inside the sandbox even though bwrap's user namespace makes
+root-owned /etc files appear to be owned by nobody: a tmpfs is mounted over
+/etc/ssh/ssh_config.d so ssh never reads the mis-owned drop-in it would
+otherwise refuse with "Bad owner or permissions" (git push included). ~/.ssh
+itself stays read-only, but known_hosts is writable so new host keys can be
+recorded.
 
 pi runs directly, with a warning, when bwrap is missing, the platform is not
 Linux, the sandbox probe fails (for example user namespaces are disabled),
@@ -41,6 +55,8 @@ HOME = os.path.expanduser("~")
 
 # Writable by default, when present. pi's own state and the caches tools it
 # drives need; everything else stays read-only. Never includes $HOME itself.
+# known_hosts is a file, not a directory: ssh appends host keys to it while
+# ~/.ssh stays read-only, so keys and config cannot be rewritten.
 DEFAULT_WRITABLE = (
     ".pi",
     ".cache",
@@ -50,7 +66,12 @@ DEFAULT_WRITABLE = (
     "go",
     ".local/share/mise",
     ".local/state",
+    ".ssh/known_hosts",
 )
+
+# bwrap's user namespace leaves host uid 0 unmapped, so the root-owned drop-ins
+# there read as owner nobody and ssh aborts config parsing. Mask the directory.
+SSH_CONFIG_DIR = "/etc/ssh/ssh_config.d"
 
 
 # pi flags that already pick a session; -c must not be added alongside them.
@@ -84,6 +105,27 @@ def is_root(path):
 def default_writable(home=HOME):
     """The default writable allowlist, as absolute paths."""
     return [os.path.join(home, rel) for rel in DEFAULT_WRITABLE]
+
+
+def config_rw_paths(env=None, home=HOME):
+    """Extra writable paths from the pi_sandbox config file.
+
+    One path per line, blank lines and # comments ignored, ~ expanded. A
+    missing or unreadable file is not an error: there are simply no extras.
+    """
+    env = os.environ if env is None else env
+    path = env.get("PI_SANDBOX_RW_FILE") or os.path.join(home, ".config", "pi_sandbox", "rw")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return []
+    paths = []
+    for line in text.splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            paths.append(os.path.expanduser(line))
+    return paths
 
 
 def plan_writable(workspace, mode, extra_rw=(), home=HOME, exists=os.path.exists, env=None):
@@ -146,13 +188,17 @@ def with_default_continue(argv, env):
     return ["-c", *argv]
 
 
-def build_bwrap_argv(bwrap, pi, pi_args, workspace, writable):
+def build_bwrap_argv(bwrap, pi, pi_args, workspace, writable, ssh_config_dir=None):
     """Assemble the bwrap command line. Pure, so tests can assert on it."""
     argv = [
         bwrap,
         "--ro-bind", "/", "/",
         "--dev", "/dev",
         "--proc", "/proc",
+    ]
+    if ssh_config_dir:
+        argv += ["--tmpfs", ssh_config_dir]
+    argv += [
         "--die-with-parent",
         "--chdir", workspace,
         "--setenv", "PWD", workspace,
@@ -185,7 +231,7 @@ def probe_bwrap(bwrap):
 
 
 def main(argv=None, env=None, execvp=os.execvp, which=shutil.which,
-         exists=os.path.exists, probe=probe_bwrap, is_linux=None):
+         exists=os.path.exists, isdir=os.path.isdir, probe=probe_bwrap, is_linux=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     env = os.environ if env is None else env
     argv = with_default_continue(argv, env)
@@ -214,7 +260,7 @@ def main(argv=None, env=None, execvp=os.execvp, which=shutil.which,
         return run_pi()
 
     workspace = os.path.abspath(env.get("PI_SANDBOX_WORKSPACE") or os.getcwd())
-    if not os.path.isdir(workspace):
+    if not isdir(workspace):
         warn(f"workspace is not a directory: {workspace}", quiet=False)
         return 2
     if is_root(workspace):
@@ -222,9 +268,11 @@ def main(argv=None, env=None, execvp=os.execvp, which=shutil.which,
              "(a writable root is not a sandbox)", quiet=False)
         return run_pi()
 
-    extra_rw = [p for p in env.get("PI_SANDBOX_RW", "").split(os.pathsep) if p]
+    extra_rw = config_rw_paths(env=env)
+    extra_rw += [p for p in env.get("PI_SANDBOX_RW", "").split(os.pathsep) if p]
     writable = plan_writable(workspace, mode, extra_rw, exists=exists, env=env)
-    bwrap_argv = build_bwrap_argv(bwrap, pi, argv, workspace, writable)
+    ssh_config_dir = SSH_CONFIG_DIR if isdir(SSH_CONFIG_DIR) else None
+    bwrap_argv = build_bwrap_argv(bwrap, pi, argv, workspace, writable, ssh_config_dir)
 
     if env_flag(env, "PI_SANDBOX_DRY_RUN"):
         print(shlex.join(bwrap_argv))

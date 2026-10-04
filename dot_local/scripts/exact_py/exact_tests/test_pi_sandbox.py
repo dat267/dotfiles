@@ -11,6 +11,7 @@ into a drive-letter path.
 import io
 import os
 import contextlib
+import tempfile
 import unittest
 
 import _loader
@@ -116,6 +117,24 @@ class PlanWritableTest(unittest.TestCase):
         self.assertIn(norm(agent), got)
         self.assertIn(norm(sessions), got)
 
+    def test_known_hosts_writable(self):
+        got = mod.plan_writable(os.path.join(HOME, "ws"), "ww", home=HOME,
+                                exists=self.exists_all, env={})
+        self.assertIn(norm(os.path.join(HOME, ".ssh", "known_hosts")), got)
+
+
+class ConfigRwPathsTest(unittest.TestCase):
+    def test_reads_paths_and_comments(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "rw")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("# extra writable paths\n\n  ~/extra  \n/x/y # trailing\n")
+            got = mod.config_rw_paths(env={"PI_SANDBOX_RW_FILE": path})
+        self.assertEqual(got, [os.path.expanduser("~/extra"), "/x/y"])
+
+    def test_missing_file_is_empty(self):
+        self.assertEqual(mod.config_rw_paths(env={"PI_SANDBOX_RW_FILE": "/no/such/file"}), [])
+
 
 class DefaultContinueTest(unittest.TestCase):
     def test_added_when_absent(self):
@@ -159,6 +178,17 @@ class BuildArgvTest(unittest.TestCase):
         self.assertEqual(argv[sep + 1:], ["/usr/bin/pi", "-c", "hi"])
         self.assertEqual(argv[argv.index("PI_BWRAP") - 1], "--setenv")
 
+    def test_ssh_config_dir_masked(self):
+        argv = mod.build_bwrap_argv("/usr/bin/bwrap", "/usr/bin/pi", [],
+                                    "/home/u/proj", [], "/etc/ssh/ssh_config.d")
+        at = argv.index("--tmpfs")
+        self.assertEqual(argv[at:at + 2], ["--tmpfs", "/etc/ssh/ssh_config.d"])
+
+    def test_no_ssh_tmpfs_when_unset(self):
+        argv = mod.build_bwrap_argv("/usr/bin/bwrap", "/usr/bin/pi", [],
+                                    "/home/u/proj", [])
+        self.assertNotIn("--tmpfs", argv)
+
 
 class MainTest(unittest.TestCase):
     def setUp(self):
@@ -176,6 +206,7 @@ class MainTest(unittest.TestCase):
             execvp=self.execvp,
             which=lambda name: {"pi": "/usr/bin/pi", "bwrap": "/usr/bin/bwrap"}.get(name),
             exists=lambda p: True,
+            isdir=lambda p: True,
             probe=lambda bwrap: True,
             is_linux=True,
         )
@@ -231,7 +262,7 @@ class MainTest(unittest.TestCase):
 
     def test_missing_workspace_is_2(self):
         rc = self.run_main(env={"PI_SANDBOX_WORKSPACE": os.path.join(ROOT, "does", "not", "exist")},
-                           exists=lambda p: False)
+                           exists=lambda p: False, isdir=lambda p: False)
         self.assertEqual(rc, 2)
         self.assertEqual(self.calls, [])
 
@@ -251,6 +282,23 @@ class MainTest(unittest.TestCase):
         _, args = self.calls[0]
         self.assertIn(norm(one), args)
         self.assertIn(norm(two), args)
+
+    def test_config_file_paths_bound(self):
+        extra = os.path.join(ROOT, "cfg", "extra")
+        with tempfile.TemporaryDirectory() as tmp:
+            rw = os.path.join(tmp, "rw")
+            with open(rw, "w", encoding="utf-8") as handle:
+                handle.write(extra + "\n")
+            env = self.base_env(PI_SANDBOX_RW_FILE=rw)
+            self.run_main(env=env)
+        _, args = self.calls[0]
+        self.assertIn(norm(extra), args)
+
+    def test_ssh_config_dir_masked(self):
+        self.run_main(env=self.base_env())
+        _, args = self.calls[0]
+        at = args.index("--tmpfs")
+        self.assertEqual(args[at:at + 2], ["--tmpfs", mod.SSH_CONFIG_DIR])
 
     def test_pi_args_passed_through(self):
         self.run_main(env=self.base_env(), argv=["-c", "hello world"])
