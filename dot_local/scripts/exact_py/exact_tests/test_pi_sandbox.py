@@ -1,0 +1,243 @@
+"""Tests for executable_pi_sandbox.py — launch pi under bubblewrap.
+
+The security-relevant decisions are pure: which mode maps to which paths,
+which paths are writable, and the exact bwrap argument vector. main() is
+exercised with injected execvp/which/probe doubles so no real sandbox runs.
+"""
+import io
+import os
+import contextlib
+import unittest
+
+import _loader
+
+mod = _loader.load("pi_sandbox")
+
+
+class NormalizeModeTest(unittest.TestCase):
+    def test_spellings(self):
+        for raw, want in [
+            ("ro", "ro"), ("read-only", "ro"), ("READONLY", "ro"),
+            ("fa", "fa"), ("full-access", "fa"), ("none", "fa"),
+            ("ww", "ww"), ("", "ww"), ("bogus", "ww"), (None, "ww"),
+        ]:
+            self.assertEqual(mod.normalize_mode(raw), want, raw)
+
+
+class PlanWritableTest(unittest.TestCase):
+    HOME = "/home/u"
+
+    def exists_all(self, *_):
+        return True
+
+    def test_workspace_writable_in_ww(self):
+        ws = "/home/u/repos/proj"
+        got = mod.plan_writable(ws, "ww", home=self.HOME, exists=self.exists_all, env={})
+        self.assertIn(ws, got)
+        self.assertIn("/home/u/.pi", got)
+        self.assertIn("/tmp", got)
+
+    def test_workspace_not_writable_in_ro(self):
+        ws = "/home/u/repos/proj"
+        got = mod.plan_writable(ws, "ro", home=self.HOME, exists=self.exists_all, env={})
+        self.assertNotIn(ws, got)
+        self.assertIn("/home/u/.pi", got)
+
+    def test_home_itself_never_writable(self):
+        got = mod.plan_writable("/home/u/repos/proj", "ww", home=self.HOME,
+                                exists=self.exists_all, env={})
+        self.assertNotIn("/home/u", got)
+
+    def test_root_refused(self):
+        got = mod.plan_writable("/", "ww", extra_rw=["/"], home=self.HOME,
+                                exists=self.exists_all, env={})
+        self.assertNotIn("/", got)
+
+    def test_nested_duplicate_dropped(self):
+        got = mod.plan_writable("/home/u/repos/proj", "ww", extra_rw=["/home/u/repos"],
+                                home=self.HOME, exists=self.exists_all, env={})
+        self.assertIn("/home/u/repos", got)
+        self.assertNotIn("/home/u/repos/proj", got)
+
+    def test_sibling_prefix_kept(self):
+        got = mod.plan_writable("/opt/ws", "ww", extra_rw=["/opt/ws2"],
+                                home=self.HOME, exists=self.exists_all, env={})
+        self.assertIn("/opt/ws", got)
+        self.assertIn("/opt/ws2", got)
+
+    def test_missing_paths_filtered(self):
+        present = {"/home/u/.pi", "/tmp", "/home/u/repos/proj"}
+        got = mod.plan_writable("/home/u/repos/proj", "ww", home=self.HOME,
+                                exists=lambda p: p in present, env={})
+        self.assertEqual(sorted(got), sorted(present))
+
+    def test_xdg_dirs_included(self):
+        env = {"XDG_CACHE_HOME": "/x/cache", "XDG_DATA_HOME": "/x/data"}
+        got = mod.plan_writable("/ws", "ro", home=self.HOME, exists=self.exists_all, env=env)
+        self.assertIn("/x/cache", got)
+        self.assertIn("/x/data", got)
+
+    def test_pi_state_dirs_included(self):
+        env = {"PI_CODING_AGENT_DIR": "/x/agent",
+               "PI_CODING_AGENT_SESSION_DIR": "/x/sessions"}
+        got = mod.plan_writable("/ws", "ro", home=self.HOME, exists=self.exists_all, env=env)
+        self.assertIn("/x/agent", got)
+        self.assertIn("/x/sessions", got)
+
+
+class DefaultContinueTest(unittest.TestCase):
+    def test_added_when_absent(self):
+        self.assertEqual(mod.with_default_continue(["--model", "x"], {}),
+                         ["-c", "--model", "x"])
+
+    def test_not_duplicated(self):
+        self.assertEqual(mod.with_default_continue(["-c", "--model", "x"], {}),
+                         ["-c", "--model", "x"])
+
+    def test_session_flags_suppress(self):
+        for flag in ("-c", "--continue", "-r", "--resume", "--session",
+                     "--session-id", "--fork", "--no-session", "--export"):
+            self.assertEqual(mod.with_default_continue([flag], {}), [flag], flag)
+
+    def test_equals_form_suppresses(self):
+        self.assertEqual(mod.with_default_continue(["--session=abc"], {}),
+                         ["--session=abc"])
+
+    def test_opt_out(self):
+        self.assertEqual(mod.with_default_continue([], {"PI_SANDBOX_NO_CONTINUE": "1"}), [])
+
+
+class BuildArgvTest(unittest.TestCase):
+    def test_shape(self):
+        argv = mod.build_bwrap_argv(
+            "/usr/bin/bwrap", "/usr/bin/pi", ["-c", "hi"],
+            "/home/u/proj", ["/home/u/proj", "/home/u/.pi", "/tmp"],
+        )
+        self.assertEqual(argv[0], "/usr/bin/bwrap")
+        joined = " ".join(argv)
+        self.assertIn("--ro-bind / /", joined)
+        self.assertIn("--dev /dev", joined)
+        self.assertIn("--proc /proc", joined)
+        self.assertIn("--die-with-parent", joined)
+        self.assertIn("--chdir /home/u/proj", joined)
+        self.assertIn("--setenv PWD /home/u/proj", joined)
+        self.assertEqual(argv.count("--bind-try"), 3)
+        # pi + its args come after the "--" terminator, marker set before it.
+        sep = argv.index("--")
+        self.assertEqual(argv[sep + 1:], ["/usr/bin/pi", "-c", "hi"])
+        self.assertEqual(argv[argv.index("PI_BWRAP") - 1], "--setenv")
+
+
+class MainTest(unittest.TestCase):
+    def setUp(self):
+        self.ws = os.getcwd()
+        self.calls = []
+
+        def execvp(file, args):
+            self.calls.append((file, list(args)))
+
+        self.execvp = execvp
+
+    def run_main(self, argv=None, env=None, **over):
+        kwargs = dict(
+            env=env if env is not None else {},
+            execvp=self.execvp,
+            which=lambda name: {"pi": "/usr/bin/pi", "bwrap": "/usr/bin/bwrap"}.get(name),
+            exists=lambda p: True,
+            probe=lambda bwrap: True,
+            is_linux=True,
+        )
+        kwargs.update(over)
+        return mod.main(argv if argv is not None else [], **kwargs)
+
+    def base_env(self, **extra):
+        env = {"PI_SANDBOX_WORKSPACE": self.ws}
+        env.update(extra)
+        return env
+
+    def test_sandbox_execs_bwrap(self):
+        rc = self.run_main(env=self.base_env())
+        self.assertEqual(rc, 127)  # execvp double returns
+        self.assertEqual(len(self.calls), 1)
+        file, args = self.calls[0]
+        self.assertEqual(file, "/usr/bin/bwrap")
+        self.assertIn("--ro-bind", args)
+        self.assertIn(self.ws, args)
+
+    def test_fa_runs_pi_directly(self):
+        self.run_main(env=self.base_env(PI_SANDBOX_MODE="fa"))
+        self.assertEqual(self.calls[0][0], "/usr/bin/pi")
+
+    def test_disable_runs_pi_directly(self):
+        self.run_main(env=self.base_env(PI_SANDBOX_DISABLE="1"))
+        self.assertEqual(self.calls[0][0], "/usr/bin/pi")
+
+    def test_nested_marker_runs_pi_directly(self):
+        self.run_main(env=self.base_env(PI_BWRAP="1"))
+        self.assertEqual(self.calls[0][0], "/usr/bin/pi")
+
+    def test_non_linux_falls_back(self):
+        self.run_main(env=self.base_env(), is_linux=False)
+        self.assertEqual(self.calls[0][0], "/usr/bin/pi")
+
+    def test_missing_bwrap_falls_back(self):
+        self.run_main(env=self.base_env(), which=lambda name: "/usr/bin/pi" if name == "pi" else None)
+        self.assertEqual(self.calls[0][0], "/usr/bin/pi")
+
+    def test_probe_failure_falls_back(self):
+        self.run_main(env=self.base_env(), probe=lambda bwrap: False)
+        self.assertEqual(self.calls[0][0], "/usr/bin/pi")
+
+    def test_missing_pi_is_127(self):
+        rc = self.run_main(env=self.base_env(), which=lambda name: None)
+        self.assertEqual(rc, 127)
+        self.assertEqual(self.calls, [])
+
+    def test_root_workspace_falls_back(self):
+        self.run_main(env={"PI_SANDBOX_WORKSPACE": "/"})
+        self.assertEqual(self.calls[0][0], "/usr/bin/pi")
+
+    def test_missing_workspace_is_2(self):
+        rc = self.run_main(env={"PI_SANDBOX_WORKSPACE": "/does/not/exist"},
+                           exists=lambda p: False)
+        self.assertEqual(rc, 2)
+        self.assertEqual(self.calls, [])
+
+    def test_dry_run_prints_command(self):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = self.run_main(env=self.base_env(PI_SANDBOX_DRY_RUN="1"))
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.calls, [])
+        self.assertIn("/usr/bin/bwrap", buf.getvalue())
+        self.assertIn("--ro-bind / /", buf.getvalue())
+
+    def test_extra_rw_paths_bound(self):
+        self.run_main(env=self.base_env(PI_SANDBOX_RW="/extra/one" + os.pathsep + "/extra/two"))
+        _, args = self.calls[0]
+        self.assertIn("/extra/one", args)
+        self.assertIn("/extra/two", args)
+
+    def test_pi_args_passed_through(self):
+        self.run_main(env=self.base_env(), argv=["-c", "hello world"])
+        _, args = self.calls[0]
+        self.assertEqual(args[args.index("--") + 1:], ["/usr/bin/pi", "-c", "hello world"])
+
+    def test_default_continue_added(self):
+        self.run_main(env=self.base_env(), argv=["--model", "x"])
+        _, args = self.calls[0]
+        self.assertEqual(args[args.index("--") + 1:], ["/usr/bin/pi", "-c", "--model", "x"])
+
+    def test_no_continue_env(self):
+        self.run_main(env=self.base_env(PI_SANDBOX_NO_CONTINUE="1"), argv=[])
+        _, args = self.calls[0]
+        self.assertEqual(args[args.index("--") + 1:], ["/usr/bin/pi"])
+
+    def test_session_flag_suppresses_continue(self):
+        self.run_main(env=self.base_env(), argv=["--resume"])
+        _, args = self.calls[0]
+        self.assertEqual(args[args.index("--") + 1:], ["/usr/bin/pi", "--resume"])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -35,7 +35,7 @@ Chezmoi source is the authoritative reference. Clone and grep it (`internal/chez
 
 ## Filesystem policy
 
-There is no pi sandbox or permissions extension: writes and `bash` calls run with the OS permissions of the account that started pi. The former Landlock gate, the `/permissions` modes, and their status-line indicator are gone.
+There is no in-process pi sandbox or permissions extension any more, so no `/permissions` modes or status-line indicator. The kernel boundary now comes from `pi_sandbox` (`dot_local/scripts/exact_py/executable_pi_sandbox.py`), a bubblewrap launcher aliased to `pi` in `dot_profile`: the root filesystem is read-only and only the workspace, pi's state and caches, and `/tmp` are writable. The agent's own `bash` calls run with the OS permissions of the account, so they are only constrained when pi itself was started through `pi_sandbox`.
 
 Deployments (`chezmoi apply`) and `sudo` are still run by the user in their own terminal, never by the agent: stage source changes in the workspace and hand over the command.
 
