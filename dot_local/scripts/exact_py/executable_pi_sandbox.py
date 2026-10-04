@@ -76,6 +76,11 @@ def normalize_mode(raw):
     return "ww"
 
 
+def is_root(path):
+    """True for a filesystem root: "/" on POSIX, "C:\\" on Windows."""
+    return os.path.dirname(path) == path
+
+
 def default_writable(home=HOME):
     """The default writable allowlist, as absolute paths."""
     return [os.path.join(home, rel) for rel in DEFAULT_WRITABLE]
@@ -111,7 +116,7 @@ def plan_writable(workspace, mode, extra_rw=(), home=HOME, exists=os.path.exists
         if not path:
             continue
         abspath = os.path.abspath(path)
-        if abspath == os.sep:
+        if is_root(abspath):
             continue
         real = os.path.realpath(abspath)
         if real in seen:
@@ -212,8 +217,8 @@ def main(argv=None, env=None, execvp=os.execvp, which=shutil.which,
     if not os.path.isdir(workspace):
         warn(f"workspace is not a directory: {workspace}", quiet=False)
         return 2
-    if workspace == os.sep:
-        warn("workspace is /; running pi without a sandbox "
+    if is_root(workspace):
+        warn("workspace is a filesystem root; running pi without a sandbox "
              "(a writable root is not a sandbox)", quiet=False)
         return run_pi()
 
