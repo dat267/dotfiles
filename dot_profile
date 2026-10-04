@@ -311,10 +311,10 @@ alias codecm='code $(chezmoi source-path)'
 alias dotfiles='dotfiles.py'
 alias lf=lfcd
 alias hx='helix'
-# pi runs under bubblewrap by default (pi_sandbox: root read-only, workspace and
-# pi state writable). `\pi ...` bypasses the alias for a raw run; set
+# pi runs under bubblewrap by default (pi_sandbox.py: root read-only, workspace
+# and pi state writable). `\pi ...` bypasses the alias for a raw run; set
 # PI_SANDBOX_MODE=fa to disable the sandbox or PI_SANDBOX_NO_CONTINUE=1 to drop -c.
-alias pi='pi_sandbox'
+alias pi='pi_sandbox.py'
 getrclone() {
 	if [ -z "$1" ]; then
 		echo "Usage: getrclone [user@host-or-ip]"
