@@ -11,7 +11,7 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 ## Structure
 
 - `executable_yazi_*.py` — Yazi media/translate helpers, invoked via `keymap.toml` bindings
-- `executable_install_*.py` — Tool installers; most download the latest GitHub release to `~/.local/bin/`; `install_pi.py` installs/updates the npm package instead (`npm install -g --ignore-scripts @earendil-works/pi-coding-agent`, Node >= 22.19 engines floor, `--check`/`--force`)
+- `executable_install_*.py` — Tool installers; most download the latest GitHub release to `~/.local/bin/`; `install_pi.py` preserves active managed installs via `pi update --self`, otherwise installs the npm package (`npm install -g --ignore-scripts @earendil-works/pi-coding-agent`, Node >= 22.19 engines floor, `--check`/`--force`). An explicit `--prefix` requests an npm installation.
 - `executable_gim.py` — install private Go binaries over SSH (`gim <repo[@version]>`)
 - `executable_dotfiles.py` — rclone + git sync (`dotfiles up`/`dotfiles down`)
 - `executable_lsp.py` — LSP server installer (gopls, pyright, etc.)
@@ -25,6 +25,7 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 - `executable_ports.py` — listening sockets via `ss -tlnp`, classified exposed/bound/local
 - `executable_hyper_catalog.py` — regenerates the hyper provider's model catalog (pi extension) from the live `/v1/models` API; `--check` reports drift without writing
 - `_shared.py` — shared module (platform detection, colored logging, helpers)
+- `_pi_install.py` — shared Pi package and launcher resolution for managed releases and legacy npm installs
 
 ## Conventions
 

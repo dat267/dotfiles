@@ -22,18 +22,22 @@ chezmoi:modify-template
      clean boot but "low" after modeldefault's setModel re-sync re-derives the level
      from a model-less session's "off" — the thinking level kept flapping. */}}
 {{- $_ := setValueAtPath "defaultThinkingLevel" "high" $current }}
-{{- /* Compaction continuity. The trigger is contextWindow - reserveTokens and the
-     summary cap is 0.8 * reserveTokens, and the summarizer inherits the session
-     thinking level. On the 1M-context models a 40960 reserve fires at ~959k, so one
-     compaction squeezes ~940k tokens into a single summary; at 200000 it fires at
-     ~800k and the cap rises to 160000, which keeps spans smaller and leaves no room
-     for a length stop. keepRecentTokens 40000 keeps more of the tail verbatim.
-     Caveat: no model override, so this applies everywhere. A model whose context
-     window is at or below 200k will now cross the threshold immediately, and pi
-     compacts on every check for it. */}}
-{{- $_ := unset $current "compaction" }}
-{{- $_ := setValueAtPath "compaction.reserveTokens" 200000 $current }}
-{{- $_ := setValueAtPath "compaction.keepRecentTokens" 40000 $current }}
+{{- /* Scope startup selection and model cycling to the latest selected families.
+     Case-insensitive globstars match across providers and nested model IDs.
+     A single star cannot cross slashes in Command Code's vendor/model IDs. */}}
+{{- $_ := setValueAtPath "enabledModels" (list
+    "**/deepseek-v4.1-flash"
+    "**/glm-5.3-flash"
+    "**/gpt-6-luna"
+    "**/gpt-6.1-sol"
+    "**/qwen3.8-flash"
+) $current }}
+{{- /* Use Pi's built-in compaction token defaults. Remove only the previous
+     global token settings, preserving enabled and any per-model overrides. */}}
+{{- if hasKey $current "compaction" }}
+{{- $_ := unset (index $current "compaction") "reserveTokens" }}
+{{- $_ := unset (index $current "compaction") "keepRecentTokens" }}
+{{- end }}
 {{- /* defaultTools is deliberately unmanaged on Linux and macOS: pi's own defaults
      (read, bash, edit, write) are the tool set we want. A modify template only merges,
      so the key is evicted first to drop anything pi or a manual edit persisted into

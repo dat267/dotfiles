@@ -1,5 +1,7 @@
 {{ if eq .chezmoi.os "linux" -}}
 #!/bin/sh
+# Service checksum makes unit edits rerun this onchange hook.
+# dsh-web.service: {{ include "dot_config/systemd/user/dsh-web.service" | sha256sum }}
 # Reload the user manager after a systemd unit change; bounce the service only
 # if it's already running. Environments without a user bus (containers, Cloud
 # Shell, WSL) have nothing to reload — exit quietly instead of leaking

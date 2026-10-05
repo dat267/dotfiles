@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+import tempfile
 import unittest
 from unittest import mock
 
@@ -161,9 +163,71 @@ def run_with(which_map, runner, argv=None, plat=None, **runner_kwargs):
                 return shim
         return which_map.get(name)
 
-    with mock.patch.object(pi.shutil, "which", side_effect=which):
+    with mock.patch.object(pi.shutil, "which", side_effect=which), \
+            mock.patch.object(pi, "managed_pi_package", return_value=None, create=True):
         code = pi.main(argv=argv or [], run=runner, plat=plat)
     return code, runner
+
+
+class TestManagedMain(unittest.TestCase):
+    def run_managed(self, version="3.0.1", argv=None, update_code=0):
+        with tempfile.TemporaryDirectory() as tmp:
+            agent = Path(tmp) / "agent"
+            package = agent / "install/releases/3.0.1/node_modules/@earendil-works/pi-coding-agent"
+            package.mkdir(parents=True)
+            launcher = agent / "bin/pi"
+            launcher.parent.mkdir()
+            launcher.write_text("launcher")
+
+            class ManagedRunner(FakeRunner):
+                def __call__(self, cmd):
+                    if cmd[1:3] == ["update", "--self"]:
+                        self.calls.append(list(cmd))
+                        if update_code == 0:
+                            self.pi_version = self.npm_view
+                        return proc(returncode=update_code)
+                    return super().__call__(cmd)
+
+            runner = ManagedRunner(pi_version=version)
+            table = {"pi": str(launcher), "node": "/usr/bin/node", "npm": "/usr/bin/npm"}
+            with mock.patch.object(pi.shutil, "which", side_effect=table.get), \
+                    mock.patch.object(pi, "managed_pi_package", return_value=package):
+                code = pi.main(argv=argv or [], run=runner, plat=shared.Platform("linux", "x64"))
+            return code, runner, str(launcher)
+
+    def test_current_managed_install_does_not_create_legacy_install(self):
+        code, runner, _ = self.run_managed()
+        self.assertEqual(code, 0)
+        self.assertEqual([c for c in runner.calls if c[1:3] == ["install", "-g"]], [])
+
+    def test_outdated_managed_install_uses_self_update(self):
+        code, runner, launcher = self.run_managed(version="2.9.0")
+        self.assertEqual(code, 0)
+        self.assertIn([launcher, "update", "--self"], runner.calls)
+        self.assertEqual([c for c in runner.calls if c[1:3] == ["install", "-g"]], [])
+
+    def test_managed_check_does_not_install_or_update(self):
+        code, runner, _ = self.run_managed(argv=["--check"])
+        self.assertEqual(code, 0)
+        self.assertFalse(any(c[1] in ("install", "update") for c in runner.calls))
+
+    def test_managed_force_is_forwarded_to_self_update(self):
+        code, runner, launcher = self.run_managed(argv=["--force"])
+        self.assertEqual(code, 0)
+        self.assertIn([launcher, "update", "--self", "--force"], runner.calls)
+        self.assertFalse(any(c[1] == "install" for c in runner.calls))
+
+    def test_managed_update_failure_does_not_fall_back_to_npm_install(self):
+        code, runner, _ = self.run_managed(version="2.9.0", update_code=1)
+        self.assertEqual(code, 1)
+        self.assertFalse(any(c[1] == "install" for c in runner.calls))
+
+    def test_explicit_prefix_requests_legacy_install(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, runner, _ = self.run_managed(argv=["--prefix", tmp])
+        self.assertEqual(code, 0)
+        self.assertTrue(any(c[1:3] == ["install", "-g"] for c in runner.calls))
+        self.assertFalse(any(c[1] == "update" for c in runner.calls))
 
 
 class TestMain(unittest.TestCase):

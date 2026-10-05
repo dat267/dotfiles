@@ -67,7 +67,35 @@ if [ -d "$HOME/Android/Sdk" ]; then
 fi
 if [ -d "$HOME/.sdkman" ] && [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
 	export SDKMAN_DIR="$HOME/.sdkman"
-	. "$SDKMAN_DIR/bin/sdkman-init.sh"
+	# Keep installed tools and their HOME variables usable without loading SDKMAN.
+	export SDKMAN_CANDIDATES_DIR="$SDKMAN_DIR/candidates"
+	_sdkman_paths() {
+		# Zsh otherwise aborts profile loading when no candidates match.
+		if [ -n "${ZSH_VERSION:-}" ]; then
+			setopt localoptions nonomatch
+		fi
+		for _sdk_current in "$SDKMAN_CANDIDATES_DIR"/*/current; do
+			[ -d "$_sdk_current" ] || continue
+			_sdk_name="${_sdk_current%/current}"
+			_sdk_name="${_sdk_name##*/}"
+			_sdk_home="$(printf '%s' "$_sdk_name" | tr '[:lower:]' '[:upper:]')_HOME"
+			export "$_sdk_home=$_sdk_current"
+			if [ -d "$_sdk_current/bin" ]; then
+				prepend_paths "$_sdk_current/bin"
+			else
+				prepend_paths "$_sdk_current"
+			fi
+		done
+	}
+	_sdkman_paths
+	unset -f _sdkman_paths
+	unset _sdk_current _sdk_name _sdk_home
+	# SDKMAN's modules, completion, and auto-env hooks load on first use.
+	sdk() {
+		unset -f sdk
+		. "$SDKMAN_DIR/bin/sdkman-init.sh" || return
+		sdk "$@"
+	}
 fi
 if [ -d "$HOME/.termux" ] && { [ -n "$TERMUX_VERSION" ] || [ -f /data/data/com.termux/files/usr/bin/termux-info ]; }; then
 	DISTRO_NAME="android"

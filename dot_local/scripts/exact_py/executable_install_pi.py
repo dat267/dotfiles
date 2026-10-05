@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Install or update pi (@earendil-works/pi-coding-agent) via npm.
+"""Install or update pi (@earendil-works/pi-coding-agent).
+
+An active managed installation is kept in place and updated with its own
+`pi update --self` command. Passing --prefix explicitly requests an npm
+installation instead. Fresh installations use the fixed npm prefixes below.
 
 Unlike the GitHub-release installers in this directory, pi is distributed
 as an npm package, so "download latest release" is `npm install -g` and
@@ -32,6 +36,7 @@ import shutil
 import subprocess
 import sys
 
+from _pi_install import is_managed_pi_launcher, managed_pi_package
 from _shared import Platform, log, windows_home
 
 PKG = "@earendil-works/pi-coding-agent"
@@ -157,14 +162,14 @@ def _subprocess_run(cmd):
 
 def main(argv=None, run=None, plat=None):
     parser = argparse.ArgumentParser(
-        description="Install/update pi into a fixed prefix via npm "
-                    "(npm install -g --prefix <prefix> --ignore-scripts).")
+        description="Install/update pi, preserving an active managed installation; "
+                    "otherwise use npm install -g --prefix with --ignore-scripts.")
     parser.add_argument("--check", action="store_true",
                         help="report installed vs latest and exit without installing")
     parser.add_argument("--force", action="store_true",
                         help="reinstall even if the installed version is current")
     parser.add_argument("--prefix", default=None,
-                        help=f"npm global prefix to install into (default: "
+                        help=f"request an npm install into this prefix (default for fresh installs: "
                              f"{POSIX_PREFIX} on unix, {WINDOWS_PREFIX} on Windows)")
     args = parser.parse_args(argv)
 
@@ -190,17 +195,19 @@ def main(argv=None, run=None, plat=None):
         log("Error: npm not found on PATH (it ships with node).", "red")
         return 1
 
-    pi_bin = find_pi(prefix, plat)
+    managed_package = managed_pi_package() if args.prefix is None else None
+    path_pi = find_launcher("pi", plat)
+    managed = is_managed_pi_launcher(path_pi, managed_package)
+    pi_bin = path_pi if managed else find_pi(prefix, plat)
     current = None
     if pi_bin:
         result = run([pi_bin, "--version"])
         current = parse_pi_version(result.stdout)
         if current is None:
             log("Warning: existing pi could not report a version; reinstalling.", "yellow")
-    # A pi outside the prefix (npm's node-version-bound global, a system
-    # package) must not satisfy the version check: installing over it is a
-    # migration into the fixed prefix, so it always proceeds.
-    in_prefix = pi_bin is not None and under_prefix(pi_bin, prefix, plat)
+    # Keep active managed installations in place. Other out-of-prefix npm
+    # installations still migrate into the fixed prefix.
+    in_prefix = managed or (pi_bin is not None and under_prefix(pi_bin, prefix, plat))
 
     result = run([npm, "view", PKG, "version"])
     latest = result.stdout.strip() if result.returncode == 0 and _SEMVER.fullmatch(result.stdout.strip()) else None
@@ -229,16 +236,23 @@ def main(argv=None, run=None, plat=None):
         log("Warning: could not determine the latest version (registry unreachable); "
             "installing anyway.", "yellow")
 
-    cmd = npm_install_command(npm, prefix)
-    log(f"Installing pi into {prefix}: {' '.join(cmd)}", "cyan")
+    if managed:
+        cmd = [pi_bin, "update", "--self"]
+        if args.force:
+            cmd.append("--force")
+        log(f"Updating managed pi: {' '.join(cmd)}", "cyan")
+    else:
+        cmd = npm_install_command(npm, prefix)
+        log(f"Installing pi into {prefix}: {' '.join(cmd)}", "cyan")
     result = run(cmd)
     if result.returncode != 0:
-        log(f"Error: npm install failed (exit {result.returncode}).", "red")
+        operation = "managed pi update" if managed else "npm install"
+        log(f"Error: {operation} failed (exit {result.returncode}).", "red")
         if result.stderr and result.stderr.strip():
             print(result.stderr.strip(), file=sys.stderr)
         return 1
 
-    pi_bin = find_pi(prefix, plat)
+    pi_bin = path_pi if managed else find_pi(prefix, plat)
     installed = None
     if pi_bin:
         result = run([pi_bin, "--version"])
@@ -248,6 +262,8 @@ def main(argv=None, run=None, plat=None):
         return 1
 
     log(f"pi {installed} installed -> {pi_bin}", "green")
+    if managed:
+        return 0
     shim_dir = bin_dir(prefix, plat)
     if not path_contains(shim_dir):
         log(f"Note: {shim_dir} is not on PATH; add it so `pi` resolves.", "yellow")

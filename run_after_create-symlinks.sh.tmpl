@@ -1,5 +1,6 @@
 {{ if or (eq .chezmoi.os "linux") (eq .chezmoi.os "android") -}}
 #!/bin/sh
+set -e
 
 # Define source and target pairs: "target_link|source_directory"
 for pair in \
@@ -8,10 +9,21 @@ do
     target="${pair%%|*}"
     source="${pair#*|}"
 
-    # If it is a real directory and not a symbolic link, remove it
-    if [ -d "$target" ] && [ ! -L "$target" ]; then
-        echo "Removing existing directory: $target"
-        rm -rf "$target"
+    if [ -L "$target" ]; then
+        [ "$(readlink "$target")" = "$source" ] && continue
+        rm "$target"
+    fi
+
+    # Preserve real files or directories before replacing them with a link.
+    if [ -e "$target" ] && [ ! -L "$target" ]; then
+        backup="$target.bak"
+        n=1
+        while [ -e "$backup" ] || [ -L "$backup" ]; do
+            backup="$target.bak.$n"
+            n=$((n + 1))
+        done
+        echo "Backing up: $target -> $backup"
+        mv "$target" "$backup"
     fi
 
     # Create link if it doesn't exist
@@ -27,7 +39,8 @@ done
 # settings such as security.workspace.trust.* are not inherited from the
 # desktop profile, so without this link those sessions fall back to defaults
 # and show the Restricted Mode banner and trust prompts. Only links when the
-# server's User directory already exists and no settings file is present.
+# server's User directory already exists. Preserve real settings files,
+# but repair symlinks that point to the wrong target.
 for pair in \
     "$HOME/.vscode-server/data/User/settings.json|{{ .chezmoi.homeDir }}/.config/Code/User/settings.json"
 do
@@ -37,7 +50,8 @@ do
     [ -d "$(dirname "$link")" ] || continue
     [ -f "$source" ] || continue
     if [ -L "$link" ]; then
-        continue
+        [ "$(readlink "$link")" = "$source" ] && continue
+        rm "$link"
     fi
     if [ -e "$link" ]; then
         echo "Keeping existing settings file: $link"

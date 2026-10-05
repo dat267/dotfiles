@@ -21,7 +21,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from _shared import windows_home
+from _pi_install import resolve_pi_package
 
 TSC_VERSION = "5.7"
 
@@ -60,42 +60,6 @@ def plan_command(ext_dir, npx=None):
 	return [npx, "-y", "-p", f"typescript@{TSC_VERSION}", "tsc", *TSC_FLAGS, *files]
 
 
-def resolve_pi_package(local_root=None, global_root=None, windows_root=None):
-	"""The installed pi coding-agent package, for tsc resolution.
-
-	Probes the fixed npm prefixes — ~/.local (unix) and %USERPROFILE%\Apps\pi
-	(Windows) — then `npm root -g` (nvm, nvm-windows, other globals). npm is
-	only invoked when both fixed prefixes miss, and through shutil.which so
-	Windows uses npm.cmd (a bare "npm" is not launchable there). All three
-	roots are injectable for tests; a missing global root is skipped rather
-	than fatal. Exits with a clear message when no location has the package.
-	"""
-	if local_root is None:
-		local_root = Path.home() / ".local/lib/node_modules"
-	if windows_root is None:
-		windows_root = Path(windows_home("Apps", "pi", "node_modules"))
-
-	def package_under(root):
-		return Path(root) / "@earendil-works" / "pi-coding-agent"
-
-	candidates = [package_under(local_root), package_under(windows_root)]
-	for candidate in candidates:
-		if candidate.is_dir():
-			return candidate
-
-	if global_root is None:
-		npm = shutil.which("npm") or "npm"
-		proc = subprocess.run([npm, "root", "-g"], capture_output=True, text=True)
-		global_root = proc.stdout.strip() if proc.returncode == 0 else None
-	if global_root:
-		candidate = package_under(global_root)
-		if candidate.is_dir():
-			return candidate
-		candidates.append(candidate)
-	roots = ", ".join(str(c.parents[1]) for c in candidates)
-	raise SystemExit(f"pi package not installed in any of: {roots}")
-
-
 def points_at(link, target):
 	"""True when `link` already resolves to `target`.
 
@@ -128,19 +92,27 @@ def ensure_symlink(link, target):
 def ensure_deps(ext_dir, pi_pkg):
 	"""Create the per-dir node_modules symlink layout; True if anything changed.
 
-	Links the pi package itself, every @earendil-works/* package it vendors
-	under its node_modules (pi-ai, pi-tui, …), and its @types/node. Links are
-	repointed when pi moved (npm global prefix → ~/.local, node upgrade).
+	Links the pi package, sibling packages hoisted into the release's
+	node_modules, and dependencies nested under pi itself. Nested dependencies
+	take precedence, matching Node's package resolution.
 	"""
 	changed = False
 	nm = ext_dir / "node_modules"
 	changed |= ensure_symlink(nm / "@earendil-works" / "pi-coding-agent", pi_pkg)
-	vendored = pi_pkg / "node_modules" / "@earendil-works"
-	if vendored.is_dir():
-		for pkg in sorted(vendored.iterdir()):
-			changed |= ensure_symlink(nm / "@earendil-works" / pkg.name, pkg)
-	changed |= ensure_symlink(nm / "@types" / "node",
-	                         pi_pkg / "node_modules" / "@types" / "node")
+	modules = [pi_pkg.parents[1], pi_pkg / "node_modules"]
+	packages = {}
+	for root in modules:
+		scope = root / "@earendil-works"
+		if scope.is_dir():
+			for pkg in sorted(scope.iterdir()):
+				if pkg.is_dir():
+					packages[pkg.name] = pkg
+	for name, pkg in packages.items():
+		changed |= ensure_symlink(nm / "@earendil-works" / name, pkg)
+	types = pi_pkg / "node_modules" / "@types" / "node"
+	if not types.is_dir():
+		types = pi_pkg.parents[1] / "@types" / "node"
+	changed |= ensure_symlink(nm / "@types" / "node", types)
 	return changed
 
 

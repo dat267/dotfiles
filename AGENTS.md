@@ -16,7 +16,7 @@ Edit source files (`dot_*` prefix), never deployed versions. Preserve `{{- ... -
 - Chezmoi: `.chezmoi.toml.tmpl` (autoAdd/autoCommit, no autoPush), `.chezmoiignore`, `.chezmoiexternal.toml.tmpl` (zsh plugin tarballs)
 - AI: `dot_config/opencode/`, `dot_pi/`
 - Python scripts: `dot_local/scripts/exact_py/` (stdlib only, see its `AGENTS.md`)
-- Bootstrap: `run_once_before_bootstrap-local-configs.ps1.tmpl` and `run_onchange_after_create-junctions.ps1.tmpl` (Windows only); `run_onchange_after_create-symlinks.sh.tmpl` and `run_onchange_after_systemd-user-reload.sh.tmpl` (Linux)
+- Bootstrap: `run_once_before_bootstrap-local-configs.ps1.tmpl` and `run_onchange_after_create-junctions.ps1.tmpl` (Windows only); `run_after_create-symlinks.sh.tmpl` (Linux/Android, idempotent repairs on every apply) and `run_onchange_after_systemd-user-reload.sh.tmpl` (Linux, tracks the service checksum)
 
 ## Commands
 

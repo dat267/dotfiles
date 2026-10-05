@@ -73,11 +73,9 @@ class TestCommandPlanning(PiplineCase):
 
 
 class TestResolvePiPackage(unittest.TestCase):
-	"""resolve_pi_package finds the installed pi package wherever npm put it:
-	the fixed ~/.local (unix) and ~/Apps/pi (Windows) prefixes first, then the
-	global root (nvm, nvm-windows) — the hardcoded ~/.local path broke the
-	lints on machines where pi ships via npm -g. Every probe is injected so a
-	real install on the test machine cannot leak into these cases."""
+	"""Managed releases take precedence over fixed and global npm prefixes.
+	Every probe is injected so real installations cannot leak into fixtures.
+	"""
 
 	def setUp(self):
 		self.tmp = tempfile.mkdtemp(prefix="pi-lint-test-")
@@ -93,7 +91,36 @@ class TestResolvePiPackage(unittest.TestCase):
 		kwargs.setdefault("local_root", _Path(self.tmp) / "local-node-modules")
 		kwargs.setdefault("windows_root", _Path(self.tmp) / "no-apps")
 		kwargs.setdefault("global_root", _Path(self.tmp) / "global-node-modules")
-		return pi_lint.resolve_pi_package(**kwargs)
+		with patch.dict(os.environ, {"PI_MANAGED_INSTALL_ROOT": str(_Path(self.tmp) / "managed")}):
+			return pi_lint.resolve_pi_package(**kwargs)
+
+	def test_managed_release_wins_over_legacy_install(self):
+		root = _Path(self.tmp) / "managed"
+		managed = self.pkg("managed/releases/1.0.3/node_modules")
+		(root / "current-version").write_text("1.0.3\n")
+		self.pkg("local-node-modules")
+		self.assertEqual(self.resolve(), managed)
+
+	def test_missing_managed_release_falls_back_to_legacy_install(self):
+		root = _Path(self.tmp) / "managed"
+		root.mkdir()
+		(root / "current-version").write_text("missing\n")
+		local = self.pkg("local-node-modules")
+		self.assertEqual(self.resolve(), local)
+
+	def test_managed_version_cannot_escape_release_directory(self):
+		root = _Path(self.tmp) / "managed"
+		root.mkdir()
+		(root / "current-version").write_text("../../outside\n")
+		local = self.pkg("local-node-modules")
+		self.assertEqual(self.resolve(), local)
+
+	def test_managed_install_does_not_invoke_npm(self):
+		root = _Path(self.tmp) / "managed"
+		managed = self.pkg("managed/releases/1.0.3/node_modules")
+		(root / "current-version").write_text("1.0.3\n")
+		with patch.object(pi_lint.subprocess, "run", side_effect=AssertionError("npm must not run")):
+			self.assertEqual(self.resolve(global_root=None), managed)
 
 	def test_global_root_when_no_fixed_prefix_has_pi(self):
 		self.pkg("global-node-modules")
@@ -164,6 +191,20 @@ class TestDeps(PiplineCase):
 		self.assertTrue(self.ensure(d))
 		for pkg in ("pi-ai", "pi-tui"):
 			self.assertTrue((d / "node_modules" / "@earendil-works" / pkg).is_dir())
+
+	def test_links_hoisted_dependencies_from_managed_release(self):
+		modules = self.root / "managed" / "node_modules"
+		self.pi_pkg = modules / "@earendil-works" / "pi-coding-agent"
+		self.pi_pkg.mkdir(parents=True)
+		for pkg in ("pi-ai", "pi-tui"):
+			(modules / "@earendil-works" / pkg).mkdir()
+		(modules / "@types" / "node").mkdir(parents=True)
+		d = self.make_ext("exact_providers", ["index.ts"])
+		self.ensure(d)
+		for pkg in ("pi-ai", "pi-tui"):
+			self.assertTrue(pi_lint.points_at(d / "node_modules" / "@earendil-works" / pkg,
+			                                modules / "@earendil-works" / pkg))
+		self.assertTrue((d / "node_modules" / "@types" / "node").is_dir())
 
 	def test_no_op_when_already_set_up(self):
 		d = self.make_ext("exact_modeldefault", ["index.ts"])
