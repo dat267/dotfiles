@@ -133,6 +133,15 @@ class PlanWritableTest(unittest.TestCase):
                                 exists=self.exists_all, env={})
         self.assertIn(norm(os.path.join(HOME, ".ssh", "known_hosts")), got)
 
+    def test_aws_caches_writable_but_credentials_read_only(self):
+        got = mod.plan_writable(os.path.join(HOME, "ws"), "ww", home=HOME,
+                                exists=self.exists_all, env={})
+        self.assertIn(norm(os.path.join(HOME, ".aws", "cli", "cache")), got)
+        self.assertIn(norm(os.path.join(HOME, ".aws", "sso", "cache")), got)
+        self.assertNotIn(norm(os.path.join(HOME, ".aws")), got)
+        self.assertNotIn(norm(os.path.join(HOME, ".aws", "config")), got)
+        self.assertNotIn(norm(os.path.join(HOME, ".aws", "credentials")), got)
+
 
 class ConfigRwPathsTest(unittest.TestCase):
     def test_reads_paths_and_comments(self):

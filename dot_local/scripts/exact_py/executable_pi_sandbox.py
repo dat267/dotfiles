@@ -60,7 +60,9 @@ HOME = os.path.expanduser("~")
 # Writable by default, when present. pi's own state and the caches tools it
 # drives need; everything else stays read-only. Never includes $HOME itself.
 # known_hosts is a file, not a directory: ssh appends host keys to it while
-# ~/.ssh stays read-only, so keys and config cannot be rewritten.
+# ~/.ssh stays read-only, so keys and config cannot be rewritten. The AWS
+# entries are the caches only: ~/.aws/config and ~/.aws/credentials stay
+# read-only.
 DEFAULT_WRITABLE = (
     ".pi",
     ".cache",
@@ -71,6 +73,8 @@ DEFAULT_WRITABLE = (
     ".local/share/mise",
     ".local/state",
     ".ssh/known_hosts",
+    ".aws/cli/cache",
+    ".aws/sso/cache",
 )
 
 # bwrap's user namespace leaves host uid 0 unmapped, so the root-owned drop-ins
