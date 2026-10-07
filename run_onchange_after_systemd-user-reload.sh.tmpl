@@ -2,13 +2,10 @@
 #!/bin/sh
 # Service checksum makes unit edits rerun this onchange hook.
 # dsh-web.service: {{ include "dot_config/systemd/user/dsh-web.service" | sha256sum }}
-# Reload the user manager after a systemd unit change; bounce the service only
-# if it's already running. Environments without a user bus (containers, Cloud
-# Shell, WSL) have nothing to reload — exit quietly instead of leaking
+# Reload the user manager after a systemd unit change and keep dsh-web stopped
+# and disabled. Environments without a user bus (containers, Cloud Shell, WSL)
+# have nothing to reload, so exit quietly instead of leaking
 # "Failed to connect to bus" noise into the apply output.
 systemctl --user daemon-reload 2>/dev/null || exit 0
-if systemctl --user is-active --quiet dsh-web 2>/dev/null; then
-    echo "Restarting dsh-web (unit changed)"
-    systemctl --user restart dsh-web
-fi
+systemctl --user disable --now dsh-web.service
 {{ end -}}

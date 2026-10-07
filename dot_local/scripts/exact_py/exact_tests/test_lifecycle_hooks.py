@@ -90,6 +90,22 @@ class LifecycleHooksTest(unittest.TestCase):
         after = self.render(template, source=source)
         self.assertNotEqual(before, after, "service edits must change the hook's rendered checksum")
 
+    def test_systemd_hook_keeps_dsh_web_disabled(self):
+        systemctl = self.bin / "systemctl"
+        systemctl.write_text('''#!/bin/sh
+printf '%s\\n' "$*" >> "$HOME/systemctl-calls"
+''')
+        systemctl.chmod(0o755)
+        script = self.render(self.repo / "run_onchange_after_systemd-user-reload.sh.tmpl")
+        if not script.strip():
+            self.skipTest("systemd hook is Linux-only")
+        subprocess.run([self.shell, "-c", script], env=self.env,
+                       capture_output=True, text=True, timeout=5, check=True)
+        self.assertEqual((self.home / "systemctl-calls").read_text().splitlines(), [
+            "--user daemon-reload",
+            "--user disable --now dsh-web.service",
+        ])
+
     def test_backups_do_not_collide_and_repeated_runs_are_idempotent(self):
         target = self.home / ".config/Code - OSS/User"
         target.mkdir(parents=True)
