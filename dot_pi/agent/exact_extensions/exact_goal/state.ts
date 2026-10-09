@@ -5,6 +5,17 @@ export interface BlockedReason {
 	message: string;
 }
 
+export interface GoalBudget {
+	timeLimitMs?: number;
+	tokenLimit?: number;
+	costLimitUsd?: number;
+}
+
+export interface GoalUsage {
+	tokens: number;
+	costUsd: number;
+}
+
 export interface GoalSnapshot {
 	/** State schema version. Absent on entries written before the field existed (= 1). */
 	version?: number;
@@ -13,6 +24,7 @@ export interface GoalSnapshot {
 	objective: string;
 	phase: GoalPhase;
 	blockedReason?: BlockedReason;
+	budget?: GoalBudget;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -20,6 +32,8 @@ export interface GoalSnapshot {
 export interface GoalView extends GoalSnapshot {
 	armed: boolean;
 	turnsStarted: number;
+	usedTokens?: number;
+	usedCostUsd?: number;
 }
 
 /** Replay result: the goal plus the settings that outlive it. */
@@ -65,6 +79,7 @@ export interface GoalTurnEntry {
 	revision: number;
 	turn: number;
 	timestamp: number;
+	usage?: GoalUsage;
 }
 
 const PHASES: GoalPhase[] = ["active", "paused", "blocked", "complete"];
@@ -90,18 +105,20 @@ export function toSnapshot(goal: GoalSnapshot): GoalSnapshot {
 		objective: goal.objective,
 		phase: goal.phase,
 		...(goal.blockedReason ? { blockedReason: goal.blockedReason } : {}),
+		...(goal.budget ? { budget: { ...goal.budget } } : {}),
 		createdAt: goal.createdAt,
 		updatedAt: goal.updatedAt,
 	};
 }
 
-export function createGoalState(objective: string, now = Date.now()): GoalSnapshot {
+export function createGoalState(objective: string, now = Date.now(), budget?: GoalBudget): GoalSnapshot {
 	return {
 		version: GOAL_STATE_VERSION,
 		id: newGoalId(),
 		revision: 1,
 		objective,
 		phase: "active",
+		...(budget && Object.keys(budget).length > 0 ? { budget } : {}),
 		createdAt: now,
 		updatedAt: now,
 	};
@@ -133,6 +150,11 @@ export function applyChange(
 	if (!next) throw new Error(`operation ${operation} requires a goal snapshot`);
 
 	if (!PHASES.includes(next.phase)) throw new Error(`illegal phase ${next.phase}`);
+	if (next.budget && ((next.budget.timeLimitMs !== undefined && (!Number.isSafeInteger(next.budget.timeLimitMs) || next.budget.timeLimitMs <= 0)) ||
+		(next.budget.tokenLimit !== undefined && (!Number.isSafeInteger(next.budget.tokenLimit) || next.budget.tokenLimit <= 0)) ||
+		(next.budget.costLimitUsd !== undefined && (!Number.isFinite(next.budget.costLimitUsd) || next.budget.costLimitUsd <= 0)))) {
+		throw new Error("invalid goal budget");
+	}
 
 	// Refuse to interpret a snapshot written by a newer schema: replaying it
 	// under these assumptions would silently misread its fields.
@@ -186,6 +208,8 @@ export function foldGoal(entries: { customType: string; data: any }[]): FoldedGo
 	let current: GoalSnapshot | null = null;
 	let turnsStarted = 0;
 	let turnNo = 0;
+	let usedTokens = 0;
+	let usedCostUsd = 0;
 	let bannerEnabled = false;
 
 	for (const entry of entries) {
@@ -195,10 +219,13 @@ export function foldGoal(entries: { customType: string; data: any }[]): FoldedGo
 			continue;
 		}
 		if (entry.customType === "pi-goal") {
+			const previousId = current?.id;
 			current = applyChange(current, entry.data as GoalChangeEntry);
-			if (!current) {
+			if (!current || current.id !== previousId) {
 				turnsStarted = 0;
 				turnNo = 0;
+				usedTokens = 0;
+				usedCostUsd = 0;
 			}
 		} else if (entry.customType === "pi-goal-turn") {
 			const turn = entry.data as GoalTurnEntry;
@@ -208,11 +235,13 @@ export function foldGoal(entries: { customType: string; data: any }[]): FoldedGo
 			}
 			turnNo = turn.turn;
 			turnsStarted = turn.turn;
+			usedTokens += Math.max(0, turn.usage?.tokens ?? 0);
+			usedCostUsd += Math.max(0, turn.usage?.costUsd ?? 0);
 		}
 	}
 
 	if (!current) return { goal: null, bannerEnabled };
-	return { goal: { ...current, armed: false, turnsStarted }, bannerEnabled };
+	return { goal: { ...current, armed: false, turnsStarted, usedTokens, usedCostUsd }, bannerEnabled };
 }
 
 export function truncateObjective(text: string, max = 60): string {
@@ -231,6 +260,9 @@ export function goalView(goal: GoalView | null): { goal: Record<string, unknown>
 			objective: goal.objective,
 			phase: goal.phase,
 			turnsStarted: goal.turnsStarted,
+			...(goal.budget ? { budget: goal.budget } : {}),
+			usedTokens: goal.usedTokens ?? 0,
+			usedCostUsd: goal.usedCostUsd ?? 0,
 			...(goal.blockedReason ? { blockedReason: goal.blockedReason } : {}),
 		},
 		activation: goal.armed ? "armed" : "disarmed",
@@ -248,6 +280,10 @@ export function resumeHint(reason: BlockedReason): string {
 			return "Fix the request, then /goal resume.";
 		case "api-error":
 			return "/goal resume once the provider recovers.";
+		case "budget-time":
+		case "budget-tokens":
+		case "budget-cost":
+			return "Start a new goal with a larger budget to continue.";
 		default:
 			return "/goal resume to continue.";
 	}
@@ -262,7 +298,18 @@ export function statusLine(goal: GoalView | null): string {
 export function goalStatusMessage(goal: GoalView | null, bannerEnabled = false): string {
 	const banner = `Banner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`;
 	if (!goal) return `No goal set. Use /goal set <objective>\n${banner}`;
-	return `${statusLine(goal)}\n${truncateObjective(goal.objective, 120)}\n${banner}`;
+	const budget = goal.budget
+		? `Budget: ${formatBudget(goal.budget, goal.usedTokens, goal.usedCostUsd, Date.now() - goal.createdAt)}`
+		: undefined;
+	return [statusLine(goal), truncateObjective(goal.objective, 120), ...(budget ? [budget] : []), banner].join("\n");
+}
+
+export function formatBudget(budget: GoalBudget, usedTokens = 0, usedCostUsd = 0, elapsedMs = 0): string {
+	const parts: string[] = [];
+	if (budget.timeLimitMs !== undefined) parts.push(`time ${Math.floor(Math.max(0, elapsedMs) / 60_000)}/${Math.floor(budget.timeLimitMs / 60_000)}m`);
+	if (budget.tokenLimit !== undefined) parts.push(`tokens ${usedTokens}/${budget.tokenLimit}`);
+	if (budget.costLimitUsd !== undefined) parts.push(`reported cost $${usedCostUsd.toFixed(2)}/$${budget.costLimitUsd.toFixed(2)}`);
+	return parts.join(", ");
 }
 
 export function goalRoundPrompt(goal: GoalView, turn: number): string {
@@ -274,6 +321,7 @@ export function goalRoundPrompt(goal: GoalView, turn: number): string {
 		`- Continue the objective; concrete evidence before claiming completion.`,
 		`- Fully achieved: update_goal action "complete".`,
 		`- Same blocker 3+ consecutive rounds: action "blocked" with concrete blocked_reason.`,
+		...(goal.budget ? [`- Budget: ${formatBudget(goal.budget, goal.usedTokens, goal.usedCostUsd, Date.now() - goal.createdAt)}. Stop when any limit is reached.`] : []),
 		`- Otherwise leave active and keep going.`,
 		`</goal_round>`,
 	].join("\n");

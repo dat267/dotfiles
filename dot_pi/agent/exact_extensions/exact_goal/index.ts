@@ -4,9 +4,9 @@ import { CUSTOM_TYPE, EVENT_TYPE, GoalMachine, TURN_TYPE, type Effect } from "./
 import {
 	goalStatusMessage,
 	goalView,
-	resumeHint,
 	statusLine,
 	truncateObjective,
+	type GoalBudget,
 	type GoalView,
 } from "./state.ts";
 import {
@@ -22,33 +22,6 @@ import {
 
 export default function piGoal(pi: ExtensionAPI) {
 	const machine = new GoalMachine();
-
-	/** Last failing provider HTTP response this run — cleared on success or new run. */
-	let providerError: { status: number; message: string; retryAfterMs?: number } | undefined;
-	/** Pending backoff timer from a scheduleRetry effect. */
-	let retryTimer: ReturnType<typeof setTimeout> | undefined;
-
-	function clearRetryTimer() {
-		if (retryTimer !== undefined) {
-			clearTimeout(retryTimer);
-			retryTimer = undefined;
-		}
-	}
-
-	pi.on("agent_start", () => {
-		providerError = undefined;
-		clearRetryTimer();
-	});
-
-	pi.on("after_provider_response", (event) => {
-		if (event.status >= 400) {
-			const retryAfter = Number(event.headers?.["retry-after"] ?? event.headers?.["Retry-After"] ?? NaN);
-			const retryAfterMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : undefined;
-			providerError = { status: event.status, message: `HTTP ${event.status}`, retryAfterMs };
-		} else {
-			providerError = undefined;
-		}
-	});
 
 	/** Execute the machine's effects against the host. */
 	function apply(effects: Effect[], ctx?: ExtensionContext) {
@@ -68,22 +41,11 @@ export default function piGoal(pi: ExtensionAPI) {
 				case "notify":
 					ctx?.ui.notify(effect.message, effect.level);
 					break;
-				case "scheduleRetry": {
-					ctx?.ui.notify(
-						`${effect.error} — retrying in ${Math.round(effect.delayMs / 1000)}s (attempt ${effect.attempt}/${effect.maxRetries}).`,
-						"warning",
-					);
-					clearRetryTimer();
-					retryTimer = setTimeout(() => {
-						retryTimer = undefined;
-						// No ctx: timer callbacks outlive the settling context; retry_due
-						// effects only touch pi-level APIs (sendMessage, status entry).
-						apply(machine.dispatch({ type: "retry_due" }).effects);
-					}, effect.delayMs);
-					break;
-				}
+
 				case "renderStatus":
 					if (ctx) updateStatusBar(ctx);
+					break;
+				case "continueRound":
 					break;
 			}
 		}
@@ -168,17 +130,22 @@ export default function piGoal(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "create_goal",
 		label: "Create Goal",
-		description: "Create a persisted session goal. Not for trivial single-turn work.",
+		description: "Create a persisted session goal with optional time, token, and best-effort provider-reported cost budgets. For strict spending caps, configure them with provider.",
 		promptSnippet: "Create a goal for long-running objectives",
 		promptGuidelines: [
 			"Use create_goal when the user's request is a multi-step objective that should continue across rounds.",
 			"Do not create goals for trivial single-turn work.",
 			"Before creating, turn the request into a concrete objective with outcome, verification, constraints, and boundaries.",
+			"Pass time_limit_hours, token_limit, and cost_limit_usd only when the user requested those budgets; otherwise use the default round-based loop.",
+			"Provider-reported cost can be missing or incomplete; never present cost_limit_usd as a guaranteed billing cap.",
 		],
 		parameters: {
 			type: "object",
 			properties: {
 				objective: { type: "string", description: "Concrete completion objective." },
+				time_limit_hours: { type: "number", exclusiveMinimum: 0, description: "Optional elapsed-time limit in hours." },
+				token_limit: { type: "integer", exclusiveMinimum: 0, description: "Optional cumulative reported-token limit." },
+				cost_limit_usd: { type: "number", exclusiveMinimum: 0, description: "Optional cumulative provider-reported USD cost limit." },
 			},
 			required: ["objective"],
 			additionalProperties: false,
@@ -189,7 +156,20 @@ export default function piGoal(pi: ExtensionAPI) {
 			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
 			if (!objective)
 				return { content: [{ type: "text", text: "objective is required." }], isError: true, details: undefined };
-			const { effects, reply, isError } = machine.dispatch({ type: "goal_create", objective });
+			const timeHours = params.time_limit_hours as number | undefined;
+			const tokenLimit = params.token_limit as number | undefined;
+			const costLimitUsd = params.cost_limit_usd as number | undefined;
+			if ((timeHours !== undefined && (!Number.isFinite(timeHours) || timeHours <= 0 || !Number.isSafeInteger(timeHours * 3_600_000))) ||
+				(tokenLimit !== undefined && (!Number.isSafeInteger(tokenLimit) || tokenLimit <= 0)) ||
+				(costLimitUsd !== undefined && (!Number.isFinite(costLimitUsd) || costLimitUsd <= 0))) {
+				return { content: [{ type: "text", text: "Budget values must be positive numbers; token_limit must be a positive integer." }], isError: true, details: undefined };
+			}
+			const budget: GoalBudget = {
+				...(timeHours !== undefined ? { timeLimitMs: timeHours * 3_600_000 } : {}),
+				...(tokenLimit !== undefined ? { tokenLimit } : {}),
+				...(costLimitUsd !== undefined ? { costLimitUsd } : {}),
+			};
+			const { effects, reply, isError } = machine.dispatch({ type: "goal_create", objective, budget });
 			apply(effects, ctx);
 			return { content: [{ type: "text", text: reply ?? "Goal created." }], isError, details: { goal: machine.snapshot.goal } };
 		},
@@ -276,6 +256,7 @@ export default function piGoal(pi: ExtensionAPI) {
 					run({ type: "goal_resume" }, () => "Goal resumed.");
 					break;
 				case "set": {
+					const budget = Object.keys(cmd.budget).length ? cmd.budget : undefined;
 					// Replacing a live goal is a destructive edit: confirm, then
 					// tombstone the old one so replay still validates every step.
 					if (goal && goal.phase !== "complete") {
@@ -284,10 +265,10 @@ export default function piGoal(pi: ExtensionAPI) {
 							`Current: ${truncateObjective(goal.objective, 120)}\n\nNew: ${truncateObjective(cmd.objective, 120)}`,
 						);
 						if (!ok) return;
-						run({ type: "goal_replace", objective: cmd.objective }, () => "Goal replaced.");
+						run({ type: "goal_replace", objective: cmd.objective, budget }, () => "Goal replaced.");
 						break;
 					}
-					run({ type: "goal_set", objective: cmd.objective }, () => "Goal set.");
+					run({ type: "goal_set", objective: cmd.objective, budget }, () => "Goal set.");
 					break;
 				}
 				case "error":
@@ -301,7 +282,6 @@ export default function piGoal(pi: ExtensionAPI) {
 	// Goal entry is model-driven (create_goal judgment) or human-driven (/goal set).
 
 	pi.on("session_start", (event, ctx) => {
-		clearRetryTimer();
 		const reason = (event as { reason?: string } | undefined)?.reason;
 		let result;
 		try {
@@ -327,36 +307,43 @@ export default function piGoal(pi: ExtensionAPI) {
 		}
 	});
 
-	pi.on("agent_end", (_event, ctx) => {
-		const usage = ctx.getContextUsage();
+	pi.on("agent_end", (event, ctx) => {
+		const eventMessages = (event as { messages?: Array<{ role?: string; usage?: { totalTokens?: number; cost?: { total?: number } } }> }).messages ?? [];
+		const usage = eventMessages.reduce((sum, message) => message.role === "assistant" ? {
+			tokens: sum.tokens + Math.max(0, message.usage?.totalTokens ?? 0),
+			costUsd: sum.costUsd + Math.max(0, message.usage?.cost?.total ?? 0),
+		} : sum, { tokens: 0, costUsd: 0 });
+		const contextUsage = ctx.getContextUsage();
 		apply(
 			machine.dispatch({
 				type: "agent_end",
-				// getContextUsage() is typed nullable; null tokens already model
-				// "unknown" downstream — never hand the machine bare undefined.
-				contextUsage: usage ?? { tokens: null, contextWindow: 0 },
+				contextUsage: contextUsage ?? { tokens: null, contextWindow: 0 },
+				usage,
 				aborted: !!ctx.signal?.aborted,
 			}).effects,
 			ctx,
 		);
 	});
 
-	pi.on("agent_settled", (_event, ctx) => {
-		const err = providerError;
-		const usage = ctx.getContextUsage();
-		apply(
-			machine.dispatch({
-				type: "agent_settled",
-				contextUsage: usage ?? { tokens: null, contextWindow: 0 },
-				providerError: err,
-				hasPendingMessages: ctx.hasPendingMessages?.() ?? false,
-			}).effects,
-			ctx,
-		);
-		const goal = machine.snapshot.goal;
-		const reason = goal?.blockedReason;
-		if (err && goal?.phase === "paused" && reason?.code.startsWith("api-")) {
-			ctx.ui.notify(`Goal paused: ${reason.message} ${resumeHint(reason)}`, "warning");
-		}
+	pi.on("agent_before_settle", (event, ctx) => {
+		const boundary = event as { outcome: "completed" | "aborted" | "error"; context: { pendingMessages: unknown[] } };
+		const result = machine.dispatch({
+			type: "agent_before_settle",
+			outcome: boundary.outcome,
+			hasPendingMessages: boundary.context.pendingMessages.length > 0,
+		});
+		const continuation = result.effects.find((effect) => effect.kind === "continueRound");
+		apply(result.effects.filter((effect) => effect.kind !== "continueRound"), ctx);
+		if (!result.continue || continuation?.kind !== "continueRound") return;
+		return {
+			entries: [{
+				type: "custom_message" as const,
+				customType: EVENT_TYPE,
+				content: continuation.content,
+				display: false,
+				details: { kind: "round", turn: continuation.turn },
+			}],
+			continue: true,
+		};
 	});
 }

@@ -143,173 +143,100 @@ void describe("GoalMachine.agent_end", () => {
 	});
 });
 
-void describe("GoalMachine.agent_settled", () => {
-	void it("armed active goal under cap: sendMessage round effect, pendingTurn reserved", () => {
+void describe("GoalMachine.agent_before_settle", () => {
+	void it("continues an armed goal through Pi's boundary and reserves next round", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
 		m.dispatch({ type: "goal_resume" });
-		// admit the resumed round
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		const { effects } = m.dispatch({ type: "agent_settled", contextUsage: USAGE });
-		const msg = effects.find((e) => e.kind === "sendMessage");
-		assert.ok(msg, "expected round message");
-		assert.equal((msg as { triggerTurn: boolean }).triggerTurn, true);
+		const result = m.dispatch({ type: "agent_before_settle", outcome: "completed" });
+		const round = result.effects.find((effect) => effect.kind === "continueRound");
+		assert.equal(result.continue, true);
+		assert.ok(round);
+		assert.match(round.content, /<goal_round>/);
 		assert.equal(m.snapshot.pendingTurn, 2);
 	});
 
-	void it("first provider error: schedules retry with 30s backoff, no pause, no round", () => {
+	void it("provider errors pause instead of queueing continuation", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
 		m.dispatch({ type: "goal_resume" });
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		const { effects } = m.dispatch({
-			type: "agent_settled",
-			contextUsage: USAGE,
-			providerError: { status: 429, message: "HTTP 429" },
-		});
-		const retry = effects.find((e) => e.kind === "scheduleRetry") as { delayMs: number } | undefined;
-		assert.ok(retry, "expected scheduleRetry effect");
-		assert.equal(retry.delayMs, 30_000);
-		assert.equal(m.snapshot.goal?.phase, "active");
-		assert.ok(!effects.some((e) => e.kind === "sendMessage"));
-	});
-
-	void it("retry limit exhausted: pauses goal with api-error reason, no round queued", () => {
-		const m = new GoalMachine();
-		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
-		m.dispatch({ type: "goal_resume" });
-		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		const settle = () => m.dispatch({
-			type: "agent_settled",
-			contextUsage: USAGE,
-			providerError: { status: 429, message: "You have reached your 5-hour Clinepass limit." },
-		});
-		// 3 retries (30s/60s/120s backoff), then the 4th error pauses.
-		settle();
-		settle();
-		settle();
-		const { effects } = settle();
-		assert.ok(!effects.some((e) => e.kind === "sendMessage"), "no continuation round after retry limit");
-		assert.ok(!effects.some((e) => e.kind === "scheduleRetry"), "no retry past the limit");
-		assert.equal(m.snapshot.armed, false);
+		const result = m.dispatch({ type: "agent_before_settle", outcome: "error" });
+		assert.equal(result.continue, false);
 		assert.equal(m.snapshot.goal?.phase, "paused");
-		assert.equal(m.snapshot.goal?.blockedReason?.code, "api-error");
-		assert.match(m.snapshot.goal?.blockedReason?.message ?? "", /429/);
+		assert.equal(m.snapshot.goal?.blockedReason?.code, "run-error");
+		assert.equal(m.snapshot.pendingTurn, null);
 	});
 
-	void it("backoff escalates per attempt and honors larger retry-after", () => {
+	void it("aborting the run durably pauses the active goal", () => {
 		const m = new GoalMachine();
-		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
-		m.dispatch({ type: "goal_resume" });
-		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		const settle = (retryAfterMs?: number) =>
-			m.dispatch({
-				type: "agent_settled",
-				contextUsage: USAGE,
-				providerError: { status: 429, message: "HTTP 429", retryAfterMs },
-			});
-		let retry = settle(300_000).effects.find((e) => e.kind === "scheduleRetry") as { delayMs: number; attempt: number };
-		// server asks for longer than the schedule → server wins
-		assert.equal(retry.delayMs, 300_000);
-		assert.equal(retry.attempt, 1);
-		retry = settle().effects.find((e) => e.kind === "scheduleRetry") as { delayMs: number; attempt: number };
-		assert.equal(retry.delayMs, 60_000);
-		assert.equal(retry.attempt, 2);
-		retry = settle().effects.find((e) => e.kind === "scheduleRetry") as { delayMs: number; attempt: number };
-		assert.equal(retry.delayMs, 120_000);
-		assert.equal(retry.attempt, 3);
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "ship it" });
+		const result = m.dispatch({ type: "agent_before_settle", outcome: "aborted" });
+		assert.equal(result.continue, false);
+		assert.equal(m.snapshot.goal?.phase, "paused");
+		assert.equal(m.snapshot.goal?.blockedReason?.code, "cancelled");
 	});
 
-	// Permanent 4xx should not burn the backoff budget: a bad key or unknown
-	// model never recovers by waiting, so pause on the first settle with a
-	// reason that says what to fix.
-	void it("non-retryable 401 pauses immediately, no retry and no round", () => {
+	void it("disarmed goals do not continue", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
-		m.dispatch({ type: "goal_resume" });
-		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		const { effects } = m.dispatch({
-			type: "agent_settled",
+		const result = m.dispatch({ type: "agent_before_settle", outcome: "completed" });
+		assert.equal(result.continue, false);
+		assert.equal(result.effects.some((effect) => effect.kind === "continueRound"), false);
+	});
+});
+
+void describe("GoalMachine.budget limits", () => {
+	void it("pauses before continuation when time limit expires", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "ship it", budget: { timeLimitMs: 1000 } });
+		const now = m.snapshot.goal!.createdAt + 1000;
+		const result = m.dispatch({ type: "agent_before_settle", outcome: "completed", hasPendingMessages: false, now });
+		assert.equal(result.continue, false);
+		assert.equal(m.snapshot.goal?.blockedReason?.code, "budget-time");
+	});
+
+	void it("does not resume after a budget has been exhausted", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "ship it", budget: { tokenLimit: 10 } });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, usage: { tokens: 10, costUsd: 0 }, aborted: false });
+		m.dispatch({ type: "agent_before_settle", outcome: "completed" });
+		const resumed = m.dispatch({ type: "goal_resume" });
+		assert.equal(resumed.isError, true);
+		assert.match(resumed.reply ?? "", /Token limit reached/);
+		assert.equal(resumed.effects.some((effect) => effect.kind === "sendMessage"), false);
+	});
+
+	void it("pauses before continuation when reported cost reaches limit", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "ship it", budget: { timeLimitMs: 60_000, costLimitUsd: 0.5 } });
+		m.dispatch({ type: "agent_end", contextUsage: USAGE, usage: { tokens: 20, costUsd: 0.5 }, aborted: false });
+		const result = m.dispatch({ type: "agent_before_settle", outcome: "completed", hasPendingMessages: false });
+		assert.equal(result.continue, false);
+		assert.equal(m.snapshot.goal?.blockedReason?.code, "budget-cost");
+	});
+
+	void it("pauses before continuation when cumulative token usage reaches limit", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		m.dispatch({ type: "goal_create", objective: "ship it", budget: { timeLimitMs: 60_000, tokenLimit: 100 } });
+		m.dispatch({
+			type: "agent_end",
 			contextUsage: USAGE,
-			providerError: { status: 401, message: "HTTP 401" },
+			usage: { tokens: 100, costUsd: 0.02 },
+			aborted: false,
 		});
-		assert.ok(!effects.some((e) => e.kind === "scheduleRetry"), "no backoff for a permanent error");
-		assert.ok(!effects.some((e) => e.kind === "sendMessage"), "no continuation round");
-		assert.equal(m.snapshot.armed, false);
+		const result = m.dispatch({ type: "agent_before_settle", outcome: "completed", hasPendingMessages: false, now: Date.now() });
+		assert.equal(result.continue, false);
 		assert.equal(m.snapshot.goal?.phase, "paused");
-		assert.equal(m.snapshot.goal?.blockedReason?.code, "api-auth");
-	});
-
-	void it("non-retryable 403 is auth, 400 is a request error", () => {
-		const codeFor = (status: number) => {
-			const m = new GoalMachine();
-			m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
-			m.dispatch({ type: "goal_resume" });
-			m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-			m.dispatch({ type: "agent_settled", contextUsage: USAGE, providerError: { status, message: `HTTP ${status}` } });
-			return m.snapshot.goal?.blockedReason?.code;
-		};
-		assert.equal(codeFor(403), "api-auth");
-		assert.equal(codeFor(402), "api-billing");
-		assert.equal(codeFor(400), "api-request");
-		assert.equal(codeFor(404), "api-request");
-		assert.equal(codeFor(422), "api-request");
-	});
-
-	void it("retryable statuses still take the backoff schedule", () => {
-		for (const status of [408, 409, 425, 429, 500, 502, 503]) {
-			const m = new GoalMachine();
-			m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
-			m.dispatch({ type: "goal_resume" });
-			m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-			const { effects } = m.dispatch({
-				type: "agent_settled",
-				contextUsage: USAGE,
-				providerError: { status, message: `HTTP ${status}` },
-			});
-			assert.ok(effects.some((e) => e.kind === "scheduleRetry"), `${status} must retry`);
-			assert.equal(m.snapshot.goal?.phase, "active", `${status} must not pause on the first failure`);
-		}
-	});
-
-	void it("successful settle resets the retry counter", () => {
-		const m = new GoalMachine();
-		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
-		m.dispatch({ type: "goal_resume" });
-		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		const settleErr = () =>
-			m.dispatch({ type: "agent_settled", contextUsage: USAGE, providerError: { status: 500, message: "HTTP 500" } });
-		settleErr();
-		settleErr();
-		// a clean round settles without error → counter resets
-		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		m.dispatch({ type: "agent_settled", contextUsage: USAGE });
-		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		settleErr();
-		settleErr();
-		settleErr();
-		const { effects } = settleErr();
-		assert.ok(!effects.some((e) => e.kind === "scheduleRetry"), "counter was reset: limit not yet reached");
-		assert.equal(m.snapshot.goal?.phase, "paused");
-	});
-
-	void it("retry_due while armed and active: queues the round", () => {
-		const m = new GoalMachine();
-		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
-		m.dispatch({ type: "goal_resume" });
-		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		m.dispatch({ type: "agent_settled", contextUsage: USAGE, providerError: { status: 429, message: "HTTP 429" } });
-		const { effects } = m.dispatch({ type: "retry_due" });
-		const msg = effects.find((e) => e.kind === "sendMessage");
-		assert.ok(msg, "expected round message on retry_due");
-		assert.equal(m.snapshot.pendingTurn, 2);
-	});
-
-	void it("disarmed: no round queued", () => {
-		const m = new GoalMachine();
-		m.dispatch({ type: "session_start", entries: [makeChangeEntry("create")] });
-		const { effects } = m.dispatch({ type: "agent_settled", contextUsage: USAGE });
-		assert.ok(!effects.some((e) => e.kind === "sendMessage"));
+		assert.equal(m.snapshot.goal?.blockedReason?.code, "budget-tokens");
+		assert.equal(m.snapshot.goal?.usedTokens, 100);
+		assert.ok(result.effects.some((effect) => effect.kind === "appendEntry"));
 	});
 });
 
@@ -400,11 +327,11 @@ void describe("GoalMachine.goal_update", () => {
 		const m = armedMachine();
 		// admit 3 rounds
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		m.dispatch({ type: "agent_settled", contextUsage: USAGE });
+		m.dispatch({ type: "agent_before_settle", outcome: "completed" });
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		m.dispatch({ type: "agent_settled", contextUsage: USAGE });
+		m.dispatch({ type: "agent_before_settle", outcome: "completed" });
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		m.dispatch({ type: "agent_settled", contextUsage: USAGE });
+		m.dispatch({ type: "agent_before_settle", outcome: "completed" });
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
 		const { effects, reply, isError } = m.dispatch({ type: "goal_update", ...currentSnapshot(m), action: "blocked", blocked_reason: "stuck" });
 		assert.equal(isError, undefined);
@@ -533,9 +460,9 @@ void describe("GoalMachine round-trip (write shape replays via fold)", () => {
 
 		// two admitted rounds
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		m.dispatch({ type: "agent_settled", contextUsage: USAGE });
+		m.dispatch({ type: "agent_before_settle", outcome: "completed" });
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		m.dispatch({ type: "agent_settled", contextUsage: USAGE });
+		m.dispatch({ type: "agent_before_settle", outcome: "completed" });
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
 
 		// pause / resume cycle (adds revision churn)
@@ -718,21 +645,22 @@ void describe("GoalMachine.goal_replace", () => {
 	});
 });
 
-void describe("GoalMachine.agent_settled under user input", () => {
-	void it("pending user messages suppress the continuation round", () => {
+void describe("GoalMachine.agent_before_settle under user input", () => {
+	void it("pending user messages suppress the continuation", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [] });
 		m.dispatch({ type: "goal_create", objective: "do it" });
-		const { effects } = m.dispatch({ type: "agent_settled", contextUsage: USAGE, hasPendingMessages: true });
-		assert.equal(effects.some((e) => e.kind === "sendMessage"), false);
+		const result = m.dispatch({ type: "agent_before_settle", outcome: "completed", hasPendingMessages: true });
+		assert.equal(result.continue, false);
 		assert.equal(m.snapshot.pendingTurn, null);
 	});
 
-	void it("no pending messages: the round is queued as before", () => {
+	void it("no pending messages permit the next round", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [] });
 		m.dispatch({ type: "goal_create", objective: "do it" });
-		const { effects } = m.dispatch({ type: "agent_settled", contextUsage: USAGE, hasPendingMessages: false });
-		assert.ok(effects.some((e) => e.kind === "sendMessage"));
+		const result = m.dispatch({ type: "agent_before_settle", outcome: "completed", hasPendingMessages: false });
+		assert.equal(result.continue, true);
+		assert.ok(result.effects.some((effect) => effect.kind === "continueRound"));
 	});
 });

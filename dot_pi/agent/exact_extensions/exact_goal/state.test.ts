@@ -57,6 +57,34 @@ test("fold replays lifecycle changes and turn entries", () => {
 	assert.equal(view?.armed, false);
 });
 
+test("fold restores cumulative goal usage from turn entries", () => {
+	const g = createGoalState("obj", T0, { timeLimitMs: 1000, tokenLimit: 500, costLimitUsd: 2 });
+	const { goal } = foldGoal([
+		change("create", g, T0),
+		{ customType: "pi-goal-turn", data: { goalId: g.id, revision: 1, turn: 1, timestamp: T0 + 1, usage: { tokens: 120, costUsd: 0.25 } } },
+		{ customType: "pi-goal-turn", data: { goalId: g.id, revision: 1, turn: 2, timestamp: T0 + 2, usage: { tokens: 80, costUsd: 0.15 } } },
+	]);
+	assert.deepEqual(goal?.budget, { timeLimitMs: 1000, tokenLimit: 500, costLimitUsd: 2 });
+	assert.equal(goal?.usedTokens, 200);
+	assert.equal(goal?.usedCostUsd, 0.4);
+});
+
+test("fold resets usage when a new goal replaces a completed one", () => {
+	const first = createGoalState("first", T0, { tokenLimit: 500 });
+	const done = { ...first, phase: "complete" as const, revision: 2, updatedAt: T0 + 2 };
+	const next = createGoalState("second", T0 + 3);
+	const { goal } = foldGoal([
+		change("create", first, T0),
+		{ customType: "pi-goal-turn", data: { goalId: first.id, revision: 1, turn: 1, timestamp: T0 + 1, usage: { tokens: 250, costUsd: 1 } } },
+		change("complete", done, T0 + 2),
+		change("create", next, T0 + 3),
+	]);
+	assert.equal(goal?.id, next.id);
+	assert.equal(goal?.turnsStarted, 0);
+	assert.equal(goal?.usedTokens, 0);
+	assert.equal(goal?.usedCostUsd, 0);
+});
+
 test("fold returns null after a clear tombstone", () => {
 	const g = createGoalState("obj", T0);
 	const { goal: view } = foldGoal([
@@ -165,6 +193,13 @@ test("goalStatusMessage composes the /goal status notification", () => {
 	);
 });
 
+test("goal status reports configured limits and spent usage", () => {
+	const snapshot = createGoalState("obj", T0, { timeLimitMs: 8 * 3_600_000, tokenLimit: 500_000, costLimitUsd: 10 });
+	const goal = { ...snapshot, armed: false, turnsStarted: 2, usedTokens: 100_000, usedCostUsd: 2.5 };
+	const message = goalStatusMessage(goal);
+	assert.match(message, /Budget: time \d+\/480m, tokens 100000\/500000, reported cost \$2\.50\/\$10\.00/);
+});
+
 test("truncateObjective flattens whitespace and caps length", () => {
 	assert.equal(truncateObjective("  a\n\nb  "), "a b");
 	assert.equal(truncateObjective("x".repeat(100), 10), `${"x".repeat(9)}…`);
@@ -179,7 +214,10 @@ test("goalView shapes the get_goal tool-result contract for an active goal", () 
 			objective: "obj",
 			phase: "active",
 			turnsStarted: 2,
+			usedTokens: 0,
+			usedCostUsd: 0,
 		},
+
 		activation: "armed",
 	});
 });

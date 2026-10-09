@@ -1,5 +1,2 @@
-# Pi reads ignore files in this directory when discovering extensions
-# (collectAutoExtensionEntries -> addIgnoreRules). The goal extension is
-# turned off for now but its source stays in the repo under exact_goal/;
-# delete the `goal/` line to load it again.
-goal/
+# Pi reads ignore files in this directory when discovering extensions.
+# No extension discovery exclusions are configured.

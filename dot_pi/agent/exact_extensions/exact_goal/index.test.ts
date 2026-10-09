@@ -28,7 +28,7 @@ void describe("goal extension smoke", () => {
 	void it("registers the three goal tools and lifecycle events", () => {
 		const { tools, events } = boot();
 		assert.deepEqual(Object.keys(tools).sort(), ["create_goal", "get_goal", "update_goal"]);
-		for (const ev of ["session_start", "agent_end", "agent_settled"]) {
+		for (const ev of ["session_start", "agent_end", "agent_before_settle"]) {
 			assert.ok(events[ev], `${ev} registered`);
 		}
 	});
@@ -56,61 +56,58 @@ void describe("goal extension smoke", () => {
 		const entry = calls.find(c => c.kind === "appendEntry");
 		assert.ok(entry, "create appends a durable entry");
 		assert.equal(entry.data.operation, "create");
+		assert.equal(entry.data.goal.budget, undefined, "unspecified budgets preserve default round behavior");
 		assert.equal(calls.some(c => c.kind === "sendMessage"), false, "round message waits for agent_end");
 	});
 
-	void it("agent_settled on an armed fresh goal queues the round message", async () => {
+	void it("persists per-run provider usage for token and cost limits", async () => {
+		const { tools, events, calls } = boot();
+		await tools.create_goal.execute("id", { objective: "do it", token_limit: 1000, cost_limit_usd: 2 }, {}, () => {}, ctx());
+		calls.length = 0;
+		await events.agent_end({ messages: [
+			{ role: "assistant", usage: { totalTokens: 321, cost: { total: 0.42 } } },
+			{ role: "user", usage: { totalTokens: 999, cost: { total: 99 } } },
+		] }, ctx());
+		const turn = calls.find((call) => call.kind === "appendEntry" && call.entryType === "pi-goal-turn");
+		assert.deepEqual((turn?.data as any)?.usage, { tokens: 321, costUsd: 0.42 });
+	});
+
+	void it("agent_before_settle requests native continuation with a hidden round message", async () => {
 		const { tools, events, calls } = boot();
 		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
 		calls.length = 0;
-		await events.agent_settled({}, ctx());
-		const msg = calls.find(c => c.kind === "sendMessage");
-		assert.ok(msg, "continuation round message sent");
-		assert.match(msg.message.content, /<goal_round>/);
-		assert.equal(calls.some(c => c.kind === "appendEntry"), false, "turn card is admitted at next agent_end");
+		const result = await (events.agent_before_settle as any)({
+			outcome: "completed",
+			context: { pendingMessages: [] },
+		}, ctx());
+		assert.equal(result.continue, true);
+		assert.deepEqual(result.entries.map((entry: any) => [entry.type, entry.display]), [["custom_message", false]]);
+		assert.match(result.entries[0].content, /<goal_round>/);
+		assert.equal(calls.some(c => c.kind === "sendMessage"), false);
 	});
 
-	void it("401 pauses with an auth notice instead of retrying", async () => {
-		const { fake, tools, events, calls } = boot();
-		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, fake.ctx);
+	void it("stops continuation after an agent error", async () => {
+		const { tools, events, calls } = boot();
+		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
 		calls.length = 0;
-		fake.calls.notifies.length = 0;
-		await events.after_provider_response({ status: 401, headers: {} }, fake.ctx);
-		await events.agent_settled({}, fake.ctx);
-		assert.equal(calls.some(c => c.kind === "sendMessage"), false, "a permanent error queues no round");
-		const pause = calls.find(c => c.kind === "appendEntry" && (c.data as any)?.operation === "pause");
-		assert.ok(pause, "goal paused on the first settle");
-		assert.equal((pause.data as any).goal.blockedReason.code, "api-auth");
-		const notice = fake.calls.notifies.at(-1)?.message ?? "";
-		assert.match(notice, /Goal paused/);
-		assert.match(notice, /API key/);
-		assert.doesNotMatch(notice, /limit resets/);
+		const result = await (events.agent_before_settle as any)({
+			outcome: "error",
+			context: { pendingMessages: [] },
+		}, ctx());
+		assert.equal(result, undefined, "an error returns no continuation boundary");
+		const pause = calls.find((call) => call.kind === "appendEntry" && (call.data as any)?.operation === "pause");
+		assert.equal((pause?.data as any)?.goal.blockedReason.code, "run-error");
 	});
 
-	void it("402 pauses with a billing notice, not a request hint", async () => {
-		const { fake, tools, events, calls } = boot();
-		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, fake.ctx);
-		calls.length = 0;
-		fake.calls.notifies.length = 0;
-		await events.after_provider_response({ status: 402, headers: {} }, fake.ctx);
-		await events.agent_settled({}, fake.ctx);
-		assert.equal(calls.some(c => c.kind === "sendMessage"), false, "a billing block queues no round");
-		const pause = calls.find(c => c.kind === "appendEntry" && (c.data as any)?.operation === "pause");
-		assert.equal((pause?.data as any)?.goal.blockedReason.code, "api-billing");
-		const notice = fake.calls.notifies.at(-1)?.message ?? "";
-		assert.match(notice, /credits|billing/);
-		assert.doesNotMatch(notice, /Fix the request/);
-	});
-
-	void it("429 retries once before any pause notice", async () => {
-		const { fake, tools, events, calls } = boot();
-		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, fake.ctx);
-		calls.length = 0;
-		fake.calls.notifies.length = 0;
-		await events.after_provider_response({ status: 429, headers: { "retry-after": "2" } }, fake.ctx);
-		await events.agent_settled({}, fake.ctx);
-		assert.equal(calls.some(c => c.kind === "appendEntry"), false, "no pause on a transient error");
-		assert.match(fake.calls.notifies.at(-1)?.message ?? "", /retrying in 30s \(attempt 1\/3\)/);
+	void it("stores optional budget parameters from create_goal", async () => {
+		const { tools, calls } = boot();
+		await tools.create_goal.execute("id", {
+			objective: "do it", time_limit_hours: 8, token_limit: 500_000, cost_limit_usd: 12.5,
+		}, {}, () => {}, ctx());
+		const entry = calls.find((call) => call.kind === "appendEntry" && (call.data as any)?.operation === "create");
+		assert.deepEqual((entry?.data as any)?.goal?.budget, {
+			timeLimitMs: 28_800_000, tokenLimit: 500_000, costLimitUsd: 12.5,
+		});
 	});
 
 	void it("agent_end with no goal produces no effects", async () => {

@@ -5,7 +5,7 @@
  * Effects are plain data; the caller (index.ts) performs all I/O.
  */
 
-import { applyChange, createGoalState, foldGoal, goalRoundPrompt, SETTINGS_TYPE, toSnapshot, truncateObjective, wrapupContext, type GoalChangeEntry, type GoalOperation, type GoalSnapshot, type GoalTurnEntry, type GoalView } from "./state.ts";
+import { applyChange, createGoalState, foldGoal, goalRoundPrompt, SETTINGS_TYPE, toSnapshot, truncateObjective, wrapupContext, type GoalBudget, type GoalChangeEntry, type GoalOperation, type GoalSnapshot, type GoalTurnEntry, type GoalUsage, type GoalView } from "./state.ts";
 
 export const CUSTOM_TYPE = "pi-goal";
 export const TURN_TYPE = "pi-goal-turn";
@@ -21,6 +21,7 @@ export interface SessionStartEvent {
 export interface GoalCreateEvent {
 	type: "goal_create";
 	objective: string;
+	budget?: GoalBudget;
 }
 
 export interface GoalResumeEvent {
@@ -30,27 +31,15 @@ export interface GoalResumeEvent {
 export interface AgentEndEvent {
 	type: "agent_end";
 	contextUsage: { tokens: number | null; contextWindow: number };
+	usage?: GoalUsage;
 	aborted: boolean;
 }
 
-export interface ProviderError {
-	status: number;
-	message: string;
-	/** Server-advertised retry delay (retry-after header), milliseconds. */
-	retryAfterMs?: number;
-}
-
-export interface AgentSettledEvent {
-	type: "agent_settled";
-	contextUsage: { tokens: number | null; contextWindow: number };
-	/** Set when the last provider response was an HTTP error — pauses the loop instead of queueing another round. */
-	providerError?: ProviderError;
-	/** Queued user input: it owns the next turn, so the goal yields this settle. */
+export interface AgentBeforeSettleEvent {
+	type: "agent_before_settle";
+	outcome: "completed" | "aborted" | "error";
 	hasPendingMessages?: boolean;
-}
-
-export interface RetryDueEvent {
-	type: "retry_due";
+	now?: number;
 }
 
 export interface GoalUpdateEvent {
@@ -79,43 +68,24 @@ export interface BannerToggleEvent {
 export interface GoalSetEvent {
 	type: "goal_set";
 	objective: string;
+	budget?: GoalBudget;
 }
 
 /** Human-confirmed replacement of a live goal: tombstone the old, create the new. */
 export interface GoalReplaceEvent {
 	type: "goal_replace";
 	objective: string;
+	budget?: GoalBudget;
 }
 
-export type GoalEvent = SessionStartEvent | GoalCreateEvent | GoalResumeEvent | AgentEndEvent | AgentSettledEvent | RetryDueEvent | GoalUpdateEvent | GoalPauseEvent | GoalClearEvent | BannerToggleEvent | GoalSetEvent | GoalReplaceEvent;
+export type GoalEvent = SessionStartEvent | GoalCreateEvent | GoalResumeEvent | AgentEndEvent | AgentBeforeSettleEvent | GoalUpdateEvent | GoalPauseEvent | GoalClearEvent | BannerToggleEvent | GoalSetEvent | GoalReplaceEvent;
 
 export type Effect =
 	| { kind: "appendEntry"; entryType: string; data: unknown }
 	| { kind: "sendMessage"; customType: string; content: string; display: boolean; details: Record<string, unknown>; triggerTurn: boolean }
 	| { kind: "notify"; message: string; level: "info" | "warning" }
-	| { kind: "scheduleRetry"; delayMs: number; attempt: number; maxRetries: number; error: string }
-	| { kind: "renderStatus" };
-
-/** Consecutive provider-error settles tolerated before the goal pauses. */
-export const MAX_ERROR_RETRIES = 3;
-/** Backoff schedule per retry attempt: 30s → 60s → 120s. */
-export const RETRY_BACKOFF_MS = [30_000, 60_000, 120_000];
-
-/**
- * Provider statuses worth another round: connection/request races and overload.
- * Everything else in 4xx is permanent (bad key, unknown model, malformed
- * request) — waiting cannot fix it, so it pauses on the first settle.
- */
-export function isRetryableProviderStatus(status: number): boolean {
-	return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
-}
-
-/** Pause reason for a permanent provider status; 401/403 credentials, 402 billing. */
-function permanentReasonCode(status: number): string {
-	if (status === 401 || status === 403) return "api-auth";
-	if (status === 402) return "api-billing";
-	return "api-request";
-}
+	| { kind: "renderStatus" }
+	| { kind: "continueRound"; content: string; turn: number };
 
 export interface DispatchResult {
 	effects: Effect[];
@@ -123,16 +93,30 @@ export interface DispatchResult {
 	reply?: string;
 	/** Marks reply as an error. */
 	isError?: boolean;
+	continue?: boolean;
 }
 
 const BLOCKED_AFTER_TURNS = 3;
+
+function budgetStopReason(goal: GoalView, now: number) {
+	const budget = goal.budget;
+	if (budget?.timeLimitMs !== undefined && now >= goal.createdAt + budget.timeLimitMs) {
+		return { code: "budget-time", message: "Time limit reached." };
+	}
+	if (budget?.tokenLimit !== undefined && (goal.usedTokens ?? 0) >= budget.tokenLimit) {
+		return { code: "budget-tokens", message: "Token limit reached." };
+	}
+	if (budget?.costLimitUsd !== undefined && (goal.usedCostUsd ?? 0) >= budget.costLimitUsd) {
+		return { code: "budget-cost", message: "Reported cost limit reached." };
+	}
+	return undefined;
+}
 
 export class GoalMachine {
 	private view: GoalView | null = null;
 	private armed = false;
 	private pendingTurn: number | null = null;
 	private createdThisRun = false;
-	private errorRetries = 0;
 	private bannerEnabled = false;
 
 	get snapshot() {
@@ -151,15 +135,13 @@ export class GoalMachine {
 			case "session_start":
 				return this.sessionStart(event.entries as { customType: string; data: unknown }[], event.reason);
 			case "goal_create":
-				return this.goalCreate(event.objective);
+				return this.goalCreate(event.objective, event.budget);
 			case "goal_resume":
 				return this.goalResume();
 			case "agent_end":
-				return this.agentEnd(event.contextUsage, event.aborted);
-			case "agent_settled":
-				return this.agentSettled(event.contextUsage, event.providerError, event.hasPendingMessages);
-			case "retry_due":
-				return this.retryDue();
+				return this.agentEnd(event.contextUsage, event.usage, event.aborted);
+			case "agent_before_settle":
+				return this.agentBeforeSettle(event.outcome, event.hasPendingMessages, event.now);
 			case "goal_update":
 				return this.goalUpdate(event.goal_id, event.revision, event.action, event.blocked_reason);
 			case "goal_pause":
@@ -175,9 +157,9 @@ export class GoalMachine {
 					],
 				};
 			case "goal_set":
-				return this.goalSet(event.objective);
+				return this.goalSet(event.objective, event.budget);
 			case "goal_replace":
-				return this.goalReplace(event.objective);
+				return this.goalReplace(event.objective, event.budget);
 		}
 	}
 
@@ -276,16 +258,22 @@ export class GoalMachine {
 		// applyChange throws and leaves this.view untouched.
 		const validated = applyChange(this.view ? toSnapshot(this.view) : null, data);
 		const view = this.view;
-	const turns = view && validated && view.id === validated.id ? view.turnsStarted : 0;
-		this.view = validated ? { ...validated, armed: this.armed, turnsStarted: turns } : null;
+		const sameGoal = view && validated && view.id === validated.id;
+		this.view = validated ? {
+			...validated,
+			armed: this.armed,
+			turnsStarted: sameGoal ? view.turnsStarted : 0,
+			usedTokens: sameGoal ? view.usedTokens ?? 0 : 0,
+			usedCostUsd: sameGoal ? view.usedCostUsd ?? 0 : 0,
+		} : null;
 		return [{ kind: "appendEntry", entryType: CUSTOM_TYPE, data }, { kind: "renderStatus" }];
 	}
 
-	private goalCreate(objective: string): DispatchResult {
+	private goalCreate(objective: string, budget?: GoalBudget): DispatchResult {
 		if (this.view && this.view.phase !== "complete") {
 			return { effects: [], reply: "A goal already exists. Clear it first.", isError: true };
 		}
-		const next = createGoalState(objective);
+		const next = createGoalState(objective, Date.now(), budget);
 		this.armed = true;
 		this.createdThisRun = true;
 		const effects = this.commit("create", next);
@@ -297,6 +285,8 @@ export class GoalMachine {
 		if (!this.view || (this.view.phase === "active" && this.armed)) {
 			return { effects: [], reply: "No stopped goal to resume.", isError: true };
 		}
+		const stopReason = budgetStopReason(this.view, Date.now());
+		if (stopReason) return { effects: [], reply: `${stopReason.message} Start a new goal with a larger budget.`, isError: true };
 		const next: GoalSnapshot = {
 			...this.view,
 			phase: "active",
@@ -310,7 +300,7 @@ export class GoalMachine {
 		return { effects: [...effects, ...this.queueRound()] };
 	}
 
-	private agentEnd(_usage: { tokens: number | null; contextWindow: number }, aborted: boolean): DispatchResult {
+	private agentEnd(_contextUsage: { tokens: number | null; contextWindow: number }, usage: GoalUsage = { tokens: 0, costUsd: 0 }, aborted: boolean): DispatchResult {
 		const effects: Effect[] = [];
 
 		if (!this.view) {
@@ -336,9 +326,14 @@ export class GoalMachine {
 			effects.push({
 				kind: "appendEntry",
 				entryType: TURN_TYPE,
-				data: { goalId: this.view.id, revision: this.view.revision, turn: this.view.turnsStarted + 1, timestamp: Date.now() } satisfies GoalTurnEntry,
+				data: { goalId: this.view.id, revision: this.view.revision, turn: this.view.turnsStarted + 1, timestamp: Date.now(), usage } satisfies GoalTurnEntry,
 			});
-			this.view = { ...this.view, turnsStarted: this.view.turnsStarted + 1 };
+			this.view = {
+				...this.view,
+				turnsStarted: this.view.turnsStarted + 1,
+				usedTokens: (this.view.usedTokens ?? 0) + Math.max(0, usage.tokens),
+				usedCostUsd: (this.view.usedCostUsd ?? 0) + Math.max(0, usage.costUsd),
+			};
 			this.createdThisRun = false;
 			this.pendingTurn = null;
 		}
@@ -371,55 +366,51 @@ export class GoalMachine {
 		return { effects };
 	}
 
-	private agentSettled(_usage: { tokens: number | null; contextWindow: number }, providerError?: ProviderError, hasPendingMessages?: boolean): DispatchResult {
+	private agentBeforeSettle(outcome: AgentBeforeSettleEvent["outcome"], hasPendingMessages = false, now = Date.now()): DispatchResult {
 		if (!this.view || this.view.phase !== "active" || !this.armed) {
-			return { effects: [{ kind: "renderStatus" }] };
+			return { effects: [{ kind: "renderStatus" }], continue: false };
 		}
-
-		// Queued user input is a stronger claim on the next turn than the goal's
-		// continuation. Yield here; the settle after their turn resumes the loop.
-		if (hasPendingMessages) {
-			return { effects: [{ kind: "renderStatus" }] };
+		if (outcome === "aborted") {
+			this.armed = false;
+			const effects = this.commit("pause", {
+				...this.view,
+				phase: "paused",
+				blockedReason: { code: "cancelled", message: "Goal round was cancelled." },
+				revision: this.view.revision + 1,
+				updatedAt: now,
+			});
+			return { effects, continue: false };
 		}
-
-		// Provider failure: retryable statuses (429 rate limit, 5xx, request
-		// races) back off up to MAX_ERROR_RETRIES, then pause — retrying forever
-		// just burns rounds against a dead endpoint. A permanent 4xx never
-		// recovers by waiting, so it pauses on the first settle.
-		if (providerError) {
-			const error = `Provider error ${providerError.status}: ${providerError.message}`;
-			const retryable = isRetryableProviderStatus(providerError.status);
-			if (!retryable || this.errorRetries >= MAX_ERROR_RETRIES) {
-				this.armed = false;
-				const reason = {
-					code: retryable ? "api-error" : permanentReasonCode(providerError.status),
-					message: error,
-				};
-				const effects = this.commit("pause", {
-					...this.view,
-					phase: "paused",
-					blockedReason: reason,
-					revision: this.view.revision + 1,
-					updatedAt: Date.now(),
-				});
-				return { effects };
-			}
-			const delayMs = Math.max(RETRY_BACKOFF_MS[this.errorRetries] ?? RETRY_BACKOFF_MS[RETRY_BACKOFF_MS.length - 1], providerError.retryAfterMs ?? 0);
-			const attempt = this.errorRetries + 1;
-			this.errorRetries = attempt;
-			return { effects: [{ kind: "scheduleRetry", delayMs, attempt, maxRetries: MAX_ERROR_RETRIES, error }] };
+		if (hasPendingMessages) return { effects: [{ kind: "renderStatus" }], continue: false };
+		if (outcome === "error") {
+			this.armed = false;
+			const effects = this.commit("pause", {
+				...this.view,
+				phase: "paused",
+				blockedReason: { code: "run-error", message: "Agent run ended with an error." },
+				revision: this.view.revision + 1,
+				updatedAt: now,
+			});
+			return { effects, continue: false };
 		}
-
-		this.errorRetries = 0;
-		return { effects: this.queueRound() };
-	}
-
-	/** Backoff timer fired: queue the round unless the goal stopped meanwhile. */
-	private retryDue(): DispatchResult {
-		if (!this.view || this.view.phase !== "active" || !this.armed) {
-			return { effects: [{ kind: "renderStatus" }] };
+		const reason = budgetStopReason(this.view, now);
+		if (reason) {
+			this.armed = false;
+			const effects = this.commit("pause", {
+				...this.view,
+				phase: "paused",
+				blockedReason: reason,
+				revision: this.view.revision + 1,
+				updatedAt: now,
+			});
+			return { effects: [...effects, { kind: "notify", message: `Goal paused: ${reason.message}`, level: "warning" }], continue: false };
 		}
-		return { effects: this.queueRound() };
+		const turn = this.view.turnsStarted + 1;
+		this.pendingTurn = turn;
+		return {
+			effects: [{ kind: "continueRound", content: goalRoundPrompt(this.view, turn), turn }, { kind: "renderStatus" }],
+			continue: true,
+		};
 	}
 
 	private goalPause(): DispatchResult {
@@ -447,11 +438,11 @@ export class GoalMachine {
 		return { effects };
 	}
 
-	private goalSet(objective: string): DispatchResult {
+	private goalSet(objective: string, budget?: GoalBudget): DispatchResult {
 		if (this.view && this.view.phase !== "complete") {
 			return { effects: [], reply: "An unfinished goal exists. /goal clear first (or /goal edit once implemented).", isError: true };
 		}
-		const next = createGoalState(objective);
+		const next = createGoalState(objective, Date.now(), budget);
 		this.armed = true;
 		this.pendingTurn = null;
 		const effects = this.commit("create", next);
@@ -462,12 +453,12 @@ export class GoalMachine {
 	 * Replace the goal the human already confirmed replacing. The old goal is
 	 * tombstoned rather than overwritten so replay still validates every step.
 	 */
-	private goalReplace(objective: string): DispatchResult {
+	private goalReplace(objective: string, budget?: GoalBudget): DispatchResult {
 		// A completed goal is terminal: applyChange accepts create over it.
-		if (!this.view || this.view.phase === "complete") return this.goalSet(objective);
+		if (!this.view || this.view.phase === "complete") return this.goalSet(objective, budget);
 
 		const cleared = this.commit("clear", null, { id: this.view.id, revision: this.view.revision });
-		const next = createGoalState(objective);
+		const next = createGoalState(objective, Date.now(), budget);
 		this.armed = true;
 		this.pendingTurn = null;
 		const created = this.commit("create", next);

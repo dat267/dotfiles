@@ -36,7 +36,23 @@ void describe("parseGoalCommand", () => {
 		assert.deepEqual(parseGoalCommand("set test objective"), {
 			kind: "set",
 			objective: "test objective",
+			budget: {},
 		});
+	});
+
+	void it("parses time, token, and cost budgets before objective", () => {
+		assert.deepEqual(parseGoalCommand("set --time 8h --tokens 500k --cost $12.50 finish the migration"), {
+			kind: "set",
+			objective: "finish the migration",
+			budget: { timeLimitMs: 8 * 60 * 60 * 1000, tokenLimit: 500_000, costLimitUsd: 12.5 },
+		});
+	});
+
+	void it("rejects missing and unknown budget options rather than silently dropping limits", () => {
+		for (const input of ["set --time", "set --time task", "set --tok 500 task"]) {
+			const result = parseGoalCommand(input);
+			assert.equal(result.kind, "error", input);
+		}
 	});
 
 	void it("set without objective returns usage error", () => {
