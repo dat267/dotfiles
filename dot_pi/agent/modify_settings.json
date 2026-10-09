@@ -30,6 +30,7 @@ chezmoi:modify-template
     "**/glm-5.3-flash"
     "**/gpt-6-luna"
     "**/gpt-6.1-sol"
+    "**/gemini-3.8-flash"
     "**/qwen3.8-flash"
 ) $current }}
 {{- /* Use Pi's built-in compaction token defaults. Remove only the previous
