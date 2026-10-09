@@ -50,5 +50,4 @@ chezmoi:modify-template
 {{- if eq .chezmoi.os "windows" }}
 {{- $_ := setValueAtPath "defaultTools" (list "-bash" "+powershell") $current }}
 {{- end }}
-{{ toPrettyJson $current }}
-
+{{- trimSuffix "\n" (toPrettyJson $current) -}}
