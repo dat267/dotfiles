@@ -64,7 +64,7 @@ def points_at(link, target):
 	"""True when `link` already resolves to `target`.
 
 	Compares resolved paths rather than os.readlink output: on Windows readlink
-	returns the stored target, which os.symlink wrote with a \\?\ prefix, so a
+	returns the stored target, which os.symlink wrote with a \\?\\ prefix, so a
 	link the code itself created would never look like it matches.
 	"""
 	return os.path.realpath(str(link)) == os.path.realpath(str(target))
