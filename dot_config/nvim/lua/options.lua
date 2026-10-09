@@ -26,7 +26,9 @@ opt.splitbelow = true
 opt.ignorecase = true
 opt.smartcase = true
 opt.hlsearch = true
-opt.wrap = false
+-- Soft-wrap long lines at word boundaries
+opt.wrap = true
+opt.linebreak = true
 opt.signcolumn = "yes"
 opt.updatetime = 250
 opt.undofile = true
