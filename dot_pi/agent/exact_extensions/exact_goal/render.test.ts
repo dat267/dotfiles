@@ -68,12 +68,22 @@ void describe("renderGoalCard", () => {
 		assert.ok(labelChild instanceof Text);
 	});
 
-	void it("truncates long body when collapsed", () => {
+	void it("truncates long body and hints how to expand it", () => {
 		const long = "a".repeat(200);
 		const card = renderGoalCard(stubTheme, { label: "test", body: long }, false);
 		const bodyChild = card.children[1];
 		assert.ok(bodyChild instanceof Text);
-		// Rendered text will be truncated to 80 chars via truncateObjective
+		const rendered = bodyChild.render(500).join("\n").trimEnd();
+		assert.match(rendered, /click or expand for full text/i);
+		assert.ok(rendered.length < long.length);
+	});
+
+	void it("shows complete body when expanded", () => {
+		const long = "a".repeat(200);
+		const card = renderGoalCard(stubTheme, { label: "test", body: long }, true);
+		const bodyChild = card.children[1];
+		assert.ok(bodyChild instanceof Text);
+		assert.equal(bodyChild.render(500).join("\n").trimEnd(), long);
 	});
 });
 
@@ -108,6 +118,12 @@ void describe("renderGoalEventMessage", () => {
 	void it("renders a complete event", () => {
 		const card = renderGoalEventMessage("complete", "Done", undefined, "complete", stubTheme, false);
 		assert.ok(card instanceof Box);
+	});
+
+	void it("hints wrap-up event frames can be expanded for full message", () => {
+		const card = renderGoalEventMessage("complete", "Completed the full goal message.", undefined, "complete", stubTheme, false);
+		const lines = card.children.map((c: any) => c.text ?? c.lines?.join("") ?? "").join("\n");
+		assert.match(lines, /click or expand for full message/i);
 	});
 
 	void it("collapses wrap-up events to label-only when not expanded", () => {

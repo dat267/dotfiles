@@ -5,9 +5,29 @@
  * Extracted from index.ts to make rendering testable and separable.
  */
 
-import { Box, Text } from "@earendil-works/pi-tui";
+import { Box, MouseRegion, Text, type Component, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateObjective, type GoalChangeEntry, type GoalOperation, type GoalPhase, type GoalTurnEntry, type GoalView } from "./state.ts";
+
+export function clickToExpand(render: (expanded: boolean) => Component, initiallyExpanded: boolean): Component {
+	let expanded = initiallyExpanded;
+	let child = render(expanded);
+	const mutableChild: Component = {
+		render: (width) => child.render(width),
+		invalidate: () => child.invalidate(),
+	};
+	const region = new MouseRegion(mutableChild, (event: TuiMouseEvent) => {
+		if (event.type !== "click" || event.button !== "left") return undefined;
+		expanded = !expanded;
+		child = render(expanded);
+		return { handled: true };
+	});
+	return {
+		render: (width) => region.render(width),
+		handleMouse: (event) => region.handleMouse(event),
+		invalidate: () => region.invalidate(),
+	};
+}
 
 export const PHASE_COLOR: Record<GoalPhase, "success" | "warning" | "error" | "accent"> = {
 	active: "success",
@@ -34,7 +54,10 @@ export function renderGoalCard(
 	const box = new Box(1, 1, (t) => theme.bg("customMessageBg", t));
 	const coloredLabel = phase ? theme.fg(PHASE_COLOR[phase], label) : theme.fg("customMessageLabel", theme.bold(label));
 	box.addChild(new Text(`${coloredLabel}${detail ? theme.fg("dim", ` ${detail}`) : ""}`, 0, 0));
-	box.addChild(new Text(theme.fg("customMessageText", expanded ? body : truncateObjective(body, 80)), 0, 0));
+	const collapsedBody = body.length > 80
+		? `${truncateObjective(body, 64)} (click or expand for full text)`
+		: body;
+	box.addChild(new Text(theme.fg("customMessageText", expanded ? body : collapsedBody), 0, 0));
 	return box;
 }
 
@@ -90,7 +113,7 @@ export function renderGoalEventMessage(
 			label: labels[kind] ?? "Goal",
 			body: wrapup && !expanded ? "" : displayBody(content),
 			phase: kind === "blocked" ? "blocked" : kind === "complete" ? "complete" : currentPhase,
-			detail: kind === "round" && turn ? `#${turn}` : undefined,
+			detail: wrapup && !expanded ? "click or expand for full message" : kind === "round" && turn ? `#${turn}` : undefined,
 		},
 		expanded,
 	);

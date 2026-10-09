@@ -6,10 +6,12 @@ import {
 	goalView,
 	statusLine,
 	truncateObjective,
-	type GoalBudget,
+	type GoalChangeEntry,
+	type GoalTurnEntry,
 	type GoalView,
 } from "./state.ts";
 import {
+	clickToExpand,
 	renderGoalChangeEntry,
 	renderGoalEventMessage,
 	renderGoalTurnEntry,
@@ -56,7 +58,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	function updateStatusBar(ctx: ExtensionContext) {
 		const theme = ctx.ui.theme;
 		const { goal, armed, bannerEnabled } = machine.snapshot;
-		if (!goal) {
+		if (!goal || goal.phase === "complete") {
 			ctx.ui.setStatus(CUSTOM_TYPE, undefined);
 			ctx.ui.setWidget(CUSTOM_TYPE, undefined);
 			return;
@@ -92,20 +94,30 @@ export default function piGoal(pi: ExtensionAPI) {
 	}
 
 	// Continuation prompts and wrap-up notices (sent via sendMessage, in LLM context).
-	pi.registerMessageRenderer<Record<string, unknown>>(EVENT_TYPE, (message, { expanded }, theme) => {
-		const kind = (message.details as any)?.kind ?? "event";
-		const turn = (message.details as any)?.turn as number | undefined;
-		return renderGoalEventMessage(kind, message.content as string, turn, machine.snapshot.goal?.phase, theme, expanded);
+	pi.registerMessageRenderer<{ kind?: string; turn?: number }>(EVENT_TYPE, (message, { expanded }, theme) => {
+		const content = typeof message.content === "string" ? message.content : "";
+		return clickToExpand((isExpanded) => renderGoalEventMessage(
+			message.details?.kind ?? "event",
+			content,
+			message.details?.turn,
+			machine.snapshot.goal?.phase,
+			theme,
+			isExpanded,
+		), expanded);
 	});
 
 	// Durable lifecycle mutations (appendEntry) render as transcript cards.
-	pi.registerEntryRenderer<Record<string, unknown>>(CUSTOM_TYPE, (entry, { expanded }, theme) => {
-		return renderGoalChangeEntry(entry.data as any, theme, expanded);
+	pi.registerEntryRenderer<GoalChangeEntry>(CUSTOM_TYPE, (entry, { expanded }, theme) => {
+		return entry.data
+			? clickToExpand((isExpanded) => renderGoalChangeEntry(entry.data!, theme, isExpanded), expanded)
+			: undefined;
 	});
 
 	// Admitted goal rounds: one durable card per round.
-	pi.registerEntryRenderer<Record<string, unknown>>(TURN_TYPE, (entry, { expanded }, theme) => {
-		return renderGoalTurnEntry(entry.data as any, theme, expanded);
+	pi.registerEntryRenderer<GoalTurnEntry>(TURN_TYPE, (entry, { expanded }, theme) => {
+		return entry.data
+			? clickToExpand((isExpanded) => renderGoalTurnEntry(entry.data!, theme, isExpanded), expanded)
+			: undefined;
 	});
 
 	pi.registerTool({
@@ -130,22 +142,17 @@ export default function piGoal(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "create_goal",
 		label: "Create Goal",
-		description: "Create a persisted session goal with optional time, token, and best-effort provider-reported cost budgets. For strict spending caps, configure them with provider.",
+		description: "Create a persisted session goal that continues through Pi's default unbudgeted round loop. Not for trivial single-turn work.",
 		promptSnippet: "Create a goal for long-running objectives",
 		promptGuidelines: [
 			"Use create_goal when the user's request is a multi-step objective that should continue across rounds.",
 			"Do not create goals for trivial single-turn work.",
 			"Before creating, turn the request into a concrete objective with outcome, verification, constraints, and boundaries.",
-			"Pass time_limit_hours, token_limit, and cost_limit_usd only when the user requested those budgets; otherwise use the default round-based loop.",
-			"Provider-reported cost can be missing or incomplete; never present cost_limit_usd as a guaranteed billing cap.",
 		],
 		parameters: {
 			type: "object",
 			properties: {
 				objective: { type: "string", description: "Concrete completion objective." },
-				time_limit_hours: { type: "number", exclusiveMinimum: 0, description: "Optional elapsed-time limit in hours." },
-				token_limit: { type: "integer", exclusiveMinimum: 0, description: "Optional cumulative reported-token limit." },
-				cost_limit_usd: { type: "number", exclusiveMinimum: 0, description: "Optional cumulative provider-reported USD cost limit." },
 			},
 			required: ["objective"],
 			additionalProperties: false,
@@ -156,20 +163,7 @@ export default function piGoal(pi: ExtensionAPI) {
 			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
 			if (!objective)
 				return { content: [{ type: "text", text: "objective is required." }], isError: true, details: undefined };
-			const timeHours = params.time_limit_hours as number | undefined;
-			const tokenLimit = params.token_limit as number | undefined;
-			const costLimitUsd = params.cost_limit_usd as number | undefined;
-			if ((timeHours !== undefined && (!Number.isFinite(timeHours) || timeHours <= 0 || !Number.isSafeInteger(timeHours * 3_600_000))) ||
-				(tokenLimit !== undefined && (!Number.isSafeInteger(tokenLimit) || tokenLimit <= 0)) ||
-				(costLimitUsd !== undefined && (!Number.isFinite(costLimitUsd) || costLimitUsd <= 0))) {
-				return { content: [{ type: "text", text: "Budget values must be positive numbers; token_limit must be a positive integer." }], isError: true, details: undefined };
-			}
-			const budget: GoalBudget = {
-				...(timeHours !== undefined ? { timeLimitMs: timeHours * 3_600_000 } : {}),
-				...(tokenLimit !== undefined ? { tokenLimit } : {}),
-				...(costLimitUsd !== undefined ? { costLimitUsd } : {}),
-			};
-			const { effects, reply, isError } = machine.dispatch({ type: "goal_create", objective, budget });
+			const { effects, reply, isError } = machine.dispatch({ type: "goal_create", objective });
 			apply(effects, ctx);
 			return { content: [{ type: "text", text: reply ?? "Goal created." }], isError, details: { goal: machine.snapshot.goal } };
 		},
@@ -256,7 +250,6 @@ export default function piGoal(pi: ExtensionAPI) {
 					run({ type: "goal_resume" }, () => "Goal resumed.");
 					break;
 				case "set": {
-					const budget = Object.keys(cmd.budget).length ? cmd.budget : undefined;
 					// Replacing a live goal is a destructive edit: confirm, then
 					// tombstone the old one so replay still validates every step.
 					if (goal && goal.phase !== "complete") {
@@ -265,10 +258,10 @@ export default function piGoal(pi: ExtensionAPI) {
 							`Current: ${truncateObjective(goal.objective, 120)}\n\nNew: ${truncateObjective(cmd.objective, 120)}`,
 						);
 						if (!ok) return;
-						run({ type: "goal_replace", objective: cmd.objective, budget }, () => "Goal replaced.");
+						run({ type: "goal_replace", objective: cmd.objective }, () => "Goal replaced.");
 						break;
 					}
-					run({ type: "goal_set", objective: cmd.objective, budget }, () => "Goal set.");
+					run({ type: "goal_set", objective: cmd.objective }, () => "Goal set.");
 					break;
 				}
 				case "error":

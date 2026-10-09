@@ -60,9 +60,10 @@ void describe("goal extension smoke", () => {
 		assert.equal(calls.some(c => c.kind === "sendMessage"), false, "round message waits for agent_end");
 	});
 
-	void it("persists per-run provider usage for token and cost limits", async () => {
+	void it("persists provider usage without exposing budget parameters", async () => {
 		const { tools, events, calls } = boot();
-		await tools.create_goal.execute("id", { objective: "do it", token_limit: 1000, cost_limit_usd: 2 }, {}, () => {}, ctx());
+		assert.deepEqual(Object.keys(tools.create_goal.parameters.properties), ["objective"]);
+		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
 		calls.length = 0;
 		await events.agent_end({ messages: [
 			{ role: "assistant", usage: { totalTokens: 321, cost: { total: 0.42 } } },
@@ -99,15 +100,12 @@ void describe("goal extension smoke", () => {
 		assert.equal((pause?.data as any)?.goal.blockedReason.code, "run-error");
 	});
 
-	void it("stores optional budget parameters from create_goal", async () => {
-		const { tools, calls } = boot();
-		await tools.create_goal.execute("id", {
+	void it("ignores legacy budget arguments and creates an unbudgeted goal", async () => {
+		const { tools } = boot();
+		const result = await tools.create_goal.execute("id", {
 			objective: "do it", time_limit_hours: 8, token_limit: 500_000, cost_limit_usd: 12.5,
 		}, {}, () => {}, ctx());
-		const entry = calls.find((call) => call.kind === "appendEntry" && (call.data as any)?.operation === "create");
-		assert.deepEqual((entry?.data as any)?.goal?.budget, {
-			timeLimitMs: 28_800_000, tokenLimit: 500_000, costLimitUsd: 12.5,
-		});
+		assert.equal(result.details.goal.budget, undefined);
 	});
 
 	void it("agent_end with no goal produces no effects", async () => {
@@ -115,6 +113,72 @@ void describe("goal extension smoke", () => {
 		const before = calls.length;
 		await events.agent_end({}, ctx());
 		assert.equal(calls.length, before);
+	});
+
+	void it("hides completed goals from the live banner", async () => {
+		const fake = makeFakePi();
+		piGoal(fake.pi);
+		await fake.runCommand("goal");
+		const created = await fake.tools.create_goal.execute("create", { objective: "finish task" }, {}, () => {}, fake.ctx);
+		const goal = created.details.goal;
+		await fake.tools.update_goal.execute("complete", {
+			goal_id: goal.id,
+			revision: goal.revision,
+			action: "complete",
+		}, {}, () => {}, fake.ctx);
+		const widgets = fake.calls.all.filter((call) => call.kind === "setWidget" && call.key === "pi-goal");
+		assert.equal((widgets.at(-1) as { value?: unknown } | undefined)?.value, undefined);
+	});
+
+	void it("toggles a goal transcript card with a left click", () => {
+		const { calls } = boot();
+		const renderer = calls.find((call) => call.kind === "entryRenderer" && call.customType === "pi-goal");
+		assert.ok(renderer);
+		const objective = "complete the goal objective with all acceptance criteria and include all necessary verification steps";
+		const entry = {
+			data: {
+				operation: "create",
+				goal: { id: "g1", revision: 1, objective, phase: "active", createdAt: 1, updatedAt: 1 },
+				timestamp: 1,
+			},
+		};
+		const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
+		const frame = renderer.fn(entry, { expanded: false }, theme);
+		const before = frame.render(300).join(" ");
+		assert.match(before, /expand for full text/);
+		assert.equal(frame.handleMouse({
+			type: "click", button: "left", x: 2, y: 1, screenX: 2, screenY: 1,
+			width: 300, height: 3, shift: false, alt: false, ctrl: false,
+		})?.handled, true);
+		const expanded = frame.render(300).join(" ");
+		assert.ok(expanded.includes(objective));
+		const keyboardExpanded = renderer.fn(entry, { expanded: true }, theme);
+		assert.ok(keyboardExpanded.render(300).join(" ").includes(objective));
+		assert.equal(frame.handleMouse({
+			type: "click", button: "left", x: 2, y: 1, screenX: 2, screenY: 1,
+			width: 300, height: 3, shift: false, alt: false, ctrl: false,
+		})?.handled, true);
+		const collapsed = frame.render(300).join(" ");
+		assert.match(collapsed, /expand for full text/);
+		assert.ok(!collapsed.includes(objective));
+	});
+
+	void it("renders malformed custom-message content defensively", () => {
+		const { calls } = boot();
+		const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
+		const renderer = calls.find((call) => call.kind === "messageRenderer");
+		assert.ok(renderer);
+		assert.doesNotThrow(() => renderer.fn({ content: [], details: undefined }, { expanded: false }, theme));
+	});
+
+	void it("ignores malformed custom entries instead of crashing render", () => {
+		const { calls } = boot();
+		const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
+		const renderers = calls.filter((call) => call.kind === "entryRenderer");
+		assert.equal(renderers.length, 2);
+		for (const renderer of renderers) {
+			assert.equal(renderer.fn({ data: undefined }, { expanded: false }, theme), undefined);
+		}
 	});
 
 	void describe("card spacing — pi-native tinted padding", () => {
