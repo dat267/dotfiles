@@ -21,7 +21,8 @@ The invariant: **no production code exists without a failing test that demands i
 - Work in **vertical slices**: one test → one implementation → repeat. Never write all tests first, then all implementation — bulk tests verify imagined behavior.
 - Run the tests after every step. Never batch red→green across multiple tests.
 - A bug fix starts with a test that **reproduces the bug** first, proves it fails, then gets fixed. The test name describes the bug's behavior, not the fix.
-- If a test is hard to write, the design is wrong — say so and propose the seam instead of testing private internals or mocking heavily.
+- If a test is hard to write, investigate the public test seam before proposing design changes.
+  Do not treat test difficulty as proof of bad design or default to private internals and heavy mocking.
 - Do not weaken an assertion to make a test pass. If the assertion was wrong, change it deliberately and say why.
 - Do not delete or skip a failing test. Fix the code or fix the test's contract explicitly.
 
@@ -29,7 +30,8 @@ The invariant: **no production code exists without a failing test that demands i
 
 Tests verify **behavior through public interfaces**, not implementation details. A good test reads like a specification — "user can checkout with a valid cart" — and survives refactors because it ignores internal structure.
 
-**Name the seam before writing the test**: the public boundary where behavior is observable without reaching inside. When choosing is non-obvious, state the seam and confirm it with the user before writing any test.
+**Name the seam before writing the test**: the public boundary where behavior is observable without reaching inside.
+Ask for confirmation only when choosing the seam changes scope or the behavior contract.
 
 ## Anti-patterns
 
@@ -48,11 +50,13 @@ Match the repo's existing conventions first. Defaults when none exist:
 
 ## When NOT to apply the full loop
 
-State it explicitly, then proceed without it:
+Skip the full loop for these cases; mention the exemption only when needed to explain verification:
 
-- Trivial config/renames where no behavior exists to test
+- Config, documentation, and renames with no testable behavior
 - Exploratory spikes — but throwaway code must either get tests before landing or be deleted
 
 ## Stopping
 
-Done means: all tests green, run command and its output shown, no skipped or weakened assertions. If some test is still red, the task is not done — say which and why.
+Done means: all relevant tests green, no skipped or weakened assertions.
+Report verification commands, pass/fail, and the shortest decisive output, not full logs.
+If a relevant test is red or cannot run, report which one and why. Do not claim verified success.

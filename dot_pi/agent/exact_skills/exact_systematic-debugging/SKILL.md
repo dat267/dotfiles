@@ -11,11 +11,15 @@ Exit early when the fix is obvious (a typo, a config line, a reverted commit). T
 
 ## Redact
 
-You show commands, outputs, and captured artifacts. Redact every secret as `<REDACTED>`. Build loops against env vars, so credentials stay in the environment. Quote only the lines that carry the signal. Scratch files go in `/tmp`. When redacted output cannot diagnose the bug, say so and ask.
+Redact every secret as `<REDACTED>` in commands, outputs, and captured artifacts. Keep credentials in environment variables.
+Report verification commands, pass/fail, and the shortest decisive output, not full logs.
+Use a writable platform temporary directory (`$TMPDIR`, or the platform temp API); never assume `/tmp` exists.
+When redacted output cannot diagnose the bug, say so and ask.
 
 ## Phase 1: Build a feedback loop
 
-This phase is the skill. A tight pass/fail signal that goes red on this bug finds the cause; bisection, hypotheses, and instrumentation all consume it. Spend disproportionate effort here. Refuse to give up.
+Build a tight pass/fail signal for the user's bug. Use it to evaluate bisection, hypotheses, and instrumentation.
+Prioritize reproduction without repeating unproductive probes. Bound network calls, suspected hangs, and loops with explicit timeouts and iteration limits.
 
 Construct one, in roughly this order:
 
@@ -23,7 +27,7 @@ Construct one, in roughly this order:
 2. CLI invocation with a fixture input, diffing stdout against a snapshot.
 3. Curl or HTTP script against a running server.
 4. Replay a captured trace (request, payload, event log) through the code path.
-5. Throwaway harness in `/tmp` exercising the bug path in one call.
+5. Throwaway harness in the platform temporary directory exercising the bug path in one call.
 6. Property or fuzz loop: 1000 random inputs for "sometimes wrong".
 7. Bisection harness driven by `git bisect run`.
 8. Differential loop: same input through old vs new, diff the outputs.
@@ -31,7 +35,8 @@ Construct one, in roughly this order:
 
 Tighten it: faster (cache setup), sharper (assert the exact symptom), more deterministic (pin time, seed RNG, freeze network). A 2-second deterministic loop beats a 30-second flaky one.
 
-Flaky bugs: raise the reproduction rate. Loop the trigger 100x, add stress, narrow timing windows. A 50% flake is debuggable; 1% is not.
+Flaky bugs: raise the reproduction rate with bounded repetitions, stress, and narrower timing windows.
+Record the observed failure rate. Do not require a fixed rate to proceed; report limits on confidence.
 
 **Gate.** Phase 1 ends when you can name one command you already ran, with its invocation and redacted output shown, that is:
 
@@ -40,7 +45,9 @@ Flaky bugs: raise the reproduction rate. Loop the trigger 100x, add stress, narr
 - [ ] Fast: seconds, not minutes.
 - [ ] Runnable unattended, or via a user-relay loop with predictable turnaround.
 
-If you start reading code to build a theory before this command exists, stop. That is the failure this skill prevents. If no loop is possible, say so, list what you tried, and ask for environment access, a redacted artifact, or instrumentation permission. Never hypothesise without a loop.
+Inspect targeted code, configuration, and logs while building the loop. Label preliminary hypotheses as unverified.
+Do not apply a speculative fix before reproduction or a decisive diagnostic check.
+If no loop is possible, report attempts and ask for environment access, a redacted artifact, or instrumentation permission.
 
 ## Phase 2: Reproduce and minimise
 
@@ -54,7 +61,7 @@ Minimise: cut inputs, callers, config, data, and steps one at a time, re-running
 
 ## Phase 3: Trace to the source
 
-Find the origin before forming hypotheses.
+Trace evidence toward the origin. Keep hypotheses unverified until a diagnostic check supports them.
 
 Find working examples of the same behavior and list every difference, however small. Read reference implementations completely; never skim. Check dependencies, config, and assumptions.
 
@@ -66,11 +73,11 @@ Recent changes are prime suspects. Check `git log`, `git diff`, new dependencies
 
 ## Phase 4: Hypothesise and test
 
-Generate 3 to 5 ranked, falsifiable hypotheses before testing any. Single-hypothesis generation anchors on the first plausible idea.
+Generate only evidence-supported, falsifiable hypotheses. Rank alternatives when multiple explanations fit; never invent candidates to meet a quota.
 
-Each states a prediction: "If X is the cause, then changing Y makes it disappear, and changing Z makes it worse." Discard or sharpen any hypothesis without a prediction.
+Give each hypothesis a testable prediction. Discard or sharpen any hypothesis without one.
 
-Show the ranked list to the user before testing. They hold domain knowledge that re-ranks instantly. Do not block on it; proceed when they are away.
+Share hypotheses only when user input or approval affects the next probe. Otherwise, test without routine narration.
 
 Then change one variable at a time, mapping each probe to one prediction.
 
@@ -79,7 +86,8 @@ Then change one variable at a time, mapping each probe to one prediction.
 - Tag every debug log with a unique prefix, e.g. `[DEBUG-a4f2]`. Cleanup becomes a single grep.
 - Performance regressions: establish a baseline (timer, profiler, query plan), then bisect. Measure first, fix second.
 
-When a hypothesis fails, form a new one. Never stack a fix on a failed attempt.
+When a hypothesis fails, revise it using evidence. Never stack a fix on a failed attempt.
+After three consecutive probes yield no new evidence, stop repeating them. Change the diagnostic approach or report the blocker.
 
 ## Phase 5: Fix, verify, escalate
 
@@ -94,5 +102,5 @@ Stop after three failed fixes. Fixes that each reveal a new problem in a new pla
 - [ ] Original repro no longer reproduces (re-run the Phase 1 loop).
 - [ ] Regression test passes, or the missing seam is documented.
 - [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix).
-- [ ] Throwaway harnesses deleted or left in `/tmp`.
+- [ ] Throwaway harnesses deleted, or retained in the platform temporary directory with their location reported.
 - [ ] The verified hypothesis is stated in the commit message.

@@ -10,12 +10,12 @@ Guardrails derived from [Andrej Karpathy's observations](https://x.com/karpathy/
 
 ## 1. Think before coding
 
-Never assume. Surface every assumption and tradeoff before writing code.
+Proceed on low-risk, reversible assumptions. Ask when ambiguity changes scope, correctness, security, or irreversible effects.
 
-- State your assumptions. Ask when uncertain.
-- Present competing interpretations. Never choose one silently.
+- State only consequential assumptions and tradeoffs. Do not narrate routine work.
+- Ask when competing interpretations require materially different changes.
 - Name a simpler approach when one exists. Push back with evidence.
-- Stop on ambiguity. Name the confusion and ask.
+- Do not present an unverified assumption as fact.
 
 ## 2. Write the minimum code
 
@@ -54,13 +54,11 @@ Turn the task into a verifiable goal. Define the check before writing code.
 - "Fix the bug" -> write a test that reproduces it, then pass it.
 - "Refactor X" -> pass the tests before and after.
 
-For multi-step work, state a plan with one check per step:
-
-```
-1. [step] -> verify: [command]
-2. [step] -> verify: [command]
-```
+For multi-step work, plan one verification command per step. Share the plan only when coordination or approval is needed.
 
 Follow the **tdd** skill for the failing-test loop. Follow the **systematic-debugging** skill when the cause is not obvious. Weak goals such as "make it work" force constant clarification.
 
-Gate: run the tests and show the command with its output. The task is not done while any test is red.
+Gate: run the relevant tests. Report each command, pass/fail, and the shortest decisive output, not full logs.
+Do not claim success while a relevant test is red or verification is blocked.
+
+For prompt or skill revisions, use [prompt-evaluation.md](prompt-evaluation.md) when evaluating instruction compliance.
