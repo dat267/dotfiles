@@ -339,11 +339,12 @@ alias codecm='code $(chezmoi source-path)'
 alias dotfiles='dotfiles.py'
 alias lf=lfcd
 alias hx='helix'
-# pi runs under bubblewrap by default (pi_sandbox.py: root read-only, workspace
-# and pi state writable). `\pi ...` bypasses the alias for a raw run; set
-# PI_SANDBOX_MODE=fa to disable the sandbox. Args pass through unchanged, so
-# continue a session with `pi -c` yourself.
+# pi and Pier run under bubblewrap by default. Each launcher makes the root
+# read-only and exposes the workspace, shared agent state, and explicit extras.
+# `\pi ...` or `\pier ...` bypasses its alias; set PI_SANDBOX_MODE=fa or
+# PIER_SANDBOX_MODE=fa to disable that sandbox. Args pass through unchanged.
 alias pi='pi_sandbox.py'
+alias pier='pier_sandbox.py'
 getrclone() {
 	if [ -z "$1" ]; then
 		echo "Usage: getrclone [user@host-or-ip]"
