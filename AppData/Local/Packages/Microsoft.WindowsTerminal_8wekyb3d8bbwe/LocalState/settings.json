@@ -33,6 +33,9 @@
                 "dark": "One Dark",
                 "light": "One Light"
             },
+            "font": {
+                "face": "Hack Nerd Font Mono"
+            },
             "suppressApplicationTitle": false
         },
         "list": [
