@@ -36,21 +36,9 @@ export interface GoalView extends GoalSnapshot {
 	usedCostUsd?: number;
 }
 
-/** Replay result: the goal plus the settings that outlive it. */
+/** Replay result: current goal reconstructed from lifecycle entries. */
 export interface FoldedGoal {
 	goal: GoalView | null;
-	bannerEnabled: boolean;
-}
-
-/**
- * Durable settings entry. Separate from lifecycle mutations on purpose: a
- * banner preference is not a goal revision, and must survive a clear.
- */
-export const SETTINGS_TYPE = "pi-goal-settings";
-
-export interface GoalSettingsEntry {
-	bannerEnabled: boolean;
-	timestamp: number;
 }
 
 /** The only state schema this build can interpret. */
@@ -210,14 +198,8 @@ export function foldGoal(entries: { customType: string; data: any }[]): FoldedGo
 	let turnNo = 0;
 	let usedTokens = 0;
 	let usedCostUsd = 0;
-	let bannerEnabled = false;
 
 	for (const entry of entries) {
-		if (entry.customType === SETTINGS_TYPE) {
-			// Settings are not lifecycle: they survive clear and create.
-			bannerEnabled = (entry.data as GoalSettingsEntry | undefined)?.bannerEnabled === true;
-			continue;
-		}
 		if (entry.customType === "pi-goal") {
 			const previousId = current?.id;
 			current = applyChange(current, entry.data as GoalChangeEntry);
@@ -240,8 +222,8 @@ export function foldGoal(entries: { customType: string; data: any }[]): FoldedGo
 		}
 	}
 
-	if (!current) return { goal: null, bannerEnabled };
-	return { goal: { ...current, armed: false, turnsStarted, usedTokens, usedCostUsd }, bannerEnabled };
+	if (!current) return { goal: null };
+	return { goal: { ...current, armed: false, turnsStarted, usedTokens, usedCostUsd } };
 }
 
 export function truncateObjective(text: string, max = 60): string {
@@ -295,13 +277,12 @@ export function statusLine(goal: GoalView | null): string {
 }
 
 /** Compose the /goal status notification (no goal → hint). */
-export function goalStatusMessage(goal: GoalView | null, bannerEnabled = false): string {
-	const banner = `Banner: ${bannerEnabled ? "on" : "off"} (bare /goal to toggle)`;
-	if (!goal) return `No goal set. Use /goal set <objective>\n${banner}`;
+export function goalStatusMessage(goal: GoalView | null): string {
+	if (!goal) return "No goal set. Use /goal set <objective>";
 	const budget = goal.budget
 		? `Budget: ${formatBudget(goal.budget, goal.usedTokens, goal.usedCostUsd, Date.now() - goal.createdAt)}`
 		: undefined;
-	return [statusLine(goal), truncateObjective(goal.objective, 120), ...(budget ? [budget] : []), banner].join("\n");
+	return [statusLine(goal), goal.objective, ...(budget ? [budget] : [])].join("\n");
 }
 
 export function formatBudget(budget: GoalBudget, usedTokens = 0, usedCostUsd = 0, elapsedMs = 0): string {

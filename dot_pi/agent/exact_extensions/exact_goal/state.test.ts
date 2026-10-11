@@ -29,10 +29,6 @@ function turn(goalId: string, revision: number, turn: number, timestamp: number)
 	return { customType: "pi-goal-turn", data: { goalId, revision, turn, timestamp } };
 }
 
-function settings(bannerEnabled: boolean, timestamp: number): { customType: string; data: unknown } {
-	return { customType: "pi-goal-settings", data: { bannerEnabled, timestamp } };
-}
-
 test("create produces a revision-1 active goal", () => {
 	const g = createGoalState("do the thing", T0);
 	assert.equal(g.revision, 1);
@@ -182,15 +178,16 @@ test("statusLine shows phase, arm marker, and round count", () => {
 	assert.equal(statusLine(null), "");
 });
 
-test("goalStatusMessage composes the /goal status notification", () => {
+test("goalStatusMessage reports goal state without banner instructions", () => {
 	const g = { ...createGoalState("obj", T0), armed: true, turnsStarted: 2 };
-	const msg = goalStatusMessage(g, true);
-	assert.match(msg, /^active ▶ 2 rounds\nobj\nBanner: on \(bare \/goal to toggle\)$/);
+	assert.equal(goalStatusMessage(g), "active ▶ 2 rounds\nobj");
+	assert.equal(goalStatusMessage(null), "No goal set. Use /goal set <objective>");
+});
 
-	assert.equal(
-		goalStatusMessage(null, false),
-		"No goal set. Use /goal set <objective>\nBanner: off (bare /goal to toggle)",
-	);
+test("goal status preserves full objective text", () => {
+	const objective = "Complete the entire long-running project objective without shortening its final acceptance criteria or verification instructions.";
+	const goal = { ...createGoalState(objective, T0), armed: false, turnsStarted: 0 };
+	assert.equal(goalStatusMessage(goal), `active 0 rounds\n${objective}`);
 });
 
 test("goal status reports configured limits and spent usage", () => {
@@ -243,31 +240,14 @@ test("resumeHint names the fix for each provider pause reason", () => {
 	assert.match(resumeHint({ code: "human-paused", message: "Paused by user." }), /\/goal resume/);
 });
 
-test("fold reports bannerEnabled from the last settings entry", () => {
+test("fold ignores legacy banner settings entries", () => {
 	const g = createGoalState("obj", T0);
-	// No settings entry: the default stays off, as before the flag was durable.
-	assert.equal(foldGoal([]).bannerEnabled, false);
-	assert.equal(foldGoal([change("create", g, T0)]).bannerEnabled, false);
-
 	const folded = foldGoal([
 		change("create", g, T0),
-		settings(true, T0 + 1),
-		settings(false, T0 + 2),
-		settings(true, T0 + 3),
+		{ customType: "pi-goal-settings", data: { bannerEnabled: true, timestamp: T0 + 1 } },
 	]);
-	assert.equal(folded.bannerEnabled, true);
 	assert.equal(folded.goal?.id, g.id);
-});
-
-test("fold keeps the banner flag after the goal is cleared", () => {
-	const g = createGoalState("obj", T0);
-	const folded = foldGoal([
-		change("create", g, T0),
-		settings(true, T0 + 1),
-		change("clear", null, T0 + 2, { id: g.id, revision: g.revision }),
-	]);
-	assert.equal(folded.goal, null);
-	assert.equal(folded.bannerEnabled, true);
+	assert.deepEqual(Object.keys(folded), ["goal"]);
 });
 
 test("createGoalState stamps the state version", () => {

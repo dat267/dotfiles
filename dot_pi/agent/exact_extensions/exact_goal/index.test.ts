@@ -49,7 +49,7 @@ void describe("goal extension smoke", () => {
 		assert.equal(calls.some(c => c.kind === "appendEntry" || c.kind === "sendMessage"), false);
 	});
 
-	void it("routes create_goal effects: durable entry + status rerender", async () => {
+	void it("routes create_goal effects: durable entry and deferred round message", async () => {
 		const { tools, calls } = boot();
 		const result = await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
 		assert.equal(result.isError, undefined);
@@ -115,7 +115,7 @@ void describe("goal extension smoke", () => {
 		assert.equal(calls.length, before);
 	});
 
-	void it("hides completed goals from the live banner", async () => {
+	void it("never renders a banner when completing a goal", async () => {
 		const fake = makeFakePi();
 		piGoal(fake.pi);
 		await fake.runCommand("goal");
@@ -126,8 +126,8 @@ void describe("goal extension smoke", () => {
 			revision: goal.revision,
 			action: "complete",
 		}, {}, () => {}, fake.ctx);
-		const widgets = fake.calls.all.filter((call) => call.kind === "setWidget" && call.key === "pi-goal");
-		assert.equal((widgets.at(-1) as { value?: unknown } | undefined)?.value, undefined);
+		const widgets = fake.calls.all.filter((call) => call.kind === "setWidget" && call.key === "pi-goal" && call.value !== undefined);
+		assert.equal(widgets.length, 0);
 	});
 
 	void it("expands the create-goal call frame to show the full objective", () => {
@@ -247,92 +247,39 @@ void describe("goal extension smoke", () => {
 		});
 	});
 
-	void describe("/goal banner toggle", () => {
-		const GOAL_ENTRY = {
+	void describe("/goal status command", () => {
+		const goalEntry = {
 			type: "custom",
 			customType: "pi-goal",
-			data: { operation: "create", goal: { id: "g1", revision: 1, objective: "obj", phase: "active", createdAt: 1, updatedAt: 1 } },
+			data: { operation: "create", goal: { id: "g1", revision: 1, objective: "show this current objective in full with every acceptance criterion and verification step, even when its description exceeds the old display limit", phase: "active", createdAt: 1, updatedAt: 1 } },
+		};
+		const legacyBannerEntry = {
+			type: "custom",
+			customType: "pi-goal-settings",
+			data: { bannerEnabled: true, timestamp: 1 },
 		};
 
-		/** Boot with an active goal and capture what the command says and renders. */
-		function harness(objective = "obj") {
-			const { calls, events } = boot();
-			const notifies: string[] = [];
-			const widgets: unknown[] = [];
-			const entry = structuredClone(GOAL_ENTRY);
-			entry.data.goal.objective = objective;
-			const context: any = ctx([entry]);
-			context.ui.notify = (m: string) => notifies.push(m);
-			context.ui.setWidget = (_k: string, w: unknown) => widgets.push(w);
-			const command = calls.find((c) => c.kind === "command" && c.name === "goal")!.command;
-			return { events, command, notifies, widgets, context };
-		}
-
-		void it("reports the state it switched to, not the one it left", async () => {
-			const h = harness();
-			await h.events.session_start({}, h.context);
-			h.notifies.length = 0;
-			h.widgets.length = 0;
-
-			// Banner starts off; first toggle turns it on.
-			await h.command.handler("", h.context);
-			assert.equal(h.notifies.at(-1), "Goal banner shown.");
-			assert.equal(typeof h.widgets.at(-1), "function", "interactive banner widget rendered when enabled");
-
-			// Second toggle turns it back off.
-			await h.command.handler("", h.context);
-			assert.equal(h.notifies.at(-1), "Goal banner hidden.");
-			assert.equal(h.widgets.at(-1), undefined, "banner widget cleared when disabled");
+		void it("bare /goal prints usage without changing goal state", async () => {
+			const fake = makeFakePi({ entries: [goalEntry, legacyBannerEntry] });
+			piGoal(fake.pi);
+			await fake.emit("session_start", {});
+			assert.equal(fake.calls.all.filter((call) => call.kind === "setWidget").length, 0);
+			fake.calls.notifies.length = 0;
+			await fake.runCommand("goal");
+			assert.match(fake.calls.notifies.at(-1)?.message ?? "", /Usage: \/goal status/);
+			assert.equal(fake.calls.entries.some((entry) => entry.entryType === "pi-goal-settings"), false);
 		});
 
-		void it("expands the goal banner to show the full objective on click", async () => {
-			const objective = "Build a complete feature with all required acceptance criteria and verification steps.";
-			const h = harness(objective);
-			await h.events.session_start({}, h.context);
-			await h.command.handler("", h.context);
-			const factory = h.widgets.at(-1);
-			assert.equal(typeof factory, "function");
-			const theme = {
-				fg: (_c: string, t: string) => t,
-				bold: (t: string) => t,
-				dim: (t: string) => t,
-			};
-			const widget = (factory as any)({ requestRender() {} }, theme);
-			const collapsed = widget.render(100).join(" ");
-			assert.match(collapsed, /click or \/goal expand/);
-			assert.ok(!collapsed.includes(objective));
-			assert.equal(widget.handleMouse({
-				type: "click", button: "left", x: 2, y: 1, screenX: 2, screenY: 1,
-				width: 100, height: 2, shift: false, alt: false, ctrl: false,
-			})?.handled, true);
-			assert.ok(widget.render(100).join(" ").includes(objective));
-			assert.equal(widget.handleMouse({
-				type: "click", button: "left", x: 2, y: 1, screenX: 2, screenY: 1,
-				width: 100, height: 2, shift: false, alt: false, ctrl: false,
-			})?.handled, true);
-			assert.match(widget.render(100).join(" "), /click or \/goal expand/);
-		});
-
-		void it("expands and collapses the goal banner from /goal expand", async () => {
-			const objective = "Build a complete feature with all required acceptance criteria and verification steps.";
-			const h = harness(objective);
-			await h.events.session_start({}, h.context);
-			await h.command.handler("", h.context);
-			await h.command.handler("expand", h.context);
-			const expandedFactory = h.widgets.at(-1) as any;
-			const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
-			assert.ok(expandedFactory(({ requestRender() {} } as any), theme).render(100).join(" ").includes(objective));
-			await h.command.handler("expand", h.context);
-			const collapsedFactory = h.widgets.at(-1) as any;
-			assert.match(collapsedFactory(({ requestRender() {} } as any), theme).render(100).join(" "), /click or \/goal expand/);
-		});
-
-		void it("/goal banner behaves the same as bare /goal", async () => {
-			const h = harness();
-			await h.events.session_start({}, h.context);
-			h.notifies.length = 0;
-			await h.command.handler("banner", h.context);
-			assert.equal(h.notifies.at(-1), "Goal banner shown.");
+		void it("/goal status shows current goal notice", async () => {
+			const fake = makeFakePi({ entries: [goalEntry, legacyBannerEntry] });
+			piGoal(fake.pi);
+			await fake.emit("session_start", {});
+			fake.calls.notifies.length = 0;
+			await fake.runCommand("goal", "status");
+			assert.equal(
+				fake.calls.notifies.at(-1)?.message,
+				`active 0 rounds\n${goalEntry.data.goal.objective}`,
+			);
 		});
 	});
 

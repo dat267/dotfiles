@@ -365,13 +365,13 @@ void describe("GoalMachine.commands", () => {
 		assert.equal(m.snapshot.goal, null);
 	});
 
-	void it("banner_toggle: flips flag, renderStatus effect", () => {
+	void it("does not expose removed banner state", () => {
 		const m = new GoalMachine();
-		m.dispatch({ type: "session_start", entries: [] });
-		assert.equal(m.snapshot.bannerEnabled, false);
-		const { effects } = m.dispatch({ type: "banner_toggle" });
-		assert.equal(m.snapshot.bannerEnabled, true);
-		assert.ok(effects.some((e) => e.kind === "renderStatus"));
+		m.dispatch({
+			type: "session_start",
+			entries: [makeChangeEntry("create"), { customType: "pi-goal-settings", data: { bannerEnabled: true } }],
+		});
+		assert.equal("bannerEnabled" in m.snapshot, false);
 	});
 
 	void it("commit routes through applyChange — illegal live transition throws, state untouched", () => {
@@ -578,28 +578,15 @@ void describe("GoalMachine.session_start reload", () => {
 	});
 });
 
-void describe("GoalMachine banner persistence", () => {
-	void it("banner_toggle appends a durable settings entry", () => {
-		const m = new GoalMachine();
-		m.dispatch({ type: "session_start", entries: [] });
-		assert.equal(m.snapshot.bannerEnabled, false);
-		const { effects } = m.dispatch({ type: "banner_toggle" });
-		assert.equal(m.snapshot.bannerEnabled, true);
-		const entry = effects.find((e) => e.kind === "appendEntry") as { entryType: string; data: { bannerEnabled: boolean } } | undefined;
-		assert.equal(entry?.entryType, "pi-goal-settings");
-		assert.equal(entry?.data.bannerEnabled, true);
-		assert.ok(effects.some((e) => e.kind === "renderStatus"));
-	});
-
-	void it("a fresh session restores the banner flag instead of defaulting it off", () => {
-		const m = new GoalMachine();
-		m.dispatch({ type: "session_start", entries: [] });
-		m.dispatch({ type: "banner_toggle" });
-		const mirrored = { customType: "pi-goal-settings", data: { bannerEnabled: true, timestamp: Date.now() } };
-
+void describe("GoalMachine legacy banner state", () => {
+	void it("ignores persisted banner settings while restoring goal", () => {
 		const fresh = new GoalMachine();
-		fresh.dispatch({ type: "session_start", entries: [makeChangeEntry("create"), mirrored] });
-		assert.equal(fresh.snapshot.bannerEnabled, true);
+		fresh.dispatch({
+			type: "session_start",
+			entries: [makeChangeEntry("create"), { customType: "pi-goal-settings", data: { bannerEnabled: true, timestamp: Date.now() } }],
+		});
+		assert.equal(fresh.snapshot.goal?.phase, "active");
+		assert.equal("bannerEnabled" in fresh.snapshot, false);
 	});
 });
 

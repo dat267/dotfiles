@@ -5,7 +5,7 @@
  * Effects are plain data; the caller (index.ts) performs all I/O.
  */
 
-import { applyChange, createGoalState, foldGoal, goalRoundPrompt, SETTINGS_TYPE, toSnapshot, truncateObjective, wrapupContext, type GoalBudget, type GoalChangeEntry, type GoalOperation, type GoalSnapshot, type GoalTurnEntry, type GoalUsage, type GoalView } from "./state.ts";
+import { applyChange, createGoalState, foldGoal, goalRoundPrompt, toSnapshot, truncateObjective, wrapupContext, type GoalBudget, type GoalChangeEntry, type GoalOperation, type GoalSnapshot, type GoalTurnEntry, type GoalUsage, type GoalView } from "./state.ts";
 
 export const CUSTOM_TYPE = "pi-goal";
 export const TURN_TYPE = "pi-goal-turn";
@@ -61,10 +61,6 @@ export interface GoalClearEvent {
 	revision: number;
 }
 
-export interface BannerToggleEvent {
-	type: "banner_toggle";
-}
-
 export interface GoalSetEvent {
 	type: "goal_set";
 	objective: string;
@@ -78,13 +74,12 @@ export interface GoalReplaceEvent {
 	budget?: GoalBudget;
 }
 
-export type GoalEvent = SessionStartEvent | GoalCreateEvent | GoalResumeEvent | AgentEndEvent | AgentBeforeSettleEvent | GoalUpdateEvent | GoalPauseEvent | GoalClearEvent | BannerToggleEvent | GoalSetEvent | GoalReplaceEvent;
+export type GoalEvent = SessionStartEvent | GoalCreateEvent | GoalResumeEvent | AgentEndEvent | AgentBeforeSettleEvent | GoalUpdateEvent | GoalPauseEvent | GoalClearEvent | GoalSetEvent | GoalReplaceEvent;
 
 export type Effect =
 	| { kind: "appendEntry"; entryType: string; data: unknown }
 	| { kind: "sendMessage"; customType: string; content: string; display: boolean; details: Record<string, unknown>; triggerTurn: boolean }
 	| { kind: "notify"; message: string; level: "info" | "warning" }
-	| { kind: "renderStatus" }
 	| { kind: "continueRound"; content: string; turn: number };
 
 export interface DispatchResult {
@@ -117,7 +112,6 @@ export class GoalMachine {
 	private armed = false;
 	private pendingTurn: number | null = null;
 	private createdThisRun = false;
-	private bannerEnabled = false;
 
 	get snapshot() {
 		return {
@@ -126,7 +120,6 @@ export class GoalMachine {
 			pendingTurn: this.pendingTurn,
 			/** True while the run that created the goal is still executing. */
 			createdThisRun: this.createdThisRun,
-			bannerEnabled: this.bannerEnabled,
 		};
 	}
 
@@ -148,14 +141,6 @@ export class GoalMachine {
 				return this.goalPause();
 			case "goal_clear":
 				return this.goalClear(event.id, event.revision);
-			case "banner_toggle":
-				this.bannerEnabled = !this.bannerEnabled;
-				return {
-					effects: [
-						{ kind: "appendEntry", entryType: SETTINGS_TYPE, data: { bannerEnabled: this.bannerEnabled, timestamp: Date.now() } },
-						{ kind: "renderStatus" },
-					],
-				};
 			case "goal_set":
 				return this.goalSet(event.objective, event.budget);
 			case "goal_replace":
@@ -244,7 +229,7 @@ export class GoalMachine {
 			display: false,
 			details: { kind: "round", turn },
 			triggerTurn: true,
-		}, { kind: "renderStatus" }];
+		}];
 	}
 
 	private commit(operation: GoalOperation, next: GoalSnapshot | null, cleared?: { id: string; revision: number }): Effect[] {
@@ -266,7 +251,7 @@ export class GoalMachine {
 			usedTokens: sameGoal ? view.usedTokens ?? 0 : 0,
 			usedCostUsd: sameGoal ? view.usedCostUsd ?? 0 : 0,
 		} : null;
-		return [{ kind: "appendEntry", entryType: CUSTOM_TYPE, data }, { kind: "renderStatus" }];
+		return [{ kind: "appendEntry", entryType: CUSTOM_TYPE, data }];
 	}
 
 	private goalCreate(objective: string, budget?: GoalBudget): DispatchResult {
@@ -306,7 +291,7 @@ export class GoalMachine {
 		if (!this.view) {
 			this.pendingTurn = null;
 			this.createdThisRun = false;
-			return { effects: [{ kind: "renderStatus" }] };
+			return { effects: [] };
 		}
 
 		// Completed goals admit no rounds — a finishing run is not work done
@@ -314,7 +299,6 @@ export class GoalMachine {
 		if (this.view.phase === "complete") {
 			this.pendingTurn = null;
 			this.createdThisRun = false;
-			effects.push({ kind: "renderStatus" });
 			return { effects };
 		}
 
@@ -338,10 +322,7 @@ export class GoalMachine {
 			this.pendingTurn = null;
 		}
 
-		if (this.view.phase !== "active") {
-			effects.push({ kind: "renderStatus" });
-			return { effects };
-		}
+		if (this.view.phase !== "active") return { effects };
 
 		// Cancellation handling
 		if (aborted) {
@@ -358,17 +339,15 @@ export class GoalMachine {
 				return { effects };
 			}
 			this.armed = false;
-			effects.push({ kind: "renderStatus" });
 			return { effects };
 		}
 
-		effects.push({ kind: "renderStatus" });
 		return { effects };
 	}
 
 	private agentBeforeSettle(outcome: AgentBeforeSettleEvent["outcome"], hasPendingMessages = false, now = Date.now()): DispatchResult {
 		if (!this.view || this.view.phase !== "active" || !this.armed) {
-			return { effects: [{ kind: "renderStatus" }], continue: false };
+			return { effects: [], continue: false };
 		}
 		if (outcome === "aborted") {
 			this.armed = false;
@@ -381,7 +360,7 @@ export class GoalMachine {
 			});
 			return { effects, continue: false };
 		}
-		if (hasPendingMessages) return { effects: [{ kind: "renderStatus" }], continue: false };
+		if (hasPendingMessages) return { effects: [], continue: false };
 		if (outcome === "error") {
 			this.armed = false;
 			const effects = this.commit("pause", {
@@ -408,7 +387,7 @@ export class GoalMachine {
 		const turn = this.view.turnsStarted + 1;
 		this.pendingTurn = turn;
 		return {
-			effects: [{ kind: "continueRound", content: goalRoundPrompt(this.view, turn), turn }, { kind: "renderStatus" }],
+			effects: [{ kind: "continueRound", content: goalRoundPrompt(this.view, turn), turn }],
 			continue: true,
 		};
 	}
@@ -470,7 +449,7 @@ export class GoalMachine {
 		try {
 			folded = foldGoal(
 				entries
-					.filter((e) => e.customType === CUSTOM_TYPE || e.customType === TURN_TYPE || e.customType === SETTINGS_TYPE)
+					.filter((e) => e.customType === CUSTOM_TYPE || e.customType === TURN_TYPE)
 					.map((e) => ({ customType: e.customType, data: e.data })),
 			);
 		} catch (err) {
@@ -488,7 +467,6 @@ export class GoalMachine {
 			};
 		}
 		this.view = folded.goal;
-		this.bannerEnabled = folded.bannerEnabled;
 		// Activation is never inherited: reload, resume, fork, and startup all disarm.
 		this.armed = false;
 		this.pendingTurn = null;
@@ -514,12 +492,11 @@ export class GoalMachine {
 				return {
 					effects: [
 						{ kind: "notify", message: `Goal not paused after reload: ${err instanceof Error ? err.message : String(err)}`, level: "warning" },
-						{ kind: "renderStatus" },
 					],
 				};
 			}
 		}
 
-		return { effects: [{ kind: "renderStatus" }] };
+		return { effects: [] };
 	}
 }

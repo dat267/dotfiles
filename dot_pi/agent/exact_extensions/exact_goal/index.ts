@@ -4,7 +4,6 @@ import { CUSTOM_TYPE, EVENT_TYPE, GoalMachine, TURN_TYPE, type Effect } from "./
 import {
 	goalStatusMessage,
 	goalView,
-	statusLine,
 	truncateObjective,
 	type GoalChangeEntry,
 	type GoalTurnEntry,
@@ -12,7 +11,6 @@ import {
 } from "./state.ts";
 import {
 	clickToExpand,
-	renderGoalBanner,
 	renderGoalChangeEntry,
 	renderGoalEventMessage,
 	renderGoalTurnEntry,
@@ -25,7 +23,6 @@ import {
 
 export default function piGoal(pi: ExtensionAPI) {
 	const machine = new GoalMachine();
-	let bannerExpanded = false;
 
 	/** Execute the machine's effects against the host. */
 	function apply(effects: Effect[], ctx?: ExtensionContext) {
@@ -46,48 +43,12 @@ export default function piGoal(pi: ExtensionAPI) {
 					ctx?.ui.notify(effect.message, effect.level);
 					break;
 
-				case "renderStatus":
-					if (ctx) updateStatusBar(ctx);
-					break;
 				case "continueRound":
 					break;
 			}
 		}
 		// Tool exposure mirrors the goal phase, and only a state mutation moves it.
 		if (mutated) syncGoalTools(pi);
-	}
-
-	function updateStatusBar(ctx: ExtensionContext) {
-		const theme = ctx.ui.theme;
-		const { goal, armed, bannerEnabled } = machine.snapshot;
-		if (!goal || goal.phase === "complete") {
-			bannerExpanded = false;
-			ctx.ui.setStatus(CUSTOM_TYPE, undefined);
-			ctx.ui.setWidget(CUSTOM_TYPE, undefined);
-			return;
-		}
-		// Nothing goal-related on the statusline — the widget banner is the surface.
-		if (!bannerEnabled) {
-			bannerExpanded = false;
-			ctx.ui.setWidget(CUSTOM_TYPE, undefined);
-			return;
-		}
-		if (ctx.mode === "rpc") {
-			const objective = bannerExpanded
-				? goal.objective
-				: `${truncateObjective(goal.objective, 72)}${goal.objective.length > 72 ? " (use /goal expand)" : ""}`;
-			ctx.ui.setWidget(CUSTOM_TYPE, [
-				`${theme.fg("customMessageLabel", theme.bold("goal"))} ${theme.fg("text", objective)}`,
-				`${armed ? theme.fg("accent", "▶ ") : ""}${theme.fg("dim", statusLine(goal))}${bannerExpanded ? theme.fg("muted", " (/goal expand to collapse)") : ""}`,
-			]);
-			return;
-		}
-		if (ctx.mode === "json" || ctx.mode === "print") return;
-		ctx.ui.setWidget(CUSTOM_TYPE, (_tui, widgetTheme) => clickToExpand(
-			(expanded) => renderGoalBanner(widgetTheme, goal.objective, armed, statusLine(goal), expanded),
-			bannerExpanded,
-			(expanded) => { bannerExpanded = expanded; },
-		));
 	}
 
 	function syncGoalTools(pi: ExtensionAPI) {
@@ -223,13 +184,13 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("goal", {
-		description: "Manage the session goal — /goal toggles the banner, /goal expand toggles its objective text",
+		description: "Show current goal status or manage goal lifecycle",
 		getArgumentCompletions: (prefix: string) => {
-			const values = ["set", "status", "pause", "resume", "clear", "banner", "expand"];
+			const values = ["status", "set", "pause", "resume", "clear"];
 			return values.filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v }));
 		},
 		handler: async (args: string, ctx: ExtensionContext) => {
-			const { goal, bannerEnabled } = machine.snapshot;
+			const { goal } = machine.snapshot;
 
 			// `fallback` is a thunk, not a string. Several of these messages read state
 			// the dispatch has just changed, and a pre-rendered string reports the
@@ -246,22 +207,8 @@ export default function piGoal(pi: ExtensionAPI) {
 
 			const cmd = parseGoalCommand(args);
 			switch (cmd.kind) {
-				case "toggle_banner":
-					run({ type: "banner_toggle" }, () => `Goal banner ${machine.snapshot.bannerEnabled ? "shown" : "hidden"}.`);
-					break;
-				case "toggle_expansion":
-					if (!goal || goal.phase === "complete") {
-						ctx.ui.notify("No active goal to expand.", "info");
-					} else if (!bannerEnabled) {
-						ctx.ui.notify("Goal banner is hidden. Use /goal to show it.", "info");
-					} else {
-						bannerExpanded = !bannerExpanded;
-						updateStatusBar(ctx);
-						ctx.ui.notify(`Goal banner ${bannerExpanded ? "expanded" : "collapsed"}.`, "info");
-					}
-					break;
 				case "show_status":
-					ctx.ui.notify(goalStatusMessage(goal, bannerEnabled), "info");
+					ctx.ui.notify(goalStatusMessage(goal), "info");
 					break;
 				case "clear":
 					if (!goal) {
@@ -320,7 +267,6 @@ export default function piGoal(pi: ExtensionAPI) {
 		// A reload returns a durable pause here; apply it before touching the UI again.
 		apply(result.effects, ctx);
 		syncGoalTools(pi);
-		updateStatusBar(ctx);
 		const { goal } = machine.snapshot;
 		if (goal?.phase === "active") {
 			ctx.ui.notify(`Goal restored (disarmed): ${truncateObjective(goal.objective)}\nUse /goal resume to continue.`, "info");

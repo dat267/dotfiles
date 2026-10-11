@@ -7,21 +7,24 @@ import * as assert from "node:assert/strict";
 import { parseGoalCommand } from "./command.ts";
 
 void describe("parseGoalCommand", () => {
-	void it("bare /goal toggles banner", () => {
-		assert.deepEqual(parseGoalCommand(""), { kind: "toggle_banner" });
-		assert.deepEqual(parseGoalCommand("   "), { kind: "toggle_banner" });
+	void it("bare /goal prints usage", () => {
+		for (const input of ["", "   "]) {
+			const result = parseGoalCommand(input);
+			assert.equal(result.kind, "error");
+			if (result.kind === "error") assert.match(result.message, /Usage: \/goal status/);
+		}
 	});
 
-	void it("banner subcommand toggles", () => {
-		assert.deepEqual(parseGoalCommand("banner"), { kind: "toggle_banner" });
-	});
-
-	void it("expand subcommand toggles banner text expansion", () => {
-		assert.deepEqual(parseGoalCommand("expand"), { kind: "toggle_expansion" });
-	});
-
-	void it("status subcommand requests status", () => {
+	void it("/goal status requests current status", () => {
 		assert.deepEqual(parseGoalCommand("status"), { kind: "show_status" });
+	});
+
+	void it("removes banner and expand subcommands", () => {
+		for (const input of ["banner", "expand"]) {
+			const result = parseGoalCommand(input);
+			assert.equal(result.kind, "error", input);
+			if (result.kind === "error") assert.match(result.message, /Unknown subcommand/);
+		}
 	});
 
 	void it("clear subcommand clears goal", () => {

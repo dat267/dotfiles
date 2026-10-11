@@ -5,15 +5,11 @@
  * Extracted from index.ts to make rendering testable and separable.
  */
 
-import { Box, Container, MouseRegion, Text, type Component, type TuiMouseEvent } from "@earendil-works/pi-tui";
+import { Box, MouseRegion, Text, type Component, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateObjective, type GoalChangeEntry, type GoalOperation, type GoalPhase, type GoalTurnEntry, type GoalView } from "./state.ts";
 
-export function clickToExpand(
-	render: (expanded: boolean) => Component,
-	initiallyExpanded: boolean,
-	onExpandedChange?: (expanded: boolean) => void,
-): Component {
+export function clickToExpand(render: (expanded: boolean) => Component, initiallyExpanded: boolean): Component {
 	let expanded = initiallyExpanded;
 	let child = render(expanded);
 	const mutableChild: Component = {
@@ -26,7 +22,6 @@ export function clickToExpand(
 	const region = new MouseRegion(mutableChild, (event: TuiMouseEvent) => {
 		if (event.type !== "click" || event.button !== "left") return undefined;
 		expanded = !expanded;
-		onExpandedChange?.(expanded);
 		child = render(expanded);
 		return { handled: true };
 	});
@@ -35,26 +30,6 @@ export function clickToExpand(
 		handleMouse: (event) => region.handleMouse(event),
 		invalidate: () => region.invalidate(),
 	};
-}
-
-export function renderGoalBanner(
-	theme: Theme,
-	objective: string,
-	armed: boolean,
-	status: string,
-	expanded: boolean,
-): Container {
-	const container = new Container();
-	const normalizedObjective = objective.trim().replace(/\s+/g, " ");
-	const needsExpansion = normalizedObjective.length > 48;
-	const shownObjective = expanded || !needsExpansion
-		? objective
-		: `${truncateObjective(objective, 48)} (click or /goal expand)`;
-	const label = `${theme.fg("customMessageLabel", theme.bold("goal"))} ${theme.fg("text", shownObjective)}`;
-	const state = `${armed ? theme.fg("accent", "▶ ") : ""}${theme.fg("dim", status)}`;
-	container.addChild(new Text(label, 1, 0));
-	container.addChild(new Text(`${state}${expanded && needsExpansion ? theme.fg("muted", " (click or /goal expand to collapse)") : ""}`, 1, 0));
-	return container;
 }
 
 export const PHASE_COLOR: Record<GoalPhase, "success" | "warning" | "error" | "accent"> = {

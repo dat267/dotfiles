@@ -8,8 +8,6 @@
 import { truncateObjective } from "./state.ts";
 
 export type GoalCommand =
-	| { kind: "toggle_banner" }
-	| { kind: "toggle_expansion" }
 	| { kind: "show_status" }
 	| { kind: "clear" }
 	| { kind: "pause" }
@@ -21,19 +19,11 @@ export function parseGoalCommand(args: string): GoalCommand {
 	const trimmed = args.trim();
 
 	if (!trimmed) {
-		return { kind: "toggle_banner" };
-	}
-
-	if (trimmed === "expand") {
-		return { kind: "toggle_expansion" };
+		return { kind: "error", message: "Usage: /goal status | /goal set <objective> | /goal pause | /goal resume | /goal clear" };
 	}
 
 	if (trimmed === "status") {
 		return { kind: "show_status" };
-	}
-
-	if (trimmed === "banner") {
-		return { kind: "toggle_banner" };
 	}
 
 	if (trimmed === "clear") {
@@ -53,7 +43,7 @@ export function parseGoalCommand(args: string): GoalCommand {
 	if (!trimmed.startsWith("set ") && trimmed !== "set") {
 		return {
 			kind: "error",
-			message: `Unknown subcommand "${truncateObjective(trimmed, 20)}". Use /goal set <objective>, status, expand, pause, resume, clear, or bare /goal to toggle the banner.`,
+			message: `Unknown subcommand "${truncateObjective(trimmed, 20)}". Use /goal status, /goal set <objective>, /goal pause, /goal resume, or /goal clear.`,
 		};
 	}
 
