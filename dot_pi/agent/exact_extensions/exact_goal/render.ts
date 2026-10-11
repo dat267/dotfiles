@@ -5,20 +5,28 @@
  * Extracted from index.ts to make rendering testable and separable.
  */
 
-import { Box, MouseRegion, Text, type Component, type TuiMouseEvent } from "@earendil-works/pi-tui";
+import { Box, Container, MouseRegion, Text, type Component, type TuiMouseEvent } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import { truncateObjective, type GoalChangeEntry, type GoalOperation, type GoalPhase, type GoalTurnEntry, type GoalView } from "./state.ts";
 
-export function clickToExpand(render: (expanded: boolean) => Component, initiallyExpanded: boolean): Component {
+export function clickToExpand(
+	render: (expanded: boolean) => Component,
+	initiallyExpanded: boolean,
+	onExpandedChange?: (expanded: boolean) => void,
+): Component {
 	let expanded = initiallyExpanded;
 	let child = render(expanded);
 	const mutableChild: Component = {
 		render: (width) => child.render(width),
-		invalidate: () => child.invalidate(),
+		invalidate: () => {
+			child = render(expanded);
+			child.invalidate();
+		},
 	};
 	const region = new MouseRegion(mutableChild, (event: TuiMouseEvent) => {
 		if (event.type !== "click" || event.button !== "left") return undefined;
 		expanded = !expanded;
+		onExpandedChange?.(expanded);
 		child = render(expanded);
 		return { handled: true };
 	});
@@ -27,6 +35,26 @@ export function clickToExpand(render: (expanded: boolean) => Component, initiall
 		handleMouse: (event) => region.handleMouse(event),
 		invalidate: () => region.invalidate(),
 	};
+}
+
+export function renderGoalBanner(
+	theme: Theme,
+	objective: string,
+	armed: boolean,
+	status: string,
+	expanded: boolean,
+): Container {
+	const container = new Container();
+	const normalizedObjective = objective.trim().replace(/\s+/g, " ");
+	const needsExpansion = normalizedObjective.length > 48;
+	const shownObjective = expanded || !needsExpansion
+		? objective
+		: `${truncateObjective(objective, 48)} (click or /goal expand)`;
+	const label = `${theme.fg("customMessageLabel", theme.bold("goal"))} ${theme.fg("text", shownObjective)}`;
+	const state = `${armed ? theme.fg("accent", "▶ ") : ""}${theme.fg("dim", status)}`;
+	container.addChild(new Text(label, 1, 0));
+	container.addChild(new Text(`${state}${expanded && needsExpansion ? theme.fg("muted", " (click or /goal expand to collapse)") : ""}`, 1, 0));
+	return container;
 }
 
 export const PHASE_COLOR: Record<GoalPhase, "success" | "warning" | "error" | "accent"> = {
@@ -143,20 +171,27 @@ export function renderGetGoalRenderResult(goal: GoalView | null, theme: Theme): 
 	);
 }
 
-export function renderCreateGoalRenderCall(args: Record<string, unknown> | undefined, theme: Theme): Text {
+export function renderCreateGoalRenderCall(args: Record<string, unknown> | undefined, theme: Theme, expanded = false): Text {
+	const objective = String(args?.objective ?? "");
+	const normalized = objective.trim().replace(/\s+/g, " ");
+	const truncated = !expanded && normalized.length > 60;
+	const shownObjective = expanded ? objective : truncateObjective(objective, 60);
 	return new Text(
-		theme.fg("toolTitle", `Create goal: ${truncateObjective(String(args?.objective ?? ""), 60)}`),
+		theme.fg("toolTitle", `Create goal: ${shownObjective}${truncated ? theme.fg("muted", " (click or expand for full objective)") : ""}`),
 		0,
 		0,
 	);
 }
 
-export function renderUpdateGoalRenderCall(args: Record<string, unknown> | undefined, theme: Theme): Text {
+export function renderUpdateGoalRenderCall(args: Record<string, unknown> | undefined, theme: Theme, expanded = false): Text {
 	const action = args?.action as string | undefined;
-	const blockedReason = args?.blocked_reason as string | undefined;
+	const blockedReason = typeof args?.blocked_reason === "string" ? args.blocked_reason : undefined;
+	const normalizedReason = blockedReason?.trim().replace(/\s+/g, " ") ?? "";
+	const truncated = !expanded && normalizedReason.length > 60;
+	const shownReason = expanded ? normalizedReason : truncateObjective(normalizedReason, 60);
 	return new Text(
 		theme.fg("toolTitle", `Update goal → ${action ?? "?"}`) +
-			(blockedReason ? theme.fg("dim", `: ${truncateObjective(String(blockedReason), 60)}`) : ""),
+			(blockedReason ? theme.fg("dim", `: ${shownReason}${truncated ? theme.fg("muted", " (click or expand for full reason)") : ""}`) : ""),
 		0,
 		0,
 	);

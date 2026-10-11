@@ -130,6 +130,28 @@ void describe("goal extension smoke", () => {
 		assert.equal((widgets.at(-1) as { value?: unknown } | undefined)?.value, undefined);
 	});
 
+	void it("expands the create-goal call frame to show the full objective", () => {
+		const { tools } = boot();
+		const objective = "Create a long goal with every acceptance criterion, constraint, expected output, and verification step included.";
+		const theme = { fg: (_c: string, t: string) => t };
+		const collapsed = tools.create_goal.renderCall({ objective }, theme, { expanded: false }).render(200).join(" ");
+		assert.match(collapsed, /click or expand/);
+		assert.ok(!collapsed.includes(objective));
+		const expanded = tools.create_goal.renderCall({ objective }, theme, { expanded: true }).render(200).join(" ");
+		assert.ok(expanded.includes(objective));
+	});
+
+	void it("expands the update-goal call frame to show the full blocked reason", () => {
+		const { tools } = boot();
+		const reason = "The external dependency is unavailable, and the task cannot proceed until the service is restored.";
+		const theme = { fg: (_c: string, t: string) => t, dim: (_t: string) => _t };
+		const collapsed = tools.update_goal.renderCall({ action: "blocked", blocked_reason: reason }, theme, { expanded: false }).render(200).join(" ");
+		assert.match(collapsed, /click or expand/);
+		assert.ok(!collapsed.includes(reason));
+		const expanded = tools.update_goal.renderCall({ action: "blocked", blocked_reason: reason }, theme, { expanded: true }).render(200).join(" ");
+		assert.ok(expanded.includes(reason));
+	});
+
 	void it("toggles a goal transcript card with a left click", () => {
 		const { calls } = boot();
 		const renderer = calls.find((call) => call.kind === "entryRenderer" && call.customType === "pi-goal");
@@ -217,7 +239,7 @@ void describe("goal extension smoke", () => {
 				for (const meth of ["renderCall", "renderResult"] as const) {
 					if (!tool[meth]) continue;
 					const comp = meth === "renderCall"
-						? tool[meth]({ action: "complete" }, theme)
+						? tool[meth]({ action: "complete" }, theme, { expanded: false })
 						: tool[meth]({ content: [{ type: "text", text: "ok" }], details: { goal: null } }, {}, theme);
 					assert.equal(typeof comp.invalidate, "function", `${name}.${meth} not a full component`);
 				}
@@ -233,11 +255,13 @@ void describe("goal extension smoke", () => {
 		};
 
 		/** Boot with an active goal and capture what the command says and renders. */
-		function harness() {
+		function harness(objective = "obj") {
 			const { calls, events } = boot();
 			const notifies: string[] = [];
 			const widgets: unknown[] = [];
-			const context: any = ctx([GOAL_ENTRY]);
+			const entry = structuredClone(GOAL_ENTRY);
+			entry.data.goal.objective = objective;
+			const context: any = ctx([entry]);
 			context.ui.notify = (m: string) => notifies.push(m);
 			context.ui.setWidget = (_k: string, w: unknown) => widgets.push(w);
 			const command = calls.find((c) => c.kind === "command" && c.name === "goal")!.command;
@@ -253,12 +277,54 @@ void describe("goal extension smoke", () => {
 			// Banner starts off; first toggle turns it on.
 			await h.command.handler("", h.context);
 			assert.equal(h.notifies.at(-1), "Goal banner shown.");
-			assert.ok(Array.isArray(h.widgets.at(-1)), "banner widget rendered when enabled");
+			assert.equal(typeof h.widgets.at(-1), "function", "interactive banner widget rendered when enabled");
 
 			// Second toggle turns it back off.
 			await h.command.handler("", h.context);
 			assert.equal(h.notifies.at(-1), "Goal banner hidden.");
 			assert.equal(h.widgets.at(-1), undefined, "banner widget cleared when disabled");
+		});
+
+		void it("expands the goal banner to show the full objective on click", async () => {
+			const objective = "Build a complete feature with all required acceptance criteria and verification steps.";
+			const h = harness(objective);
+			await h.events.session_start({}, h.context);
+			await h.command.handler("", h.context);
+			const factory = h.widgets.at(-1);
+			assert.equal(typeof factory, "function");
+			const theme = {
+				fg: (_c: string, t: string) => t,
+				bold: (t: string) => t,
+				dim: (t: string) => t,
+			};
+			const widget = (factory as any)({ requestRender() {} }, theme);
+			const collapsed = widget.render(100).join(" ");
+			assert.match(collapsed, /click or \/goal expand/);
+			assert.ok(!collapsed.includes(objective));
+			assert.equal(widget.handleMouse({
+				type: "click", button: "left", x: 2, y: 1, screenX: 2, screenY: 1,
+				width: 100, height: 2, shift: false, alt: false, ctrl: false,
+			})?.handled, true);
+			assert.ok(widget.render(100).join(" ").includes(objective));
+			assert.equal(widget.handleMouse({
+				type: "click", button: "left", x: 2, y: 1, screenX: 2, screenY: 1,
+				width: 100, height: 2, shift: false, alt: false, ctrl: false,
+			})?.handled, true);
+			assert.match(widget.render(100).join(" "), /click or \/goal expand/);
+		});
+
+		void it("expands and collapses the goal banner from /goal expand", async () => {
+			const objective = "Build a complete feature with all required acceptance criteria and verification steps.";
+			const h = harness(objective);
+			await h.events.session_start({}, h.context);
+			await h.command.handler("", h.context);
+			await h.command.handler("expand", h.context);
+			const expandedFactory = h.widgets.at(-1) as any;
+			const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t, dim: (t: string) => t };
+			assert.ok(expandedFactory(({ requestRender() {} } as any), theme).render(100).join(" ").includes(objective));
+			await h.command.handler("expand", h.context);
+			const collapsedFactory = h.widgets.at(-1) as any;
+			assert.match(collapsedFactory(({ requestRender() {} } as any), theme).render(100).join(" "), /click or \/goal expand/);
 		});
 
 		void it("/goal banner behaves the same as bare /goal", async () => {

@@ -12,6 +12,7 @@ import {
 } from "./state.ts";
 import {
 	clickToExpand,
+	renderGoalBanner,
 	renderGoalChangeEntry,
 	renderGoalEventMessage,
 	renderGoalTurnEntry,
@@ -24,6 +25,7 @@ import {
 
 export default function piGoal(pi: ExtensionAPI) {
 	const machine = new GoalMachine();
+	let bannerExpanded = false;
 
 	/** Execute the machine's effects against the host. */
 	function apply(effects: Effect[], ctx?: ExtensionContext) {
@@ -59,19 +61,33 @@ export default function piGoal(pi: ExtensionAPI) {
 		const theme = ctx.ui.theme;
 		const { goal, armed, bannerEnabled } = machine.snapshot;
 		if (!goal || goal.phase === "complete") {
+			bannerExpanded = false;
 			ctx.ui.setStatus(CUSTOM_TYPE, undefined);
 			ctx.ui.setWidget(CUSTOM_TYPE, undefined);
 			return;
 		}
 		// Nothing goal-related on the statusline — the widget banner is the surface.
 		if (!bannerEnabled) {
+			bannerExpanded = false;
 			ctx.ui.setWidget(CUSTOM_TYPE, undefined);
 			return;
 		}
-		ctx.ui.setWidget(CUSTOM_TYPE, [
-			`${theme.fg("customMessageLabel", theme.bold("goal"))} ${theme.fg("text", truncateObjective(goal.objective, 72))}`,
-			`${armed ? theme.fg("accent", "▶ ") : ""}${theme.fg("dim", statusLine(goal))}`,
-		]);
+		if (ctx.mode === "rpc") {
+			const objective = bannerExpanded
+				? goal.objective
+				: `${truncateObjective(goal.objective, 72)}${goal.objective.length > 72 ? " (use /goal expand)" : ""}`;
+			ctx.ui.setWidget(CUSTOM_TYPE, [
+				`${theme.fg("customMessageLabel", theme.bold("goal"))} ${theme.fg("text", objective)}`,
+				`${armed ? theme.fg("accent", "▶ ") : ""}${theme.fg("dim", statusLine(goal))}${bannerExpanded ? theme.fg("muted", " (/goal expand to collapse)") : ""}`,
+			]);
+			return;
+		}
+		if (ctx.mode === "json" || ctx.mode === "print") return;
+		ctx.ui.setWidget(CUSTOM_TYPE, (_tui, widgetTheme) => clickToExpand(
+			(expanded) => renderGoalBanner(widgetTheme, goal.objective, armed, statusLine(goal), expanded),
+			bannerExpanded,
+			(expanded) => { bannerExpanded = expanded; },
+		));
 	}
 
 	function syncGoalTools(pi: ExtensionAPI) {
@@ -157,7 +173,7 @@ export default function piGoal(pi: ExtensionAPI) {
 			required: ["objective"],
 			additionalProperties: false,
 		} as any,
-		renderCall: (args, theme) => renderCreateGoalRenderCall(args as Record<string, unknown> | undefined, theme),
+		renderCall: (args, theme, context) => renderCreateGoalRenderCall(args as Record<string, unknown> | undefined, theme, context.expanded),
 		async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
 			const params = rawParams as Record<string, unknown>;
 			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
@@ -190,7 +206,7 @@ export default function piGoal(pi: ExtensionAPI) {
 			required: ["goal_id", "revision", "action"],
 			additionalProperties: false,
 		} as any,
-		renderCall: (args, theme) => renderUpdateGoalRenderCall(args as Record<string, unknown> | undefined, theme),
+		renderCall: (args, theme, context) => renderUpdateGoalRenderCall(args as Record<string, unknown> | undefined, theme, context.expanded),
 		renderResult: (result, _options, theme) => renderUpdateGoalRenderResult(result as any, theme),
 		async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
 			const params = rawParams as Record<string, unknown>;
@@ -207,9 +223,9 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	pi.registerCommand("goal", {
-		description: "Manage the session goal — /goal toggles the banner",
+		description: "Manage the session goal — /goal toggles the banner, /goal expand toggles its objective text",
 		getArgumentCompletions: (prefix: string) => {
-			const values = ["set", "status", "pause", "resume", "clear", "banner"];
+			const values = ["set", "status", "pause", "resume", "clear", "banner", "expand"];
 			return values.filter((v) => v.startsWith(prefix)).map((v) => ({ value: v, label: v }));
 		},
 		handler: async (args: string, ctx: ExtensionContext) => {
@@ -232,6 +248,17 @@ export default function piGoal(pi: ExtensionAPI) {
 			switch (cmd.kind) {
 				case "toggle_banner":
 					run({ type: "banner_toggle" }, () => `Goal banner ${machine.snapshot.bannerEnabled ? "shown" : "hidden"}.`);
+					break;
+				case "toggle_expansion":
+					if (!goal || goal.phase === "complete") {
+						ctx.ui.notify("No active goal to expand.", "info");
+					} else if (!bannerEnabled) {
+						ctx.ui.notify("Goal banner is hidden. Use /goal to show it.", "info");
+					} else {
+						bannerExpanded = !bannerExpanded;
+						updateStatusBar(ctx);
+						ctx.ui.notify(`Goal banner ${bannerExpanded ? "expanded" : "collapsed"}.`, "info");
+					}
 					break;
 				case "show_status":
 					ctx.ui.notify(goalStatusMessage(goal, bannerEnabled), "info");

@@ -16,6 +16,10 @@ void describe("parseGoalCommand", () => {
 		assert.deepEqual(parseGoalCommand("banner"), { kind: "toggle_banner" });
 	});
 
+	void it("expand subcommand toggles banner text expansion", () => {
+		assert.deepEqual(parseGoalCommand("expand"), { kind: "toggle_expansion" });
+	});
+
 	void it("status subcommand requests status", () => {
 		assert.deepEqual(parseGoalCommand("status"), { kind: "show_status" });
 	});
