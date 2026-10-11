@@ -37,7 +37,7 @@ void describe("ntfy notification extension", () => {
 			return new Response(null, { status: 200 });
 		});
 
-		await fake.emit("agent_end", {});
+		await fake.emit("agent_end", { messages: [] });
 		assert.equal(requests.length, 0, "agent_end may precede automatic continuation");
 		await fake.emit("agent_settled", { aborted: false });
 
@@ -46,6 +46,68 @@ void describe("ntfy notification extension", () => {
 		assert.equal(requests[0].init?.method, "POST");
 		assert.equal(requests[0].init?.body, "Pi finished and is ready for your input.");
 		assert.equal((requests[0].init?.headers as Record<string, string>).Title, "Pi is ready for input");
+	});
+
+	void it("sends final assistant text without tool-call commentary or thinking", async () => {
+		const fake = makeFakePi();
+		const requests: Array<{ body: string | null }> = [];
+		configure(fake, "private-topic", async (_input, init) => {
+			requests.push({ body: init?.body as string | null });
+			return new Response(null, { status: 200 });
+		});
+
+		await fake.emit("agent_start", {});
+		await fake.emit("agent_end", { messages: [
+			{ role: "assistant", stopReason: "toolUse", content: [{ type: "text", text: "I am checking." }, { type: "toolCall" }] },
+			{ role: "assistant", stopReason: "stop", content: [
+				{ type: "thinking", thinking: "Do not send this reasoning." },
+				{ type: "text", text: "Final result." },
+			] },
+		] });
+		await fake.emit("agent_settled", { aborted: false });
+
+		assert.equal(requests[0]?.body, "Final result.");
+	});
+
+	void it("prefers final-answer text blocks over signed commentary", async () => {
+		const fake = makeFakePi();
+		const requests: Array<{ body: string | null }> = [];
+		configure(fake, "private-topic", async (_input, init) => {
+			requests.push({ body: init?.body as string | null });
+			return new Response(null, { status: 200 });
+		});
+
+		await fake.emit("agent_end", { messages: [{
+			role: "assistant",
+			stopReason: "stop",
+			content: [
+				{ type: "text", text: "Internal commentary.", textSignature: { v: 1, id: "commentary", phase: "commentary" } },
+				{ type: "text", text: "Final answer.", textSignature: { v: 1, id: "final", phase: "final_answer" } },
+			],
+		}] });
+		await fake.emit("agent_settled", { aborted: false });
+
+		assert.equal(requests[0]?.body, "Final answer.");
+	});
+
+	void it("truncates long final answers to the notification limit", async () => {
+		const fake = makeFakePi();
+		const requests: Array<{ body: string | null }> = [];
+		configure(fake, "private-topic", async (_input, init) => {
+			requests.push({ body: init?.body as string | null });
+			return new Response(null, { status: 200 });
+		});
+
+		await fake.emit("agent_start", {});
+		await fake.emit("agent_end", { messages: [{
+			role: "assistant",
+			stopReason: "stop",
+			content: [{ type: "text", text: "A".repeat(1_001) }],
+		}] });
+		await fake.emit("agent_settled", { aborted: false });
+
+		assert.equal(requests[0]?.body?.length, 1_000);
+		assert.equal(requests[0]?.body?.endsWith("…"), true);
 	});
 
 	void it("does not notify after an aborted run", async () => {

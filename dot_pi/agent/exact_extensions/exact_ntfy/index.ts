@@ -9,8 +9,37 @@ export interface NtfyOptions {
 
 const MESSAGE = "Pi finished and is ready for your input.";
 const TITLE = "Pi is ready for input";
+const MAX_BODY_CHARS = 1_000;
 const TIMEOUT_MS = 5_000;
 const TOPIC_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+type TextBlock = { type: "text"; text: string; textSignature?: { phase?: string } };
+
+function finalAnswer(messages: readonly unknown[]): string | undefined {
+	const message = [...messages].reverse().find((item) =>
+		item !== null && typeof item === "object" && (item as { role?: unknown }).role === "assistant",
+	) as { stopReason?: unknown; content?: unknown } | undefined;
+	if (!message || (message.stopReason !== "stop" && message.stopReason !== "length") || !Array.isArray(message.content)) {
+		return undefined;
+	}
+
+	const textBlocks = message.content.filter((block): block is TextBlock =>
+		block !== null && typeof block === "object" &&
+		(block as { type?: unknown }).type === "text" &&
+		typeof (block as { text?: unknown }).text === "string",
+	);
+	const finalBlocks = textBlocks.filter((block) => block.textSignature?.phase === "final_answer");
+	const text = (finalBlocks.length > 0 ? finalBlocks : textBlocks).map((block) => block.text).join("").trim();
+	return text || undefined;
+}
+
+function notificationBody(answer: string | undefined): string {
+	if (!answer) return MESSAGE;
+	const chars = Array.from(answer);
+	return chars.length > MAX_BODY_CHARS
+		? `${chars.slice(0, MAX_BODY_CHARS - 1).join("")}…`
+		: answer;
+}
 
 function readTopic(agentDir: string): string | undefined {
 	try {
@@ -25,7 +54,14 @@ export function registerNtfy(pi: ExtensionAPI, options: NtfyOptions = {}): void 
 	const topic = readTopic(options.agentDir ?? getAgentDir());
 	const send = options.fetch ?? fetch;
 	let warnedMissingTopic = false;
+	let answer: string | undefined;
 
+	pi.on("agent_start", () => {
+		answer = undefined;
+	});
+	pi.on("agent_end", (event) => {
+		answer = finalAnswer(event.messages);
+	});
 	pi.on("agent_settled", async (event, ctx) => {
 		if (event.aborted) return;
 		if (!topic) {
@@ -44,7 +80,7 @@ export function registerNtfy(pi: ExtensionAPI, options: NtfyOptions = {}): void 
 			const response = await send(`https://ntfy.sh/${topic}`, {
 				method: "POST",
 				headers: { Title: TITLE },
-				body: MESSAGE,
+				body: notificationBody(answer),
 				signal: AbortSignal.timeout(TIMEOUT_MS),
 			});
 			if (!response.ok) throw new Error(`HTTP ${response.status}`);
