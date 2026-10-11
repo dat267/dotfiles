@@ -17,6 +17,7 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 - `executable_lsp.py` — LSP server installer (gopls, pyright, etc.)
 - `executable_cloudsh.py` — GCP Cloud Shell SSH tunnel
 - `executable_sysinfo.py`, `executable_url_decode_rename.py`, `executable_mpv`
+- `executable_mdk.py` — one-shot markdown search: ripgrep lists matching lines, fzf picks one, `$EDITOR` opens at the match (alias `mdk`)
 - Shell-friendly converters: `executable_jsonfmt.py` (pretty/minify/sort JSON), `executable_epoch.py` (epoch↔ISO), `executable_csvtable.py` (CSV→aligned table), `executable_dupfind.py` (duplicate files by size+hash), `executable_b64.py` (base64 encode/decode for binary blobs)
 - `executable_dua.py` — dua-style disk usage analyzer (aggregate/largest-files, fork-parallel via `-t`, hardlink dedupe)
 - `executable_crypt.py` — pure Python ChaCha20-Poly1305 + scrypt authenticated file encryption

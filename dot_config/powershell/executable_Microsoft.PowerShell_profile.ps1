@@ -456,7 +456,6 @@ function global:codeat {
 }
 
 Set-Alias vim nvim
-Set-Alias hx helix
 
 function global:Invoke-Up {
     param($LevelOrName)

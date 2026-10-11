@@ -337,8 +337,8 @@ cm() {
 }
 alias codecm='code $(chezmoi source-path)'
 alias dotfiles='dotfiles.py'
+alias mdk='mdk.py'
 alias lf=lfcd
-alias hx='helix'
 # pi and Pier run under bubblewrap by default. Each launcher makes the root
 # read-only and exposes the workspace, shared agent state, and explicit extras.
 # `\pi ...` or `\pier ...` bypasses its alias; set PI_SANDBOX_MODE=fa or
