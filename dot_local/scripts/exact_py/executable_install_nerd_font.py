@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
-"""Install Hack Nerd Font from the latest GitHub release into the user fonts dir.
+"""Install Hack Nerd Font from the latest GitHub release.
 
 Usage:
   install_nerd_font.py
 
 This installer is Hack-only on purpose: Windows Terminal is configured with
 Hack Nerd Font Mono, so the font and the terminal face change together.
-On Windows the copied files are also registered for the current user under
-HKCU, without which DirectWrite apps may not see them until the next logon.
+
+On a desktop the font files land in the user fonts dir (~/.local/share/fonts
+or the per-user Windows font dir) alongside fc-cache / HKCU registration. On
+Termux there is no fontconfig and the terminal reads a single face from
+~/.termux/font.ttf, so the Mono regular face goes there and termux-reload-settings
+applies it.
 """
 import argparse
+import contextlib
 import os
 import shutil
 import struct
@@ -21,12 +26,14 @@ import zipfile
 
 from _shared import Platform, log
 
-# Font paths and fc-cache only care which desktop OS this is; Termux
-# counts as Linux (it has fontconfig too).
+# Desktop font directories and fc-cache: only the desktop OS matters here.
+# Termux is handled earlier, in install_font(), via Platform.is_android.
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
 
 REPO = "ryanoasis/nerd-fonts"
 FONT = "Hack"
+# The terminal face: strict single-width glyphs, matching Windows Terminal.
+TERMUX_FACE = "HackNerdFontMono-Regular.ttf"
 FONT_REG_KEY = r"Software\Microsoft\Windows NT\CurrentVersion\Fonts"
 HWND_BROADCAST = 0xFFFF
 WM_FONTCHANGE = 0x001D
@@ -38,6 +45,11 @@ def font_dir():
     if os_name == "windows":
         return os.path.expandvars(r"%USERPROFILE%\AppData\Local\Microsoft\Windows\Fonts")
     return os.path.expanduser("~/.local/share/fonts")
+
+
+def termux_font_path():
+    """Termux's terminal face: the app reads this file, no font config needed."""
+    return os.path.expanduser("~/.termux/font.ttf")
 
 
 def latest_release_url():
@@ -97,11 +109,9 @@ def notify_fonts_changed(paths):
     )
 
 
-def install_font():
-    name = FONT
-    dest = font_dir()
-    os.makedirs(dest, exist_ok=True)
-
+@contextlib.contextmanager
+def extracted_fonts(name):
+    """Download name.zip from the latest release and yield (dir, font paths)."""
     url = latest_release_url()
     log(f"Downloading {name} Nerd Font...", "cyan")
     with urllib.request.urlopen(url) as resp:
@@ -118,7 +128,16 @@ def install_font():
         if not fonts:
             log("Error: no .ttf or .otf files found in the archive", "red")
             sys.exit(1)
+        yield tmp, fonts
 
+
+def install_desktop_font():
+    """Desktop path: copy every face into the user fonts dir and refresh the cache."""
+    name = FONT
+    dest = font_dir()
+    os.makedirs(dest, exist_ok=True)
+
+    with extracted_fonts(name) as (_, fonts):
         installed = []
         for src in fonts:
             dst = os.path.join(dest, os.path.basename(src))
@@ -139,9 +158,43 @@ def install_font():
     log(f"\n{name} Nerd Font installed in {dest}", "green")
 
 
+def reload_termux_settings():
+    """Apply ~/.termux/font.ttf changes; best-effort if the helper is absent."""
+    try:
+        subprocess.run(["termux-reload-settings"], capture_output=True)
+        log("Termux settings reloaded (termux-reload-settings)", "green")
+    except FileNotFoundError:
+        log("termux-reload-settings not found; restart Termux to apply the font.", "yellow")
+
+
+def install_termux_font():
+    """Termux path: the terminal reads one face from ~/.termux/font.ttf."""
+    name = FONT
+    dest = termux_font_path()
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+
+    with extracted_fonts(name) as (tmp, _):
+        src = os.path.join(tmp, TERMUX_FACE)
+        if not os.path.exists(src):
+            log(f"Error: {TERMUX_FACE} not found in the archive", "red")
+            sys.exit(1)
+        shutil.copy2(src, dest)
+
+    log(f"  Installed {TERMUX_FACE} -> {dest}", "green")
+    reload_termux_settings()
+    log(f"\n{name} Nerd Font installed as the Termux terminal font ({dest})", "green")
+
+
+def install_font():
+    if Platform.detect().is_android:
+        install_termux_font()
+    else:
+        install_desktop_font()
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Install Hack Nerd Font from the latest GitHub release into the user fonts dir.",
+        description="Install Hack Nerd Font from the latest GitHub release.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.parse_args()

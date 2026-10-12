@@ -34,7 +34,13 @@ if str(PY_DIR) not in sys.path:
 
 
 def load(stem: str):
-    """Import a script by name without the executable_ prefix (e.g. 'yazi_rename')."""
+    """Import a script by name without the executable_ prefix (e.g. 'yazi_rename').
+
+    The module is registered in sys.modules before execution so that a
+    script's `from _shared import ...` binds to the same module object the
+    test patched; without it the loader handed tests one _shared instance
+    while the script imported a second, unpatched one from sys.modules.
+    """
     if stem == "_shared":
         path = PY_DIR / "_shared.py"
     else:
@@ -47,5 +53,6 @@ def load(stem: str):
     loader = importlib.machinery.SourceFileLoader(stem, str(path))
     spec = importlib.util.spec_from_loader(stem, loader)
     mod = importlib.util.module_from_spec(spec)
+    sys.modules[stem] = mod
     loader.exec_module(mod)
     return mod

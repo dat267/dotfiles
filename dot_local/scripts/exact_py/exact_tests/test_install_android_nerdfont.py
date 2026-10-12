@@ -14,12 +14,12 @@ sdk = _loader.load("install_android_sdk")
 nf = _loader.load("install_nerd_font")
 
 
-def patch_platform(system, machine):
+def patch_platform(system, machine, termux=False):
     """Patch _shared's detection inputs (the scripts no longer import platform)."""
     return (
         mock.patch.object(shared.platform, "system", return_value=system),
         mock.patch.object(shared.platform, "machine", return_value=machine),
-        mock.patch.object(shared, "is_termux", return_value=False),
+        mock.patch.object(shared, "is_termux", return_value=termux),
     )
 
 
@@ -267,6 +267,87 @@ class TestNerdFont(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     nf.main()
         install.assert_not_called()
+
+
+class Response(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def hack_zip(*names):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        for name in names:
+            z.writestr(name, b"font")
+    return Response(buf.getvalue())
+
+
+class TestTermuxNerdFont(unittest.TestCase):
+    """On Termux the terminal reads ~/.termux/font.ttf, so the installer
+    drops the Hack Nerd Font Mono regular face there and reloads settings
+    instead of filling ~/.local/share/fonts and running fc-cache (fontconfig
+    is not installed on Termux)."""
+
+    def test_termux_font_path(self):
+        self.assertEqual(
+            nf.termux_font_path(), os.path.expanduser("~/.termux/font.ttf")
+        )
+
+    def test_install_font_routes_termux(self):
+        p1, p2, p3 = patch_platform("Linux", "aarch64", termux=True)
+        with p1, p2, p3, \
+                mock.patch.object(nf, "install_termux_font") as termux, \
+                mock.patch.object(nf, "install_desktop_font") as desktop:
+            nf.install_font()
+        termux.assert_called_once_with()
+        desktop.assert_not_called()
+
+    def test_install_font_routes_desktop(self):
+        p1, p2, p3 = patch_platform("Linux", "x86_64")
+        with p1, p2, p3, \
+                mock.patch.object(nf, "install_termux_font") as termux, \
+                mock.patch.object(nf, "install_desktop_font") as desktop:
+            nf.install_font()
+        desktop.assert_called_once_with()
+        termux.assert_not_called()
+
+    def test_install_termux_font_writes_font_ttf_and_reloads(self):
+        dest = os.path.join(tempfile.mkdtemp(), ".termux", "font.ttf")
+        requested = []
+        runs = []
+        p1, p2, p3 = patch_platform("Linux", "aarch64", termux=True)
+        with p1, p2, p3, \
+                mock.patch.object(nf.urllib.request, "urlopen",
+                                  lambda url: requested.append(url) or hack_zip(
+                                      "HackNerdFontMono-Bold.ttf",
+                                      "HackNerdFontMono-Regular.ttf")), \
+                mock.patch.object(nf, "termux_font_path", return_value=dest), \
+                mock.patch.object(nf.subprocess, "run",
+                                  lambda cmd, **kw: runs.append(cmd)):
+            nf.install_termux_font()
+
+        self.assertEqual(
+            requested,
+            ["https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Hack.zip"],
+        )
+        with open(dest, "rb") as f:
+            self.assertEqual(f.read(), b"font")
+        self.assertEqual(runs, [["termux-reload-settings"]])
+
+    def test_install_termux_font_missing_face_exits(self):
+        dest = os.path.join(tempfile.mkdtemp(), ".termux", "font.ttf")
+        p1, p2, p3 = patch_platform("Linux", "aarch64", termux=True)
+        with p1, p2, p3, \
+                mock.patch.object(nf.urllib.request, "urlopen",
+                                  lambda url: hack_zip("HackNerdFont-Regular.ttf")), \
+                mock.patch.object(nf, "termux_font_path", return_value=dest), \
+                mock.patch.object(nf.subprocess, "run"):
+            with self.assertRaises(SystemExit):
+                nf.install_termux_font()
+        self.assertFalse(os.path.exists(dest))
 
 
 if __name__ == "__main__":
