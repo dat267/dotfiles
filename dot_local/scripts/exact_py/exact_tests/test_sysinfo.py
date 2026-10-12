@@ -1,4 +1,5 @@
 import os
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -67,6 +68,13 @@ class TestGetIps(unittest.TestCase):
     yields nothing there. get_ips() must then fall back to the kernel-chosen
     egress address (a connected UDP socket sends no packets, needs no root)."""
 
+    def setUp(self):
+        # get_ips() branches on sys.platform; pin it so these exercise the
+        # sysfs/egress helper patch on every host (CI runs Windows).
+        patcher = mock.patch.object(sysinfo.sys, "platform", "linux")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_sysfs_interfaces_win_when_readable(self):
         with mock.patch.object(sysinfo, "_interface_ips",
                                return_value=["wlan0: 10.0.0.2"]), \
@@ -91,6 +99,10 @@ class TestGetIps(unittest.TestCase):
 
     def test_interface_ips_swallows_permission_error(self):
         with mock.patch.object(sysinfo.os, "listdir", side_effect=PermissionError):
+            self.assertEqual(sysinfo._interface_ips(), [])
+
+    def test_interface_ips_swallows_missing_fcntl(self):
+        with mock.patch.dict(sys.modules, {"fcntl": None}):
             self.assertEqual(sysinfo._interface_ips(), [])
 
 

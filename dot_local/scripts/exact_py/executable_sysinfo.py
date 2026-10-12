@@ -133,16 +133,17 @@ def get_disk_usage(path="/"):
 def _interface_ips():
     """"ifname: ip" for each non-loopback IPv4 interface, from sysfs.
 
-    Returns [] when /sys/class/net is unreadable (Android denies it) or no
-    address is usable, so callers can fall back to the egress probe.
+    Returns [] when /sys/class/net is unreadable (Android denies it), the
+    ioctl interface is missing (Windows has no fcntl), or no address is
+    usable, so callers can fall back to the egress probe.
     """
-    import fcntl
-    SIOCGIFADDR = 0x8915
     ips = []
     try:
+        import fcntl
         names = os.listdir("/sys/class/net")
-    except OSError:
+    except (ImportError, OSError):
         return ips
+    SIOCGIFADDR = 0x8915
     for ifname in names:
         if ifname == "lo":
             continue
