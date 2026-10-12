@@ -12,7 +12,6 @@ Exit early when the fix is obvious (a typo, a config line, a reverted commit). T
 ## Redact
 
 Redact every secret as `<REDACTED>` in commands, outputs, and captured artifacts. Keep credentials in environment variables.
-Report verification commands, pass/fail, and the shortest decisive output, not full logs.
 Use a writable platform temporary directory (`$TMPDIR`, or the platform temp API); never assume `/tmp` exists.
 When redacted output cannot diagnose the bug, say so and ask.
 

@@ -58,5 +58,4 @@ Skip the full loop for these cases; mention the exemption only when needed to ex
 ## Stopping
 
 Done means: all relevant tests green, no skipped or weakened assertions.
-Report verification commands, pass/fail, and the shortest decisive output, not full logs.
-If a relevant test is red or cannot run, report which one and why. Do not claim verified success.
+If a relevant test is red or cannot run, report which one and why.

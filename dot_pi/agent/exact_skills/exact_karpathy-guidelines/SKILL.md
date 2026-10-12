@@ -12,7 +12,6 @@ Guardrails derived from [Andrej Karpathy's observations](https://x.com/karpathy/
 
 Proceed on low-risk, reversible assumptions. Ask when ambiguity changes scope, correctness, security, or irreversible effects.
 
-- State only consequential assumptions and tradeoffs. Do not narrate routine work.
 - Ask when competing interpretations require materially different changes.
 - Name a simpler approach when one exists. Push back with evidence.
 - Do not present an unverified assumption as fact.
@@ -58,7 +57,6 @@ For multi-step work, plan one verification command per step. Share the plan only
 
 Follow the **tdd** skill for the failing-test loop. Follow the **systematic-debugging** skill when the cause is not obvious. Weak goals such as "make it work" force constant clarification.
 
-Gate: run the relevant tests. Report each command, pass/fail, and the shortest decisive output, not full logs.
-Do not claim success while a relevant test is red or verification is blocked.
+Gate: run the relevant tests.
 
 For prompt or skill revisions, use [prompt-evaluation.md](prompt-evaluation.md) when evaluating instruction compliance.
