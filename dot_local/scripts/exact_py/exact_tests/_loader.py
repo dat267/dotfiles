@@ -40,9 +40,11 @@ def load(stem: str):
     script's `from _shared import ...` binds to the same module object the
     test patched; without it the loader handed tests one _shared instance
     while the script imported a second, unpatched one from sys.modules.
+
+    Underscore-prefixed shared modules keep their name ('_shared', '_sandbox').
     """
-    if stem == "_shared":
-        path = PY_DIR / "_shared.py"
+    if stem.startswith("_"):
+        path = PY_DIR / f"{stem}.py"
     else:
         for name in (f"executable_{stem}.py", f"executable_{stem.replace('-', '_')}.py"):
             path = PY_DIR / name

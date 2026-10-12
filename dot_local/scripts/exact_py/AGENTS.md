@@ -27,6 +27,7 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 - `executable_hyper_catalog.py` — regenerates the hyper provider's model catalog (pi extension) from the live `/v1/models` API; `--check` reports drift without writing
 - `_shared.py` — shared module (platform detection, colored logging, helpers)
 - `_pi_install.py` — shared Pi package and launcher resolution for managed releases and legacy npm installs
+- `_sandbox.py` — shared bubblewrap launcher behind `pi_sandbox.py` and `pier_sandbox.py`: each declares a `Profile` (tool, env prefix, unsandboxed subcommands, agent-state vars) and delegates here, so the writable allowlist, argv assembly, probe, and fallbacks exist once
 
 ## Conventions
 
