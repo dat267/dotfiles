@@ -62,5 +62,54 @@ class TestCFunction(unittest.TestCase):
             self.assertEqual(sysinfo.c("text", "yellow"), "text")
 
 
+class TestGetIps(unittest.TestCase):
+    """Android denies /sys/class/net and /proc/net, so the interface walk
+    yields nothing there. get_ips() must then fall back to the kernel-chosen
+    egress address (a connected UDP socket sends no packets, needs no root)."""
+
+    def test_sysfs_interfaces_win_when_readable(self):
+        with mock.patch.object(sysinfo, "_interface_ips",
+                               return_value=["wlan0: 10.0.0.2"]), \
+                mock.patch.object(sysinfo, "_egress_ip") as egress:
+            self.assertEqual(sysinfo.get_ips(), "wlan0: 10.0.0.2")
+        egress.assert_not_called()
+
+    def test_falls_back_to_egress_ip_when_sysfs_empty(self):
+        with mock.patch.object(sysinfo, "_interface_ips", return_value=[]), \
+                mock.patch.object(sysinfo, "_egress_ip", return_value="192.168.1.12"):
+            self.assertEqual(sysinfo.get_ips(), "192.168.1.12")
+
+    def test_unknown_when_no_interface_and_no_egress(self):
+        with mock.patch.object(sysinfo, "_interface_ips", return_value=[]), \
+                mock.patch.object(sysinfo, "_egress_ip", return_value=None):
+            self.assertEqual(sysinfo.get_ips(), "?")
+
+    def test_link_local_egress_rejected(self):
+        with mock.patch.object(sysinfo, "_interface_ips", return_value=[]), \
+                mock.patch.object(sysinfo, "_egress_ip", return_value="169.254.1.1"):
+            self.assertEqual(sysinfo.get_ips(), "?")
+
+    def test_interface_ips_swallows_permission_error(self):
+        with mock.patch.object(sysinfo.os, "listdir", side_effect=PermissionError):
+            self.assertEqual(sysinfo._interface_ips(), [])
+
+
+class TestEgressIp(unittest.TestCase):
+    def test_reports_socket_local_address(self):
+        fake = mock.Mock()
+        fake.getsockname.return_value = ("192.168.1.12", 45678)
+        with mock.patch.object(sysinfo.socket, "socket", return_value=fake):
+            self.assertEqual(sysinfo._egress_ip(), "192.168.1.12")
+        fake.connect.assert_called_once()
+        fake.close.assert_called_once()
+
+    def test_none_on_oserror(self):
+        fake = mock.Mock()
+        fake.connect.side_effect = OSError("network is unreachable")
+        with mock.patch.object(sysinfo.socket, "socket", return_value=fake):
+            self.assertIsNone(sysinfo._egress_ip())
+        fake.close.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

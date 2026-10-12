@@ -130,11 +130,58 @@ def get_disk_usage(path="/"):
         return "?"
 
 
-def get_ips():
+def _interface_ips():
+    """"ifname: ip" for each non-loopback IPv4 interface, from sysfs.
+
+    Returns [] when /sys/class/net is unreadable (Android denies it) or no
+    address is usable, so callers can fall back to the egress probe.
+    """
+    import fcntl
+    SIOCGIFADDR = 0x8915
     ips = []
+    try:
+        names = os.listdir("/sys/class/net")
+    except OSError:
+        return ips
+    for ifname in names:
+        if ifname == "lo":
+            continue
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            ifr = struct.pack("16sH14s", ifname.encode()[:15], socket.AF_INET, b"\x00"*14)
+            data = fcntl.ioctl(s.fileno(), SIOCGIFADDR, ifr)
+            ip = socket.inet_ntoa(data[20:24])
+            s.close()
+            if not ip.startswith("169.254"):
+                ips.append(f"{ifname}: {ip}")
+        except Exception:
+            continue
+    return ips
+
+
+def _egress_ip(probe=("8.8.8.8", 53)):
+    """Local address the kernel picks for an outbound route, or None.
+
+    A connected UDP socket sends no packets and needs no privileges; on
+    Android, where /sys/class/net and /proc/net are denied, this is the only
+    way to learn the host's address without root.
+    """
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(probe)
+            return s.getsockname()[0]
+        finally:
+            s.close()
+    except OSError:
+        return None
+
+
+def get_ips():
     try:
         if sys.platform == "win32":
             out = subprocess.run(["ipconfig"], capture_output=True, text=True)
+            ips = []
             for line in out.stdout.splitlines():
                 line = line.strip()
                 if "IPv4" in line or "IP Address" in line:
@@ -143,22 +190,13 @@ def get_ips():
                         ip = parts[1].strip()
                         if ip and not ip.startswith("169.254"):
                             ips.append(ip)
-        else:
-            import fcntl
-            SIOCGIFADDR = 0x8915
-            for ifname in os.listdir("/sys/class/net"):
-                if ifname == "lo":
-                    continue
-                try:
-                    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                    ifr = struct.pack("16sH14s", ifname.encode()[:15], socket.AF_INET, b"\x00"*14)
-                    data = fcntl.ioctl(s.fileno(), SIOCGIFADDR, ifr)
-                    ip = socket.inet_ntoa(data[20:24])
-                    if not ip.startswith("169.254"):
-                        ips.append(f"{ifname}: {ip}")
-                    s.close()
-                except Exception:
-                    continue
+            return ", ".join(ips) if ips else "?"
+
+        ips = _interface_ips()
+        if not ips:
+            ip = _egress_ip()
+            if ip and not ip.startswith("169.254"):
+                ips = [ip]
         return ", ".join(ips) if ips else "?"
     except Exception:
         return "?"
