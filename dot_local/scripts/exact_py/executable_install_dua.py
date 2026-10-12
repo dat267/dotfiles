@@ -6,13 +6,16 @@ Linux/android get the musl builds: statically linked, so they run on any
 glibc system (Cloud Shell, Arch, Termux-with-glibc) without the distro's
 libc in the way.
 """
-import subprocess
+import os
 import sys
 
-from _shared import Platform, github_latest_tag, install_release_binary, log
+from _shared import install_github_binary
 
 REPO = "Byron/dua-cli"
-INSTALL_DIR = None  # set in main() to keep the module import-safe for tests
+INSTALL_DIR = os.path.expanduser("~/.local/bin")
+
+# Same asset shape as fd: /releases/download/v<tag>/dua-v<tag>-<triple>.
+TAG_PREFIX = "v"
 
 # (os, arch) -> rust triple of the asset to fetch. linux/android share the
 # musl builds; windows uses the msvc zip; darwin the apple tarballs.
@@ -37,54 +40,19 @@ def asset_name(tag, os_name, arch):
     return f"dua-v{tag}-{triple}.{ext}"
 
 
-def download_url(tag, os_name, arch):
-    return f"https://github.com/{REPO}/releases/download/v{tag}/{asset_name(tag, os_name, arch)}"
-
-
 def binary_name(os_name):
     return "dua.exe" if os_name == "windows" else "dua"
 
 
 def main():
-    global INSTALL_DIR
-    import os
-
-    INSTALL_DIR = os.path.expanduser("~/.local/bin")
-
-    p = Platform.detect()
-    log(f"Platform: {p.os}/{p.arch}", "cyan")
-
-    tag = github_latest_tag(REPO)
-    if not tag:
-        log(f"Error: could not determine the latest {REPO} release.", "red")
-        return 1
-
-    name = asset_name(tag, p.os, p.arch)
-    if name is None:
-        log(f"Error: no dua asset for {p.os}/{p.arch}.", "red")
-        return 1
-
-    url = download_url(tag, p.os, p.arch)
-    log(f"Installing dua {tag} from: {url}", "cyan")
-    try:
-        dest = install_release_binary(
-            url, binary_name(p.os), INSTALL_DIR,
-            extract="zip" if p.is_windows else "tar.gz",
-        )
-    except Exception as e:
-        log(f"Error installing dua: {e}", "red")
-        return 1
-
-    try:
-        result = subprocess.run([dest, "--version"], capture_output=True, text=True, timeout=30)
-    except Exception as e:
-        log(f"Error: installed but could not run {dest}: {e}", "red")
-        return 1
-    if result.returncode != 0:
-        log(f"Error: {dest} --version failed (exit {result.returncode}).", "red")
-        return 1
-    log(f"dua installed -> {dest} ({result.stdout.strip().splitlines()[0]})", "green")
-    return 0
+    return install_github_binary(
+        repo=REPO,
+        label="dua",
+        asset_name=asset_name,
+        binary_name=binary_name,
+        install_dir=INSTALL_DIR,
+        tag_prefix=TAG_PREFIX,
+    )
 
 
 if __name__ == "__main__":

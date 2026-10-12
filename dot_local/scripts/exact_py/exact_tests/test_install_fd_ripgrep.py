@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest import mock
 
@@ -5,13 +6,6 @@ import _loader
 
 fd = _loader.load("install_fd")
 rg = _loader.load("install_ripgrep")
-
-
-def platform_patch(module, system, machine):
-    return (
-        mock.patch.object(module.platform, "system", return_value=system),
-        mock.patch.object(module.platform, "machine", return_value=machine),
-    )
 
 
 class TestFdAssetNaming(unittest.TestCase):
@@ -48,58 +42,28 @@ class TestFdAssetNaming(unittest.TestCase):
     def test_unsupported_is_none(self):
         self.assertIsNone(fd.asset_name("10.5.0", "solaris", "x64"))
 
-    def test_download_url_carries_v_prefix(self):
-        # fd's release assets are tagged fd-v<version>-..., under download/v<tag>/
-        self.assertEqual(
-            fd.download_url("10.5.0", "linux", "x64"),
-            "https://github.com/sharkdp/fd/releases/download/v10.5.0/"
-            "fd-v10.5.0-x86_64-unknown-linux-musl.tar.gz",
-        )
-
     def test_binary_name(self):
         self.assertEqual(fd.binary_name("linux"), "fd")
         self.assertEqual(fd.binary_name("windows"), "fd.exe")
 
 
-class TestFdMain(unittest.TestCase):
-    def run_main(self, system="Linux", machine="x86_64", tag="10.5.0",
-                 verify_returncode=0, install=None):
-        install = install or mock.Mock(return_value="/home/u/.local/bin/fd")
-        p1, p2 = platform_patch(fd, system, machine)
-        with mock.patch.object(fd, "github_latest_tag", return_value=tag), \
-                mock.patch.object(fd, "install_release_binary", install), \
-                mock.patch.object(fd.subprocess, "run",
-                                  return_value=mock.Mock(returncode=verify_returncode,
-                                                         stdout="fd 10.5.0\n")), \
-                p1, p2:
-            code = fd.main()
-        return code, install
+class TestFdSpec(unittest.TestCase):
+    """The install dance itself is _shared.install_github_binary (test_shared);
+    what fd owns is the release spec it hands over."""
 
-    def test_installs_to_user_bin_and_verifies(self):
-        code, install = self.run_main()
-        self.assertEqual(code, 0)
-        install.assert_called_once_with(
-            "https://github.com/sharkdp/fd/releases/download/v10.5.0/"
-            "fd-v10.5.0-x86_64-unknown-linux-musl.tar.gz",
-            "fd", fd.INSTALL_DIR, extract="tar.gz",
-        )
+    def test_repo_and_tag_prefix(self):
+        self.assertEqual(fd.REPO, "sharkdp/fd")
+        self.assertEqual(fd.TAG_PREFIX, "v")  # /releases/download/v10.5.0/
 
-    def test_windows_installs_exe_from_zip(self):
-        code, install = self.run_main(system="Windows", machine="AMD64")
-        self.assertEqual(code, 0)
-        install.assert_called_once_with(
-            "https://github.com/sharkdp/fd/releases/download/v10.5.0/"
-            "fd-v10.5.0-x86_64-pc-windows-msvc.zip",
-            "fd.exe", fd.INSTALL_DIR, extract="zip",
-        )
+    def test_installs_into_user_bin(self):
+        self.assertEqual(fd.INSTALL_DIR, os.path.expanduser("~/.local/bin"))
 
-    def test_no_release_exits_one(self):
-        code, _ = self.run_main(tag=None)
-        self.assertEqual(code, 1)
-
-    def test_verify_failure_exits_one(self):
-        code, _ = self.run_main(verify_returncode=126)
-        self.assertEqual(code, 1)
+    def test_main_delegates_with_the_spec(self):
+        with mock.patch.object(fd, "install_github_binary", return_value=0) as run:
+            self.assertEqual(fd.main(), 0)
+        run.assert_called_once_with(
+            repo="sharkdp/fd", label="fd", asset_name=fd.asset_name,
+            binary_name=fd.binary_name, install_dir=fd.INSTALL_DIR, tag_prefix="v")
 
 
 class TestRipgrepAssetNaming(unittest.TestCase):
@@ -138,49 +102,25 @@ class TestRipgrepAssetNaming(unittest.TestCase):
     def test_unsupported_is_none(self):
         self.assertIsNone(rg.asset_name("15.2.0", "plan9", "x64"))
 
-    def test_download_url_has_no_v_prefix(self):
-        # unlike fd, ripgrep's tags carry no leading v
-        self.assertEqual(
-            rg.download_url("15.2.0", "linux", "x64"),
-            "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/"
-            "ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz",
-        )
-
     def test_binary_name(self):
         self.assertEqual(rg.binary_name("linux"), "rg")
         self.assertEqual(rg.binary_name("windows"), "rg.exe")
 
 
-class TestRipgrepMain(unittest.TestCase):
-    def run_main(self, system="Linux", machine="x86_64", tag="15.2.0",
-                 verify_returncode=0):
-        install = mock.Mock(return_value="/home/u/.local/bin/rg")
-        p1, p2 = platform_patch(rg, system, machine)
-        with mock.patch.object(rg, "github_latest_tag", return_value=tag), \
-                mock.patch.object(rg, "install_release_binary", install), \
-                mock.patch.object(rg.subprocess, "run",
-                                  return_value=mock.Mock(returncode=verify_returncode,
-                                                         stdout="ripgrep 15.2.0\n")), \
-                p1, p2:
-            code = rg.main()
-        return code, install
+class TestRipgrepSpec(unittest.TestCase):
+    def test_repo_has_no_tag_prefix(self):
+        self.assertEqual(rg.REPO, "BurntSushi/ripgrep")
+        self.assertEqual(rg.TAG_PREFIX, "")  # /releases/download/15.2.0/
 
-    def test_installs_to_user_bin_and_verifies(self):
-        code, install = self.run_main()
-        self.assertEqual(code, 0)
-        install.assert_called_once_with(
-            "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/"
-            "ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz",
-            "rg", rg.INSTALL_DIR, extract="tar.gz",
-        )
+    def test_installs_into_user_bin(self):
+        self.assertEqual(rg.INSTALL_DIR, os.path.expanduser("~/.local/bin"))
 
-    def test_no_release_exits_one(self):
-        code, _ = self.run_main(tag=None)
-        self.assertEqual(code, 1)
-
-    def test_verify_failure_exits_one(self):
-        code, _ = self.run_main(verify_returncode=1)
-        self.assertEqual(code, 1)
+    def test_main_delegates_with_the_spec(self):
+        with mock.patch.object(rg, "install_github_binary", return_value=0) as run:
+            self.assertEqual(rg.main(), 0)
+        run.assert_called_once_with(
+            repo="BurntSushi/ripgrep", label="ripgrep", asset_name=rg.asset_name,
+            binary_name=rg.binary_name, install_dir=rg.INSTALL_DIR, tag_prefix="")
 
 
 if __name__ == "__main__":

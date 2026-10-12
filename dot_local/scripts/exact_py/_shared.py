@@ -2,6 +2,7 @@ import json
 import os
 import platform
 import shutil
+import subprocess
 import sys
 import tempfile
 import tarfile
@@ -168,6 +169,56 @@ def install_release_binary(url, binary_names, dest_dir, *, extract=None, headers
             shutil.move(src[name], dest_path)
 
     return dest_paths[0] if isinstance(binary_names, str) else dest_paths
+
+
+def install_github_binary(*, repo, label, asset_name, binary_name, install_dir,
+                          tag_prefix="v", version_args=("--version",),
+                          extract=None, headers=None):
+    """Install one binary from a GitHub release and verify it runs.
+
+    The dance the tool installers kept repeating: detect the platform, resolve
+    the latest tag, name the asset, download and extract it, then run the
+    binary and report its first version line. `asset_name(tag, os, arch)`
+    returns the release asset filename or None where no asset fits;
+    `binary_name(os)` is the executable to place; `tag_prefix` is "v" for the
+    repos whose download tags carry it and "" for those that do not. Returns a
+    process exit code so callers can `sys.exit()` it.
+    """
+    p = Platform.detect()
+    log(f"Platform: {p.os}/{p.arch}", "cyan")
+
+    tag = github_latest_tag(repo)
+    if not tag:
+        log(f"Error: could not determine the latest {repo} release.", "red")
+        return 1
+
+    name = asset_name(tag, p.os, p.arch)
+    if name is None:
+        log(f"Error: no {label} asset for {p.os}/{p.arch}.", "red")
+        return 1
+
+    url = f"https://github.com/{repo}/releases/download/{tag_prefix}{tag}/{name}"
+    log(f"Installing {label} {tag} from: {url}", "cyan")
+    try:
+        dest = install_release_binary(
+            url, binary_name(p.os), install_dir,
+            extract=extract or ("zip" if p.is_windows else "tar.gz"),
+            **({"headers": headers} if headers else {}),
+        )
+    except Exception as e:
+        log(f"Error installing {label}: {e}", "red")
+        return 1
+
+    try:
+        result = subprocess.run([dest, *version_args], capture_output=True, text=True, timeout=30)
+    except Exception as e:
+        log(f"Error: installed but could not run {dest}: {e}", "red")
+        return 1
+    if result.returncode != 0:
+        log(f"Error: {dest} {' '.join(version_args)} failed (exit {result.returncode}).", "red")
+        return 1
+    log(f"{label} installed -> {dest} ({result.stdout.strip().splitlines()[0]})", "green")
+    return 0
 
 COLORS = {
     "cyan": "\033[96m",

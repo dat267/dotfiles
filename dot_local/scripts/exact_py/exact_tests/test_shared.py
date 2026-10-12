@@ -518,6 +518,92 @@ class TestInstallReleaseBinary(unittest.TestCase):
             self.assertTrue(os.path.exists(dest))
 
 
+class TestInstallGithubBinary(unittest.TestCase):
+    """The install dance fd, dua, and ripgrep share.
+
+    install_github_binary() detects the platform, resolves the latest tag,
+    names the asset, downloads and extracts it, then runs the binary and
+    reports its version. The tool-specific parts arrive as arguments,
+    including whether the release tag carries a leading v.
+    """
+
+    @staticmethod
+    def asset_name(tag, os_name, arch):
+        if os_name not in ("linux", "windows", "darwin", "android"):
+            return None
+        return f"fd-v{tag}-{os_name}-{arch}.tar.gz"
+
+    @staticmethod
+    def binary_name(os_name):
+        return "fd.exe" if os_name == "windows" else "fd"
+
+    def setUp(self):
+        self.install = mock.Mock(return_value="/home/u/.local/bin/fd")
+        self.version = mock.Mock(returncode=0, stdout="fd 10.5.0\n")
+
+    def call(self, system="Linux", machine="x86_64", tag="10.5.0", install=None,
+             result=None, run=None, **over):
+        kwargs = dict(
+            repo="sharkdp/fd",
+            label="fd",
+            asset_name=self.asset_name,
+            binary_name=self.binary_name,
+            install_dir="/home/u/.local/bin",
+        )
+        kwargs.update(over)
+        self.run = run if run is not None else mock.Mock(
+            return_value=result if result is not None else self.version)
+        with mock.patch.object(shared.platform, "system", return_value=system), \
+                mock.patch.object(shared.platform, "machine", return_value=machine), \
+                mock.patch.object(shared, "is_termux", return_value=False), \
+                mock.patch.object(shared, "github_latest_tag", return_value=tag), \
+                mock.patch.object(shared, "install_release_binary",
+                                  install if install is not None else self.install), \
+                mock.patch.object(shared.subprocess, "run", self.run):
+            return shared.install_github_binary(**kwargs)
+
+    def test_installs_the_named_asset_then_verifies_the_binary(self):
+        self.assertEqual(self.call(), 0)
+        self.install.assert_called_once_with(
+            "https://github.com/sharkdp/fd/releases/download/v10.5.0/"
+            "fd-v10.5.0-linux-x64.tar.gz",
+            "fd", "/home/u/.local/bin", extract="tar.gz",
+        )
+        self.assertEqual(self.run.call_args.args[0], ["/home/u/.local/bin/fd", "--version"])
+
+    def test_tag_prefix_can_be_empty(self):
+        self.call(tag_prefix="")
+        self.assertIn("/releases/download/10.5.0/", self.install.call_args.args[0])
+
+    def test_windows_is_a_zip_of_the_exe(self):
+        self.call(system="Windows", machine="AMD64")
+        args, kwargs = self.install.call_args
+        self.assertEqual(args[1], "fd.exe")
+        self.assertEqual(kwargs["extract"], "zip")
+
+    def test_version_args_are_configurable(self):
+        self.call(version_args=("--version", "--short"))
+        self.assertEqual(self.run.call_args.args[0][-1], "--short")
+
+    def test_missing_release_exits_one(self):
+        self.assertEqual(self.call(tag=None), 1)
+        self.install.assert_not_called()
+
+    def test_unsupported_platform_exits_one(self):
+        self.assertEqual(self.call(system="Plan9", machine="mips"), 1)
+        self.install.assert_not_called()
+
+    def test_install_failure_exits_one(self):
+        boom = mock.Mock(side_effect=RuntimeError("binary not in archive"))
+        self.assertEqual(self.call(install=boom), 1)
+
+    def test_verify_failure_exits_one(self):
+        self.assertEqual(self.call(result=mock.Mock(returncode=126, stdout="")), 1)
+
+    def test_verify_exception_exits_one(self):
+        self.assertEqual(self.call(run=mock.Mock(side_effect=OSError("cannot execute"))), 1)
+
+
 class TestRealUrlopenConvention(unittest.TestCase):
     """No doubles: drive the production opener, urllib.request.urlopen, against
     a loopback server.
