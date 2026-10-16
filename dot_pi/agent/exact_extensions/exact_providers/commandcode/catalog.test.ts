@@ -89,6 +89,9 @@ void describe("buildModels", () => {
 			assert.ok(m.input.length === 1 || m.input[1] === "image", `${m.id}: ${m.input}`);
 			assert.ok(m.maxTokens > 0 && m.maxTokens <= m.contextWindow, `${m.id} maxTokens`);
 			for (const [field, value] of Object.entries(m.cost)) {
+				// pi-ai's cost type also carries optional request-wide pricing tiers,
+				// which this catalog never sets; only the rate fields are numbers.
+				if (typeof value !== "number") continue;
 				assert.ok(value >= 0 && Number.isFinite(value), `${m.id} cost.${field}`);
 			}
 		}
