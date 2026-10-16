@@ -25,6 +25,12 @@ class PierProfileTest(unittest.TestCase):
     def test_shares_pis_agent_state_dir(self):
         self.assertEqual(pier_sandbox.PROFILE.agent_dir_vars, ("PI_CODING_AGENT_DIR",))
 
+    def test_podman_runs_as_a_client_of_the_user_service(self):
+        self.assertEqual(
+            pier_sandbox.PROFILE.remote_sockets,
+            (("CONTAINER_HOST", "podman/podman.sock"),),
+        )
+
 
 class PierMainTest(unittest.TestCase):
     def test_main_delegates_to_the_shared_runner(self):

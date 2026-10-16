@@ -35,6 +35,36 @@ otherwise refuse with "Bad owner or permissions" (git push included). ~/.ssh
 itself stays read-only, but known_hosts is writable so new host keys can be
 recorded.
 
+podman works, but only as a client of the user's service, never as a local
+runtime: bwrap sets no_new_privs and leaves host uid 0 unmapped, so newuidmap
+cannot raise caps and rootless podman cannot build the user namespace it
+needs. Run `systemctl --user enable --now podman.socket` once and the sandbox
+points CONTAINER_HOST at that socket whenever it exists, so podman,
+podman-remote, and the docker shim all work. Container work then happens on
+the host under the user's own permissions, which is outside this sandbox's
+writable allowlist by design.
+
+$XDG_RUNTIME_DIR is a private tmpfs rather than the user's own. Every socket
+the session keeps there is a way to act on the host: the session bus and the
+systemd user manager run commands as the user outside the sandbox, and
+pipewire, dconf, kwallet, at-spi, and the yazi and mpv IPC endpoints drive
+processes outside it. Only the container service socket and the ssh agent
+that `git push` needs are bound back, read-only. The host sockets outside the
+runtime dir are masked for the same reason: the system bus, the X11, ICE
+session-management, and XIM input-method sockets under /tmp, the tmux socket
+directory, and the journald sockets, which would let the sandbox forge log
+entries. Masks are applied after the writable binds, so no writable path can
+re-expose them. The sandbox also gets its own PID and SysV IPC namespaces, so
+it can neither see nor signal the user's processes and cannot read or remove
+their shared memory; bwrap installs a reaper as PID 1 and runs the tool as
+PID 2, so terminal and job-control signals still reach it.
+
+One endpoint cannot be masked: X11's abstract-namespace socket
+(@/tmp/.X11-unix/X0). Bind mounts do not reach it, seccomp cannot inspect a
+sockaddr, and a network namespace would cut the network access the tool needs.
+The X server refuses the handshake without a cookie, and this session's X and
+ICE cookies live in the runtime dir that is now masked.
+
 pi runs directly, with a warning, when bwrap is missing, the platform is not
 Linux, the sandbox probe fails (for example user namespaces are disabled),
 PI_SANDBOX_MODE=fa, or PI_SANDBOX_DISABLE=1. A nested launch (PI_BWRAP=1) also
@@ -51,7 +81,7 @@ Run: pi_sandbox [pi arguments...]
 
 import sys
 
-from _sandbox import Profile, main as run_sandbox
+from _sandbox import CONTAINER_SOCKETS, Profile, main as run_sandbox
 
 PROFILE = Profile(
     tool="pi",
@@ -62,6 +92,9 @@ PROFILE = Profile(
     subcommands=("install", "remove", "uninstall", "update", "list", "config", "auth", "mcp"),
     # pi keeps sessions under a second var; both must stay writable.
     agent_dir_vars=("PI_CODING_AGENT_DIR", "PI_CODING_AGENT_SESSION_DIR"),
+    # Rootless podman cannot build its own user namespace under bwrap, so it
+    # runs against the host's service instead (see CONTAINER_SOCKETS).
+    remote_sockets=CONTAINER_SOCKETS,
 )
 
 

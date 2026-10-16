@@ -31,6 +31,12 @@ class PiProfileTest(unittest.TestCase):
             ("PI_CODING_AGENT_DIR", "PI_CODING_AGENT_SESSION_DIR"),
         )
 
+    def test_podman_runs_as_a_client_of_the_user_service(self):
+        self.assertEqual(
+            pi_sandbox.PROFILE.remote_sockets,
+            (("CONTAINER_HOST", "podman/podman.sock"),),
+        )
+
 
 class PiMainTest(unittest.TestCase):
     def test_main_delegates_to_the_shared_runner(self):

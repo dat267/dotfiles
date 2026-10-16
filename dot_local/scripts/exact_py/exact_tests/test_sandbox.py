@@ -34,6 +34,7 @@ OTHER = sandbox.Profile(
     env_prefix="TOOLX",
     subcommands=("frobnicate",),
     agent_dir_vars=("TOOLX_AGENT_DIR",),
+    remote_sockets=(("TOOLX_SERVICE", os.path.join("toolx", "toolx.sock")),),
 )
 PROFILES = {"pi": pi_sandbox.PROFILE, "pier": pier_sandbox.PROFILE, "other": OTHER}
 
@@ -182,6 +183,16 @@ class PlanWritableTest(unittest.TestCase):
 
         self.each(check)
 
+    def test_runtime_dir_is_not_writable(self):
+        def check(profile):
+            runtime = os.path.join(ROOT, "run", "user", "1000")
+            got = sandbox.plan_writable(profile, os.path.join(HOME, "ws"), "ro",
+                                        home=HOME, exists=self.exists_all,
+                                        env={"XDG_RUNTIME_DIR": runtime})
+            self.assertNotIn(norm(runtime), got)
+
+        self.each(check)
+
     def test_agent_state_dirs_from_the_profile(self):
         def check(profile):
             env = {var: os.path.join(ROOT, "x", var) for var in profile.agent_dir_vars}
@@ -245,6 +256,175 @@ class ConfigRwPathsTest(unittest.TestCase):
             self.assertEqual(got, ["/from/default/file"])
 
 
+class RemoteEnvTest(unittest.TestCase):
+    """Env vars for host services the tool can only reach as a client.
+
+    bwrap sets no_new_privs and maps only the caller's uid, so rootless podman
+    cannot create its own user namespace inside the sandbox. It can only talk
+    to the user's service, which is found through the socket that service owns.
+    """
+
+    runtime = os.path.join(ROOT, "run", "user", "1000")
+
+    def socket(self, profile):
+        _var, rel = profile.remote_sockets[0]
+        return os.path.join(self.runtime, rel)
+
+    def each(self, fn):
+        for name, profile in PROFILES.items():
+            with self.subTest(name):
+                fn(profile)
+
+    def test_socket_env_set_when_the_socket_exists(self):
+        def check(profile):
+            var, _rel = profile.remote_sockets[0]
+            got = sandbox.remote_env(profile, env={"XDG_RUNTIME_DIR": self.runtime},
+                                     exists=lambda p: p == self.socket(profile))
+            self.assertEqual(got, {var: "unix://" + self.socket(profile)})
+
+        self.each(check)
+
+    def test_nothing_when_the_socket_is_missing(self):
+        def check(profile):
+            got = sandbox.remote_env(profile, env={"XDG_RUNTIME_DIR": self.runtime},
+                                     exists=lambda p: False)
+            self.assertEqual(got, {})
+
+        self.each(check)
+
+    def test_nothing_without_a_runtime_dir(self):
+        def check(profile):
+            self.assertEqual(sandbox.remote_env(profile, env={}, exists=lambda p: True), {})
+
+        self.each(check)
+
+
+class RuntimeMountsTest(unittest.TestCase):
+    """The runtime dir becomes a private tmpfs holding only the sockets we allow.
+
+    Everything else in it is a way to act on the host: the session bus and the
+    systemd user manager run commands as the user outside the sandbox, and the
+    remaining sockets drive pipewire, dconf, kwallet, at-spi, and the yazi and
+    mpv IPC endpoints.
+    """
+
+    runtime = os.path.join(ROOT, "run", "user", "1000")
+
+    def sock(self, profile):
+        _var, rel = profile.remote_sockets[0]
+        return os.path.join(self.runtime, rel)
+
+    def each(self, fn):
+        for name, profile in PROFILES.items():
+            with self.subTest(name):
+                fn(profile)
+
+    def test_tmpfs_then_the_profile_socket(self):
+        def check(profile):
+            socket = self.sock(profile)
+            got = sandbox.plan_runtime_mounts(profile, env={"XDG_RUNTIME_DIR": self.runtime},
+                                              exists=lambda p: p == socket,
+                                              isdir=lambda p: True)
+            self.assertEqual(got, ["--tmpfs", self.runtime,
+                                   "--dir", os.path.dirname(socket),
+                                   "--ro-bind-try", socket, socket])
+
+        self.each(check)
+
+    def test_nothing_without_a_runtime_dir(self):
+        def check(profile):
+            self.assertEqual(
+                sandbox.plan_runtime_mounts(profile, env={}, exists=lambda p: True,
+                                            isdir=lambda p: True),
+                [])
+
+        self.each(check)
+
+    def test_nothing_when_the_runtime_dir_is_missing(self):
+        def check(profile):
+            self.assertEqual(
+                sandbox.plan_runtime_mounts(profile, env={"XDG_RUNTIME_DIR": self.runtime},
+                                            exists=lambda p: True, isdir=lambda p: False),
+                [])
+
+        self.each(check)
+
+    def test_missing_sockets_are_not_bound(self):
+        def check(profile):
+            got = sandbox.plan_runtime_mounts(profile, env={"XDG_RUNTIME_DIR": self.runtime},
+                                              exists=lambda p: False, isdir=lambda p: True)
+            self.assertEqual(got, ["--tmpfs", self.runtime])
+
+        self.each(check)
+
+    def test_ssh_agent_socket_inside_the_runtime_dir_is_kept(self):
+        def check(profile):
+            agent = os.path.join(self.runtime, "ssh-agent.socket")
+            env = {"XDG_RUNTIME_DIR": self.runtime, "SSH_AUTH_SOCK": agent}
+            got = sandbox.plan_runtime_mounts(profile, env=env, exists=lambda p: p == agent,
+                                              isdir=lambda p: True)
+            self.assertEqual(got, ["--tmpfs", self.runtime,
+                                   "--ro-bind-try", agent, agent])
+
+        self.each(check)
+
+    def test_ssh_agent_socket_nested_in_the_runtime_dir_is_kept(self):
+        def check(profile):
+            agent = os.path.join(self.runtime, "keyring", "ssh")
+            env = {"XDG_RUNTIME_DIR": self.runtime, "SSH_AUTH_SOCK": agent}
+            got = sandbox.plan_runtime_mounts(profile, env=env, exists=lambda p: p == agent,
+                                              isdir=lambda p: True)
+            self.assertEqual(got, ["--tmpfs", self.runtime,
+                                   "--dir", os.path.join(self.runtime, "keyring"),
+                                   "--ro-bind-try", agent, agent])
+
+        self.each(check)
+
+    def test_ssh_agent_socket_outside_the_runtime_dir_is_left_alone(self):
+        def check(profile):
+            agent = os.path.join(ROOT, "tmp", "agent.sock")
+            env = {"XDG_RUNTIME_DIR": self.runtime, "SSH_AUTH_SOCK": agent}
+            got = sandbox.plan_runtime_mounts(profile, env=env, exists=lambda p: p == agent,
+                                              isdir=lambda p: True)
+            self.assertEqual(got, ["--tmpfs", self.runtime])
+
+        self.each(check)
+
+
+class HostMasksTest(unittest.TestCase):
+    """Host IPC endpoints outside the runtime dir that drive the session.
+
+    Each one can run or steer something outside the sandbox: the system bus
+    (logind power actions and every polkit-mediated call), X11, ICE session
+    management, and the XIM input method (keystroke capture and input
+    injection), and tmux (send-keys runs commands in the user's panes).
+    """
+
+    def test_covers_the_session_and_system_control_sockets(self):
+        got = sandbox.plan_host_masks(exists=lambda p: True, isdir=lambda p: True)
+        for path in ("/run/dbus/system_bus_socket", "/tmp/.X11-unix", "/tmp/.ICE-unix",
+                     "/tmp/.XIM-unix", f"/tmp/tmux-{sandbox.UID}",
+                     "/run/systemd/journal"):
+            with self.subTest(path):
+                self.assertIn(path, got)
+
+    def test_socket_files_become_dev_null(self):
+        got = sandbox.plan_host_masks(exists=lambda p: True, isdir=lambda p: False)
+        at = got.index("/run/dbus/system_bus_socket")
+        self.assertEqual(got[at - 2:at + 1],
+                         ["--bind-try", "/dev/null", "/run/dbus/system_bus_socket"])
+
+    def test_socket_directories_are_emptied_with_a_tmpfs(self):
+        got = sandbox.plan_host_masks(exists=lambda p: True,
+                                      isdir=lambda p: p == "/tmp/.X11-unix")
+        at = got.index("/tmp/.X11-unix")
+        self.assertEqual(got[at - 1:at + 1], ["--tmpfs", "/tmp/.X11-unix"])
+
+    def test_missing_paths_are_skipped(self):
+        self.assertEqual(
+            sandbox.plan_host_masks(exists=lambda p: False, isdir=lambda p: False), [])
+
+
 class BuildArgvTest(unittest.TestCase):
     def test_shape(self):
         argv = sandbox.build_bwrap_argv(
@@ -275,6 +455,51 @@ class BuildArgvTest(unittest.TestCase):
         argv = sandbox.build_bwrap_argv("/usr/bin/bwrap", "/usr/bin/pi", [],
                                        "/home/u/proj", [])
         self.assertNotIn("--tmpfs", argv)
+
+    def test_remote_env_passed_to_the_tool(self):
+        argv = sandbox.build_bwrap_argv(
+            "/usr/bin/bwrap", "/usr/bin/pi", [], "/home/u/proj", [],
+            env_extra={"CONTAINER_HOST": "unix:///run/user/1000/podman/podman.sock"},
+        )
+        at = argv.index("CONTAINER_HOST")
+        self.assertEqual(argv[at - 1], "--setenv")
+        self.assertEqual(argv[at + 1], "unix:///run/user/1000/podman/podman.sock")
+        self.assertLess(at, argv.index("--"))
+
+    def test_no_remote_env_by_default(self):
+        argv = sandbox.build_bwrap_argv("/usr/bin/bwrap", "/usr/bin/pi", [],
+                                       "/home/u/proj", [])
+        self.assertNotIn("CONTAINER_HOST", argv)
+
+    def test_runtime_mounts_placed_before_the_tool(self):
+        argv = sandbox.build_bwrap_argv(
+            "/usr/bin/bwrap", "/usr/bin/pi", [], "/home/u/proj", [],
+            runtime_mounts=["--tmpfs", "/run/user/1000"],
+        )
+        at = argv.index("--tmpfs")
+        self.assertEqual(argv[at:at + 2], ["--tmpfs", "/run/user/1000"])
+        self.assertLess(at, argv.index("--"))
+
+    def test_no_runtime_mounts_by_default(self):
+        argv = sandbox.build_bwrap_argv("/usr/bin/bwrap", "/usr/bin/pi", [],
+                                       "/home/u/proj", [])
+        self.assertNotIn("--tmpfs", argv)
+
+    def test_masks_follow_the_writable_binds(self):
+        argv = sandbox.build_bwrap_argv(
+            "/usr/bin/bwrap", "/usr/bin/pi", [], "/home/u/proj", ["/tmp", "/home/u/proj"],
+            host_masks=["--tmpfs", "/tmp/.X11-unix"],
+        )
+        last_bind = max(i for i, arg in enumerate(argv) if arg == "--bind-try")
+        self.assertGreater(argv.index("/tmp/.X11-unix"), last_bind)
+        self.assertLess(argv.index("/tmp/.X11-unix"), argv.index("--"))
+
+    def test_isolated_pid_and_ipc_namespaces(self):
+        argv = sandbox.build_bwrap_argv("/usr/bin/bwrap", "/usr/bin/pi", [],
+                                       "/home/u/proj", [])
+        self.assertEqual(argv.count("--unshare-pid"), 1)
+        self.assertEqual(argv.count("--unshare-ipc"), 1)
+        self.assertIn("--proc", argv)
 
 
 class WarnTest(unittest.TestCase):
@@ -472,6 +697,57 @@ class MainTest(unittest.TestCase):
             self.run_main(profile, env=self.base_env(profile), argv=[sub, "extra"])
             self.assertEqual(self.calls[0][0], f"/usr/bin/{profile.tool}")
             self.assertEqual(self.calls[0][1], [f"/usr/bin/{profile.tool}", sub, "extra"])
+
+        self.each(check)
+
+    def test_container_socket_env_is_forwarded(self):
+        def check(profile):
+            var, rel = profile.remote_sockets[0]
+            runtime = os.path.join(ROOT, "run", "user", "1000")
+            self.run_main(profile, env=self.base_env(profile, XDG_RUNTIME_DIR=runtime))
+            _, args = self.calls[0]
+            at = args.index(var)
+            self.assertEqual(args[at - 1], "--setenv")
+            self.assertEqual(args[at + 1], "unix://" + os.path.join(runtime, rel))
+
+        self.each(check)
+
+    def test_no_container_socket_env_without_the_socket(self):
+        def check(profile):
+            var, _rel = profile.remote_sockets[0]
+            runtime = os.path.join(ROOT, "run", "user", "1000")
+            self.run_main(profile, env=self.base_env(profile, XDG_RUNTIME_DIR=runtime),
+                          exists=lambda p: False)
+            _, args = self.calls[0]
+            self.assertNotIn(var, args)
+
+        self.each(check)
+
+    def test_runtime_dir_masked_with_only_the_needed_sockets(self):
+        def check(profile):
+            runtime = os.path.join(ROOT, "run", "user", "1000")
+            _var, rel = profile.remote_sockets[0]
+            socket = os.path.join(runtime, rel)
+            env = self.base_env(profile, XDG_RUNTIME_DIR=runtime)
+            self.run_main(profile, env=env)
+            _, args = self.calls[0]
+            at = args.index(runtime)
+            self.assertEqual(args[at - 1], "--tmpfs")
+            self.assertEqual(args[args.index(socket) - 1], "--ro-bind-try")
+            writable = [args[i + 1] for i, arg in enumerate(args) if arg == "--bind-try"]
+            self.assertNotIn(runtime, writable)
+
+        self.each(check)
+
+    def test_host_control_sockets_are_masked_after_the_writable_binds(self):
+        def check(profile):
+            self.run_main(profile, env=self.base_env(profile))
+            _, args = self.calls[0]
+            self.assertIn("/run/dbus/system_bus_socket", args)
+            self.assertIn("/tmp/.X11-unix", args)
+            binds = [i for i, arg in enumerate(args)
+                     if arg == "--bind-try" and args[i + 1] != "/dev/null"]
+            self.assertGreater(args.index("/tmp/.X11-unix"), max(binds))
 
         self.each(check)
 

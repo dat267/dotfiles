@@ -27,7 +27,7 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 - `executable_hyper_catalog.py` — regenerates the hyper provider's model catalog (pi extension) from the live `/v1/models` API; `--check` reports drift without writing
 - `_shared.py` — shared module (platform detection, colored logging, `install_github_binary` for the single-binary GitHub release installers, helpers)
 - `_pi_install.py` — shared Pi package and launcher resolution for managed releases and legacy npm installs
-- `_sandbox.py` — shared bubblewrap launcher behind `pi_sandbox.py` and `pier_sandbox.py`: each declares a `Profile` (tool, env prefix, unsandboxed subcommands, agent-state vars) and delegates here, so the writable allowlist, argv assembly, probe, and fallbacks exist once
+- `_sandbox.py` — shared bubblewrap launcher behind `pi_sandbox.py` and `pier_sandbox.py`: each declares a `Profile` (tool, env prefix, unsandboxed subcommands, agent-state vars, host service sockets) and delegates here, so the writable allowlist, argv assembly, probe, and fallbacks exist once. It replaces `$XDG_RUNTIME_DIR` with a private tmpfs, binds back only the profile's socket and the ssh agent, and masks the host IPC endpoints outside it (system bus, X11/ICE/XIM, tmux, journald) after the writable binds, because every one of those is a way to act on the host. It also unshares the PID and SysV IPC namespaces; X11's abstract socket is the one endpoint it cannot mask.
 
 ## Conventions
 
