@@ -339,12 +339,13 @@ alias codecm='code $(chezmoi source-path)'
 alias dotfiles='dotfiles.py'
 alias mdk='mdk.py'
 alias lf=lfcd
-# pi and Pier run under bubblewrap by default. Each launcher makes the root
-# read-only and exposes the workspace, shared agent state, and explicit extras.
-# `\pi ...` or `\pier ...` bypasses its alias; set PI_SANDBOX_MODE=fa or
-# PIER_SANDBOX_MODE=fa to disable that sandbox. Args pass through unchanged.
-alias pi='pi_sandbox.py'
-alias pier='pier_sandbox.py'
+# The sandboxed agents carry a trailing x: pix and piex run under bubblewrap,
+# and the bare pi and pier binaries stay unsandboxed. Each launcher makes the
+# root read-only and exposes the workspace, shared agent state, and explicit
+# extras. Set PI_SANDBOX_MODE=fa or PIER_SANDBOX_MODE=fa to disable the sandbox
+# for one run. Args pass through unchanged.
+alias pix='pi_sandbox.py'
+alias piex='pier_sandbox.py'
 getrclone() {
 	if [ -z "$1" ]; then
 		echo "Usage: getrclone [user@host-or-ip]"
