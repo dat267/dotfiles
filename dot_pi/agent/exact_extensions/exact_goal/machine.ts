@@ -44,9 +44,6 @@ export interface AgentBeforeSettleEvent {
 
 export interface GoalUpdateEvent {
 	type: "goal_update";
-	goal_id: string;
-	/** Raw tool param — the machine owns acceptance, not the caller. */
-	revision: number | string | undefined;
 	action: string;
 	blocked_reason?: string;
 }
@@ -136,7 +133,7 @@ export class GoalMachine {
 			case "agent_before_settle":
 				return this.agentBeforeSettle(event.outcome, event.hasPendingMessages, event.now);
 			case "goal_update":
-				return this.goalUpdate(event.goal_id, event.revision, event.action, event.blocked_reason);
+				return this.goalUpdate(event.action, event.blocked_reason);
 			case "goal_pause":
 				return this.goalPause();
 			case "goal_clear":
@@ -160,23 +157,12 @@ export class GoalMachine {
 		};
 	}
 
-	private goalUpdate(goalId: string, rawRevision: number | string | undefined, rawAction: string, blockedReason?: string): DispatchResult {
+	private goalUpdate(rawAction: string, blockedReason?: string): DispatchResult {
 		if (rawAction !== "complete" && rawAction !== "blocked") {
 			return { effects: [], reply: `Unknown action ${JSON.stringify(rawAction)}. Use "complete" or "blocked".`, isError: true };
 		}
 		const action = rawAction as "complete" | "blocked";
-		const revision = typeof rawRevision === "number" ? rawRevision : Number(rawRevision);
-		if (!Number.isFinite(revision)) {
-			return { effects: [], reply: `revision is required — the exact number from get_goal (current goal revision: ${this.view?.revision ?? "n/a"}).`, isError: true };
-		}
 		if (!this.view) return { effects: [], reply: "No goal is set.", isError: true };
-		if (goalId !== this.view.id) {
-			// Name the current ref — the model can retry without a get_goal round trip.
-			return { effects: [], reply: `Unknown goal id "${goalId}". Current goal: ${this.view.id} rev ${this.view.revision}. Retry with these values.`, isError: true };
-		}
-		if (revision !== this.view.revision) {
-			return { effects: [], reply: `Stale ref: you sent revision ${revision}, current is ${this.view.revision} (id ${this.view.id}). Retry with these values.`, isError: true };
-		}
 
 		if (action === "complete") {
 			const next: GoalSnapshot = {
@@ -262,8 +248,8 @@ export class GoalMachine {
 		this.armed = true;
 		this.createdThisRun = true;
 		const effects = this.commit("create", next);
-		// The id must reach model context here — the completion call depends on it.
-		return { effects, reply: `Goal created (id ${next.id}, revision ${next.revision}).` };
+		// The id grounds later references (transcript, /goal status) in model context.
+		return { effects, reply: `Goal created (id ${next.id}). Continue working; call set_goal with action "complete" when it is achieved.` };
 	}
 
 	private goalResume(): DispatchResult {

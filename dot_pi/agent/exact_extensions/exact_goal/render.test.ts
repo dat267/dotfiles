@@ -5,7 +5,7 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 import { Box, Text } from "@earendil-works/pi-tui";
-import { PHASE_COLOR, displayBody, renderGoalCard, renderGoalChangeEntry, renderGoalEventMessage, renderGoalTurnEntry, renderGetGoalRenderCall, renderGetGoalRenderResult, renderCreateGoalRenderCall, renderUpdateGoalRenderCall, renderUpdateGoalRenderResult } from "./render.ts";
+import { PHASE_COLOR, displayBody, renderGoalCard, renderGoalChangeEntry, renderGoalEventMessage, renderGoalTurnEntry, renderGetGoalRenderCall, renderGetGoalRenderResult, renderSetGoalRenderCall, renderSetGoalRenderResult } from "./render.ts";
 import { createGoalState, type GoalChangeEntry, type GoalTurnEntry } from "./state.ts";
 
 /** Minimal Theme stub that returns strings unchanged. */
@@ -184,23 +184,18 @@ void describe("tool renderers", () => {
 		assert.ok(r instanceof Text);
 	});
 
-	void it("renderCreateGoalRenderCall returns Text", () => {
-		const r = renderCreateGoalRenderCall({ objective: "test" }, stubTheme);
+	void it("renderSetGoalRenderCall returns Text", () => {
+		const r = renderSetGoalRenderCall({ objective: "test" }, stubTheme);
 		assert.ok(r instanceof Text);
 	});
 
-	void it("renderUpdateGoalRenderCall returns Text", () => {
-		const r = renderUpdateGoalRenderCall({ action: "complete" }, stubTheme);
+	void it("renderSetGoalRenderResult returns Text", () => {
+		const r = renderSetGoalRenderResult({ content: [{ type: "text", text: "ok" }] }, stubTheme);
 		assert.ok(r instanceof Text);
 	});
 
-	void it("renderUpdateGoalRenderResult returns Text", () => {
-		const r = renderUpdateGoalRenderResult({ content: [{ type: "text", text: "ok" }] }, stubTheme);
-		assert.ok(r instanceof Text);
-	});
-
-	void it("renderUpdateGoalRenderResult shows error", () => {
-		const r = renderUpdateGoalRenderResult({ isError: true, content: [{ type: "text", text: "fail" }] }, stubTheme);
+	void it("renderSetGoalRenderResult shows error", () => {
+		const r = renderSetGoalRenderResult({ isError: true, content: [{ type: "text", text: "fail" }] }, stubTheme);
 		assert.ok(r instanceof Text);
 	});
 });

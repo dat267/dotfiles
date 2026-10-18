@@ -16,9 +16,8 @@ import {
 	renderGoalTurnEntry,
 	renderGetGoalRenderCall,
 	renderGetGoalRenderResult,
-	renderCreateGoalRenderCall,
-	renderUpdateGoalRenderCall,
-	renderUpdateGoalRenderResult,
+	renderSetGoalRenderCall,
+	renderSetGoalRenderResult,
 } from "./render.ts";
 
 export default function piGoal(pi: ExtensionAPI) {
@@ -51,17 +50,14 @@ export default function piGoal(pi: ExtensionAPI) {
 		if (mutated) syncGoalTools(pi);
 	}
 
+	// Tool exposure is fixed: get_goal reads, set_goal writes. Both stay available
+	// so the model can always check the goal or start one; only the retired names
+	// from earlier revisions are pruned from a restored active set.
 	function syncGoalTools(pi: ExtensionAPI) {
 		const desired = new Set(pi.getActiveTools());
-		// create_goal stays available: the model may be asked to set a goal.
-		desired.add("create_goal");
-		// get_goal/update_goal only mean something while a goal is being pursued.
-		// Leaving them exposed invites goal calls in unrelated sessions.
-		const pursuing = machine.snapshot.goal?.phase === "active";
-		for (const name of ["get_goal", "update_goal"]) {
-			if (pursuing) desired.add(name);
-			else desired.delete(name);
-		}
+		for (const retired of ["create_goal", "update_goal"]) desired.delete(retired);
+		desired.add("get_goal");
+		desired.add("set_goal");
 		const next = Array.from(desired);
 		const current = pi.getActiveTools();
 		// setActiveTools writes a session entry; only call it on a real change.
@@ -100,9 +96,9 @@ export default function piGoal(pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "get_goal",
 		label: "Get Goal",
-		description: "Read the current session goal. Call before update_goal for the exact id and revision.",
+		description: "Read the current session goal: objective, phase, rounds, and budget usage.",
 		promptSnippet: "Read the current goal objective and state",
-		promptGuidelines: ["Call get_goal before update_goal to copy the exact id and revision."],
+		promptGuidelines: ["Call get_goal when you need the goal's exact objective or current phase."],
 		parameters: { type: "object", properties: {}, additionalProperties: false } as any,
 		renderCall: (_args, theme) => renderGetGoalRenderCall(theme),
 		renderResult: (result, _options, theme) => {
@@ -117,69 +113,44 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	pi.registerTool({
-		name: "create_goal",
-		label: "Create Goal",
-		description: "Create a persisted session goal that continues through Pi's default unbudgeted round loop. Not for trivial single-turn work.",
-		promptSnippet: "Create a goal for long-running objectives",
+		name: "set_goal",
+		label: "Set Goal",
+		description: "Create or finish the session goal. With objective: create a persisted goal that continues through Pi's default unbudgeted round loop. With action complete: the objective is achieved with evidence. With action blocked: needs blocked_reason, rejected before 3 consecutive rounds. Pause/resume/edit/clear are human-only (/goal).",
+		promptSnippet: "Create the goal, or mark it complete or blocked",
 		promptGuidelines: [
-			"Use create_goal when the user's request is a multi-step objective that should continue across rounds.",
+			"Use set_goal with an objective when the user's request is a multi-step objective that should continue across rounds.",
 			"Do not create goals for trivial single-turn work.",
 			"Before creating, turn the request into a concrete objective with outcome, verification, constraints, and boundaries.",
-		],
-		parameters: {
-			type: "object",
-			properties: {
-				objective: { type: "string", description: "Concrete completion objective." },
-			},
-			required: ["objective"],
-			additionalProperties: false,
-		} as any,
-		renderCall: (args, theme, context) => renderCreateGoalRenderCall(args as Record<string, unknown> | undefined, theme, context.expanded),
-		async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
-			const params = rawParams as Record<string, unknown>;
-			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
-			if (!objective)
-				return { content: [{ type: "text", text: "objective is required." }], isError: true, details: undefined };
-			const { effects, reply, isError } = machine.dispatch({ type: "goal_create", objective });
-			apply(effects, ctx);
-			return { content: [{ type: "text", text: reply ?? "Goal created." }], isError, details: { goal: machine.snapshot.goal } };
-		},
-	});
-
-	pi.registerTool({
-		name: "update_goal",
-		label: "Update Goal",
-		description: "Complete or block the session goal. Needs the exact id and revision from get_goal. complete: objective achieved with evidence. blocked: needs blocked_reason; rejected before 3 consecutive rounds. edit/pause/resume: human-only (/goal).",
-		promptSnippet: "Complete or block the current goal",
-		promptGuidelines: [
-			"Call get_goal first to get the exact id and revision, unless this turn already gave you both.",
 			"Mark complete only when the objective is actually achieved, with evidence.",
 			"Mark blocked only after the same condition persisted for at least 3 consecutive goal rounds.",
 		],
 		parameters: {
 			type: "object",
 			properties: {
-				goal_id: { type: "string", description: "Exact id from get_goal." },
-				revision: { type: "number", description: "Exact revision from get_goal." },
-				action: { type: "string", enum: ["complete", "blocked"], description: "Action to perform." },
+				objective: { type: "string", description: "Concrete completion objective. Omit when using action." },
+				action: { type: "string", enum: ["complete", "blocked"], description: "Finish the existing goal instead of creating one." },
 				blocked_reason: { type: "string", description: "Blocking condition (blocked only)." },
 			},
-			required: ["goal_id", "revision", "action"],
 			additionalProperties: false,
 		} as any,
-		renderCall: (args, theme, context) => renderUpdateGoalRenderCall(args as Record<string, unknown> | undefined, theme, context.expanded),
-		renderResult: (result, _options, theme) => renderUpdateGoalRenderResult(result as any, theme),
+		renderCall: (args, theme, context) => renderSetGoalRenderCall(args as Record<string, unknown> | undefined, theme, context.expanded),
+		renderResult: (result, _options, theme) => renderSetGoalRenderResult(result as any, theme),
 		async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
 			const params = rawParams as Record<string, unknown>;
-			const { effects, reply, isError } = machine.dispatch({
-				type: "goal_update",
-				goal_id: String(params.goal_id ?? ""),
-				revision: params.revision as number | string | undefined,
-				action: String(params.action ?? ""),
-				blocked_reason: typeof params.blocked_reason === "string" ? params.blocked_reason : undefined,
-			});
+			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
+			const action = typeof params.action === "string" ? params.action : "";
+			const blockedReason = typeof params.blocked_reason === "string" ? params.blocked_reason : undefined;
+
+			if (action) {
+				const { effects, reply, isError } = machine.dispatch({ type: "goal_update", action, blocked_reason: blockedReason });
+				apply(effects, ctx);
+				return { content: [{ type: "text", text: reply ?? "" }], isError, details: { goal: machine.snapshot.goal } };
+			}
+			if (!objective)
+				return { content: [{ type: "text", text: "objective is required when no action is given." }], isError: true, details: undefined };
+			const { effects, reply, isError } = machine.dispatch({ type: "goal_create", objective });
 			apply(effects, ctx);
-			return { content: [{ type: "text", text: reply ?? "" }], isError, details: { goal: machine.snapshot.goal } };
+			return { content: [{ type: "text", text: reply ?? "Goal created." }], isError, details: { goal: machine.snapshot.goal } };
 		},
 	});
 
@@ -246,7 +217,7 @@ export default function piGoal(pi: ExtensionAPI) {
 	});
 
 	// Deterministic trigger removed: 'goal: ' prompts now run as plain turns.
-	// Goal entry is model-driven (create_goal judgment) or human-driven (/goal set).
+	// Goal entry is model-driven (set_goal judgment) or human-driven (/goal set).
 
 	pi.on("session_start", (event, ctx) => {
 		const reason = (event as { reason?: string } | undefined)?.reason;

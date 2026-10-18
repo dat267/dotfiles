@@ -25,9 +25,9 @@ void describe("goal extension smoke", () => {
 
 	const ctx = (entries: any[] = []) => makeFakePi({ entries }).ctx;
 
-	void it("registers the three goal tools and lifecycle events", () => {
+	void it("registers exactly get_goal and set_goal, plus the lifecycle events", () => {
 		const { tools, events } = boot();
-		assert.deepEqual(Object.keys(tools).sort(), ["create_goal", "get_goal", "update_goal"]);
+		assert.deepEqual(Object.keys(tools).sort(), ["get_goal", "set_goal"]);
 		for (const ev of ["session_start", "agent_end", "agent_before_settle"]) {
 			assert.ok(events[ev], `${ev} registered`);
 		}
@@ -42,16 +42,16 @@ void describe("goal extension smoke", () => {
 		};
 		await events.session_start({}, ctx([goalEntry]));
 
-		const result = await tools.get_goal.execute("id", {}, {}, () => {}, ctx());
-		const parsed = JSON.parse(result.content[0].text);
+		// Startup restores the goal without re-appending it or starting a turn.
+		assert.equal(calls.some(c => c.kind === "appendEntry" || c.kind === "sendMessage"), false);
+		const parsed = JSON.parse((await tools.get_goal.execute("id", {}, {}, () => {}, ctx())).content[0].text);
 		assert.equal(parsed.goal.objective, "obj");
 		assert.equal(parsed.activation, "disarmed");
-		assert.equal(calls.some(c => c.kind === "appendEntry" || c.kind === "sendMessage"), false);
 	});
 
-	void it("routes create_goal effects: durable entry and deferred round message", async () => {
+	void it("routes set_goal effects: durable entry and deferred round message", async () => {
 		const { tools, calls } = boot();
-		const result = await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
+		const result = await tools.set_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
 		assert.equal(result.isError, undefined);
 		const entry = calls.find(c => c.kind === "appendEntry");
 		assert.ok(entry, "create appends a durable entry");
@@ -60,10 +60,10 @@ void describe("goal extension smoke", () => {
 		assert.equal(calls.some(c => c.kind === "sendMessage"), false, "round message waits for agent_end");
 	});
 
-	void it("persists provider usage without exposing budget parameters", async () => {
+	void it("set_goal takes one objective, an action, and a blocked reason — no budget params", async () => {
 		const { tools, events, calls } = boot();
-		assert.deepEqual(Object.keys(tools.create_goal.parameters.properties), ["objective"]);
-		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
+		assert.deepEqual(Object.keys(tools.set_goal.parameters.properties).sort(), ["action", "blocked_reason", "objective"]);
+		await tools.set_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
 		calls.length = 0;
 		await events.agent_end({ messages: [
 			{ role: "assistant", usage: { totalTokens: 321, cost: { total: 0.42 } } },
@@ -75,7 +75,7 @@ void describe("goal extension smoke", () => {
 
 	void it("agent_before_settle requests native continuation with a hidden round message", async () => {
 		const { tools, events, calls } = boot();
-		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
+		await tools.set_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
 		calls.length = 0;
 		const result = await (events.agent_before_settle as any)({
 			outcome: "completed",
@@ -89,7 +89,7 @@ void describe("goal extension smoke", () => {
 
 	void it("stops continuation after an agent error", async () => {
 		const { tools, events, calls } = boot();
-		await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
+		await tools.set_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
 		calls.length = 0;
 		const result = await (events.agent_before_settle as any)({
 			outcome: "error",
@@ -102,7 +102,7 @@ void describe("goal extension smoke", () => {
 
 	void it("ignores legacy budget arguments and creates an unbudgeted goal", async () => {
 		const { tools } = boot();
-		const result = await tools.create_goal.execute("id", {
+		const result = await tools.set_goal.execute("id", {
 			objective: "do it", time_limit_hours: 8, token_limit: 500_000, cost_limit_usd: 12.5,
 		}, {}, () => {}, ctx());
 		assert.equal(result.details.goal.budget, undefined);
@@ -119,13 +119,8 @@ void describe("goal extension smoke", () => {
 		const fake = makeFakePi();
 		piGoal(fake.pi);
 		await fake.runCommand("goal");
-		const created = await fake.tools.create_goal.execute("create", { objective: "finish task" }, {}, () => {}, fake.ctx);
-		const goal = created.details.goal;
-		await fake.tools.update_goal.execute("complete", {
-			goal_id: goal.id,
-			revision: goal.revision,
-			action: "complete",
-		}, {}, () => {}, fake.ctx);
+		await fake.tools.set_goal.execute("create", { objective: "finish task" }, {}, () => {}, fake.ctx);
+		await fake.tools.set_goal.execute("complete", { action: "complete" }, {}, () => {}, fake.ctx);
 		const widgets = fake.calls.all.filter((call) => call.kind === "setWidget" && call.key === "pi-goal" && call.value !== undefined);
 		assert.equal(widgets.length, 0);
 	});
@@ -134,10 +129,10 @@ void describe("goal extension smoke", () => {
 		const { tools } = boot();
 		const objective = "Create a long goal with every acceptance criterion, constraint, expected output, and verification step included.";
 		const theme = { fg: (_c: string, t: string) => t };
-		const collapsed = tools.create_goal.renderCall({ objective }, theme, { expanded: false }).render(200).join(" ");
+		const collapsed = tools.set_goal.renderCall({ objective }, theme, { expanded: false }).render(200).join(" ");
 		assert.match(collapsed, /click or expand/);
 		assert.ok(!collapsed.includes(objective));
-		const expanded = tools.create_goal.renderCall({ objective }, theme, { expanded: true }).render(200).join(" ");
+		const expanded = tools.set_goal.renderCall({ objective }, theme, { expanded: true }).render(200).join(" ");
 		assert.ok(expanded.includes(objective));
 	});
 
@@ -145,10 +140,10 @@ void describe("goal extension smoke", () => {
 		const { tools } = boot();
 		const reason = "The external dependency is unavailable, and the task cannot proceed until the service is restored.";
 		const theme = { fg: (_c: string, t: string) => t, dim: (_t: string) => _t };
-		const collapsed = tools.update_goal.renderCall({ action: "blocked", blocked_reason: reason }, theme, { expanded: false }).render(200).join(" ");
+		const collapsed = tools.set_goal.renderCall({ action: "blocked", blocked_reason: reason }, theme, { expanded: false }).render(200).join(" ");
 		assert.match(collapsed, /click or expand/);
 		assert.ok(!collapsed.includes(reason));
-		const expanded = tools.update_goal.renderCall({ action: "blocked", blocked_reason: reason }, theme, { expanded: true }).render(200).join(" ");
+		const expanded = tools.set_goal.renderCall({ action: "blocked", blocked_reason: reason }, theme, { expanded: true }).render(200).join(" ");
 		assert.ok(expanded.includes(reason));
 	});
 
@@ -234,7 +229,7 @@ void describe("goal extension smoke", () => {
 
 		void it("tool cards are bare renderer output — pi wraps them in its own tinted box", () => {
 			const { tools } = boot();
-			for (const name of ["get_goal", "create_goal", "update_goal"]) {
+			for (const name of ["get_goal", "set_goal"]) {
 				const tool = tools[name];
 				for (const meth of ["renderCall", "renderResult"] as const) {
 					if (!tool[meth]) continue;
@@ -287,21 +282,28 @@ void describe("goal extension smoke", () => {
 		const activeSets = (calls: Recorded[]) =>
 			calls.filter((c) => c.kind === "setActiveTools").map((c) => [...(c.names as string[])].sort());
 
-		void it("only create_goal is exposed while no goal is active", async () => {
+		void it("exposes both goal tools from startup", async () => {
 			const { events, calls } = boot();
 			await events.session_start({ reason: "startup" }, ctx());
-			assert.deepEqual(activeSets(calls).at(-1), ["create_goal"]);
+			assert.deepEqual(activeSets(calls).at(-1), ["get_goal", "set_goal"]);
 		});
 
-		void it("get_goal/update_goal appear while active and are dropped once complete", async () => {
+		void it("retires the old tool names from a restored active set", async () => {
+			// Sessions written before the rename persisted create_goal/update_goal.
+			const fake = makeFakePi();
+			piGoal(fake.pi);
+			fake.pi.setActiveTools(["read", "create_goal", "update_goal"]);
+			await fake.emit("session_start", { reason: "startup" });
+			assert.deepEqual([...fake.pi.getActiveTools()].sort(), ["get_goal", "read", "set_goal"]);
+		});
+
+		void it("keeps both tools exposed after the goal completes", async () => {
 			const { tools, events, calls } = boot();
 			await events.session_start({ reason: "startup" }, ctx());
-			await tools.create_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
-			assert.deepEqual(activeSets(calls).at(-1), ["create_goal", "get_goal", "update_goal"]);
-
-			const parsed = JSON.parse((await tools.get_goal.execute("id", {}, {}, () => {}, ctx())).content[0].text);
-			await tools.update_goal.execute("id", { goal_id: parsed.goal.id, revision: parsed.goal.revision, action: "complete" }, {}, () => {}, ctx());
-			assert.deepEqual(activeSets(calls).at(-1), ["create_goal"]);
+			const before = activeSets(calls).length;
+			await tools.set_goal.execute("id", { objective: "do it" }, {}, () => {}, ctx());
+			await tools.set_goal.execute("id", { action: "complete" }, {}, () => {}, ctx());
+			assert.equal(activeSets(calls).length, before, "the exposed set never changes");
 		});
 	});
 
@@ -315,7 +317,7 @@ void describe("goal extension smoke", () => {
 		async function withGoal(confirmResult: boolean) {
 			const h = harness(confirmResult);
 			await h.fake.emit("session_start", { reason: "startup" });
-			await h.fake.tools.create_goal.execute("id", { objective: "first" }, {}, () => {}, h.fake.ctx);
+			await h.fake.tools.set_goal.execute("id", { objective: "first" }, {}, () => {}, h.fake.ctx);
 			h.fake.calls.all.length = 0;
 			h.fake.calls.notifies.length = 0;
 			return h;

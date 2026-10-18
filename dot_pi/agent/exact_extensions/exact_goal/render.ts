@@ -146,38 +146,38 @@ export function renderGetGoalRenderResult(goal: GoalView | null, theme: Theme): 
 	);
 }
 
-export function renderCreateGoalRenderCall(args: Record<string, unknown> | undefined, theme: Theme, expanded = false): Text {
-	const objective = String(args?.objective ?? "");
-	const normalized = objective.trim().replace(/\s+/g, " ");
-	const truncated = !expanded && normalized.length > 60;
-	const shownObjective = expanded ? objective : truncateObjective(objective, 60);
-	return new Text(
-		theme.fg("toolTitle", `Create goal: ${shownObjective}${truncated ? theme.fg("muted", " (click or expand for full objective)") : ""}`),
-		0,
-		0,
-	);
-}
-
-export function renderUpdateGoalRenderCall(args: Record<string, unknown> | undefined, theme: Theme, expanded = false): Text {
+export function renderSetGoalRenderCall(args: Record<string, unknown> | undefined, theme: Theme, expanded = false): Text {
 	const action = args?.action as string | undefined;
 	const blockedReason = typeof args?.blocked_reason === "string" ? args.blocked_reason : undefined;
+	// A lifecycle call carries an action; anything else sets the objective.
+	if (!action) {
+		const objective = String(args?.objective ?? "");
+		const normalized = objective.trim().replace(/\s+/g, " ");
+		const truncated = !expanded && normalized.length > 60;
+		const shownObjective = expanded ? objective : truncateObjective(objective, 60);
+		return new Text(
+			theme.fg("toolTitle", `Set goal: ${shownObjective}${truncated ? theme.fg("muted", " (click or expand for full objective)") : ""}`),
+			0,
+			0,
+		);
+	}
 	const normalizedReason = blockedReason?.trim().replace(/\s+/g, " ") ?? "";
 	const truncated = !expanded && normalizedReason.length > 60;
 	const shownReason = expanded ? normalizedReason : truncateObjective(normalizedReason, 60);
 	return new Text(
-		theme.fg("toolTitle", `Update goal → ${action ?? "?"}`) +
+		theme.fg("toolTitle", `Set goal → ${action}`) +
 			(blockedReason ? theme.fg("dim", `: ${shownReason}${truncated ? theme.fg("muted", " (click or expand for full reason)") : ""}`) : ""),
 		0,
 		0,
 	);
 }
 
-export function renderUpdateGoalRenderResult(result: { isError?: boolean; details?: { goal?: { phase?: GoalPhase } | null }; content: { type: string; text: string }[] }, theme: Theme): Text {
+export function renderSetGoalRenderResult(result: { isError?: boolean; details?: { goal?: { phase?: GoalPhase } | null }; content: { type: string; text: string }[] }, theme: Theme): Text {
 	const text = result.content[0]?.type === "text" ? result.content[0].text : "";
 	if (result.isError) return new Text(theme.fg("error", text), 0, 0);
 	// Success repeats the durable entry card right below — collapse to a
 	// phase-colored status line instead of the full instruction text.
-	const phase = result.details?.goal?.phase;
-	const short = phase === "blocked" ? "Goal blocked ✓" : "Goal complete ✓";
-	return new Text(theme.fg(PHASE_COLOR[phase ?? "complete"], short), 0, 0);
+	const phase = result.details?.goal?.phase ?? "active";
+	const short = phase === "blocked" ? "Goal blocked ✓" : phase === "complete" ? "Goal complete ✓" : "Goal set ✓";
+	return new Text(theme.fg(PHASE_COLOR[phase], short), 0, 0);
 }

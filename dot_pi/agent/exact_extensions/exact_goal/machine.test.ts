@@ -102,7 +102,7 @@ void describe("GoalMachine.agent_end", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [] });
 		m.dispatch({ type: "goal_create", objective: "ship it" });
-		m.dispatch({ type: "goal_update", goal_id: m.snapshot.goal!.id, revision: 1, action: "complete" });
+		m.dispatch({ type: "goal_update", action: "complete" });
 		const { effects } = m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
 		const turn = effects.find((e) => e.kind === "appendEntry" && e.entryType === TURN_TYPE);
 		assert.equal(turn, undefined, "completed goal must not admit rounds");
@@ -248,14 +248,9 @@ void describe("GoalMachine.goal_update", () => {
 		return m;
 	}
 
-	function currentSnapshot(m: GoalMachine) {
-		return { goal_id: m.snapshot.goal!.id, revision: m.snapshot.goal!.revision };
-	}
-
 	void it("complete: entry + wrapup message, disarmed", () => {
 		const m = armedMachine();
-		const ref = currentSnapshot(m);
-		const { effects, reply, isError } = m.dispatch({ type: "goal_update", ...ref, action: "complete" });
+		const { effects, reply, isError } = m.dispatch({ type: "goal_update", action: "complete" });
 		assert.equal(isError, undefined);
 		assert.match(reply ?? "", /complete/);
 		const entry = effects.find((e) => e.kind === "appendEntry") as { data: GoalChangeEntry } | undefined;
@@ -266,58 +261,37 @@ void describe("GoalMachine.goal_update", () => {
 		assert.equal(m.snapshot.armed, false);
 	});
 
-	void it("stale ref: error, no mutation", () => {
-		const m = armedMachine();
-		const real = m.snapshot.goal!;
-		const { reply, isError, effects } = m.dispatch({ type: "goal_update", goal_id: real.id, revision: 999, action: "complete" });
+	void it("with no goal: error, no mutation", () => {
+		const m = new GoalMachine();
+		m.dispatch({ type: "session_start", entries: [] });
+		const { reply, isError, effects } = m.dispatch({ type: "goal_update", action: "complete" });
 		assert.equal(isError, true);
-		assert.match(reply ?? "", /revision 999.*current is 1/s);
-		assert.ok(!effects.some((e) => e.kind === "appendEntry"));
-		assert.equal(m.snapshot.goal?.phase, "active");
-	});
-
-	void it("unknown id: error names the current id — one-step recovery", () => {
-		// Session evidence: the model hallucinated goal_9f5b6c48e33d and the
-		// combined 'stale ref' message sent it through a get_goal round trip.
-		const m = armedMachine();
-		const { reply, isError } = m.dispatch({ type: "goal_update", goal_id: "goal_9f5b6c48e33d", revision: 1, action: "complete" });
-		assert.equal(isError, true);
-		assert.match(reply ?? '', new RegExp(m.snapshot.goal!.id));
-		assert.match(reply ?? '', /rev 1/);
+		assert.match(reply ?? "", /No goal/);
+		assert.deepEqual(effects, []);
 	});
 
 	void describe("param acceptance — the machine owns the full contract", () => {
 		void it("unknown action: rejected with the valid set", () => {
 			// Session evidence: index.ts coerced any non-'complete' action to 'blocked'.
 			const m = armedMachine();
-			const { reply, isError } = m.dispatch({ type: "goal_update", goal_id: "any", revision: 1, action: "pause" as any });
+			const { reply, isError } = m.dispatch({ type: "goal_update", action: "pause" as any });
 			assert.equal(isError, true);
 			assert.match(reply ?? '', /Unknown action "pause"/);
 			assert.match(reply ?? '', /complete.*blocked/s);
 		});
-
-		void it("non-numeric revision: rejected without throwing", () => {
-			const m = armedMachine();
-			for (const bad of [undefined, "abc", NaN]) {
-				const { reply, isError } = m.dispatch({ type: "goal_update", goal_id: "any", revision: bad as any, action: "complete" });
-				assert.equal(isError, true, `revision ${JSON.stringify(bad)} must be rejected`);
-				assert.match(reply ?? '', /revision/);
-			}
-		});
 	});
 
-	void it("create reply carries id and revision into model context", () => {
+	void it("create reply names the goal in model context", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [] });
 		const { reply } = m.dispatch({ type: "goal_create", objective: "ship it" });
 		assert.match(reply ?? '', new RegExp(m.snapshot.goal!.id));
-		assert.match(reply ?? '', /revision 1/);
+		assert.match(reply ?? '', /set_goal/);
 	});
 
 	void it("blocked before 3 rounds: error, no mutation", () => {
 		const m = armedMachine();
-		const ref = currentSnapshot(m);
-		const { reply, isError } = m.dispatch({ type: "goal_update", ...ref, action: "blocked", blocked_reason: "stuck" });
+		const { reply, isError } = m.dispatch({ type: "goal_update", action: "blocked", blocked_reason: "stuck" });
 		assert.equal(isError, true);
 		assert.match(reply ?? "", /3 consecutive/);
 		assert.equal(m.snapshot.goal?.phase, "active");
@@ -333,7 +307,7 @@ void describe("GoalMachine.goal_update", () => {
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
 		m.dispatch({ type: "agent_before_settle", outcome: "completed" });
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
-		const { effects, reply, isError } = m.dispatch({ type: "goal_update", ...currentSnapshot(m), action: "blocked", blocked_reason: "stuck" });
+		const { effects, reply, isError } = m.dispatch({ type: "goal_update", action: "blocked", blocked_reason: "stuck" });
 		assert.equal(isError, undefined);
 		assert.match(reply ?? "", /blocked/);
 		const entry = effects.find((e) => e.kind === "appendEntry") as { data: GoalChangeEntry } | undefined;
@@ -378,8 +352,7 @@ void describe("GoalMachine.commands", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [] });
 		m.dispatch({ type: "goal_create", objective: "x" });
-		const goal = m.snapshot.goal!;
-		m.dispatch({ type: "goal_update", goal_id: goal.id, revision: goal.revision, action: "complete" });
+		m.dispatch({ type: "goal_update", action: "complete" });
 		const completed = m.snapshot.goal!;
 
 		// Illegal: pause a completed goal — TRANSITIONS[complete] is empty.
@@ -441,8 +414,7 @@ void describe("GoalMachine round-trip (write shape replays via fold)", () => {
 		const { m, entries } = machineWithCollector();
 		m.dispatch({ type: "session_start", entries: [] });
 		m.dispatch({ type: "goal_create", objective: "first" });
-		const first = m.snapshot.goal!;
-		m.dispatch({ type: "goal_update", goal_id: first.id, revision: first.revision, action: "complete" });
+		m.dispatch({ type: "goal_update", action: "complete" });
 		m.dispatch({ type: "goal_set", objective: "second" });
 		const second = m.snapshot.goal!;
 
@@ -471,8 +443,7 @@ void describe("GoalMachine round-trip (write shape replays via fold)", () => {
 		m.dispatch({ type: "agent_end", contextUsage: USAGE, aborted: false });
 
 		// complete
-		const snapBefore = m.snapshot.goal!;
-		m.dispatch({ type: "goal_update", goal_id: snapBefore.id, revision: snapBefore.revision, action: "complete" });
+		m.dispatch({ type: "goal_update", action: "complete" });
 		const snap = m.snapshot.goal!;
 
 		// replay through a fresh machine, as session_start does after restart
@@ -623,8 +594,7 @@ void describe("GoalMachine.goal_replace", () => {
 		const m = new GoalMachine();
 		m.dispatch({ type: "session_start", entries: [] });
 		m.dispatch({ type: "goal_create", objective: "first" });
-		const g = m.snapshot.goal!;
-		m.dispatch({ type: "goal_update", goal_id: g.id, revision: g.revision, action: "complete" });
+		m.dispatch({ type: "goal_update", action: "complete" });
 		const { effects } = m.dispatch({ type: "goal_replace", objective: "second" });
 		const entries = effects.filter((e) => e.kind === "appendEntry") as { data: GoalChangeEntry }[];
 		assert.equal(entries.length, 1);
