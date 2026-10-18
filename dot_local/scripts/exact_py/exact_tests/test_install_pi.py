@@ -64,13 +64,30 @@ class TestMain(unittest.TestCase):
         self.assertEqual(len(runner.calls), 1)
         self.assertEqual(runner.calls[0][0], "powershell")
         # start_new_session is a POSIX-only subprocess kwarg
-        self.assertEqual(runner.options, [{"capture_output": True}])
+        self.assertEqual(runner.options[0]["capture_output"], True)
+        self.assertNotIn("PSModulePath", runner.options[0]["env"])
 
     def test_windows_tty_runs_attached_without_capturing(self):
         win = shared.Platform("windows", "x64")
         code, runner = self.run_installer(plat=win, interactive=True)
         self.assertEqual(code, 0)
-        self.assertEqual(runner.options, [{"capture_output": False}])
+        self.assertEqual(runner.options[0]["capture_output"], False)
+        self.assertNotIn("PSModulePath", runner.options[0]["env"])
+
+    def test_windows_child_env_drops_psmodulepath_and_keeps_the_rest(self):
+        """powershell.exe (5.1) spawned from pwsh 7 inherits pwsh's
+        PSModulePath and then cannot autoload its own modules — the installer's
+        final Get-ExecutionPolicy check dies with 'the module could not be
+        loaded' even though the install completed. Dropping the variable lets
+        the child rebuild its default module path."""
+        win = shared.Platform("windows", "x64")
+        with mock.patch.dict(os.environ, {"PSModulePath": r"C:\pwsh7\Modules",
+                                          "PATH": r"C:\Windows"}):
+            code, runner = self.run_installer(plat=win)
+        self.assertEqual(code, 0)
+        env = runner.options[0]["env"]
+        self.assertNotIn("PSModulePath", env)
+        self.assertEqual(env["PATH"], r"C:\Windows")
 
     def test_interactivity_detected_from_stdin_and_stdout(self):
         fake = mock.Mock()

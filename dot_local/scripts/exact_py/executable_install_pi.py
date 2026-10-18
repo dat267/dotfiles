@@ -65,6 +65,19 @@ def _subprocess_run(cmd, **options):
     return subprocess.run(cmd, **options)
 
 
+def _windows_env():
+    """Environment for a child powershell.exe, minus PSModulePath.
+
+    powershell.exe (5.1) spawned from pwsh 7 inherits pwsh's PSModulePath
+    and then cannot autoload its own modules — the installer's final
+    Get-ExecutionPolicy check dies with 'the module could not be loaded'
+    even though the install completed. Dropping the variable lets the
+    child rebuild its default module path.
+    """
+    return {key: value for key, value in os.environ.items()
+            if key.upper() != "PSMODULEPATH"}
+
+
 def _interactive():
     """True when both stdin and stdout are a tty, so prompts are answerable."""
     try:
@@ -87,7 +100,7 @@ def main(argv=None, run=None, plat=None, interactive=None):
     if plat.is_windows:
         cmd = installer_command(plat)
         log(f"Running the official pi installer: {' '.join(cmd)}", "cyan")
-        result = run(cmd, capture_output=not interactive)
+        result = run(cmd, capture_output=not interactive, env=_windows_env())
     else:
         try:
             script = download_installer()
