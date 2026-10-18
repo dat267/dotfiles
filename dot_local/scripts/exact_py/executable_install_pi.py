@@ -7,10 +7,13 @@ PATH setup — is the installer's own logic. POSIX platforms (macOS, Linux,
 Termux) run https://pi.dev/install.sh through sh; Windows runs
 https://pi.dev/install.ps1 through PowerShell.
 
-The installer runs detached from the controlling terminal
-(start_new_session), so its tty-gated prompts take their non-interactive
-defaults: install, reinstall, or migrate; no shell-profile edits (PATH
-stays with the dotfiles profile); no auto-start of pi.
+The installer runs attached to the terminal when stdin and stdout are both
+a tty, so its prompts (reinstall / uninstall / nothing) are answerable and
+its output streams live. Without a terminal (piped, cron, CI) it runs
+detached from the controlling terminal (start_new_session) so its
+tty-gated prompts take their non-interactive defaults: install, reinstall,
+or migrate; no shell-profile edits (PATH stays with the dotfiles profile);
+no auto-start of pi.
 
 Extensions, settings, and auth material are NOT handled here — they are
 chezmoi-deployed from dot_pi/ in the dotfiles repo.
@@ -25,6 +28,14 @@ from _shared import Platform, log
 
 INSTALL_SH = "https://pi.dev/install.sh"
 INSTALL_PS1 = "https://pi.dev/install.ps1"
+
+USAGE = """\
+usage: install_pi.py [-h]
+
+Download and run the official pi installer for this platform. With a
+terminal, the installer's prompts are answerable (reinstall, uninstall,
+nothing); without one, its non-interactive defaults apply (reinstall if
+already installed, else install)."""
 
 
 def installer_command(plat, script_path=None):
@@ -49,17 +60,34 @@ def download_installer(url=INSTALL_SH):
 
 
 def _subprocess_run(cmd, **options):
-    return subprocess.run(cmd, capture_output=True, text=True, **options)
+    options.setdefault("capture_output", True)
+    options.setdefault("text", True)
+    return subprocess.run(cmd, **options)
 
 
-def main(argv=None, run=None, plat=None):
+def _interactive():
+    """True when both stdin and stdout are a tty, so prompts are answerable."""
+    try:
+        return sys.stdin.isatty() and sys.stdout.isatty()
+    except (AttributeError, ValueError):
+        return False
+
+
+def main(argv=None, run=None, plat=None, interactive=None):
+    if argv is None:
+        argv = sys.argv[1:]
+    if "-h" in argv or "--help" in argv:
+        print(USAGE)
+        return 0
     run = run or _subprocess_run
     plat = plat or Platform.detect()
+    if interactive is None:
+        interactive = _interactive()
 
     if plat.is_windows:
         cmd = installer_command(plat)
         log(f"Running the official pi installer: {' '.join(cmd)}", "cyan")
-        result = run(cmd)
+        result = run(cmd, capture_output=not interactive)
     else:
         try:
             script = download_installer()
@@ -69,11 +97,16 @@ def main(argv=None, run=None, plat=None):
         cmd = installer_command(plat, script)
         log(f"Running the official pi installer: {' '.join(cmd)}", "cyan")
         try:
-            # start_new_session detaches the controlling terminal, so the
-            # installer's tty-gated prompts take their non-interactive
-            # defaults: install, reinstall, or migrate; no profile edits;
-            # no auto-start of pi.
-            result = run(cmd, start_new_session=True)
+            if interactive:
+                # Attached and uncaptured so the installer's prompts are
+                # answerable and its output streams live.
+                result = run(cmd, capture_output=False)
+            else:
+                # start_new_session detaches the controlling terminal, so the
+                # installer's tty-gated prompts take their non-interactive
+                # defaults: install, reinstall, or migrate; no profile edits;
+                # no auto-start of pi.
+                result = run(cmd, start_new_session=True, capture_output=True)
         finally:
             try:
                 os.unlink(script)
