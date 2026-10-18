@@ -1,279 +1,93 @@
 #!/usr/bin/env python3
-"""Install or update pi (@earendil-works/pi-coding-agent).
+"""Install or update pi by running the official installer for this platform.
 
-An active managed installation is kept in place and updated with its own
-`pi update --self` command. Passing --prefix explicitly requests an npm
-installation instead. Fresh installations use the fixed npm prefixes below.
+This script only picks the right remote script; everything else — fresh
+install vs managed reinstall vs migration away from npm, node acquisition,
+PATH setup — is the installer's own logic. POSIX platforms (macOS, Linux,
+Termux) run https://pi.dev/install.sh through sh; Windows runs
+https://pi.dev/install.ps1 through PowerShell.
 
-Unlike the GitHub-release installers in this directory, pi is distributed
-as an npm package, so "download latest release" is `npm install -g` and
-the version check goes through the npm registry. `--ignore-scripts` is
-passed per pi's documented install command: pi needs no dependency
-lifecycle scripts, and skipping them shrinks the supply-chain surface.
-
-Unlike a plain `npm install -g`, the install is pinned to a fixed prefix
-(~/.local on unix, ~/Apps/pi on Windows) with `npm install -g --prefix`,
-so `pi` does not live inside the node version directory an nvm/fnm upgrade
-replaces. npm then places the package at <prefix>/lib/node_modules (unix)
-or <prefix>/node_modules (Windows), and the launcher at <prefix>/bin/pi
-(unix) or <prefix>/pi.cmd, <prefix>/pi.ps1, <prefix>/pi (Windows). An
-existing pi elsewhere in npm's global prefix is migrated, not treated as
-up to date.
-
-Node floor (22.19.0) is pi's package.json engines requirement.
-
-Windows ships npm and pi as .cmd shims, so the launcher probes ask for
-those names first; the prefix shim is probed by absolute path, so a
-fresh install is found even when it is not on this process's PATH.
+The installer runs detached from the controlling terminal
+(start_new_session), so its tty-gated prompts take their non-interactive
+defaults: install, reinstall, or migrate; no shell-profile edits (PATH
+stays with the dotfiles profile); no auto-start of pi.
 
 Extensions, settings, and auth material are NOT handled here — they are
 chezmoi-deployed from dot_pi/ in the dotfiles repo.
 """
-import argparse
 import os
-import re
-import shutil
 import subprocess
 import sys
+import tempfile
+import urllib.request
 
-from _pi_install import is_managed_pi_launcher, managed_pi_package
-from _shared import Platform, log, windows_home
+from _shared import Platform, log
 
-PKG = "@earendil-works/pi-coding-agent"
-
-# pi's engines field: ">=22.19.0"
-NODE_FLOOR = (22, 19, 0)
-
-# Fixed install prefixes: outside any node version directory, and on PATH
-# (~/.local/bin on unix; the Windows prefix is added by the PowerShell profile).
-POSIX_PREFIX = "~/.local"
-# Relative to the Windows profile, not to ~: MSYS2/Cygwin ~ is not %USERPROFILE%.
-WINDOWS_PREFIX_PARTS = ("Apps", "pi")
-WINDOWS_PREFIX = "~/" + "/".join(WINDOWS_PREFIX_PARTS)
-
-_SEMVER = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?")
+INSTALL_SH = "https://pi.dev/install.sh"
+INSTALL_PS1 = "https://pi.dev/install.ps1"
 
 
-def parse_node_version(output):
-    """'v26.9.0\\n' -> (26, 9, 0); unparseable -> None."""
-    if not output:
-        return None
-    match = _SEMVER.search(output)
-    if not match:
-        return None
-    return tuple(int(part) for part in match.group(0).split(".")[:3])
-
-
-def is_sufficient(version):
-    """True when node meets pi's engines floor (None means unknown)."""
-    if version is None:
-        return False
-    return version >= NODE_FLOOR
-
-
-def npm_install_command(npm_path, prefix):
-    return [npm_path, "install", "-g", "--prefix", prefix, "--ignore-scripts", PKG]
-
-
-def install_prefix(plat, override=None):
-    """The npm prefix pi installs into; ~ paths expanded."""
-    if override:
-        return os.path.expanduser(override)
+def installer_command(plat, script_path=None):
+    """The installer invocation for this platform; POSIX needs the downloaded
+    script path, Windows embeds the remote URL."""
     if plat.is_windows:
-        return windows_home(*WINDOWS_PREFIX_PARTS)
-    return os.path.expanduser(POSIX_PREFIX)
+        return ["powershell", "-NoProfile", "-Command", f"irm {INSTALL_PS1} | iex"]
+    return ["sh", str(script_path)]
 
 
-def bin_dir(prefix, plat):
-    """Where npm drops global shims: prefix root on Windows, prefix/bin on unix."""
-    return prefix if plat.is_windows else os.path.join(prefix, "bin")
+def download_installer(url=INSTALL_SH):
+    """Fetch the remote installer over HTTPS into a temp file; path or raise."""
+    # pi.dev rejects the default Python-urllib user agent with 403
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "dotfiles-install_pi.py/1.0"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        data = response.read()
+    fd, path = tempfile.mkstemp(prefix="pi-install-", suffix=".sh")
+    with os.fdopen(fd, "wb") as script:
+        script.write(data)
+    return path
 
 
-def _normalize(path):
-    """normcase+normpath, for comparing directories across separators/case."""
-    return os.path.normcase(os.path.normpath(path))
-
-
-def under_prefix(path, prefix, plat):
-    """True when `path` is a launcher inside `prefix`'s bin directory."""
-    return _normalize(os.path.dirname(path)) == _normalize(bin_dir(prefix, plat))
-
-
-def path_contains(directory, path_env=None):
-    """True when `directory` is one of the PATH entries."""
-    path_env = os.environ.get("PATH", "") if path_env is None else path_env
-    return any(_normalize(part) == _normalize(directory)
-               for part in path_env.split(os.pathsep) if part)
-
-
-def launcher_names(name, plat):
-    """PATH names to probe for a command, most specific first.
-
-    npm and pi are .cmd shims on Windows. Native Python appends PATHEXT when
-    probing, but a Python started from Git Bash or MSYS has os.name == "posix"
-    and does not, so ask for the shim explicitly.
-    """
-    if plat.is_windows:
-        return [name + plat.script_ext, name]
-    return [name]
-
-
-def find_launcher(name, plat, which=None):
-    """First launcher on PATH across launcher_names(), or None."""
-    which = which or shutil.which
-    for candidate in launcher_names(name, plat):
-        found = which(candidate)
-        if found:
-            return found
-    return None
-
-
-def global_bin(name, prefix, plat):
-    """Path of a globally installed npm command under `prefix`."""
-    suffix = plat.script_ext if plat.is_windows else ""
-    return os.path.join(bin_dir(prefix, plat), name + suffix)
-
-
-def find_pi(prefix, plat, which=None):
-    """Installed pi launcher: the prefix shim first, then PATH.
-
-    Probing the prefix by absolute path matters right after an install,
-    when npm's new shim is not yet on this process's PATH; the PATH scan
-    then finds (and lets main warn about) a stale pi elsewhere.
-    """
-    which = which or shutil.which
-    shim = which(global_bin("pi", prefix, plat))
-    if shim:
-        return shim
-    return find_launcher("pi", plat, which)
-
-
-def parse_pi_version(output):
-    """First semver token in `pi --version` output, or None."""
-    if not output:
-        return None
-    match = _SEMVER.search(output)
-    return match.group(0) if match else None
-
-
-def _subprocess_run(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True)
+def _subprocess_run(cmd, **options):
+    return subprocess.run(cmd, capture_output=True, text=True, **options)
 
 
 def main(argv=None, run=None, plat=None):
-    parser = argparse.ArgumentParser(
-        description="Install/update pi, preserving an active managed installation; "
-                    "otherwise use npm install -g --prefix with --ignore-scripts.")
-    parser.add_argument("--check", action="store_true",
-                        help="report installed vs latest and exit without installing")
-    parser.add_argument("--force", action="store_true",
-                        help="reinstall even if the installed version is current")
-    parser.add_argument("--prefix", default=None,
-                        help=f"request an npm install into this prefix (default for fresh installs: "
-                             f"{POSIX_PREFIX} on unix, {WINDOWS_PREFIX} on Windows)")
-    args = parser.parse_args(argv)
-
     run = run or _subprocess_run
     plat = plat or Platform.detect()
-    prefix = install_prefix(plat, args.prefix)
 
-    node = find_launcher("node", plat)
-    if not node:
-        log("Error: node not found on PATH.", "red")
-        log(f"Install Node >= {'.'.join(map(str, NODE_FLOOR))} first "
-            "(fnm, nvm, or the system package).", "yellow")
-        return 1
-    result = run([node, "--version"])
-    version = parse_node_version(result.stdout)
-    if not is_sufficient(version):
-        log(f"Error: node {'.'.join(map(str, version)) if version else (result.stdout or '').strip()} "
-            f"is too old; pi needs >= {'.'.join(map(str, NODE_FLOOR))}.", "red")
-        return 1
-
-    npm = find_launcher("npm", plat)
-    if not npm:
-        log("Error: npm not found on PATH (it ships with node).", "red")
-        return 1
-
-    managed_package = managed_pi_package() if args.prefix is None else None
-    path_pi = find_launcher("pi", plat)
-    managed = is_managed_pi_launcher(path_pi, managed_package)
-    pi_bin = path_pi if managed else find_pi(prefix, plat)
-    current = None
-    if pi_bin:
-        result = run([pi_bin, "--version"])
-        current = parse_pi_version(result.stdout)
-        if current is None:
-            log("Warning: existing pi could not report a version; reinstalling.", "yellow")
-    # Keep active managed installations in place. Other out-of-prefix npm
-    # installations still migrate into the fixed prefix.
-    in_prefix = managed or (pi_bin is not None and under_prefix(pi_bin, prefix, plat))
-
-    result = run([npm, "view", PKG, "version"])
-    latest = result.stdout.strip() if result.returncode == 0 and _SEMVER.fullmatch(result.stdout.strip()) else None
-
-    if args.check:
-        if current is None:
-            log("pi is not installed.", "red")
-            return 1
-        if latest is None:
-            log("Error: could not reach the npm registry to determine the latest version.", "red")
-            return 1
-        if in_prefix and current == latest:
-            log(f"pi is up to date ({current}).", "green")
-            return 0
-        log(f"pi {current} installed, {latest} available.", "yellow")
-        if not in_prefix:
-            log(f"pi outside the install prefix; it would be installed into {prefix}.", "yellow")
-        return 1
-
-    up_to_date = current is not None and latest is not None and current == latest
-    if up_to_date and in_prefix and not args.force:
-        log(f"pi is already the latest version ({current}); use --force to reinstall.", "green")
-        return 0
-
-    if latest is None:
-        log("Warning: could not determine the latest version (registry unreachable); "
-            "installing anyway.", "yellow")
-
-    if managed:
-        cmd = [pi_bin, "update", "--self"]
-        if args.force:
-            cmd.append("--force")
-        log(f"Updating managed pi: {' '.join(cmd)}", "cyan")
+    if plat.is_windows:
+        cmd = installer_command(plat)
+        log(f"Running the official pi installer: {' '.join(cmd)}", "cyan")
+        result = run(cmd)
     else:
-        cmd = npm_install_command(npm, prefix)
-        log(f"Installing pi into {prefix}: {' '.join(cmd)}", "cyan")
-    result = run(cmd)
+        try:
+            script = download_installer()
+        except OSError as exc:
+            log(f"Error: could not download the official installer ({exc}).", "red")
+            return 1
+        cmd = installer_command(plat, script)
+        log(f"Running the official pi installer: {' '.join(cmd)}", "cyan")
+        try:
+            # start_new_session detaches the controlling terminal, so the
+            # installer's tty-gated prompts take their non-interactive
+            # defaults: install, reinstall, or migrate; no profile edits;
+            # no auto-start of pi.
+            result = run(cmd, start_new_session=True)
+        finally:
+            try:
+                os.unlink(script)
+            except OSError:
+                pass
+
     if result.returncode != 0:
-        operation = "managed pi update" if managed else "npm install"
-        log(f"Error: {operation} failed (exit {result.returncode}).", "red")
-        if result.stderr and result.stderr.strip():
-            print(result.stderr.strip(), file=sys.stderr)
+        log(f"Error: pi installer failed (exit {result.returncode}).", "red")
+        for stream in (result.stdout, result.stderr):
+            if stream and stream.strip():
+                print(stream.strip(), file=sys.stderr)
         return 1
-
-    pi_bin = path_pi if managed else find_pi(prefix, plat)
-    installed = None
-    if pi_bin:
-        result = run([pi_bin, "--version"])
-        installed = parse_pi_version(result.stdout) if result.returncode == 0 else None
-    if installed is None:
-        log("Error: install ran but `pi --version` does not report a version.", "red")
-        return 1
-
-    log(f"pi {installed} installed -> {pi_bin}", "green")
-    if managed:
-        return 0
-    shim_dir = bin_dir(prefix, plat)
-    if not path_contains(shim_dir):
-        log(f"Note: {shim_dir} is not on PATH; add it so `pi` resolves.", "yellow")
-    shadowing = find_launcher("pi", plat)
-    if shadowing and not under_prefix(shadowing, prefix, plat):
-        log(f"Note: another pi on PATH ({shadowing}) can shadow {pi_bin}.", "yellow")
-    log("Next steps:", "cyan")
-    log("  - extensions/settings deploy with the dotfiles: chezmoi apply", None)
-    log("  - authenticate providers inside pi (/model), or ~/.pi/agent/auth.json", None)
-    log("  - PI_OFFLINE / NODE_USE_SYSTEM_CA are managed by the shell profile", None)
+    if result.stdout and result.stdout.strip():
+        print(result.stdout.strip())
     return 0
 
 
