@@ -27,6 +27,7 @@ chezmoi:modify-template
     "**/gpt-6.1-sol"
     "**/gemini-3.8-flash"
     "**/qwen3.8-flash"
+    "**/mimo-v2.6*"
 ) $current }}
 {{- /* Use Pi's built-in compaction token defaults. Remove only the previous
      global token settings, preserving enabled and any per-model overrides. */}}
