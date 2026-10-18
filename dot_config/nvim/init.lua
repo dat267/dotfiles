@@ -2,6 +2,7 @@ vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
 require "options"
+require "colorscheme"
 require "keymaps"
 require "autocmds"
 require "treesitter"

@@ -35,10 +35,25 @@ opt.undofile = true
 opt.swapfile = false
 opt.clipboard = "unnamedplus"
 
--- Explicit background (supplemented by NVIM_NOTTYFAST env var for E1568)
-opt.background = "dark"
-
 local autocmd = vim.api.nvim_create_autocmd
+
+-- Follow the terminal's theme instead of forcing one. Don't override the
+-- 'background' the TUI sets (from the terminal's own report when it answers
+-- OSC 11, else the default); clearing Normal's background lets the terminal's
+-- own color show instead of the colorscheme's. Re-apply after the scheme
+-- reloads with 'background' (OptionSet fires after startup) and on live theme
+-- changes (DEC mode 2031).
+local function use_terminal_background()
+  vim.api.nvim_set_hl(0, "Normal", { bg = "none", ctermbg = "none" })
+end
+use_terminal_background()
+autocmd("ColorScheme", { callback = use_terminal_background })
+autocmd("OptionSet", {
+  pattern = "background",
+  callback = function()
+    vim.schedule(use_terminal_background)
+  end,
+})
 autocmd("OptionSet", {
   pattern = "clipboard",
   callback = function()
