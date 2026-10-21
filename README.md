@@ -36,7 +36,7 @@ separately after the first apply.
 | **PowerShell** | Profile + custom `Utils.psm1` module |
 | **VS Code** | Settings + snippet files across languages |
 | **SSH** | Client config (Tailscale/CGNAT hosts) |
-| **AI** | opencode (minimal config), Pi (agent config, extensions, skills) |
+| **AI** | opencode (minimal config, shares Pi skills), Pi (agent config, extensions, skills) |
 
 ## Platform Support
 
@@ -55,7 +55,7 @@ dot_config/zed/           Zed editor settings
 dot_config/wezterm/       WezTerm terminal config
 dot_config/yazi/          Yazi file manager
 dot_config/powershell/    PowerShell profile + module
-dot_config/opencode/      opencode config (defaults only)
+dot_config/opencode/      opencode config (defaults, Pi skills)
 dot_config/mpv/           mpv media player
 dot_config/aria2/         aria2 download manager
 dot_config/Code/User/     VS Code settings + snippet files
