@@ -16,7 +16,6 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 - `executable_dotfiles.py` — rclone + git sync (`dotfiles up`/`dotfiles down`)
 - `executable_lsp.py` — LSP server installer (gopls, pyright, etc.)
 - `executable_cloudsh.py` — GCP Cloud Shell SSH tunnel; keepalives notice a dropped link and a reconnect loop retries it (a reconnect starts a fresh shell, nothing on the remote outlives the connection)
-- `executable_termux_theme.py` — picks a random Termux scheme from `~/.termux/themes/<dark|light>/` (the full base16 set, 254 dark + 106 light, generated from `tinted-theming/schemes`) based on Android's day/night flag; detection is best-effort (`cmd uimode`, `rish`, `settings`, adb) because an unprivileged app cannot read `ui_night_mode`, so it falls back to `--set` state
 - `executable_sysinfo.py`, `executable_url_decode_rename.py`, `executable_mpv`
 - `executable_mdk.py` — one-shot markdown search: ripgrep lists matching lines, fzf picks one, `$EDITOR` opens at the match (alias `mdk`)
 - Shell-friendly converters: `executable_jsonfmt.py` (pretty/minify/sort JSON), `executable_epoch.py` (epoch↔ISO), `executable_csvtable.py` (CSV→aligned table), `executable_dupfind.py` (duplicate files by size+hash), `executable_b64.py` (base64 encode/decode for binary blobs)
