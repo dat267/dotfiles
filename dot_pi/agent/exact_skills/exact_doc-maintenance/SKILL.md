@@ -1,6 +1,6 @@
 ---
 name: doc-maintenance
-description: Audit a repo's documentation against the current code and fix drift with minimal edits. User-invoked via /skill:doc-maintenance, optionally with a doc path or scope.
+description: Audit a repo's documentation against the current code and fix drift with minimal edits. Invoked explicitly, optionally with a doc path or scope.
 disable-model-invocation: true
 ---
 
@@ -20,12 +20,24 @@ that habit missed, by comparing the docs to the code as it stands now.
 
 ## 1. Find the repo's doc surfaces
 
-Discover, do not assume. List the versioned docs:
+Discover, do not assume. List the docs the project ships. With Git:
 
 ```bash
 git ls-files -- '*.md' '*.mdx' '*.rst' '*.txt' \
   | grep -Ev '(^|/)(node_modules|vendor|third_party|dist|build|\.git|target)/'
 ```
+
+Without Git, or when a doc may be ignored but still shipped, walk the tree
+instead and apply the same exclusions:
+
+```bash
+find . -path ./.git -prune -o \
+  \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt' \) -print \
+  | grep -Ev '(^|/)(node_modules|vendor|third_party|dist|build|target)/'
+```
+
+Honor the project's own ignore rules when they exist; a vendored or generated
+tree that the ignore file names is out of scope even when it matches.
 
 Sort what you find by audience:
 
@@ -69,20 +81,27 @@ sits a couple of paragraphs away from a missing one.
 - No new sections. If a feature needs one, report it as a follow-up.
 - Keep the top-level README small; it should not churn often.
 
-## 4. Commit — never push
+## 4. Commit when the workspace allows it
 
-Stage explicit paths only (never `git add -A`):
+If the project uses version control, stage explicit paths only (never a
+whole-tree add):
 
 ```bash
 git add <the doc paths you edited>
 git commit -m "docs: <what was fixed>"
 ```
 
-Match the repo's commit style from the recent log. If its workflow wants a branch or PR, create the branch — but still stop before pushing. Push is the user's call: end by handing them the exact `git push` command.
+Match the repo's commit style from the recent log. If its workflow wants a branch
+or PR, create the branch, but still stop before pushing. Push is the user's call:
+end by handing them the exact push command. When the workspace reserves commits
+for the user, or uses a version-control tool you cannot drive, leave the edits in
+the tree and say so instead of committing.
 
 ## 5. Verify
 
-- Every sentence written must be true of the code **as committed**. If code and doc disagree, decide which is wrong: fix the doc, or report the code bug. Do not silently change code in a doc pass.
+- Every sentence written must be true of the code as it stands now. If code and
+  doc disagree, decide which is wrong: fix the doc, or report the code bug. Do not
+  silently change code in a doc pass.
 - Re-read the edited region in context before committing.
 
 ## Report
@@ -90,11 +109,11 @@ Match the repo's commit style from the recent log. If its workflow wants a branc
 - Files audited, and which claims were checked against which code
 - Doc edits made (file → what changed)
 - Follow-ups that need larger doc work (new sections, guides)
-- The `git push` command for the user
+- The push command for the user, when version control is in use
 
 ## Boundaries
 
 - Documentation only: never change code, configs, or scripts in a doc pass.
-- Never push — hand the user the command.
-- Stage explicit paths; never `git add -A`.
+- Never push; hand the user the command.
+- Stage explicit paths, never a whole-tree add.
 - If a write is blocked (permissions), stop and hand the user the command instead of working around it.

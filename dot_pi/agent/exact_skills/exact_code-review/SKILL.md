@@ -1,16 +1,16 @@
 ---
 name: code-review
-description: Manually audit a codebase for logic flaws, concurrency bugs, security vulnerabilities, parity gaps against specs, and measured performance problems. Reproduce findings before fixing them, then implement and verify repairs. User-invoked via /skill:code-review, optionally with a scope or audit-only argument.
+description: Manually audit a codebase for logic flaws, concurrency bugs, security vulnerabilities, parity gaps against specs, and measured performance problems. Reproduce findings before fixing them, then implement and verify repairs. Invoked explicitly, optionally with a scope or audit-only argument.
 disable-model-invocation: true
 ---
 
 # Code review
 
-The default workflow
-audits the whole first-party codebase, reproduces each finding, records it, then
-repairs and verifies it. Instructions after the command can narrow the scope,
-set a time budget, request audit-only, or resume existing findings. Honor those
-limits. Invocation is not permission to push, release, or install dependencies.
+The default workflow audits the whole first-party codebase, reproduces each
+finding, records it, then repairs and verifies it. Instructions after the
+invocation can narrow the scope, set a time budget, request audit-only, or
+resume existing findings. Honor those limits. Invocation is not permission to
+push, release, or install dependencies.
 
 ## 1. Establish the baseline
 

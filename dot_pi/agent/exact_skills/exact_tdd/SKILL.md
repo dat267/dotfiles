@@ -41,12 +41,31 @@ Ask for confirmation only when choosing the seam changes scope or the behavior c
 
 ## Test conventions
 
-Match the repo's existing conventions first. Defaults when none exist:
+Match the repo's existing conventions first: its runner, its file naming, its
+directory layout. Defaults only when none exist:
 
-- Node/TypeScript: `node --test` (no test runner dependencies)
+- JavaScript/TypeScript: `node --test` (no test runner dependencies)
 - Python: `unittest` (stdlib only)
-- Tests live beside the code as `<name>.test.ts` / `test_<name>.py`, or in `tests/` — follow the repo
+- Go: `go test ./...`
+- Rust: `cargo test`
+- Ruby: `ruby -Itest`, or the repo's existing Rake task
+- Other stacks: the language's own runner (`mix test`, `dotnet test`, `swift test`)
+- Tests live beside the code as `<name>.test.ts` / `test_<name>.py`, or in a test
+  directory under whatever name the repo already uses
 - Pure logic gets direct tests; I/O and side effects get mocked at the boundary
+
+## When no harness exists
+
+A repo with no test infrastructure is not a license to skip verification, and
+the loop above cannot run in it as written. Choose one, and say which:
+
+- Add the smallest harness the stack supports (one test file, the built-in
+  runner), then follow the loop. This is the default when the change is code.
+- Verify by a reproducible check that would fail if the behavior broke: a script
+  asserting exit code and output, a golden-file comparison, a query against a
+  fixture. State the command and its output, and name what it does not cover.
+- If neither is possible, report that the change is unverified rather than
+  claiming it works.
 
 ## When NOT to apply the full loop
 
@@ -59,3 +78,5 @@ Skip the full loop for these cases; mention the exemption only when needed to ex
 
 Done means: all relevant tests green, no skipped or weakened assertions.
 If a relevant test is red or cannot run, report which one and why.
+If the stack has no tests and you used a substitute check, report that check
+and what it does not cover.

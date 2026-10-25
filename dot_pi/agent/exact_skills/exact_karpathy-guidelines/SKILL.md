@@ -6,7 +6,7 @@ license: MIT
 
 # Karpathy Guidelines
 
-Guardrails derived from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls. They trade speed for caution. Skip them for trivial work. The repo's `AGENTS.md` and existing conventions override this skill.
+Guardrails derived from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls. They trade speed for caution. Skip them for trivial work. The workspace's own instructions (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, editor rule directories) and existing conventions override this skill.
 
 ## 1. Think before coding
 
@@ -44,6 +44,9 @@ Gate: every changed line traces to the user's request.
 git diff --stat   # scope of the change
 git diff          # each hunk traces to the request
 ```
+
+Without version control, read back every file you touched in full and apply the
+same test to each hunk.
 
 ## 4. Verify before claiming done
 

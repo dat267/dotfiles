@@ -28,7 +28,8 @@ Construct one, in roughly this order:
 4. Replay a captured trace (request, payload, event log) through the code path.
 5. Throwaway harness in the platform temporary directory exercising the bug path in one call.
 6. Property or fuzz loop: 1000 random inputs for "sometimes wrong".
-7. Bisection harness driven by `git bisect run`.
+7. Bisection harness driven by `git bisect run`, or the equivalent in the
+   project's version control.
 8. Differential loop: same input through old vs new, diff the outputs.
 9. User-relay loop for machines you cannot touch: hand the user one exact command, take back the redacted output.
 
@@ -68,7 +69,9 @@ Trace the bad value backward: where did it originate, and what called this with 
 
 Multi-layer systems (CI to build to signing, API to service to database): instrument each component boundary before proposing fixes. Log what enters and exits every layer, and verify environment and config propagation. Run once to see where it breaks, then investigate that layer.
 
-Recent changes are prime suspects. Check `git log`, `git diff`, new dependencies, and config or environment drift.
+Recent changes are prime suspects. Check the version-control history and diff,
+new dependencies, and config or environment drift. Without history, compare
+against a known-good copy or the last released artifact.
 
 ## Phase 4: Hypothesise and test
 
@@ -90,9 +93,16 @@ After three consecutive probes yield no new evidence, stop repeating them. Chang
 
 ## Phase 5: Fix, verify, escalate
 
-Hand off to the **tdd** skill: turn the minimised repro into a failing test at the right seam, watch it fail, fix, watch it pass, then re-run the Phase 1 loop against the original un-minimised scenario.
+Fix red-first: turn the minimised repro into a failing test at the right seam,
+watch it fail, fix, watch it pass, then re-run the Phase 1 loop against the
+original un-minimised scenario. When a **tdd** skill is available, follow it.
+When the stack has no test harness, use the substitute check: a reproducible
+command or fixture that fails before the fix and passes after.
 
-Check the seam first. A seam too shallow to replicate the chain that triggered the bug gives false confidence. When no correct seam exists, that is a finding: flag it for the **code-review** skill.
+Check the seam first. A seam too shallow to replicate the chain that triggered
+the bug gives false confidence. When no correct seam exists, that is a finding:
+hand it to a **code-review** skill when one is available, and otherwise report it
+directly.
 
 Stop after three failed fixes. Fixes that each reveal a new problem in a new place signal a wrong architecture, not a wrong hypothesis. Discuss the architecture with the user before a fourth attempt.
 
