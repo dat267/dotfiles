@@ -27,15 +27,11 @@ push, release, or install dependencies.
   claim parity was verified.
 - Run the workspace's own gate (lint, vet, typecheck, test) as a baseline.
   Record pre-existing failures so a new one can be distinguished from them.
-- Track scope, evidence, repairs, and verification in a coverage ledger, as
-  working notes or a session plan. Do not create a ledger file in the repository
-  unless the workspace already keeps review artifacts there or the user agrees.
 
 ## 2. Inventory and inspect systematically
 
-Keep a coverage ledger while working: which areas were inspected, which were
-not applicable and why, and which remain. It lives in your working notes, not in
-the repository, unless a location is agreed.
+Track which areas were inspected, which were not applicable and why, and which
+remain. Keep this in your working notes, not in the repository.
 
 Inventory first-party production code, tests, scripts, build and release
 workflows, and configuration. Exclude vendored dependencies, generated data,
@@ -133,7 +129,7 @@ structure:
 ```
 
 Prioritize by reachable impact, not warning count. Keep IDs stable while a
-finding is open. Audit-only runs stop after the ledger and the plan.
+finding is open. Audit-only runs stop after the findings and the plan.
 
 ## 4. Execute confirmed repairs
 
@@ -157,8 +153,8 @@ For each finding, in priority order:
    the matching controls. Confirm the original reproduction is resolved and no
    intended behavior was lost.
 4. Update authoritative docs when behavior or status changed. Remove the finding
-   from the tracker only after its repair is verified, keeping its resolution in
-   the coverage ledger. Do not erase unrelated or blocked work.
+   from the tracker only after its repair is verified, and state what was
+   confirmed. Do not erase unrelated or blocked work.
 5. Commit each finished piece before starting the next one. "Finished" means one
    independent unit: a finding's regression plus its minimal fix, or one
    coherent docs or skill change. Confirm the pending changes contain only that
@@ -177,7 +173,7 @@ For each finding, in priority order:
   failures or claim a check that was not run.
 - If version control is used, inspect the diff and new files for scope,
   accidental secrets, unrelated edits, and whitespace errors.
-- Report fixed findings, remaining entries, where the ledger is kept, the
-  verification performed, and any required next action.
+- Report fixed findings, remaining entries, the verification performed, and any
+  required next action.
 - State coverage limits plainly: static analysis plus passing tests cannot
   certify the absence of bugs, vulnerabilities, or races.
