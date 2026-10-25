@@ -10,9 +10,6 @@ Specifications are executable artifacts, not documentation written after the
 fact. Each phase produces a file the next phase reads, and implementation
 follows the task list rather than improvising from a chat summary.
 
-Adapted from SpillwaveSolutions/sdd-skill (MIT), which builds on GitHub
-Spec-Kit by Den Delimarsky and John Lam.
-
 ## Artifacts
 
 - `.specify/memory/constitution.md`: project principles, non-negotiable.
@@ -118,4 +115,3 @@ them instead of proceeding.
 ## Sources
 
 - Spec-Kit: https://github.com/github/spec-kit
-- Upstream skill: https://github.com/SpillwaveSolutions/sdd-skill
