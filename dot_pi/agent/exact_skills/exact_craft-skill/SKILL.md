@@ -67,8 +67,6 @@ Add a script only for deterministic work (validation, formatting, generation) th
 - Lowercase letters, digits, and hyphens; 1–64 characters; no leading, trailing, or repeated hyphens.
 - pi does not require the name to match the folder. Keep them equal anyway, unless one folder is shared across several agent tools.
 
-A recognized name beats a compliant one: `grill-me` earns its exception by being unmistakable.
-
 ## 5. Gates carry commands
 
 Every quality gate in the skill MUST name a runnable command.
