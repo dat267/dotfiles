@@ -27,13 +27,15 @@ push, release, or install dependencies.
   claim parity was verified.
 - Run the workspace's own gate (lint, vet, typecheck, test) as a baseline.
   Record pre-existing failures so a new one can be distinguished from them.
-- Track scope, evidence, repairs, and verification in the coverage ledger or a
-  session plan.
+- Track scope, evidence, repairs, and verification in a coverage ledger, as
+  working notes or a session plan. Do not create a ledger file in the repository
+  unless the workspace already keeps review artifacts there or the user agrees.
 
 ## 2. Inventory and inspect systematically
 
 Keep a coverage ledger while working: which areas were inspected, which were
-not applicable and why, and which remain.
+not applicable and why, and which remain. It lives in your working notes, not in
+the repository, unless a location is agreed.
 
 Inventory first-party production code, tests, scripts, build and release
 workflows, and configuration. Exclude vendored dependencies, generated data,
@@ -175,7 +177,7 @@ For each finding, in priority order:
   failures or claim a check that was not run.
 - If version control is used, inspect the diff and new files for scope,
   accidental secrets, unrelated edits, and whitespace errors.
-- Report fixed findings, remaining entries, the ledger location, the
+- Report fixed findings, remaining entries, where the ledger is kept, the
   verification performed, and any required next action.
 - State coverage limits plainly: static analysis plus passing tests cannot
   certify the absence of bugs, vulnerabilities, or races.
