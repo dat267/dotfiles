@@ -1,6 +1,6 @@
 ---
 name: doc-maintenance
-description: Audit a repo's documentation for drift against recent git history and fix it with minimal edits. User-invoked via /skill:doc-maintenance, optionally with a lookback ref or window.
+description: Audit a repo's documentation against the current code and fix drift with minimal edits. User-invoked via /skill:doc-maintenance, optionally with a doc path or scope.
 disable-model-invocation: true
 ---
 
@@ -8,13 +8,15 @@ disable-model-invocation: true
 
 Audit the docs against what the code does **now**, and fix drift with minimal edits. No rewrites, no churn.
 
-This is the periodic counterpart to the change-time habit: when a change touches something a doc describes, update it in the same commit. This skill catches what that habit missed.
+This is the periodic counterpart to the change-time habit: when a change touches something a doc describes, update it in the same commit. This skill catches what
+that habit missed, by comparing the docs to the code as it stands now.
 
 ## When to run
 
-- Periodically, or after a run of feature/removal commits
+- Periodically, or after a run of feature or removal work
 - When asked "are the docs up to date / accurate?"
 - Before a release, or after a long pause
+- After adopting a repo whose docs you do not trust
 
 ## 1. Find the repo's doc surfaces
 
@@ -39,53 +41,27 @@ Out of scope unless the repo's own conventions say otherwise: generated docs (AP
 
 State in one line which files you will audit, before editing. The user may redirect.
 
-## 2. Choose the window
+## 2. Audit each doc against the current code
 
-Cursor = the last commit that touched any audit target. No state file, and the audit's own doc commit becomes the next cursor:
+Read the code the doc describes; never audit from memory or from a list of
+commits. For each doc, check:
 
-```bash
-DOCS="README.md AGENTS.md"                 # the paths chosen in step 1
-LAST=$(git log -1 --format=%H -- $DOCS)
-SINCE="${LAST:-$(git log --format=%H --after='60 days ago' --reverse | head -1)}"
-git log "$SINCE"..HEAD --oneline --no-merges
-```
-
-If the user passed a ref or window (a SHA, `main~20`, `30 days ago`), use it as `$SINCE`. If nothing landed since the cursor, say so and stop.
-
-## 3. Classify changes since the cursor
-
-Infer the repo's commit style instead of assuming one — read `git log -20 --format=%s` and match it. Then classify by content, not by prefix:
-
-| Signal | Category | Audit? |
-|---|---|---|
-| new capability — new command, flag, module, endpoint, config key, platform | Feature | yes, if user-facing |
-| removal — dropped command/flag/tool/module, or a renamed public thing | Removal | yes |
-| new directory, new build/test target, changed convention or layout | Structural | maybe |
-| internal refactor, test-only, formatting, dependency bumps | Maintenance | no |
-| docs-only | Doc | no (already handled) |
-
-Borderline: read the diff. A commit titled "refactor" that adds a public flag or endpoint is a Feature.
-
-## 4. Summarize
-
-```
-Since <sha> (<date>):
-- FEATURE: <what shipped>
-- REMOVAL: <what went away and what replaces it>
-- STRUCTURAL: <layout or convention change>
-```
-
-## 5. Audit each doc
-
-Read each doc **fully** and check it against the summary:
-
-1. **False negatives** — a shipped capability the doc never mentions.
-2. **False positives** — stale paths, removed commands/flags/tools, or "todo"/"planned" claims that already shipped.
-3. **Command accuracy** — do the documented commands still run? Run them when cheap.
-4. **Table/list accuracy** — feature tables, directory maps, option lists, supported-platform lists.
+1. **Missing capabilities** — code ships something the doc never mentions.
+2. **Stale claims** — paths, commands, flags, tools, or defaults that no longer
+   exist, or "todo"/"planned" text for work that already shipped.
+3. **Command accuracy** — documented commands and examples still run. Run the
+   cheap ones, and read the flag or option definitions for the rest.
+4. **Table and list accuracy** — feature tables, directory maps, option lists,
+   supported-platform lists, and counts.
 5. **Cross-references** — links, paths, and examples point at things that exist.
+6. **Behavioral comments** — header comments that describe a flag, quoting rule,
+   load order, or file purpose still match the code they sit in.
 
-## 6. Apply minimal edits
+Work doc by doc, and state which doc and which claims you are checking before
+editing so the user can redirect. Read each doc whole: a stale claim usually
+sits a couple of paragraphs away from a missing one.
+
+## 3. Apply minimal edits
 
 - Fix the fact, not the prose.
 - Preserve voice, style, and table shape; match surrounding entries.
@@ -93,7 +69,7 @@ Read each doc **fully** and check it against the summary:
 - No new sections. If a feature needs one, report it as a follow-up.
 - Keep the top-level README small; it should not churn often.
 
-## 7. Commit — never push
+## 4. Commit — never push
 
 Stage explicit paths only (never `git add -A`):
 
@@ -102,17 +78,16 @@ git add <the doc paths you edited>
 git commit -m "docs: <what was fixed>"
 ```
 
-Match the repo's commit style from step 3. If its workflow wants a branch or PR, create the branch — but still stop before pushing. Push is the user's call: end by handing them the exact `git push` command.
+Match the repo's commit style from the recent log. If its workflow wants a branch or PR, create the branch — but still stop before pushing. Push is the user's call: end by handing them the exact `git push` command.
 
-## 8. Verify
+## 5. Verify
 
 - Every sentence written must be true of the code **as committed**. If code and doc disagree, decide which is wrong: fix the doc, or report the code bug. Do not silently change code in a doc pass.
 - Re-read the edited region in context before committing.
 
 ## Report
 
-- Files audited, and the window scanned (cursor sha/date, commit count)
-- Notable changes found, by category
+- Files audited, and which claims were checked against which code
 - Doc edits made (file → what changed)
 - Follow-ups that need larger doc work (new sections, guides)
 - The `git push` command for the user
