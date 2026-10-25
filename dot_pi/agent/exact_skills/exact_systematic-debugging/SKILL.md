@@ -92,7 +92,7 @@ After three consecutive probes yield no new evidence, stop repeating them. Chang
 
 Hand off to the **tdd** skill: turn the minimised repro into a failing test at the right seam, watch it fail, fix, watch it pass, then re-run the Phase 1 loop against the original un-minimised scenario.
 
-Check the seam first. A seam too shallow to replicate the chain that triggered the bug gives false confidence. When no correct seam exists, that is a finding: flag it for the **improve-codebase-architecture** skill.
+Check the seam first. A seam too shallow to replicate the chain that triggered the bug gives false confidence. When no correct seam exists, that is a finding: flag it for the **code-review** skill.
 
 Stop after three failed fixes. Fixes that each reveal a new problem in a new place signal a wrong architecture, not a wrong hypothesis. Discuss the architecture with the user before a fourth attempt.
 
