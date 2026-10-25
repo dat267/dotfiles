@@ -39,9 +39,10 @@ Inventory first-party production code, tests, scripts, build and release
 workflows, and configuration. Exclude vendored dependencies, generated data,
 and build output. Work in bounded slices until coverage is complete or the
 budget runs out. Prioritize trust boundaries, persistence, cancellation and
-shutdown, and recent changes, but do not stop at the first bug or review only
-recent diffs. Trace values through callers, callees, and error paths: a search
-result or analyzer warning marks an area to inspect, not a finding.
+shutdown, churn hotspots, files that past fixes touched, and recent changes, but
+do not stop at the first bug or review only recent diffs. Trace values through
+callers, callees, and error paths: a search result or analyzer warning marks an
+area to inspect, not a finding.
 
 ### Review lenses
 
@@ -84,14 +85,33 @@ result or analyzer warning marks an area to inspect, not a finding.
    callers. Report these as design findings; they are not defects and must not
    be refactored without the user's agreement.
 
+### Avoid missed findings
+
+- List untrusted entry points (arguments, files, network, environment, plugin
+  or provider data) and dangerous sinks (process execution, file writes,
+  deserialization, credentials, queries). Trace each reachable pair; an
+  untraced pair is an unverified area, not a clean one.
+- Before inspecting an area, write two or three concrete ways it could be
+  wrong, then try to falsify each.
+- Apply a failure matrix at each boundary: empty and nil, error path, timeout,
+  cancellation, partial write, permission denied, offline and retry, malformed
+  and oversized input, concurrent mutation, restart and replay.
+- A clean area names the files read and the probes attempted. Record unverified
+  separately from passed; do not turn absence of evidence into a pass.
+- Read the area's tests for branches without assertions and inspect those
+  branches by hand. A test gap is a verification gap, not a defect.
+
 ## 3. Reproduce and record before repairing
 
 For each candidate, establish a reachable scenario, the actual result, the
-expected result and its authority, the root cause, and the user impact.
-Minimize the case and include a matching control. Reject scenarios that depend
-only on impossible internal state, documented divergences, or unsupported
-features. If a candidate cannot be reproduced, keep it explicitly unconfirmed
-and do not patch it.
+expected result and its authority, the root cause, and the user impact. The
+expected result comes from the workspace's contract or the pinned specs, not
+from personal preference or another project's convention. Minimize the case and
+include a matching control. Reject scenarios that depend only on impossible
+internal state, documented divergences, or unsupported features. If a candidate
+cannot be reproduced, keep it explicitly unconfirmed and do not patch it.
+Report one finding per root cause and merge duplicates: the same defect reached
+through several call sites is one finding.
 
 Record confirmed, unresolved findings before editing production code, using the
 workspace's existing tracker (for example `TODO.md`, an issue list, or a findings
