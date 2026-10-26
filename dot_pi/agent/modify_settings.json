@@ -6,10 +6,11 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "quietStartup" "header" $current }}
 {{- $_ := setValueAtPath "fullscreenExitOutput" "resume-hint" $current }}
 {{- $_ := setValueAtPath "hideThinkingBlock" true $current }}
-{{- /* flat: a palette-only theme. Every panel background is the terminal default,
-     so the terminal's own background shows through, and foreground roles use ANSI
-     slots so One Dark, One Light, and any other scheme keep working. */}}
-{{- $_ := setValueAtPath "theme" "flat" $current }}
+{{- /* system: pi derives its colors from the terminal's foreground, background,
+     and ANSI palette, and rebuilds them when the terminal switches light/dark.
+     The managed "flat" theme is installed as an option and paints no panel
+     backgrounds, but it is not selected here. */}}
+{{- $_ := setValueAtPath "theme" "system" $current }}
 {{- $_ := setValueAtPath "steeringMode" "one-at-a-time" $current }}
 {{- $_ := setValueAtPath "transport" "auto" $current }}
 {{- $_ := setValueAtPath "markdown.mermaid" "streaming" $current }}

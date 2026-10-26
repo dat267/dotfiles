@@ -36,5 +36,5 @@ class PiSettingsTest(unittest.TestCase):
                     self.assertEqual(rendered.get("extensions"),
                                      (selections if extensions is not None else []) + [disabled])
                     self.assertEqual(rendered["customPreference"], "keep")
-                    self.assertEqual(rendered["theme"], "flat")
+                    self.assertEqual(rendered["theme"], "system")
                     self.assertEqual(render(rendered), rendered)
