@@ -12,5 +12,5 @@
 
 ## Later
 
-- [ ] Run `doc-maintenance` periodically so the five project files do not drift.
+- [ ] Run `documentation` periodically so the five project files do not drift.
 - [ ] Re-check the Windows workflow when a Windows-only path changes outside `exact_py`, `dot_pi`, `dot_config/powershell`, and the `run_*.ps1.tmpl` files it triggers on.

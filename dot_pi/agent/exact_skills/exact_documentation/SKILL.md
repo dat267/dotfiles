@@ -1,9 +1,9 @@
 ---
-name: doc-maintenance
+name: documentation
 description: Own a project's five documents, README.md, AGENTS.md, TODO.md, STATUS.md, and DECISIONS.md. Set them up with the right shape, decide where an update belongs, and audit every doc the repo ships against the current code for drift. Use when starting a project, deciding which file owns a fact, bootstrapping the files, or checking whether docs are accurate.
 ---
 
-# Doc Maintenance
+# Documentation
 
 Two jobs, one convention. Create the five project documents with the right shape when a project starts, then audit the docs against what the code does **now** and fix drift with minimal edits. No rewrites, no churn.
 

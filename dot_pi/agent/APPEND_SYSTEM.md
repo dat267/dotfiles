@@ -22,4 +22,4 @@ Projects keep five files: `README.md` (what it is and how to use it), `AGENTS.md
 
 `AGENTS.md` loads automatically. Read `STATUS.md`, `TODO.md`, and `DECISIONS.md` when they exist before planning real work. Skip that for a one-line question or a trivial edit. When a change makes a doc wrong, update it in the same piece of work, and do not leave a fact only in the response when a project file owns it.
 
-The `doc-maintenance` skill owns the file shapes, which file owns which fact, and the audit that catches drift.
+The `documentation` skill owns the file shapes, which file owns which fact, and the audit that catches drift.

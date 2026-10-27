@@ -54,7 +54,7 @@ Dates are omitted; `git log` records when each change landed. `Status` marks an 
 
 - Status: active
 - Context: state was spread across responses, commit messages, and ad hoc notes, and none of it survived a session.
-- Decision: `README.md`, `AGENTS.md`, `TODO.md`, `STATUS.md`, and `DECISIONS.md`, each owning one kind of fact. A summary lives in `APPEND_SYSTEM.md` because only `AGENTS.md` is loaded automatically, and the file shapes, the ownership boundaries, and the audit live in the `doc-maintenance` skill.
+- Decision: `README.md`, `AGENTS.md`, `TODO.md`, `STATUS.md`, and `DECISIONS.md`, each owning one kind of fact. A summary lives in `APPEND_SYSTEM.md` because only `AGENTS.md` is loaded automatically, and the file shapes, the ownership boundaries, and the audit live in the `documentation` skill.
 - Alternatives rejected: letting each project invent its own document set, which makes the agent guess where a fact belongs; putting the full conventions in the system prompt, which costs context in every session.
 - Consequences: one fact per file with links instead of copies, missing files are reported rather than silently created, and one skill carries both the setup shapes and the audit, so there is no second copy to keep in sync.
 
@@ -62,7 +62,7 @@ Dates are omitted; `git log` records when each change landed. `Status` marks an 
 
 - Status: active
 - Context: a repo can ship guides, contributor docs, and release notes that drift just as the five files do.
-- Decision: `doc-maintenance` confirms the five project files first, then discovers and audits every other documentation file, checking each against the code as it stands rather than against commit history.
+- Decision: `documentation` confirms the five project files first, then discovers and audits every other documentation file, checking each against the code as it stands rather than against commit history.
 - Alternatives rejected: auditing only the five, which misses `docs/` and contributor guides; driving the audit from a lookback window of commits, which misses drift older than the window and needs version control to run.
 - Consequences: the skill is longer, and the audit cost scales with how much documentation a repo ships.
 
