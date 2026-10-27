@@ -28,4 +28,4 @@ Projects keep five files: `README.md` (what it is, install, usage), `AGENTS.md` 
 - Do not leave a fact only in the response when a project file owns it.
 - If files are missing, name them and offer to create them. Create all five only for a new project or when asked.
 
-Use the `project-docs` skill for structure, templates, and audits.
+Use the `doc-maintenance` skill for the file shapes, where an update belongs, and audits.

@@ -1,22 +1,54 @@
 ---
 name: doc-maintenance
-description: Audit a repo's documentation against the current code and fix drift with minimal edits. The five project files, README.md, AGENTS.md, TODO.md, STATUS.md, and DECISIONS.md, come first, then every other doc the repo ships. Invoked explicitly, optionally with a file or scope.
-disable-model-invocation: true
+description: Own a project's five documents, README.md, AGENTS.md, TODO.md, STATUS.md, and DECISIONS.md. Set them up with the right shape, decide where an update belongs, and audit every doc the repo ships against the current code for drift. Use when starting a project, deciding which file owns a fact, bootstrapping the files, or checking whether docs are accurate.
 ---
 
 # Doc Maintenance
 
-Audit the docs against what the code does **now**, and fix drift with minimal edits. No rewrites, no churn.
+Two jobs, one convention. Create the five project documents with the right shape when a project starts, then audit the docs against what the code does **now** and fix drift with minimal edits. No rewrites, no churn.
 
 This is the periodic counterpart to the change-time habit: when a change touches something a doc describes, update it in the same commit. This skill catches what
 that habit missed, by comparing the docs to the code as it stands now.
 
 ## When to run
 
+- Starting a project, or a project with none of the five files
+- When deciding which file owns a fact
 - Periodically, or after a run of feature or removal work
 - When asked "are the docs up to date / accurate?"
 - Before a release, or after a long pause
 - After adopting a repo whose docs you do not trust
+
+## The five project documents
+
+Each fact has one home. Extend the files a project already has; do not impose these shapes on them.
+
+| File | Owns | Does not own |
+|---|---|---|
+| `README.md` | What the project is, how to install and use it, supported platforms, entry points | Internal conventions, task lists, history |
+| `AGENTS.md` | How to work on it: layout, commands, conventions, constraints, policies | User-facing usage, why a design was chosen |
+| `TODO.md` | Every work item not yet done, ordered by priority, with enough context to start | Completed work, current-state narrative |
+| `STATUS.md` | Where it stands now: completed work, current focus, blockers, and a pointer to the next action | The backlog, or the reasons behind a choice |
+| `DECISIONS.md` | Why a choice was made, the alternatives rejected, and what would change the decision | Implementation detail, tasks |
+
+`AGENTS.md` is loaded automatically when Pi runs in the project; the other four must be read.
+
+### TODO or STATUS
+
+The two overlap unless they answer different questions. `TODO.md` answers what is left to do; `STATUS.md` answers where the work stands.
+
+- `TODO.md` owns every work item that is not done, including blocked ones, which carry what would unblock them.
+- `STATUS.md` owns no work items. It records completed work, the current focus, and blockers as state, then points at the top of `TODO.md` for what happens next.
+- A finished item leaves `TODO.md` and becomes one line under completed work in `STATUS.md`.
+- New work goes to `TODO.md`, never to the next-action line of `STATUS.md`.
+
+### STATUS or DECISIONS
+
+`STATUS.md` states effects; `DECISIONS.md` states reasons. A shipped change is one line in the completed list, and the reasoning, if it is worth keeping, is one entry in `DECISIONS.md`.
+
+- A choice that is still open is a `TODO.md` item, never a `DECISIONS.md` entry. An entry records a choice that was made.
+- When a decision is replaced, keep the entry and mark it `superseded by <title>` with the reason. Deleting it loses why the project left that path.
+- Do not copy rationale into `STATUS.md`, and do not record progress or state in `DECISIONS.md`.
 
 ## 1. Inventory the documents
 
@@ -34,7 +66,7 @@ ls README.md AGENTS.md TODO.md STATUS.md DECISIONS.md 2>/dev/null
 | `STATUS.md` | current state, completed work, blockers, and a next action that matches the top of `TODO.md` |
 | `DECISIONS.md` | choices that still hold, with the alternatives rejected |
 
-Missing files are a finding, not something to create in a doc pass: say which are missing and offer to add them.
+Missing files are a finding, not something to create in an audit pass; see Creating the documents.
 
 Then audit every other documentation file the repo ships. Discover them, do not assume. With Git:
 
@@ -117,6 +149,50 @@ the tree and say so instead of committing.
   doc disagree, decide which is wrong: fix the doc, or report the code bug. Do not
   silently change code in a doc pass.
 - Re-read the edited region in context before committing.
+
+## Creating the documents
+
+Missing files are a finding, not something to add in an audit pass: say which are missing and offer to create them. Create all five at once only for a new project or when the user asks for project docs. Start each from the project's own content, never from lorem ipsum or a guess about what it will become.
+
+`README.md`: what it is, install, first use, supported platforms, license. Keep it small.
+
+`AGENTS.md`: layout, build and test commands, conventions, constraints, policies.
+
+`TODO.md`:
+```markdown
+# TODO
+## Now
+- [ ] <task> (<why now>)
+## Next
+- [ ] <task>
+## Later
+- [ ] <task>
+```
+
+`STATUS.md`:
+```markdown
+# Status
+## Current state
+<one paragraph: what works, what does not>
+## Completed
+- <work done, newest first>
+## Blockers
+- <blocker, what it stops, and what would unblock it>
+## Next action
+<the top of TODO.md Now, by name>
+```
+
+`DECISIONS.md`:
+```markdown
+# Decisions
+## <short title>
+- Date: <YYYY-MM-DD or the repo's convention>
+- Status: active, or superseded by <title>
+- Context: <the situation that forced a choice>
+- Decision: <what was chosen>
+- Alternatives rejected: <option> because <reason>
+- Consequences: <what this commits the project to>
+```
 
 ## Report
 

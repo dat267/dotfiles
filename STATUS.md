@@ -14,8 +14,10 @@ Working tree clean on `main`, in sync with `origin/main` after the project-docum
 
 ## Completed
 
+- `doc-maintenance` now owns the five-document convention, including the shapes to create them, and the separate `project-docs` skill is gone.
+
 - Stale `@earendil-works/chord` symlinks from a removed Pi release are gone, and `pi_lint_extensions` now prunes dangling links instead of leaving them for the next tool that walks the tree.
-- Five project documents introduced (this file set), with an always-on summary in `dot_pi/agent/APPEND_SYSTEM.md` and structure, templates, and audit steps in the `project-docs` skill.
+- Five project documents introduced (this file set), with an always-on summary in `dot_pi/agent/APPEND_SYSTEM.md` and the shapes and audit in the `doc-maintenance` skill.
 - Skills made portable: no Pi-only invocation syntax, Git steps conditional with non-Git fallbacks, `tdd` covers more stacks and repos without a harness, cross-skill handoffs optional.
 - `code-review` replaced `improve-codebase-architecture`, and its coverage ledger was removed.
 - Pi `flat` theme added; `system` kept as the default.

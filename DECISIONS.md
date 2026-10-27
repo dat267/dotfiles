@@ -54,9 +54,9 @@ Dates are omitted; `git log` records when each change landed. `Status` marks an 
 
 - Status: active
 - Context: state was spread across responses, commit messages, and ad hoc notes, and none of it survived a session.
-- Decision: `README.md`, `AGENTS.md`, `TODO.md`, `STATUS.md`, and `DECISIONS.md`, each owning one kind of fact. A ten-line summary lives in `APPEND_SYSTEM.md` because only `AGENTS.md` is loaded automatically, and structure, templates, and audit steps live in the `project-docs` skill.
+- Decision: `README.md`, `AGENTS.md`, `TODO.md`, `STATUS.md`, and `DECISIONS.md`, each owning one kind of fact. A summary lives in `APPEND_SYSTEM.md` because only `AGENTS.md` is loaded automatically, and the file shapes, the ownership boundaries, and the audit live in the `doc-maintenance` skill.
 - Alternatives rejected: letting each project invent its own document set, which makes the agent guess where a fact belongs; putting the full conventions in the system prompt, which costs context in every session.
-- Consequences: one fact per file with links instead of copies, and missing files are reported rather than silently created.
+- Consequences: one fact per file with links instead of copies, missing files are reported rather than silently created, and one skill carries both the setup shapes and the audit, so there is no second copy to keep in sync.
 
 ## Doc audits cover every doc, the five first
 
