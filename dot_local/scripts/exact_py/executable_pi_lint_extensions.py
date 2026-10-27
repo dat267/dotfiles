@@ -89,12 +89,32 @@ def ensure_symlink(link, target):
 	return True
 
 
+def prune_dangling(scope):
+	"""Remove symlinks in `scope` whose target is gone; True if changed.
+
+	A release that shipped a package the current one no longer ships leaves its
+	link behind, and ensure_deps never revisits names it no longer resolves.
+	The dangling link is invisible to tsc but visible to every tool that walks
+	the tree, chezmoi included, which fails on the missing target. Real files
+	and directories stay: they are the caller's, not this layout's.
+	"""
+	if not scope.is_dir():
+		return False
+	changed = False
+	for entry in sorted(scope.iterdir()):
+		if entry.is_symlink() and not entry.exists():
+			entry.unlink()
+			changed = True
+	return changed
+
+
 def ensure_deps(ext_dir, pi_pkg):
 	"""Create the per-dir node_modules symlink layout; True if anything changed.
 
 	Links the pi package, sibling packages hoisted into the release's
 	node_modules, and dependencies nested under pi itself. Nested dependencies
-	take precedence, matching Node's package resolution.
+	take precedence, matching Node's package resolution. Dangling links left by
+	an older release are pruned.
 	"""
 	changed = False
 	nm = ext_dir / "node_modules"
@@ -113,6 +133,8 @@ def ensure_deps(ext_dir, pi_pkg):
 	if not types.is_dir():
 		types = pi_pkg.parents[1] / "@types" / "node"
 	changed |= ensure_symlink(nm / "@types" / "node", types)
+	changed |= prune_dangling(nm / "@earendil-works")
+	changed |= prune_dangling(nm / "@types")
 	return changed
 
 

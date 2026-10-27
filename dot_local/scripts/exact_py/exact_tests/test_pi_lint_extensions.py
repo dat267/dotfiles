@@ -242,6 +242,33 @@ class TestDeps(PiplineCase):
 		self.assertTrue(link.is_dir())
 		self.assertFalse(link.is_symlink())
 
+	def test_prunes_a_package_link_left_dangling_by_an_older_release(self):
+		# A release that shipped a package the current one does not leave the
+		# link behind. It is invisible to tsc but visible to every tool that
+		# walks the tree, chezmoi included, which dies on the missing target.
+		d = self.make_ext("exact_footer", ["index.ts"])
+		stale = d / "node_modules" / "@earendil-works" / "chord"
+		stale.parent.mkdir(parents=True)
+		os.symlink(self.root / "gone-release" / "chord", stale)
+		self.assertTrue(self.ensure(d))
+		self.assertFalse(stale.is_symlink())
+		self.assertFalse(stale.exists())
+
+	def test_keeps_a_real_directory_no_release_ships(self):
+		d = self.make_ext("exact_footer", ["index.ts"])
+		kept = d / "node_modules" / "@earendil-works" / "chord"
+		kept.mkdir(parents=True)
+		self.ensure(d)
+		self.assertTrue(kept.is_dir())
+
+	def test_prunes_a_dangling_types_link(self):
+		d = self.make_ext("exact_footer", ["index.ts"])
+		stale = d / "node_modules" / "@types" / "gone"
+		stale.parent.mkdir(parents=True)
+		os.symlink(self.root / "gone-types", stale)
+		self.ensure(d)
+		self.assertFalse(stale.is_symlink())
+
 
 class TestAggregation(PiplineCase):
 	def setUp(self):

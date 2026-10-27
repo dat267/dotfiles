@@ -2,7 +2,6 @@
 
 ## Now
 
-- [ ] Remove or repoint `dot_pi/agent/exact_extensions/exact_auto-default/node_modules/@earendil-works/chord`. It targets `~/.pi/agent/install/releases/1.1.0/...`, which no longer exists, and it makes `chezmoi execute-template` fail when the source is the repo. The six `test_lifecycle_hooks` errors are downstream of it.
 - [ ] Confirm the `mimeapps.list` TTY conflict on a real full `chezmoi apply`, then either fix the managed entry or keep documenting the targeted-apply workaround. `chezmoi apply --dry-run` is currently clean.
 
 ## Next

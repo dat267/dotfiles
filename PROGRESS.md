@@ -2,16 +2,19 @@
 
 ## Current state
 
-Working tree clean on `main`, three local commits ahead of `origin/main` (the project-documentation work). Everything managed by chezmoi is deployed: Pi settings select the `system` theme with `flat` installed as an option, the six skills load without warnings, and `~/.pi/agent/APPEND_SYSTEM.md` carries the project-document section. `chezmoi apply --dry-run` reports nothing pending.
+Working tree clean on `main`, four local commits ahead of `origin/main` (the project-documentation work and the symlink cleanup). Everything managed by chezmoi is deployed: Pi settings select the `system` theme with `flat` installed as an option, the six skills load without warnings, and `~/.pi/agent/APPEND_SYSTEM.md` carries the project-document section. `chezmoi apply --dry-run` reports nothing pending.
 
 ## Verified
 
-- `python3 -m unittest discover -s exact_tests` from `dot_local/scripts/exact_py/`: 710 tests, 6 errors, all in `test_lifecycle_hooks` and all caused by the broken `chord` symlink.
+- `python3 -m unittest discover -s exact_tests` from `dot_local/scripts/exact_py/`: 713 tests, all pass.
+- `pi_lint_extensions --root <repo>`: all six extension directories pass `tsc --strict`.
+- No dangling symlinks anywhere in the tree, so `chezmoi execute-template` renders from the repo source again.
 - Pi's own skill loader over `dot_pi/agent/exact_skills`: six skills, zero warnings.
 - `chezmoi apply --dry-run`: no output, so no pending changes.
 
 ## Completed
 
+- Stale `@earendil-works/chord` symlinks from a removed Pi release are gone, and `pi_lint_extensions` now prunes dangling links instead of leaving them for the next tool that walks the tree.
 - Five project documents introduced (this file set), with an always-on summary in `dot_pi/agent/APPEND_SYSTEM.md` and structure, templates, and audit steps in the `project-docs` skill.
 - Skills made portable: no Pi-only invocation syntax, Git steps conditional with non-Git fallbacks, `tdd` covers more stacks and repos without a harness, cross-skill handoffs optional.
 - `code-review` replaced `improve-codebase-architecture`, and its coverage ledger was removed.
@@ -22,10 +25,9 @@ Working tree clean on `main`, three local commits ahead of `origin/main` (the pr
 
 ## Blockers
 
-- The `@earendil-works/chord` symlink under `exact_auto-default/node_modules` points at a removed release. It keeps six lifecycle tests red and breaks template rendering when the source directory is the repo.
+None.
 
 ## Next steps
 
-1. Push the three local commits.
-2. Fix the broken symlink, then re-run `test_lifecycle_hooks`.
-3. Confirm the `mimeapps.list` behavior on a real full apply and record the outcome here.
+1. Push the four local commits.
+2. Confirm the `mimeapps.list` behavior on a real full apply and record the outcome here.
