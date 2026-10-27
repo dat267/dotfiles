@@ -82,10 +82,10 @@ Dates are omitted; `git log` records when each change landed. `Status` marks an 
 - Alternatives rejected: installing every Nerd Font, which multiplies download size and installs variants that are never selected.
 - Consequences: adding another font is a code change, not a flag.
 
-## The appended prompt ranks clarity above conciseness
+## The appended prompt puts correctness and evidence first
 
 - Status: active
-- Context: the appended system prompt packed the communication rules into a few dense lines, and some fragments, such as the boundaries line, could be read two ways.
-- Decision: state the priority explicitly (correctness, safety, and honest uncertainty first, then clarity, then conciseness), rewrite the ambiguous fragments, and group the rules under response shape, wording, verification, and scope.
-- Alternatives rejected: preserving the shortest possible text, because ambiguity changes behavior and costs more than the extra lines; leaving the priority implicit, because a conflict between brevity and clarity then has no stated resolution.
-- Consequences: the prompt is longer, and future edits should resolve ambiguity before cutting words.
+- Context: the appended system prompt packed the communication rules into a few dense lines, some fragments could be read two ways, and it did not say what backs a claim.
+- Decision: rank correctness first with evidence or a stated reason required for every claim, then safety and honest uncertainty, then clarity over conciseness; rewrite the ambiguous fragments and group the rules under correctness and evidence, response shape, wording, verification, and scope.
+- Alternatives rejected: preserving the shortest possible text, because ambiguity changes behavior and costs more than the extra lines; leaving the priority or the evidence requirement implicit, because a claim without a cited command, file, or source cannot be checked.
+- Consequences: the prompt is longer, and every claim in a response must name the command, file, or source behind it, or state the reason; future edits should resolve ambiguity before cutting words.

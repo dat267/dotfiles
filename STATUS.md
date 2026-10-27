@@ -2,7 +2,7 @@
 
 ## Current state
 
-Working tree clean on `main`, three local commits ahead of `origin/main`: the `documentation` rename, the doc audit, and the clarity rewrite of the appended prompt. The Pi config is deployed, including the renamed `documentation` skill, but two source edits are pending: `APPEND_SYSTEM.md` and `~/.local/scripts/py/AGENTS.md`. Pi settings select the `system` theme with `flat` installed as an option, and all five skills are deployed.
+Working tree clean on `main`, four local commits ahead of `origin/main`: the `documentation` rename, the doc audit, the clarity rewrite, and the correctness-and-evidence rewrite of the appended prompt. The Pi config is deployed, including the renamed `documentation` skill, but two source edits are pending: `APPEND_SYSTEM.md` and `~/.local/scripts/py/AGENTS.md`. Pi settings select the `system` theme with `flat` installed as an option, and all five skills are deployed.
 
 ## Verified
 
@@ -14,7 +14,7 @@ Working tree clean on `main`, three local commits ahead of `origin/main`: the `d
 
 ## Completed
 
-- `APPEND_SYSTEM.md` reordered to rank clarity above conciseness, with the ambiguous boundary and wording rules rewritten and the prompt grouped under response shape, wording, verification, and scope.
+- `APPEND_SYSTEM.md` now ranks correctness and evidence first, then safety and honest uncertainty, then clarity and conciseness; every claim must cite a command and its output, a file and its lines, a direct quote, or a stated reason.
 
 - Doc audit against the code: corrected the deploy state and skill verification in `STATUS.md`, the `chezmoi status` claim in `TODO.md`, the stale Visual Studio snippets claim in `README.md`, the Windows CI description and command block in `AGENTS.md`, and the stale path and `expectedFailure` convention in `dot_local/scripts/exact_py/AGENTS.md`.
 
