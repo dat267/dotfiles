@@ -81,3 +81,11 @@ Dates are omitted; `git log` records when each change landed. `Status` marks an 
 - Decision: `install_nerd_font.py` fetches only Hack Nerd Font.
 - Alternatives rejected: installing every Nerd Font, which multiplies download size and installs variants that are never selected.
 - Consequences: adding another font is a code change, not a flag.
+
+## The appended prompt ranks clarity above conciseness
+
+- Status: active
+- Context: the appended system prompt packed the communication rules into a few dense lines, and some fragments, such as the boundaries line, could be read two ways.
+- Decision: state the priority explicitly (correctness, safety, and honest uncertainty first, then clarity, then conciseness), rewrite the ambiguous fragments, and group the rules under response shape, wording, verification, and scope.
+- Alternatives rejected: preserving the shortest possible text, because ambiguity changes behavior and costs more than the extra lines; leaving the priority implicit, because a conflict between brevity and clarity then has no stated resolution.
+- Consequences: the prompt is longer, and future edits should resolve ambiguity before cutting words.

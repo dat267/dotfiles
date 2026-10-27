@@ -2,7 +2,7 @@
 
 ## Current state
 
-Working tree clean on `main`, two local commits ahead of `origin/main`: the `documentation` rename and this doc audit. The Pi config is deployed, including `APPEND_SYSTEM.md` and the renamed `documentation` skill, but the audit's `exact_py/AGENTS.md` fix is not: `~/.local/scripts/py/AGENTS.md` is behind source until the next apply. Pi settings select the `system` theme with `flat` installed as an option, and all five skills are deployed.
+Working tree clean on `main`, three local commits ahead of `origin/main`: the `documentation` rename, the doc audit, and the clarity rewrite of the appended prompt. The Pi config is deployed, including the renamed `documentation` skill, but two source edits are pending: `APPEND_SYSTEM.md` and `~/.local/scripts/py/AGENTS.md`. Pi settings select the `system` theme with `flat` installed as an option, and all five skills are deployed.
 
 ## Verified
 
@@ -10,9 +10,11 @@ Working tree clean on `main`, two local commits ahead of `origin/main`: the `doc
 - `pi_lint_extensions.py --root "$PWD"`: six extension directories pass `tsc --strict` (`--root .` fails with `TS6053` because the linter resolves files from the root it is given).
 - No dangling symlinks anywhere in the tree, so `chezmoi execute-template` renders from the repo source again.
 - Five skill directories under `dot_pi/agent/exact_skills`, each `SKILL.md` frontmatter `name` matching its directory (`code-review`, `documentation`, `karpathy-guidelines`, `systematic-debugging`, `tdd`), and the deployed skills identical to source.
-- `chezmoi status` shows only the pending `~/.local/scripts/py/AGENTS.md` update; the deployed `APPEND_SYSTEM.md` and `documentation/SKILL.md` are identical to source.
+- `chezmoi status` shows only the pending `~/.pi/agent/APPEND_SYSTEM.md` and `~/.local/scripts/py/AGENTS.md` updates; the deployed `documentation` skill is identical to source.
 
 ## Completed
+
+- `APPEND_SYSTEM.md` reordered to rank clarity above conciseness, with the ambiguous boundary and wording rules rewritten and the prompt grouped under response shape, wording, verification, and scope.
 
 - Doc audit against the code: corrected the deploy state and skill verification in `STATUS.md`, the `chezmoi status` claim in `TODO.md`, the stale Visual Studio snippets claim in `README.md`, the Windows CI description and command block in `AGENTS.md`, and the stale path and `expectedFailure` convention in `dot_local/scripts/exact_py/AGENTS.md`.
 
@@ -37,4 +39,4 @@ None.
 
 ## Next action
 
-Run `git push` (yours to run), apply the pending doc update (`chezmoi apply --force ~/.local/scripts/py/AGENTS.md`, yours to run), then take the only `TODO.md` Now item: confirm the `mimeapps.list` behavior on a real full apply.
+Run `git push` (yours to run), apply the two pending doc updates (`chezmoi apply --force ~/.pi/agent/APPEND_SYSTEM.md ~/.local/scripts/py/AGENTS.md`, yours to run), then take the only `TODO.md` Now item: confirm the `mimeapps.list` behavior on a real full apply.
