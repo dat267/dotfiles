@@ -28,7 +28,7 @@ dot_config/powershell/    PowerShell profile + Utils.psm1 module
 dot_config/opencode/      opencode config (defaults, shares Pi skills)
 dot_config/Code/User/     VS Code settings + snippets
 dot_config/systemd/user/  Linux systemd user services (dsh-web)
-dot_pi/agent/             Pi config: APPEND_SYSTEM.md, settings modify template
+dot_pi/agent/             Pi config: settings modify template, themes
 dot_pi/agent/exact_extensions/  Pi extensions (deployed as extensions/)
 dot_pi/agent/exact_skills/      Pi skills (deployed as skills/)
 dot_pi/agent/themes/            Pi themes, including flat.json

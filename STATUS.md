@@ -2,17 +2,19 @@
 
 ## Current state
 
-Working tree clean on `main`, four local commits ahead of `origin/main`: the `documentation` rename, the doc audit, the clarity rewrite, and the correctness-and-evidence rewrite of the appended prompt. The Pi config is deployed, including the renamed `documentation` skill, but two source edits are pending: `APPEND_SYSTEM.md` and `~/.local/scripts/py/AGENTS.md`. Pi settings select the `system` theme with `flat` installed as an option, and all five skills are deployed.
+Working tree clean on `main`, five local commits ahead of `origin/main`: the `documentation` rename, the doc audit, the clarity rewrite, the correctness-and-evidence rewrite, and the removal of the appended prompt and documentation skill. The source has no `APPEND_SYSTEM.md` and four skills; the deployed config still has the old appended prompt and the `documentation` skill until the removal is applied. Pi settings select the `system` theme with `flat` installed as an option.
 
 ## Verified
 
 - `python3 -m unittest discover -s exact_tests` from `dot_local/scripts/exact_py/`: 713 tests, all pass (11 skipped).
 - `pi_lint_extensions.py --root "$PWD"`: six extension directories pass `tsc --strict` (`--root .` fails with `TS6053` because the linter resolves files from the root it is given).
 - No dangling symlinks anywhere in the tree, so `chezmoi execute-template` renders from the repo source again.
-- Five skill directories under `dot_pi/agent/exact_skills`, each `SKILL.md` frontmatter `name` matching its directory (`code-review`, `documentation`, `karpathy-guidelines`, `systematic-debugging`, `tdd`), and the deployed skills identical to source.
-- `chezmoi status` shows only the pending `~/.pi/agent/APPEND_SYSTEM.md` and `~/.local/scripts/py/AGENTS.md` updates; the deployed `documentation` skill is identical to source.
+- Four skill directories under `dot_pi/agent/exact_skills` (`code-review`, `karpathy-guidelines`, `systematic-debugging`, `tdd`); their deployed copies are identical to source.
+- `chezmoi status` shows the pending `.pi/agent/skills/documentation` deletion and `~/.local/scripts/py/AGENTS.md` update, plus a pre-existing `~/.pi/agent/settings.json` difference (`hideThinkingBlock` is `false` in the deployed file and `true` in the template). The deployed `APPEND_SYSTEM.md` is no longer managed once its source is gone, so it needs a manual removal.
 
 ## Completed
+
+- Removed `APPEND_SYSTEM.md` and the `documentation` skill, so Pi starts from its built-in prompt and the four remaining skills; the five project documents stay as the repo convention.
 
 - `APPEND_SYSTEM.md` now ranks correctness and evidence first, then safety and honest uncertainty, then clarity and conciseness; every claim must cite a command and its output, a file and its lines, a direct quote, or a stated reason.
 
@@ -39,4 +41,4 @@ None.
 
 ## Next action
 
-Run `git push` (yours to run), apply the two pending doc updates (`chezmoi apply --force ~/.pi/agent/APPEND_SYSTEM.md ~/.local/scripts/py/AGENTS.md`, yours to run), then take the only `TODO.md` Now item: confirm the `mimeapps.list` behavior on a real full apply.
+Run `git push` (yours to run), remove the deployed prompt and skill (`rm ~/.pi/agent/APPEND_SYSTEM.md` and `rm -rf ~/.pi/agent/skills/documentation`, yours to run), apply the pending doc update (`chezmoi apply --force ~/.local/scripts/py/AGENTS.md`, yours to run), then take the only `TODO.md` Now item: confirm the `mimeapps.list` behavior on a real full apply.

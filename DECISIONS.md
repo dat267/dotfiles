@@ -54,13 +54,13 @@ Dates are omitted; `git log` records when each change landed. `Status` marks an 
 
 - Status: active
 - Context: state was spread across responses, commit messages, and ad hoc notes, and none of it survived a session.
-- Decision: `README.md`, `AGENTS.md`, `TODO.md`, `STATUS.md`, and `DECISIONS.md`, each owning one kind of fact. A summary lives in `APPEND_SYSTEM.md` because only `AGENTS.md` is loaded automatically, and the file shapes, the ownership boundaries, and the audit live in the `documentation` skill.
-- Alternatives rejected: letting each project invent its own document set, which makes the agent guess where a fact belongs; putting the full conventions in the system prompt, which costs context in every session.
-- Consequences: one fact per file with links instead of copies, missing files are reported rather than silently created, and one skill carries both the setup shapes and the audit, so there is no second copy to keep in sync.
+- Decision: `README.md`, `AGENTS.md`, `TODO.md`, `STATUS.md`, and `DECISIONS.md`, each owning one kind of fact. `AGENTS.md` holds the summary because it loads automatically; the five files remain the convention, with no separate skill for their shapes or audit.
+- Alternatives rejected: letting each project invent its own document set, which makes the agent guess where a fact belongs; putting the full conventions in an always-loaded prompt, which costs context in every session.
+- Consequences: one fact per file with links instead of copies; the five files remain the convention, without a dedicated Pi skill.
 
 ## Doc audits cover every doc, the five first
 
-- Status: active
+- Status: superseded by "Pi runs the built-in prompt with four skills"; the documentation skill was removed.
 - Context: a repo can ship guides, contributor docs, and release notes that drift just as the five files do.
 - Decision: `documentation` confirms the five project files first, then discovers and audits every other documentation file, checking each against the code as it stands rather than against commit history.
 - Alternatives rejected: auditing only the five, which misses `docs/` and contributor guides; driving the audit from a lookback window of commits, which misses drift older than the window and needs version control to run.
@@ -84,8 +84,16 @@ Dates are omitted; `git log` records when each change landed. `Status` marks an 
 
 ## The appended prompt puts correctness and evidence first
 
-- Status: active
+- Status: superseded by "Pi runs the built-in prompt with four skills"; `APPEND_SYSTEM.md` was removed.
 - Context: the appended system prompt packed the communication rules into a few dense lines, some fragments could be read two ways, and it did not say what backs a claim.
 - Decision: rank correctness first with evidence or a stated reason required for every claim, then safety and honest uncertainty, then clarity over conciseness; rewrite the ambiguous fragments and group the rules under correctness and evidence, response shape, wording, verification, and scope.
 - Alternatives rejected: preserving the shortest possible text, because ambiguity changes behavior and costs more than the extra lines; leaving the priority or the evidence requirement implicit, because a claim without a cited command, file, or source cannot be checked.
 - Consequences: the prompt is longer, and every claim in a response must name the command, file, or source behind it, or state the reason; future edits should resolve ambiguity before cutting words.
+
+## Pi runs the built-in prompt with four skills
+
+- Status: active
+- Context: the custom appended prompt and the documentation skill added response rules and a periodic audit the user no longer wants.
+- Decision: remove `dot_pi/agent/APPEND_SYSTEM.md` and `dot_pi/agent/exact_skills/exact_documentation/`, so Pi starts from its built-in prompt and loads the four remaining skills.
+- Alternatives rejected: keeping the files and relying on the user to ignore them, because they would still be deployed and read; moving the five-document shapes into another file, because the user asked to remove the skill, not relocate it.
+- Consequences: the five project documents stay as the repo convention, but the detailed shapes and the audit pass are no longer shipped; response style comes from Pi's built-in prompt.
