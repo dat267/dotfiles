@@ -41,7 +41,7 @@ private_dot_ssh/          SSH client config
 
 ## Project documents
 
-`TODO.md` holds remaining work by priority, `PROGRESS.md` the current state, blockers, and next steps, and `DECISIONS.md` the choices made with the alternatives rejected. Update the file that owns a fact in the same piece of work. `README.md`, `AGENTS.md`, and these three are never deployed.
+`TODO.md` holds remaining work by priority, `STATUS.md` the current state, blockers, and next action, and `DECISIONS.md` the choices made with the alternatives rejected. Update the file that owns a fact in the same piece of work. `README.md`, `AGENTS.md`, and these three are never deployed.
 
 ## Commands
 
@@ -64,4 +64,4 @@ There is no in-process pi sandbox or permissions extension any more, so no `/per
 
 Deployments (`chezmoi apply`) and `sudo` are still run by the user in their own terminal, never by the agent: stage source changes in the workspace and hand over the command.
 
-`README.md`, `AGENTS.md`, `TODO.md`, `PROGRESS.md`, `DECISIONS.md`, and `LICENSE` are in `.chezmoiignore`: never deployed.
+`README.md`, `AGENTS.md`, `TODO.md`, `STATUS.md`, `DECISIONS.md`, and `LICENSE` are in `.chezmoiignore`: never deployed.

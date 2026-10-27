@@ -1,6 +1,6 @@
 ---
 name: project-docs
-description: Keep a project's five documents straight. README.md says what the project is and how to install and use it, AGENTS.md how to work on it, TODO.md what remains with priorities, PROGRESS.md the current state with completed work, blockers, and next steps, and DECISIONS.md why choices were made and which alternatives were rejected. Use when starting work in a project, deciding where an update belongs, bootstrapping the files, or auditing them for drift.
+description: Keep a project's five documents straight. README.md says what the project is and how to install and use it, AGENTS.md how to work on it, TODO.md what remains with priorities, STATUS.md the current state with completed work, blockers, and the next action, and DECISIONS.md why choices were made and which alternatives were rejected. Use when starting work in a project, deciding where an update belongs, bootstrapping the files, or auditing them for drift.
 ---
 
 # Project documents
@@ -12,32 +12,40 @@ Five files carry a project's state. Each fact has one home.
 | `README.md` | What the project is, how to install and use it, supported platforms, entry points | Internal conventions, task lists, history |
 | `AGENTS.md` | How to work on it: layout, commands, conventions, constraints, policies | User-facing usage, why a design was chosen |
 | `TODO.md` | Every work item not yet done, ordered by priority, with enough context to start | Completed work, current-state narrative |
-| `PROGRESS.md` | Where it stands now: completed work, current focus, blockers, and a pointer to the next action | The backlog, or decisions |
+| `STATUS.md` | Where it stands now: completed work, current focus, blockers, and a pointer to the next action | The backlog, or the reasons behind a choice |
 | `DECISIONS.md` | Why a choice was made, the alternatives rejected, and what would change the decision | Implementation detail, tasks |
 
 `AGENTS.md` is loaded automatically when Pi runs in the project; the other four must be read.
 
-## TODO or PROGRESS
+## TODO or STATUS
 
-The two overlap unless they answer different questions. `TODO.md` answers what is left to do; `PROGRESS.md` answers where the work stands.
+The two overlap unless they answer different questions. `TODO.md` answers what is left to do; `STATUS.md` answers where the work stands.
 
 - `TODO.md` owns every work item that is not done, including blocked ones, which carry what would unblock them.
-- `PROGRESS.md` owns no work items. It records completed work, the current focus, and blockers as state, then points at the top of `TODO.md` for what happens next.
-- A finished item leaves `TODO.md` and becomes one line under completed work in `PROGRESS.md`.
-- New work goes to `TODO.md`, never to the next-action line of `PROGRESS.md`.
+- `STATUS.md` owns no work items. It records completed work, the current focus, and blockers as state, then points at the top of `TODO.md` for what happens next.
+- A finished item leaves `TODO.md` and becomes one line under completed work in `STATUS.md`.
+- New work goes to `TODO.md`, never to the next-action line of `STATUS.md`.
+
+## STATUS or DECISIONS
+
+`STATUS.md` states effects; `DECISIONS.md` states reasons. A shipped change is one line in the completed list, and the reasoning, if it is worth keeping, is one entry in `DECISIONS.md`.
+
+- A choice that is still open is a `TODO.md` item, never a `DECISIONS.md` entry. An entry records a choice that was made.
+- When a decision is replaced, keep the entry and mark it `superseded by <title>` with the reason. Deleting it loses why the project left that path.
+- Do not copy rationale into `STATUS.md`, and do not record progress or state in `DECISIONS.md`.
 
 ## Read before writing
 
-At the start of real work in a project, read the ones that exist. `AGENTS.md` is already in context. Read `PROGRESS.md` and `TODO.md` before planning so the plan continues the work instead of repeating or contradicting it. Read `DECISIONS.md` before changing architecture, a public interface, or a convention, and do not reopen a settled decision without new evidence.
+At the start of real work in a project, read the ones that exist. `AGENTS.md` is already in context. Read `STATUS.md` and `TODO.md` before planning so the plan continues the work instead of repeating or contradicting it. Read `DECISIONS.md` before changing architecture, a public interface, or a convention, and do not reopen a settled decision without new evidence.
 
 Skip this for a one-line question or a trivial edit.
 
 ## Write when work lands
 
-- A completed task: delete it from `TODO.md`, and add one line under completed work in `PROGRESS.md`.
+- A completed task: delete it from `TODO.md`, and add one line under completed work in `STATUS.md`.
 - New work discovered: add it to `TODO.md` at its priority; do not leave it only in the response.
-- A blocked item: keep it in `TODO.md` with what would unblock it, and name the blocker in `PROGRESS.md` while it stops work.
-- A finished piece of work: refresh the current state and blockers in `PROGRESS.md`, and point its next action at the new top of `TODO.md`.
+- A blocked item: keep it in `TODO.md` with what would unblock it, and name the blocker in `STATUS.md` while it stops work.
+- A finished piece of work: refresh the current state and blockers in `STATUS.md`, and point its next action at the new top of `TODO.md`.
 - A choice with live alternatives: record it in `DECISIONS.md` with the alternatives rejected and the reason.
 - A changed install step, command, or convention: update `README.md` or `AGENTS.md` in the same change.
 
@@ -58,7 +66,7 @@ Do not impose these shapes on files that already have their own; extend what exi
 - [ ] <task>
 ```
 
-`PROGRESS.md`:
+`STATUS.md`:
 ```markdown
 # Progress
 ## Current state
@@ -76,6 +84,7 @@ Do not impose these shapes on files that already have their own; extend what exi
 # Decisions
 ## <short title>
 - Date: <YYYY-MM-DD or the repo's convention>
+- Status: active, or superseded by <title>
 - Context: <the situation that forced a choice>
 - Decision: <what was chosen>
 - Alternatives rejected: <option> because <reason>
@@ -85,7 +94,7 @@ Do not impose these shapes on files that already have their own; extend what exi
 ## Rules
 
 - One fact, one home. Link between files instead of copying.
-- Rewrite rather than append when the file is a snapshot. `PROGRESS.md` states the present, not a full history; completed work stays short.
+- Rewrite rather than append when the file is a snapshot. `STATUS.md` states the present, not a full history; completed work stays short.
 - Keep `README.md` small. It is the first thing a stranger reads, not the project's memory.
 - Record what is true now. A TODO that claims work is open after it shipped is worse than no TODO.
 - Do not invent history. If the reason for a past choice is unknown, say it is unrecorded instead of reconstructing a plausible one.
@@ -98,7 +107,7 @@ When asked whether the documents are accurate, check each against the code and t
 - `README.md`: do the install and usage commands run, and does the feature list match what ships?
 - `AGENTS.md`: do the commands, paths, and conventions match the tree?
 - `TODO.md`: is anything listed already done, and is anything known-but-unlisted absent?
-- `PROGRESS.md`: does it match the last known state, and are blockers still blockers?
+- `STATUS.md`: does it match the last known state, and are blockers still blockers?
 - `DECISIONS.md`: does each recorded decision still hold, and is anything reversed silently?
 
 Fix facts, not prose. Report drift you did not fix, and ask before restructuring a file.

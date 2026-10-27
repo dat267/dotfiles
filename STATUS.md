@@ -1,8 +1,8 @@
-# Progress
+# Status
 
 ## Current state
 
-Working tree clean on `main`, four local commits ahead of `origin/main` (the project-documentation work and the symlink cleanup). Everything managed by chezmoi is deployed: Pi settings select the `system` theme with `flat` installed as an option, the six skills load without warnings, and `~/.pi/agent/APPEND_SYSTEM.md` carries the project-document section. `chezmoi apply --dry-run` reports nothing pending.
+Working tree clean on `main`, six local commits ahead of `origin/main` (the project-documentation work, the symlink cleanup, and the TODO/STATUS split). Everything managed by chezmoi is deployed: Pi settings select the `system` theme with `flat` installed as an option, the six skills load without warnings, and `~/.pi/agent/APPEND_SYSTEM.md` carries the project-document section. `chezmoi apply --dry-run` reports nothing pending.
 
 ## Verified
 

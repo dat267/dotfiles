@@ -18,11 +18,12 @@ Never use em dashes (—); use a comma, colon, parentheses, or two sentences ins
 
 ## Project documents
 
-Projects keep five files: `README.md` (what it is, install, usage), `AGENTS.md` (layout, commands, conventions, constraints), `TODO.md` (work remaining, prioritized, blocked items included), `PROGRESS.md` (current state, completed work, blockers, next action), `DECISIONS.md` (choices made, alternatives rejected, reasons).
+Projects keep five files: `README.md` (what it is, install, usage), `AGENTS.md` (layout, commands, conventions, constraints), `TODO.md` (work remaining, prioritized, blocked items included), `STATUS.md` (current state, completed work, blockers, next action), `DECISIONS.md` (choices made, alternatives rejected, reasons).
 
-- `AGENTS.md` loads automatically. Read `PROGRESS.md`, `TODO.md`, and `DECISIONS.md` when they exist before planning real work. Skip this for a one-line question or a trivial edit.
-- `TODO.md` owns every unfinished work item. `PROGRESS.md` owns state and points at the top of `TODO.md` for what comes next, so it holds no work items of its own.
-- Update the file that owns the fact in the same piece of work: new or finished tasks in `TODO.md`, state and blockers in `PROGRESS.md`, a choice with live alternatives in `DECISIONS.md`, changed usage in `README.md`, changed conventions in `AGENTS.md`.
+- `AGENTS.md` loads automatically. Read `STATUS.md`, `TODO.md`, and `DECISIONS.md` when they exist before planning real work. Skip this for a one-line question or a trivial edit.
+- `TODO.md` owns every unfinished work item. `STATUS.md` owns state and points at the top of `TODO.md` for what comes next, so it holds no work items of its own.
+- `STATUS.md` states effects, `DECISIONS.md` states reasons. A choice that is still open is a `TODO.md` item. When a decision is replaced, mark it `superseded by <title>` instead of deleting it.
+- Update the file that owns the fact in the same piece of work: new or finished tasks in `TODO.md`, state and blockers in `STATUS.md`, a choice with live alternatives in `DECISIONS.md`, changed usage in `README.md`, changed conventions in `AGENTS.md`.
 - One fact, one home. Link between files instead of copying.
 - Do not leave a fact only in the response when a project file owns it.
 - If files are missing, name them and offer to create them. Create all five only for a new project or when asked.

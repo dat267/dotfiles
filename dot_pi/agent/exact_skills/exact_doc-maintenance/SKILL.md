@@ -1,6 +1,6 @@
 ---
 name: doc-maintenance
-description: Audit a repo's documentation against the current code and fix drift with minimal edits. The five project files, README.md, AGENTS.md, TODO.md, PROGRESS.md, and DECISIONS.md, come first, then every other doc the repo ships. Invoked explicitly, optionally with a file or scope.
+description: Audit a repo's documentation against the current code and fix drift with minimal edits. The five project files, README.md, AGENTS.md, TODO.md, STATUS.md, and DECISIONS.md, come first, then every other doc the repo ships. Invoked explicitly, optionally with a file or scope.
 disable-model-invocation: true
 ---
 
@@ -23,7 +23,7 @@ that habit missed, by comparing the docs to the code as it stands now.
 Start with the five project files, which carry the project's state. Find which exist:
 
 ```bash
-ls README.md AGENTS.md TODO.md PROGRESS.md DECISIONS.md 2>/dev/null
+ls README.md AGENTS.md TODO.md STATUS.md DECISIONS.md 2>/dev/null
 ```
 
 | File | Must be true about |
@@ -31,7 +31,7 @@ ls README.md AGENTS.md TODO.md PROGRESS.md DECISIONS.md 2>/dev/null
 | `README.md` | install and usage commands, feature list, supported platforms |
 | `AGENTS.md` | layout, conventions, build and test commands, policies |
 | `TODO.md` | the open work that is actually left, at the right priority, blocked items included |
-| `PROGRESS.md` | current state, completed work, blockers, and a next action that matches the top of `TODO.md` |
+| `STATUS.md` | current state, completed work, blockers, and a next action that matches the top of `TODO.md` |
 | `DECISIONS.md` | choices that still hold, with the alternatives rejected |
 
 Missing files are a finding, not something to create in a doc pass: say which are missing and offer to add them.
@@ -59,7 +59,7 @@ Sort what you find beyond the five by audience:
 | Contributors | `CONTRIBUTING*`, `ARCHITECTURE*`, `DESIGN*`, editor rule dirs | layout, conventions, build/test commands, policies |
 | Spec / product | `SPEC*`, `PRODUCT*`, `ROADMAP*`, ADRs | shipped vs unshipped features, accepted and superseded decisions |
 | History | `CHANGELOG*`, release notes, migration notes | entries match what shipped, migrations match the code |
-| Project state | `TODO.md`, `PROGRESS.md`, `DECISIONS.md` | open work that already shipped, state and blockers, decisions that still hold |
+| Project state | `TODO.md`, `STATUS.md`, `DECISIONS.md` | open work that already shipped, state and blockers, decisions that still hold |
 
 Also in scope: **behaviour-bearing comment headers** in source files, a comment documenting a flag, a quoting rule, a load order, or a file's purpose.
 
