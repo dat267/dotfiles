@@ -1,6 +1,6 @@
 ---
 name: doc-maintenance
-description: Audit a repo's documentation against the current code and fix drift with minimal edits. Invoked explicitly, optionally with a doc path or scope.
+description: Audit a repo's five project documents, README.md, AGENTS.md, TODO.md, PROGRESS.md, and DECISIONS.md, against the current code and fix drift with minimal edits. Invoked explicitly, optionally with a file or scope.
 disable-model-invocation: true
 ---
 
@@ -18,39 +18,27 @@ that habit missed, by comparing the docs to the code as it stands now.
 - Before a release, or after a long pause
 - After adopting a repo whose docs you do not trust
 
-## 1. Find the repo's doc surfaces
+## 1. Confirm the five project documents
 
-Discover, do not assume. List the docs the project ships. With Git:
-
-```bash
-git ls-files -- '*.md' '*.mdx' '*.rst' '*.txt' \
-  | grep -Ev '(^|/)(node_modules|vendor|third_party|dist|build|\.git|target)/'
-```
-
-Without Git, or when a doc may be ignored but still shipped, walk the tree
-instead and apply the same exclusions:
+A project documents itself in exactly five files. Find which exist:
 
 ```bash
-find . -path ./.git -prune -o \
-  \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt' \) -print \
-  | grep -Ev '(^|/)(node_modules|vendor|third_party|dist|build|target)/'
+ls README.md AGENTS.md TODO.md PROGRESS.md DECISIONS.md 2>/dev/null
 ```
 
-Honor the project's own ignore rules when they exist; a vendored or generated
-tree that the ignore file names is out of scope even when it matches.
+| File | Must be true about |
+|---|---|
+| `README.md` | install and usage commands, feature list, supported platforms |
+| `AGENTS.md` | layout, conventions, build and test commands, policies |
+| `TODO.md` | the open work that is actually left, at the right priority |
+| `PROGRESS.md` | current state, completed work, blockers, next steps |
+| `DECISIONS.md` | choices that still hold, with the alternatives rejected |
 
-Sort what you find by audience:
+Missing files are a finding, not something to create in a doc pass: say which are missing and offer to add them.
 
-| Audience | Typical files | Must be true about |
-|---|---|---|
-| Users | `README*`, `docs/`, `doc/`, guides, quickstarts | install/usage commands, feature lists, supported platforms, directory maps |
-| Contributors / agents | `CONTRIBUTING*`, `AGENTS.md`, `CLAUDE.md`, `ARCHITECTURE*`, editor rule dirs | layout, conventions, build/test commands, policies |
-| Spec / product | `SPEC*`, `PRODUCT*`, `ROADMAP*` | shipped vs unshipped features |
-| Project state | `TODO.md`, `PROGRESS.md`, `DECISIONS.md` | open work that already shipped, current state and blockers, decisions that still hold |
+Also in scope: **behaviour-bearing comment headers** in source files, a comment documenting a flag, a quoting rule, a load order, or a file's purpose.
 
-Also in scope: **behaviour-bearing comment headers** in source files — a comment documenting a flag, a quoting rule, a load order, or a file's purpose.
-
-Out of scope unless the repo's own conventions say otherwise: generated docs (API references built from source), `CHANGELOG*` and release notes, skill/prompt files, vendored or build trees, lockfiles. These are low user-facing risk, and auditing them is churn.
+Out of scope: generated docs, vendored or build trees, lockfiles.
 
 State in one line which files you will audit, before editing. The user may redirect.
 
@@ -109,7 +97,7 @@ the tree and say so instead of committing.
 
 - Files audited, and which claims were checked against which code
 - Doc edits made (file → what changed)
-- Follow-ups that need larger doc work (new sections, guides)
+- Files missing from the five, and follow-ups that need larger doc work
 - The push command for the user, when version control is in use
 
 ## Boundaries
