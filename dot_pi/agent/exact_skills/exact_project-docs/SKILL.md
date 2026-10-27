@@ -11,11 +11,20 @@ Five files carry a project's state. Each fact has one home.
 |---|---|---|
 | `README.md` | What the project is, how to install and use it, supported platforms, entry points | Internal conventions, task lists, history |
 | `AGENTS.md` | How to work on it: layout, commands, conventions, constraints, policies | User-facing usage, why a design was chosen |
-| `TODO.md` | What needs doing, ordered by priority, with enough context to start | Completed work, current-state narrative |
-| `PROGRESS.md` | Where it stands now: completed work, current state, blockers, next steps | The backlog, or decisions |
+| `TODO.md` | Every work item not yet done, ordered by priority, with enough context to start | Completed work, current-state narrative |
+| `PROGRESS.md` | Where it stands now: completed work, current focus, blockers, and a pointer to the next action | The backlog, or decisions |
 | `DECISIONS.md` | Why a choice was made, the alternatives rejected, and what would change the decision | Implementation detail, tasks |
 
 `AGENTS.md` is loaded automatically when Pi runs in the project; the other four must be read.
+
+## TODO or PROGRESS
+
+The two overlap unless they answer different questions. `TODO.md` answers what is left to do; `PROGRESS.md` answers where the work stands.
+
+- `TODO.md` owns every work item that is not done, including blocked ones, which carry what would unblock them.
+- `PROGRESS.md` owns no work items. It records completed work, the current focus, and blockers as state, then points at the top of `TODO.md` for what happens next.
+- A finished item leaves `TODO.md` and becomes one line under completed work in `PROGRESS.md`.
+- New work goes to `TODO.md`, never to the next-action line of `PROGRESS.md`.
 
 ## Read before writing
 
@@ -25,10 +34,10 @@ Skip this for a one-line question or a trivial edit.
 
 ## Write when work lands
 
-- A completed task: remove it from `TODO.md` or mark it done, and mention it under completed work in `PROGRESS.md`.
+- A completed task: delete it from `TODO.md`, and add one line under completed work in `PROGRESS.md`.
 - New work discovered: add it to `TODO.md` at its priority; do not leave it only in the response.
-- A blocked item: move it to `TODO.md` or the blockers section of `PROGRESS.md` with what would unblock it.
-- A finished piece of work: refresh the current state, blockers, and next steps in `PROGRESS.md`.
+- A blocked item: keep it in `TODO.md` with what would unblock it, and name the blocker in `PROGRESS.md` while it stops work.
+- A finished piece of work: refresh the current state and blockers in `PROGRESS.md`, and point its next action at the new top of `TODO.md`.
 - A choice with live alternatives: record it in `DECISIONS.md` with the alternatives rejected and the reason.
 - A changed install step, command, or convention: update `README.md` or `AGENTS.md` in the same change.
 
@@ -57,9 +66,9 @@ Do not impose these shapes on files that already have their own; extend what exi
 ## Completed
 - <work done, newest first>
 ## Blockers
-- <blocker, and what would unblock it>
-## Next steps
-1. <step>
+- <blocker, what it stops, and what would unblock it>
+## Next action
+<the top of TODO.md Now, by name>
 ```
 
 `DECISIONS.md`:

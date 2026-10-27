@@ -27,7 +27,6 @@ Working tree clean on `main`, four local commits ahead of `origin/main` (the pro
 
 None.
 
-## Next steps
+## Next action
 
-1. Push the four local commits.
-2. Confirm the `mimeapps.list` behavior on a real full apply and record the outcome here.
+Push the five local commits, then take the only `TODO.md` Now item: confirm the `mimeapps.list` behavior on a real full apply.

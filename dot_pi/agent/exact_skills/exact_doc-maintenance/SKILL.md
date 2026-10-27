@@ -30,8 +30,8 @@ ls README.md AGENTS.md TODO.md PROGRESS.md DECISIONS.md 2>/dev/null
 |---|---|
 | `README.md` | install and usage commands, feature list, supported platforms |
 | `AGENTS.md` | layout, conventions, build and test commands, policies |
-| `TODO.md` | the open work that is actually left, at the right priority |
-| `PROGRESS.md` | current state, completed work, blockers, next steps |
+| `TODO.md` | the open work that is actually left, at the right priority, blocked items included |
+| `PROGRESS.md` | current state, completed work, blockers, and a next action that matches the top of `TODO.md` |
 | `DECISIONS.md` | choices that still hold, with the alternatives rejected |
 
 Missing files are a finding, not something to create in a doc pass: say which are missing and offer to add them.
