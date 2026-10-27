@@ -48,7 +48,7 @@ Flagged by `.chezmoiignore` and `.tmpl` template guards:
 
 ## Repository Layout
 
-The source tree, its chezmoi attributes, and the per-platform guards are described in [AGENTS.md](AGENTS.md).
+The source tree and its chezmoi conventions are described in [AGENTS.md](AGENTS.md). [ARCHITECTURE.md](ARCHITECTURE.md) explains how the source tree maps to deployed configuration and how the main runtime components fit together.
 
 ## Secrets
 

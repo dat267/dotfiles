@@ -59,7 +59,7 @@ run_onchange_after_create-junctions.ps1.tmpl        Windows: recreate junctions
 
 ## Project documents
 
-`TODO.md` holds remaining work by priority, `STATUS.md` the current state, blockers, and next action, and `DECISIONS.md` the choices made with the alternatives rejected. Update the file that owns a fact in the same piece of work. `README.md`, `AGENTS.md`, `TODO.md`, `STATUS.md`, `DECISIONS.md`, `LICENSE`, and `.github/` are in `.chezmoiignore`: never deployed.
+`README.md` explains purpose, installation, and visible usage; `AGENTS.md` holds layout, conventions, constraints, and commands; `ARCHITECTURE.md` explains the major components and how they fit together; `TODO.md` tracks unfinished work. Update the file that owns a fact in the same piece of work. `README.md`, `AGENTS.md`, `ARCHITECTURE.md`, `TODO.md`, `LICENSE`, and `.github/` are in `.chezmoiignore`: never deployed.
 
 Keep `AGENTS.md` current without waiting to be asked. Update it in the same piece of work when paths, commands, conventions, constraints, or policies change. If the project has no `AGENTS.md`, create one when a change establishes durable project-specific instructions that future agents need; keep it focused on layout, commands, conventions, and constraints.
 

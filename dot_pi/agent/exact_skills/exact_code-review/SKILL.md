@@ -18,10 +18,9 @@ push, release, or install dependencies.
   testing docs (for example `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, or
   `docs/`). When a TDD or debugging skill is available, use it; otherwise follow
   the red-first loop in section 4.
-- Read the project's state files when they exist: `DECISIONS.md` for choices the
-  project has already accepted, `STATUS.md` for known blockers and pre-existing
-  failures, `TODO.md` for work someone already planned. A divergence a decision
-  records is not a finding, and a known failure is not a new one.
+- Read `ARCHITECTURE.md` for the component map and `TODO.md` for planned or
+  known work, when present. Account for documented structure and planned work
+  instead of reporting them as findings.
 - If the workspace uses version control, record the working-tree status and the
   current commit. Preserve existing edits; never reset, stash, or overwrite
   someone else's work.
@@ -164,12 +163,11 @@ For each finding, in priority order:
 3. Run the failing test again and observe it pass, then run adjacent tests and
    the matching controls. Confirm the original reproduction is resolved and no
    intended behavior was lost.
-4. Update the docs that own the changed fact: a completed item moves from
-   `TODO.md` to the completed list in `STATUS.md`, a changed interface or
-   convention goes to `AGENTS.md` or `DECISIONS.md`, and visible usage goes to
-   `README.md`. Remove the finding from the tracker only after its repair is
-   verified, and state what was confirmed. Do not erase unrelated or blocked
-   work.
+4. Update the docs that own the changed fact: adjust `TODO.md` to reflect the
+   remaining work, record durable structural changes in `ARCHITECTURE.md`,
+   instructions or conventions in `AGENTS.md`, and visible usage in `README.md`.
+   Remove the finding from the tracker only after its repair is verified, and
+   state what was confirmed. Do not erase unrelated or blocked work.
 5. Commit each finished piece before starting the next one. "Finished" means one
    independent unit: a finding's regression plus its minimal fix, or one
    coherent docs or skill change. Confirm the pending changes contain only that
