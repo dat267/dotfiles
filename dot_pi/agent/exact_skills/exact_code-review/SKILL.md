@@ -18,6 +18,10 @@ push, release, or install dependencies.
   testing docs (for example `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, or
   `docs/`). When a TDD or debugging skill is available, use it; otherwise follow
   the red-first loop in section 4.
+- Read the project's state files when they exist: `DECISIONS.md` for choices the
+  project has already accepted, `STATUS.md` for known blockers and pre-existing
+  failures, `TODO.md` for work someone already planned. A divergence a decision
+  records is not a finding, and a known failure is not a new one.
 - If the workspace uses version control, record the working-tree status and the
   current commit. Preserve existing edits; never reset, stash, or overwrite
   someone else's work.
@@ -111,14 +115,22 @@ cannot be reproduced, keep it explicitly unconfirmed and do not patch it.
 Report one finding per root cause and merge duplicates: the same defect reached
 through several call sites is one finding.
 
-Record confirmed, unresolved findings before editing production code, using the
-workspace's existing tracker (for example `TODO.md`, an issue list, or a findings
-doc). If none exists, report the findings in the response and ask before
-creating a file. Preserve and deduplicate existing entries, and use this
-structure:
+Record each confirmed, unresolved finding before editing production code. The
+tracker owns the work item, not the analysis:
+
+- In the workspace's unfinished-work list, add one line per finding: the ID, the
+  severity, and the concrete failure. With the five-file convention that is
+  `TODO.md`, under the priority the impact warrants. If the workspace has no such
+  list, report the finding in the response and ask before creating a file.
+- Keep the full record with the run, in your working notes or the response, and
+  cite it by ID from the tracker line. Do not create a findings file beside the
+  tracker; it duplicates the work items and drifts.
+- Preserve and deduplicate existing entries.
+
+Use this structure for the full record:
 
 ```markdown
-## <ID>: <severity> <concrete failure>
+<ID>: <severity> <concrete failure>
 - Category and affected paths or functions:
 - Scenario, expected behavior, actual behavior, and impact:
 - Evidence: replay command, decisive output, matching control:
@@ -152,9 +164,12 @@ For each finding, in priority order:
 3. Run the failing test again and observe it pass, then run adjacent tests and
    the matching controls. Confirm the original reproduction is resolved and no
    intended behavior was lost.
-4. Update authoritative docs when behavior or status changed. Remove the finding
-   from the tracker only after its repair is verified, and state what was
-   confirmed. Do not erase unrelated or blocked work.
+4. Update the docs that own the changed fact: a completed item moves from
+   `TODO.md` to the completed list in `STATUS.md`, a changed interface or
+   convention goes to `AGENTS.md` or `DECISIONS.md`, and visible usage goes to
+   `README.md`. Remove the finding from the tracker only after its repair is
+   verified, and state what was confirmed. Do not erase unrelated or blocked
+   work.
 5. Commit each finished piece before starting the next one. "Finished" means one
    independent unit: a finding's regression plus its minimal fix, or one
    coherent docs or skill change. Confirm the pending changes contain only that
