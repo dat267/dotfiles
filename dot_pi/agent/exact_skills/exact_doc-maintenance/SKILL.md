@@ -46,6 +46,7 @@ Sort what you find by audience:
 | Users | `README*`, `docs/`, `doc/`, guides, quickstarts | install/usage commands, feature lists, supported platforms, directory maps |
 | Contributors / agents | `CONTRIBUTING*`, `AGENTS.md`, `CLAUDE.md`, `ARCHITECTURE*`, editor rule dirs | layout, conventions, build/test commands, policies |
 | Spec / product | `SPEC*`, `PRODUCT*`, `ROADMAP*` | shipped vs unshipped features |
+| Project state | `TODO.md`, `PROGRESS.md`, `DECISIONS.md` | open work that already shipped, current state and blockers, decisions that still hold |
 
 Also in scope: **behaviour-bearing comment headers** in source files — a comment documenting a flag, a quoting rule, a load order, or a file's purpose.
 
