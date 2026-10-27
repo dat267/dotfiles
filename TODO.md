@@ -2,7 +2,7 @@
 
 ## Now
 
-- [ ] Confirm the `mimeapps.list` TTY conflict on a real full `chezmoi apply`, then either fix the managed entry or keep documenting the targeted-apply workaround. `chezmoi apply --dry-run` is currently clean.
+- [ ] Confirm the `mimeapps.list` TTY conflict on a real full `chezmoi apply`, then either fix the managed entry or keep documenting the targeted-apply workaround. `chezmoi status` is currently clean.
 
 ## Next
 

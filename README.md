@@ -43,7 +43,7 @@ separately after the first apply.
 Flagged by `.chezmoiignore` and `.tmpl` template guards:
 
 - **Linux** — primary target; bash/zsh, Neovim, mpv, aria2, rclone, fzf
-- **Windows** — PowerShell profile, VS Code settings, Windows Terminal, junctions, Visual Studio snippets
+- **Windows** — PowerShell profile, VS Code settings, Windows Terminal, junctions
 - **Android (Termux)** — `~/.termux/termux.properties`, platform-adjusted shell config
 
 ## Repository Layout

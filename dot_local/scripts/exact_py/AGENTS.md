@@ -1,4 +1,4 @@
-# dot_local/scripts/py/ — Python Utility Scripts
+# dot_local/scripts/exact_py/ — Python Utility Scripts
 
 Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `dot_profile`). All use the `executable_` prefix.
 
@@ -43,7 +43,6 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 - `exact_tests/` — stdlib `unittest`, one module per script, run with `python3 -m unittest discover -s exact_tests` (deployed as `tests/`)
 - `exact_tests/_loader.py` imports scripts by path (handles `executable_` prefix, hyphen or underscore stems, extensionless `mpv`)
 - Network and install side effects are mocked; only pure logic and main()-driven command construction are tested
-- `@unittest.expectedFailure` marks verified script bugs (see class docstrings in `test_cloudsh.py`, `test_install_android_nerdfont.py`)
 
 ## Anti-Patterns
 
