@@ -131,7 +131,7 @@ Sort what you find beyond the five by audience:
 | Spec / product | `SPEC*`, `PRODUCT*`, `ROADMAP*`, ADRs | shipped vs unshipped features, accepted and superseded decisions |
 | History | `CHANGELOG*`, release notes, migration notes | entries match what shipped, migrations match the code |
 
-Also in scope: **behaviour-bearing comment headers** in source files, a comment documenting a flag, a quoting rule, a load order, or a file's purpose.
+Also in scope: **behavior-bearing comment headers** in source files, a comment documenting a flag, a quoting rule, a load order, or a file's purpose.
 
 Out of scope: generated docs built from source, vendored or build trees, lockfiles.
 

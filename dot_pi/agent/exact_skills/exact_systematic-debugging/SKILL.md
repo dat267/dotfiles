@@ -49,7 +49,7 @@ Inspect targeted code, configuration, and logs while building the loop. Label pr
 Do not apply a speculative fix before reproduction or a decisive diagnostic check.
 If no loop is possible, report attempts and ask for environment access, a redacted artifact, or instrumentation permission.
 
-## Phase 2: Reproduce and minimise
+## Phase 2: Reproduce and minimize
 
 Run the loop. Watch it go red.
 
@@ -57,7 +57,7 @@ Run the loop. Watch it go red.
 - [ ] Reproducible across runs, or at the pinned high rate.
 - [ ] The exact symptom is captured (error text, wrong output, timing).
 
-Minimise: cut inputs, callers, config, data, and steps one at a time, re-running after each cut. Keep only what is load-bearing. Done when removing any remaining element turns the loop green. The minimal repro becomes the regression test.
+Minimize: cut inputs, callers, config, data, and steps one at a time, re-running after each cut. Keep only what is load-bearing. Done when removing any remaining element turns the loop green. The minimal repro becomes the regression test.
 
 ## Phase 3: Trace to the source
 
@@ -73,7 +73,7 @@ Recent changes are prime suspects. Check the version-control history and diff,
 new dependencies, and config or environment drift. Without history, compare
 against a known-good copy or the last released artifact.
 
-## Phase 4: Hypothesise and test
+## Phase 4: Hypothesize and test
 
 Generate only evidence-supported, falsifiable hypotheses. Rank alternatives when multiple explanations fit; never invent candidates to meet a quota.
 
@@ -93,9 +93,9 @@ After three consecutive probes yield no new evidence, stop repeating them. Chang
 
 ## Phase 5: Fix, verify, escalate
 
-Fix red-first: turn the minimised repro into a failing test at the right seam,
+Fix red-first: turn the minimized repro into a failing test at the right seam,
 watch it fail, fix, watch it pass, then re-run the Phase 1 loop against the
-original un-minimised scenario. When a **tdd** skill is available, follow it.
+original un-minimized scenario. When a **tdd** skill is available, follow it.
 When the stack has no test harness, use the substitute check: a reproducible
 command or fixture that fails before the fix and passes after.
 
@@ -112,4 +112,5 @@ Stop after three failed fixes. Fixes that each reveal a new problem in a new pla
 - [ ] Regression test passes, or the missing seam is documented.
 - [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix).
 - [ ] Throwaway harnesses deleted, or retained in the platform temporary directory with their location reported.
-- [ ] The verified hypothesis is stated in the commit message.
+- [ ] The verified hypothesis is stated in the commit message, or in the change
+      description when there is no commit.

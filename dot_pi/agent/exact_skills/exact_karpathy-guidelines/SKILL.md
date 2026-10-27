@@ -58,7 +58,9 @@ Turn the task into a verifiable goal. Define the check before writing code.
 
 For multi-step work, plan one verification command per step. Share the plan only when coordination or approval is needed.
 
-Follow the **tdd** skill for the failing-test loop. Follow the **systematic-debugging** skill when the cause is not obvious. Weak goals such as "make it work" force constant clarification.
+When a **tdd** skill is available, follow it for the failing-test loop. When a
+**systematic-debugging** skill is available, follow it when the cause is not
+obvious. Otherwise the checks above stand on their own. Weak goals such as "make it work" force constant clarification.
 
 Gate: run the relevant tests.
 
