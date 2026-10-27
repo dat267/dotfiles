@@ -2,7 +2,7 @@
 
 ## Current state
 
-Working tree clean on `main`, six local commits ahead of `origin/main` (the project-documentation work, the symlink cleanup, and the TODO/STATUS split). Everything managed by chezmoi is deployed: Pi settings select the `system` theme with `flat` installed as an option, the six skills load without warnings, and `~/.pi/agent/APPEND_SYSTEM.md` carries the project-document section. `chezmoi apply --dry-run` reports nothing pending.
+Working tree clean on `main`, in sync with `origin/main` after the project-documentation work, the symlink cleanup, and the TODO/STATUS split. Everything managed by chezmoi is deployed: Pi settings select the `system` theme with `flat` installed as an option, the six skills load without warnings, and `~/.pi/agent/APPEND_SYSTEM.md` carries the project-document section. `chezmoi apply --dry-run` reports nothing pending.
 
 ## Verified
 
@@ -29,4 +29,4 @@ None.
 
 ## Next action
 
-Push the five local commits, then take the only `TODO.md` Now item: confirm the `mimeapps.list` behavior on a real full apply.
+Take the only `TODO.md` Now item: confirm the `mimeapps.list` behavior on a real full apply.
