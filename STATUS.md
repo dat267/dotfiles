@@ -2,17 +2,19 @@
 
 ## Current state
 
-Working tree clean on `main`, in sync with `origin/main` after the project-documentation work, the symlink cleanup, and the TODO/STATUS split. Everything managed by chezmoi is deployed: Pi settings select the `system` theme with `flat` installed as an option, the six skills load without warnings, and `~/.pi/agent/APPEND_SYSTEM.md` carries the project-document section. `chezmoi apply --dry-run` reports nothing pending.
+Working tree clean on `main`, one local commit ahead of `origin/main`: `APPEND_SYSTEM.md` slimmed and one clause added to the `doc-maintenance` skill, so `~/.pi/agent/APPEND_SYSTEM.md` and the deployed `doc-maintenance` skill are behind the source until the next apply. Everything else managed by chezmoi is deployed: Pi settings select the `system` theme with `flat` installed as an option, and the five skills load without warnings.
 
 ## Verified
 
 - `python3 -m unittest discover -s exact_tests` from `dot_local/scripts/exact_py/`: 713 tests, all pass.
-- `pi_lint_extensions --root <repo>`: all six extension directories pass `tsc --strict`.
+- `pi_lint_extensions.py --root "$PWD"`: six extension directories pass `tsc --strict` (`--root .` fails with `TS6053` because the linter resolves files from the root it is given).
 - No dangling symlinks anywhere in the tree, so `chezmoi execute-template` renders from the repo source again.
-- Pi's own skill loader over `dot_pi/agent/exact_skills`: six skills, zero warnings.
-- `chezmoi apply --dry-run`: no output, so no pending changes.
+- `pi skills list` over `dot_pi/agent/exact_skills`: five skills, no warnings (`code-review`, `doc-maintenance`, `karpathy-guidelines`, `systematic-debugging`, `tdd`).
+- `chezmoi diff ~/.pi/agent/APPEND_SYSTEM.md`: shows only the slimmed project-documents section.
 
 ## Completed
+
+- `APPEND_SYSTEM.md` no longer restates the document ownership rules; it keeps the five file names, the read-before-planning trigger, the update-in-the-same-work habit, and a pointer to `doc-maintenance`, which is now the only place those rules live.
 
 - `doc-maintenance` now owns the five-document convention, including the shapes to create them, and the separate `project-docs` skill is gone.
 
@@ -31,4 +33,4 @@ None.
 
 ## Next action
 
-Take the only `TODO.md` Now item: confirm the `mimeapps.list` behavior on a real full apply.
+Run `git push` (yours to run), then apply the pending Pi config change (`chezmoi apply --force ~/.pi/agent/APPEND_SYSTEM.md ~/.pi/agent/skills/doc-maintenance/SKILL.md`, yours to run), then take the only `TODO.md` Now item: confirm the `mimeapps.list` behavior on a real full apply.

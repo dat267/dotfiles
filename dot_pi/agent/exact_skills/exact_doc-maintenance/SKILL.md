@@ -20,7 +20,7 @@ This is the periodic counterpart to the change-time habit: when a change touches
 
 ## The five project documents
 
-Each fact has one home. Extend the files a project already has; do not impose these shapes on them.
+Each fact has one home, and links between files replace copies. Extend the files a project already has; do not impose these shapes on them.
 
 | File | Owns | Does not own |
 |---|---|---|
