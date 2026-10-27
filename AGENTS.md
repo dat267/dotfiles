@@ -86,7 +86,7 @@ There are no linter/formatter configs and no Makefile; all other automation is c
 
 ## Git and deployment
 
-`chezmoi apply` and `sudo` are run by the user in their own terminal, never by the agent: stage source changes in the workspace and hand over the command. `.chezmoi.toml.tmpl` enables `autoAdd`/`autoCommit` with `autoPush = false` when git is on `PATH`, so the user's apply commits source edits — do not commit, push, or apply on your own. Never commit secrets; use OS credential stores.
+`chezmoi apply` and `sudo` are run by the user in their own terminal, never by the agent. Make and verify each self-contained piece of work, then commit it separately using explicit paths. Push only when explicitly requested. `.chezmoi.toml.tmpl` enables `autoAdd`/`autoCommit` with `autoPush = false` when git is on `PATH`, so the user's apply may also commit source edits. Never commit secrets; use OS credential stores.
 
 Chezmoi source is the authoritative reference. Clone and grep it (`internal/chezmoi/` = mechanics and template funcs, `internal/cmd/` = commands):
 `git clone --depth 1 https://github.com/twpayne/chezmoi.git /tmp/chezmoi`
