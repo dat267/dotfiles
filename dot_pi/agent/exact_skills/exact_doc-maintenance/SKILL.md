@@ -1,6 +1,6 @@
 ---
 name: doc-maintenance
-description: Audit a repo's five project documents, README.md, AGENTS.md, TODO.md, PROGRESS.md, and DECISIONS.md, against the current code and fix drift with minimal edits. Invoked explicitly, optionally with a file or scope.
+description: Audit a repo's documentation against the current code and fix drift with minimal edits. The five project files, README.md, AGENTS.md, TODO.md, PROGRESS.md, and DECISIONS.md, come first, then every other doc the repo ships. Invoked explicitly, optionally with a file or scope.
 disable-model-invocation: true
 ---
 
@@ -18,9 +18,9 @@ that habit missed, by comparing the docs to the code as it stands now.
 - Before a release, or after a long pause
 - After adopting a repo whose docs you do not trust
 
-## 1. Confirm the five project documents
+## 1. Inventory the documents
 
-A project documents itself in exactly five files. Find which exist:
+Start with the five project files, which carry the project's state. Find which exist:
 
 ```bash
 ls README.md AGENTS.md TODO.md PROGRESS.md DECISIONS.md 2>/dev/null
@@ -36,9 +36,34 @@ ls README.md AGENTS.md TODO.md PROGRESS.md DECISIONS.md 2>/dev/null
 
 Missing files are a finding, not something to create in a doc pass: say which are missing and offer to add them.
 
+Then audit every other documentation file the repo ships. Discover them, do not assume. With Git:
+
+```bash
+git ls-files -- '*.md' '*.mdx' '*.rst' '*.txt' '*.adoc' \
+  | grep -Ev '(^|/)(node_modules|vendor|third_party|dist|build|\.git|target)/'
+```
+
+Without Git, walk the tree and apply the same exclusions:
+
+```bash
+find . -path ./.git -prune -o \
+  \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt' -o -name '*.adoc' \) -print \
+  | grep -Ev '(^|/)(node_modules|vendor|third_party|dist|build|target)/'
+```
+
+Sort what you find beyond the five by audience:
+
+| Audience | Typical files | Must be true about |
+|---|---|---|
+| Users | `docs/`, `doc/`, guides, tutorials, quickstarts, man pages | install/usage commands, feature lists, supported platforms |
+| Contributors | `CONTRIBUTING*`, `ARCHITECTURE*`, `DESIGN*`, editor rule dirs | layout, conventions, build/test commands, policies |
+| Spec / product | `SPEC*`, `PRODUCT*`, `ROADMAP*`, ADRs | shipped vs unshipped features, accepted and superseded decisions |
+| History | `CHANGELOG*`, release notes, migration notes | entries match what shipped, migrations match the code |
+| Project state | `TODO.md`, `PROGRESS.md`, `DECISIONS.md` | open work that already shipped, state and blockers, decisions that still hold |
+
 Also in scope: **behaviour-bearing comment headers** in source files, a comment documenting a flag, a quoting rule, a load order, or a file's purpose.
 
-Out of scope: generated docs, vendored or build trees, lockfiles.
+Out of scope: generated docs built from source, vendored or build trees, lockfiles.
 
 State in one line which files you will audit, before editing. The user may redirect.
 
