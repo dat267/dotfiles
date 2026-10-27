@@ -46,27 +46,9 @@ Flagged by `.chezmoiignore` and `.tmpl` template guards:
 - **Windows** — PowerShell profile, VS Code settings, Windows Terminal, junctions, Visual Studio snippets
 - **Android (Termux)** — `~/.termux/termux.properties`, platform-adjusted shell config
 
-## Repository Structure
+## Repository Layout
 
-```
-dot_config/nvim/          Neovim minimal Lua config (fast startup, zero plugins)
-dot_config/helix/         Helix editor config
-dot_config/zed/           Zed editor settings
-dot_config/wezterm/       WezTerm terminal config
-dot_config/yazi/          Yazi file manager
-dot_config/powershell/    PowerShell profile + module
-dot_config/opencode/      opencode config (defaults, Pi skills)
-dot_config/mpv/           mpv media player
-dot_config/aria2/         aria2 download manager
-dot_config/Code/User/     VS Code settings + snippet files
-dot_config/systemd/user/  Linux systemd user services (dsh-web)
-dot_pi/                   Pi agent config + skills
-dot_local/scripts/         Python/shell/PowerShell scripts (added to PATH)
-dot_local/scripts/exact_py/  Python scripts — exact: strays removed on apply
-dot_local/share/          Konsole profile (Linux)
-AppData/Local/            Windows-only configs (Windows Terminal)
-private_dot_ssh/          SSH client config
-```
+The source tree, its chezmoi attributes, and the per-platform guards are described in [AGENTS.md](AGENTS.md).
 
 ## Secrets
 

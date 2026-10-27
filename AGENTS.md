@@ -18,11 +18,36 @@ Edit source files (`dot_*` prefix), never deployed versions. Preserve `{{- ... -
 - Python scripts: `dot_local/scripts/exact_py/` (stdlib only, see its `AGENTS.md`)
 - Bootstrap: `run_once_before_bootstrap-local-configs.ps1.tmpl` and `run_onchange_after_create-junctions.ps1.tmpl` (Windows only); `run_after_create-symlinks.sh.tmpl` (Linux/Android, idempotent repairs on every apply) and `run_onchange_after_systemd-user-reload.sh.tmpl` (Linux, tracks the service checksum)
 
+```
+dot_config/nvim/          Neovim minimal Lua config (zero plugins)
+dot_config/{helix,zed}/   Helix and Zed editor settings
+dot_config/wezterm/       WezTerm config
+dot_config/yazi/          Yazi file manager
+dot_config/mpv,aria2/     mpv and aria2 configs
+dot_config/powershell/    PowerShell profile + Utils.psm1 module
+dot_config/opencode/      opencode config (defaults, shares Pi skills)
+dot_config/Code/User/     VS Code settings + snippets
+dot_config/systemd/user/  Linux systemd user services (dsh-web)
+dot_pi/agent/             Pi config: APPEND_SYSTEM.md, settings modify template
+dot_pi/agent/exact_extensions/  Pi extensions (deployed as extensions/)
+dot_pi/agent/exact_skills/      Pi skills (deployed as skills/)
+dot_pi/agent/themes/            Pi themes, including flat.json
+dot_local/scripts/        Python/shell/PowerShell scripts on PATH
+dot_local/scripts/exact_py/  stdlib-only Python (exact: strays removed on apply)
+dot_local/share/konsole/  Konsole profile + One Dark and One Light schemes
+AppData/Local/            Windows Terminal settings (Windows only)
+private_dot_ssh/          SSH client config
+```
+
+## Project documents
+
+`TODO.md` holds remaining work by priority, `PROGRESS.md` the current state, blockers, and next steps, and `DECISIONS.md` the choices made with the alternatives rejected. Update the file that owns a fact in the same piece of work. `README.md`, `AGENTS.md`, and these three are never deployed.
+
 ## Commands
 
 ```bash
 chezmoi diff                                 # verify before applying
-chezmoi apply --force <target-path>          # targeted deploy; a full apply fails on the mimeapps.list TTY conflict
+chezmoi apply --force <target-path>          # targeted deploy; a full apply last failed on the mimeapps.list TTY conflict (unconfirmed)
 python3 script.py --help                      # verify a new CLI script parses
 pi_lint_extensions.py                         # tsc --strict every pi extension; node --test does not typecheck
 The Windows job runs on push (paths under `dot_local/scripts/exact_py/`, `dot_pi/`, `dot_config/powershell/`, `run_*.ps1.tmpl`) and on every PR: `gh workflow run windows` or the Actions tab. It also renders every template into a throwaway home and PowerShell-parses the profile and the two Windows run_ scripts.
@@ -39,4 +64,4 @@ There is no in-process pi sandbox or permissions extension any more, so no `/per
 
 Deployments (`chezmoi apply`) and `sudo` are still run by the user in their own terminal, never by the agent: stage source changes in the workspace and hand over the command.
 
-`README.md`, `AGENTS.md`, `LICENSE` are in `.chezmoiignore`: never deployed.
+`README.md`, `AGENTS.md`, `TODO.md`, `PROGRESS.md`, `DECISIONS.md`, and `LICENSE` are in `.chezmoiignore`: never deployed.
