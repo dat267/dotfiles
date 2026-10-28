@@ -54,6 +54,12 @@ for editor in nvim vim hx helix nano; do
 		break
 	fi
 done
+# Neovim's startup DSR/OSC background query assumes a local terminal. Over
+# SSH the reply can miss its 100ms window and warn E1568. The query runs
+# before user config, so the documented switch is the environment variable.
+if [ -n "${SSH_TTY:-}${SSH_CONNECTION:-}" ]; then
+	export NVIM_NOTTYFAST=1
+fi
 # Test-only flag for nvim development; commented out so it does not leak
 # into every shell session.
 # export NVIM_TEST=1
