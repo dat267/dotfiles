@@ -17,6 +17,7 @@ Notable source → deployed mappings:
 | `dot_local/scripts/exact_py/` | `~/.local/scripts/py/` (on `PATH`) |
 | `dot_pi/agent/exact_extensions/` | `~/.pi/agent/extensions/` |
 | `dot_pi/agent/exact_skills/` | `~/.pi/agent/skills/` |
+| `dot_pi/agent/private_APPEND_SYSTEM.md` | `~/.pi/agent/APPEND_SYSTEM.md` (mode 0600) |
 | `dot_pi/agent/modify_settings.json` | `~/.pi/agent/settings.json` (merged) |
 | `dot_config/opencode/private_opencode.json` | `~/.config/opencode/opencode.json` |
 
@@ -38,7 +39,7 @@ dot_config/powershell/    PowerShell profile + Utils.psm1 module
 dot_config/opencode/      opencode config (points at ~/.pi/agent/skills)
 dot_config/Code/User/     VS Code settings + snippets
 dot_config/systemd/user/  Linux systemd user services (dsh-web)
-dot_pi/agent/             Pi config: settings modify template, themes
+dot_pi/agent/             Pi config: APPEND_SYSTEM.md, settings modify template, themes
 dot_pi/agent/exact_extensions/  Pi extensions (deployed as extensions/)
 dot_pi/agent/exact_skills/      Pi skills (deployed as skills/)
 dot_pi/agent/themes/            Pi themes, including flat.json
