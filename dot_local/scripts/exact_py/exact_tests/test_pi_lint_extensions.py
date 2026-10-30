@@ -36,27 +36,27 @@ class PiplineCase(unittest.TestCase):
 
 class TestDiscovery(PiplineCase):
 	def test_finds_extension_dirs_containing_typescript(self):
-		self.make_ext("exact_goal", ["index.ts"])
+		self.make_ext("exact_sample", ["index.ts"])
 		self.make_ext("exact_empty", [])
 		pi_root = self.root / "dot_pi" / "agent" / "exact_extensions"
 		(pi_root / "not-an-ext.txt").write_text("x")
-		self.assertEqual(pi_lint.discover_extensions(self.root), ["exact_goal"])
+		self.assertEqual(pi_lint.discover_extensions(self.root), ["exact_sample"])
 
 	def test_sorted_and_skips_node_modules(self):
 		self.make_ext("exact_usage", ["index.ts"])
 		self.make_ext("exact_modeldefault", ["index.ts"])
-		ext = self.make_ext("exact_goal", ["index.ts"])
+		ext = self.make_ext("exact_sample", ["index.ts"])
 		(ext / "node_modules" / "pi").mkdir(parents=True)
 		(ext / "node_modules" / "pi" / "stray.ts").write_text("x")
 		self.assertEqual(
 			pi_lint.discover_extensions(self.root),
-			["exact_goal", "exact_modeldefault", "exact_usage"],
+			["exact_modeldefault", "exact_sample", "exact_usage"],
 		)
 
 
 class TestCommandPlanning(PiplineCase):
 	def test_strict_flags_and_all_ts_files(self):
-		d = self.make_ext("exact_goal", ["index.ts", "index.test.ts"])
+		d = self.make_ext("exact_sample", ["index.ts", "index.test.ts"])
 		cmd = pi_lint.plan_command(d, npx="npx")
 		self.assertEqual(cmd[0:4], ["npx", "-y", "-p", f"typescript@{TS}"])
 		self.assertIn("tsc", cmd)
@@ -66,7 +66,7 @@ class TestCommandPlanning(PiplineCase):
 
 	def test_npx_is_resolved_through_which(self):
 		# Windows: a bare "npx" is a shell script CreateProcess cannot launch.
-		d = self.make_ext("exact_goal", ["index.ts"])
+		d = self.make_ext("exact_sample", ["index.ts"])
 		with patch.object(pi_lint.shutil, "which", return_value=r"C:\node\npx.cmd"):
 			cmd = pi_lint.plan_command(d)
 		self.assertEqual(cmd[0], r"C:\node\npx.cmd")

@@ -15,10 +15,17 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath "transport" "auto" $current }}
 {{- $_ := setValueAtPath "markdown.mermaid" "streaming" $current }}
 {{- $_ := setValueAtPath "defaultProjectTrust" "ask" $current }}
-{{- /* Keep goal's source installed, but exclude its entry point from auto-loading.
-     Put the exclusion last so it also overrides an earlier explicit inclusion. */}}
-{{- $extensions := index $current "extensions" | default (list) }}
-{{- $_ := setValueAtPath "extensions" (append (without $extensions "-extensions/goal/index.ts") "-extensions/goal/index.ts") $current }}
+{{- /* The goal extension is gone; drop its retired exclusion entry so an
+     already-deployed settings file does not keep a dead reference. Leave the
+     key out entirely when it only held that entry. */}}
+{{- if hasKey $current "extensions" }}
+{{- $extensions := without (index $current "extensions") "-extensions/goal/index.ts" }}
+{{- if $extensions }}
+{{- $_ := setValueAtPath "extensions" $extensions $current }}
+{{- else }}
+{{- $_ := unset $current "extensions" }}
+{{- end }}
+{{- end }}
 {{- $_ := setValueAtPath "doubleEscapeAction" "none" $current }}
 {{- $_ := setValueAtPath "fullscreenScrollbar" "auto" $current }}
 {{- $_ := setValueAtPath "outputPad" 1 $current }}
