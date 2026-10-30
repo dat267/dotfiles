@@ -101,7 +101,7 @@ command or fixture that fails before the fix and passes after.
 
 Check the seam first. A seam too shallow to replicate the chain that triggered
 the bug gives false confidence. When no correct seam exists, that is a finding:
-hand it to a **code-review** skill when one is available, and otherwise report it
+hand it to a **code-maintenance** skill when one is available, and otherwise report it
 directly.
 
 Stop after three failed fixes. Fixes that each reveal a new problem in a new place signal a wrong architecture, not a wrong hypothesis. Discuss the architecture with the user before a fourth attempt.

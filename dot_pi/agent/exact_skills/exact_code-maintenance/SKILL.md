@@ -1,10 +1,10 @@
 ---
-name: code-review
+name: code-maintenance
 description: Manually audit a codebase for logic flaws, concurrency bugs, security vulnerabilities, parity gaps against specs, and measured performance problems. Reproduce findings before fixing them, then implement and verify repairs. Invoked explicitly, optionally with a scope or audit-only argument.
 disable-model-invocation: true
 ---
 
-# Code review
+# Code maintenance
 
 The default workflow audits the whole first-party codebase, reproduces each
 finding, records it, then repairs and verifies it. Instructions after the
@@ -45,7 +45,7 @@ do not stop at the first bug or review only recent diffs. Trace values through
 callers, callees, and error paths: a search result or analyzer warning marks an
 area to inspect, not a finding.
 
-### Review lenses
+### Maintenance lenses
 
 1. **Parity**, only when the project ports or mirrors specs: read the
    corresponding spec and compare observable behavior, defaults,
