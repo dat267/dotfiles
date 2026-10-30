@@ -1,10 +1,10 @@
 ---
-name: reduce-loc
+name: code-reduction
 description: Slim a codebase while preserving observable behavior. Finds duplication, dead code, pass-through layers, and over-general abstractions, pins the behavior with tests, then removes code in small verified and separately committed steps. Invoked explicitly, optionally with a scope or a target.
 disable-model-invocation: true
 ---
 
-# Reduce LOC
+# Code reduction
 
 Fewer lines, same behavior. Line count is the measurement, not the goal: the
 result must stay readable, tested, and safe to change. Never trade observable
