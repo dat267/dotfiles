@@ -420,8 +420,6 @@ $global:__dotfiles_profile_loaded = $true
 
         # --- End proxy credentials ---
     }
-
-    $global:__home_regex = [regex]::Escape($HOME)
 }
 
 function codesh { code $PSScriptRoot }
@@ -599,14 +597,6 @@ if ($IsWindows) {
 }
 if (-not (Get-Command clear -ErrorAction SilentlyContinue)) {
     Set-Alias -Name clear -Value Clear-Host -Force -ErrorAction SilentlyContinue
-}
-
-function prompt {
-    $lastExit = $global:LASTEXITCODE
-    $path = $ExecutionContext.SessionState.Path.CurrentLocation.Path -replace $global:__home_regex, "~"
-    $color = if ($null -eq $lastExit -or $lastExit -eq 0) { "$([char]27)[32m" } else { "$([char]27)[31m" }
-    $reset = "$([char]27)[0m"
-    "$color$path$reset > "
 }
 
 function cm {
