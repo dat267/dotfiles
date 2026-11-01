@@ -226,11 +226,11 @@ builder check.
 write specs into the repository. Otherwise, ask. Your human partner's
 preferences override both.
 
-**Builder check** (for a project): dispatch a fresh subagent with
-`builder-check-prompt.md` in this directory. When you tell your human
-partner you're writing it up, say a reviewer will read it first and you
-may come back once with a few questions. Don't hand over the document
-until the check is back. Sort what the builder asks into three piles:
+**Builder check** (for a project): read the document as a fresh builder
+would, asking where you would have to guess and a wrong guess would
+matter. When you tell your human partner you're writing it up, say you
+are checking it first and may come back once with a few questions. Don't
+hand over the document until the check is done. Sort the gaps into three piles:
 
 - **Answered already** by the conversation or the project: put the answer
   in the document.
@@ -242,8 +242,7 @@ until the check is back. Sort what the builder asks into three piles:
 Bring the "theirs" pile in one message, most important first. Update the
 document with their answers, then hand it over with a short list of the
 calls you made so they can check those while reading. That's the only
-round of questions the check produces. Without a subagent tool, read the
-document as that builder yourself.
+round of questions the check produces.
 
 <HARD-GATE>
 Nothing gets built until your human partner approves the design doc:

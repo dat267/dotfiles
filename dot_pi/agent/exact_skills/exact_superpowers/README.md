@@ -30,6 +30,10 @@ MIT licensed; see `LICENSE` in this directory.
   live in `${TMPDIR:-/tmp}/superpowers/`, and visual-companion sessions in
   `${TMPDIR:-/tmp}/brainstorm-*`. The upstream `--project-dir` option and the
   `.superpowers/` repository writes were removed from the scripts and docs.
+- Harness-specific instructions were removed. The skills assume Pi: git
+  worktrees instead of native worktree tools, inline builder checks instead of
+  subagent dispatch, and a single launch path for the visual companion.
+- The visual companion sends no telemetry and loads no remote branding image.
 - Not vendored: `test-driven-development` and `systematic-debugging` (local
   equivalents exist), `subagent-driven-development`,
   `dispatching-parallel-agents`, `executing-plans`, `requesting-code-review`
