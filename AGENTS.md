@@ -42,7 +42,7 @@ dot_config/Code/User/     VS Code settings + snippets
 dot_config/systemd/user/  Linux systemd user services (dsh-web)
 dot_pi/agent/             Pi config: APPEND_SYSTEM.md, settings modify template, themes
 dot_pi/agent/exact_extensions/  Pi extensions (deployed as extensions/)
-dot_pi/agent/exact_skills/      Pi skills (deployed as skills/)
+dot_pi/agent/exact_skills/      Pi skills (deployed as skills/); exact_superpowers/ holds vendored Superpowers provenance and license
 dot_pi/agent/themes/            Pi themes, including flat.json
 dot_local/scripts/        Scripts on PATH: exact_py → py/, sh/, ps1/
 dot_local/scripts/exact_py/  stdlib-only Python (exact: strays removed on apply)
