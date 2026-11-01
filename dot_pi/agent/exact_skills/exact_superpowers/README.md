@@ -26,6 +26,10 @@ MIT licensed; see `LICENSE` in this directory.
 - `writing-plans` hands execution to the local `tdd`, `systematic-debugging`,
   and `code-maintenance` skills instead of the subagent-driven workflows,
   because Pi core has no subagent tool.
+- Runtime artifacts go under the OS temp directory. Plans and design specs
+  live in `${TMPDIR:-/tmp}/superpowers/`, and visual-companion sessions in
+  `${TMPDIR:-/tmp}/brainstorm-*`. The upstream `--project-dir` option and the
+  `.superpowers/` repository writes were removed from the scripts and docs.
 - Not vendored: `test-driven-development` and `systematic-debugging` (local
   equivalents exist), `subagent-driven-development`,
   `dispatching-parallel-agents`, `executing-plans`, `requesting-code-review`

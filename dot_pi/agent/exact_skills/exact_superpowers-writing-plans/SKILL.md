@@ -13,8 +13,8 @@ Write implementation plans for an engineer who has not seen this codebase or thi
 
 **Context:** If working in an isolated worktree, it should have been created via the `superpowers-using-git-worktrees` skill at execution time.
 
-**Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
-- (User preferences for plan location override this default)
+**Save plans to:** `${TMPDIR:-/tmp}/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
+- Never write plans into the repository. (User preferences for plan location override this default)
 
 ## Scope Check
 
@@ -182,7 +182,7 @@ After saving and self-reviewing the plan, link it for your human partner
 to read and ask them to confirm it captures what they want. Wait for that
 review before implementation.
 
-**"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Please review the plan. Does it capture what you want?"**
+**"Plan complete and saved to `${TMPDIR:-/tmp}/superpowers/plans/<filename>.md`. Please review the plan. Does it capture what you want?"**
 
 Pi has no subagent tool, so execute the plan inline, task by task. Use the
 `tdd` skill for every step, `systematic-debugging` when a step fails for an

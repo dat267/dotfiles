@@ -221,9 +221,10 @@ For a small change, the short design covers the same points in a line
 or two each and goes straight to your human partner, without the
 builder check.
 
-**Where it goes:** in a software repo,
-`docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`, committed.
-Otherwise, ask. Your human partner's preferences override both.
+**Where it goes:** under the OS temp directory,
+`${TMPDIR:-/tmp}/superpowers/specs/YYYY-MM-DD-<topic>-design.md`. Do not
+write specs into the repository. Otherwise, ask. Your human partner's
+preferences override both.
 
 **Builder check** (for a project): dispatch a fresh subagent with
 `builder-check-prompt.md` in this directory. When you tell your human
