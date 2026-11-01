@@ -34,6 +34,7 @@ dot_config/nvim/          Neovim minimal Lua config (zero plugins)
 dot_config/{helix,zed}/   Helix and Zed editor settings
 dot_config/wezterm/       WezTerm config
 dot_config/yazi/          Yazi file manager
+dot_config/lf/            lf file manager (wrap-around navigation)
 dot_config/mpv,aria2/     mpv and aria2 configs
 dot_config/powershell/    PowerShell profile + Utils.psm1 module
 dot_config/opencode/      opencode config (points at ~/.pi/agent/skills)

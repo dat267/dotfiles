@@ -30,7 +30,7 @@ separately after the first apply.
 | **Shell** | Bash (`~/.bashrc`), Zsh (`~/.zshrc`), `~/.profile` |
 | **Editors** | Neovim (minimal, zero-plugin), Vim (vim-plug, ALE, molokai), Helix, Zed, VS Code |
 | **Terminal** | WezTerm, Windows Terminal, tmux, Konsole |
-| **File Managers** | Yazi (Linux + Windows) |
+| **File Managers** | Yazi (Linux + Windows), lf |
 | **Media** | mpv, aria2 |
 | **Git** | `~/.gitconfig` (autosquash, auto-setup-remote, global identity) |
 | **PowerShell** | Profile + custom `Utils.psm1` module |

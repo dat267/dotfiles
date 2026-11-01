@@ -1,0 +1,2 @@
+# Wrap cursor movement past the first and last entry.
+set wrapscroll true
