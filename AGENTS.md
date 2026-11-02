@@ -2,10 +2,6 @@
 
 Guidelines for AI agents working in this dotfiles repository.
 
-## Code search
-
-Use the `ast-grep` CLI for structural search and rewrite across code, shell, and config files: `ast-grep run -p '<pattern>' -l <lang>` finds a code shape, and `-r '<rewrite>'` previews a diff before `-U` writes it. Reach for it instead of regex grep or sed whenever the query or edit is syntax-shaped. `ast-grep outline -l <lang> <path>` maps a file's symbols first. Patterns are real code with `$A` (one node) and `$$$ARGS` (many nodes) metavariables, and `--debug-query=pattern` shows how a pattern parsed.
-
 ## Chezmoi Filename Conventions
 
 `dot_` → deployed dotfile (`dot_vimrc` → `~/.vimrc`) · `private_` → mode 0600 (never remove from SSH/gitconfig) · `executable_` → executable bit, prefix stripped · `modify_` → merges into an existing file at deploy, never a full replacement · `exact_` → directory contents are exact, unmanaged files removed on apply · `run_once_` / `run_onchange_` → lifecycle hooks · `*.tmpl` → Go template. Prefixes stack (`private_executable_`, `executable_dot_`).
