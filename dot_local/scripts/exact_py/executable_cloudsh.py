@@ -20,9 +20,9 @@ CALLBACK_ERROR = re.compile(
     r"<locals>\.<lambda> .*>: \[Errno 9\] Bad file descriptor$"
 )
 
-# One-shot commands stop retrying; interactive sessions keep trying until the
-# user gives up, since a network switch is exactly what they are waiting out.
-RECONNECT_LIMIT = 3
+# Interactive sessions keep trying until the user gives up, since a network
+# switch is exactly what they are waiting out. One-shot commands are not retried
+# because a dropped connection cannot show whether the remote command started.
 BACKOFF_CAP = 30
 
 # gcloud owns the tunnel and the ssh invocation. These options go through
@@ -48,7 +48,8 @@ def build_cloudsh_cmd(command: str) -> list[str]:
 
     gcloud forwards ssh's transport failures as its own status (255) but
     swallows the remote command's status and exits 0, so `cloudsh <cmd>` cannot
-    report the remote exit code.
+    report the remote exit code. One-shot commands are never retried: a 255
+    disconnect does not prove that the remote command never started.
     """
     cmd: list[str] = [str(gcloud), "cloud-shell", "ssh", "--authorize-session"]
     for opt in KEEPALIVE_OPTS:
@@ -116,30 +117,25 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     attempt = 0
-    while True:
-        attempt += 1
-        try:
+    try:
+        while True:
+            attempt += 1
             rc = run_gcloud(build_cloudsh_cmd(command))
-        except KeyboardInterrupt:
-            return 130
 
-        if not should_retry(rc):
-            return rc
-        limit = RECONNECT_LIMIT if command else None
-        if limit is not None and attempt >= limit:
-            sys.stderr.write(f"Giving up after {attempt} attempts\n")
-            return rc
+            if command or not should_retry(rc):
+                return rc
 
-        delay = retry_delay(attempt)
-        sys.stderr.write(f"Disconnected; reconnecting in {delay}s (Ctrl-C to quit)\n")
-        time.sleep(delay)
+            delay = retry_delay(attempt)
+            sys.stderr.write(f"Disconnected; reconnecting in {delay}s (Ctrl-C to quit)\n")
+            time.sleep(delay)
+    except KeyboardInterrupt:
+        return 130
 
 
 def should_retry(returncode: int) -> bool:
-    """ssh reserves 255 for its own failures (a dropped interface, auth, DNS) and
-    gcloud forwards that status when the transport dies. A remote command's
-    status never reaches here: gcloud exits 0 for it, so retrying cannot run a
-    command twice."""
+    """gcloud forwards ssh's 255 status for transport failures (dropped link,
+    auth, DNS). The caller only retries interactive sessions: a transport
+    failure can happen after a one-shot remote command has already started."""
     return returncode == 255
 
 

@@ -109,16 +109,15 @@ class TestStderrNoise(unittest.TestCase):
 
 
 class TestReconnectPolicy(unittest.TestCase):
-    r"""ssh reserves 255 for its own failures (ECONNRESET when the interface
-    goes away, auth, DNS) and passes the remote command's status through
-    otherwise. gcloud forwards an ssh transport failure as 255 and swallows a
-    remote command's status (exiting 0), so only 255 is retried; retrying
-    anything else would rerun a command whose outcome is already known."""
+    r"""gcloud forwards SSH transport failures as 255, but exits 0 for normal
+    remote command failures. Only interactive sessions retry 255: a one-shot
+    command may already have started before a transport failure, so retrying it
+    could repeat side effects."""
 
     def test_connection_failure_is_retryable(self):
         self.assertTrue(mod.should_retry(255))
 
-    def test_remote_command_failure_is_not_retryable(self):
+    def test_non_transport_failure_is_not_retryable(self):
         self.assertFalse(mod.should_retry(1))
 
     def test_success_is_not_retryable(self):
@@ -131,9 +130,9 @@ class TestReconnectPolicy(unittest.TestCase):
 
 class TestMainReconnect(unittest.TestCase):
     r"""An interactive session is exactly what a network switch interrupts, so
-    it retries until the user quits; a one-shot command stops after a few
-    attempts instead of hanging a script forever. Every retry asks gcloud for a
-    fresh tunnel because the previous one is gone."""
+    it retries until the link returns. One-shot commands run at most once
+    because a transport failure does not prove the remote command never began.
+    Every interactive retry asks gcloud for a fresh tunnel."""
 
     def run_main(self, codes, argv=None):
         calls = []
@@ -154,18 +153,19 @@ class TestMainReconnect(unittest.TestCase):
         self.assertEqual(len(calls), 3)
         self.assertEqual([c.args[0] for c in sleep.call_args_list], [1, 2])
 
-    def test_interactive_keeps_trying_past_the_one_shot_limit(self):
+    def test_interactive_keeps_reconnecting_until_link_returns(self):
         rc, calls, _ = self.run_main([255] * 6 + [0])
         self.assertEqual(rc, 0)
         self.assertEqual(len(calls), 7)
 
-    def test_one_shot_command_gives_up(self):
+    def test_one_shot_command_does_not_repeat_after_ambiguous_disconnect(self):
         rc, calls, _ = self.run_main([255] * 10, ["ls", "."])
         self.assertEqual(rc, 255)
-        self.assertEqual(len(calls), mod.RECONNECT_LIMIT)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][-2:], ["--command", "ls ."])
 
-    def test_remote_command_failure_is_returned_immediately(self):
-        rc, calls, _ = self.run_main([1], ["false"])
+    def test_non_transport_gcloud_failure_is_returned_immediately(self):
+        rc, calls, _ = self.run_main([1])
         self.assertEqual(rc, 1)
         self.assertEqual(len(calls), 1)
 
@@ -175,6 +175,12 @@ class TestMainReconnect(unittest.TestCase):
         ), mock.patch.object(mod.time, "sleep") as sleep:
             self.assertEqual(mod.main([]), 130)
         sleep.assert_not_called()
+
+    def test_ctrl_c_during_reconnect_delay_exits_cleanly(self):
+        with mock.patch.object(mod, "gcloud", "gcloud"), mock.patch.object(
+            mod, "run_gcloud", return_value=255
+        ), mock.patch.object(mod.time, "sleep", side_effect=KeyboardInterrupt):
+            self.assertEqual(mod.main([]), 130)
 
 
 class TestRemoteCommand(unittest.TestCase):
