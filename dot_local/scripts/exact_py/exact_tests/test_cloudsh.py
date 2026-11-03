@@ -1,3 +1,5 @@
+import io
+import sys
 import unittest
 from unittest import mock
 
@@ -40,6 +42,72 @@ class TestGcloudCmd(unittest.TestCase):
         self.assertNotIn("", flags)
 
 
+class TestStderrNoise(unittest.TestCase):
+    r"""gcloud's tunnel races its own websocket callbacks on teardown: Stop()
+    closes the ssh client socket while the last frames are still arriving, so
+    websocket-client logs a traceback per frame. The port status lines are
+    internal too, so cloudsh relays stderr minus the tunnel's own noise. Any
+    other line, including a real error after the traceback, still gets through.
+    """
+
+    NOISE = (
+        "Listening on local port [40207].\n"
+        "ERROR: error from callback <function "
+        "CloudShellTunnel._AcceptConnection.<locals>.<lambda> at 0x70bfacc1a0>: "
+        "[Errno 9] Bad file descriptor\n"
+        "Tunnel stopped.\n"
+        '  File "/gcloud/websocket/_app.py", line 345, in _callback\n'
+        "    callback(self, *args)\n"
+        "    ~~~~~~~~^^^^^^^^^^^^\n"
+        '  File "/gcloud/tunnel.py", line 96, in <lambda>\n'
+        "    on_data=lambda ws, data, op, finished: client.sendall(data),\n"
+        "                                           ~~~~~~~~~~~~~~^^^^^^\n"
+        "ERROR: error from callback <function "
+        "CloudShellTunnel._AcceptConnection.<locals>.<lambda> at 0x70bfacc1a0>: "
+        "[Errno 9] Bad file descriptor\n"
+        '  File "/gcloud/websocket/_app.py", line 345, in _callback\n'
+        "    callback(self, *args)\n"
+    )
+
+    def clean(self, text):
+        return "".join(mod.filter_stderr(text.splitlines(keepends=True)))
+
+    def test_drops_the_tunnel_teardown_noise(self):
+        self.assertEqual(self.clean(self.NOISE), "")
+
+    def test_keeps_real_stderr(self):
+        text = "Warning: Permanently added 'localhost' to known hosts.\n"
+        self.assertEqual(self.clean(text), text)
+
+    def test_keeps_a_real_error_after_the_traceback(self):
+        self.assertEqual(
+            self.clean(self.NOISE + "ERROR: real failure\n"),
+            "ERROR: real failure\n",
+        )
+
+    def test_status_noise_does_not_swallow_indented_stderr(self):
+        text = "Listening on local port [1].\nTunnel stopped.\n  remote detail\n"
+        self.assertEqual(self.clean(text), "  remote detail\n")
+
+    def test_run_gcloud_relays_the_filtered_stream(self):
+        script = (
+            "import sys\n"
+            "sys.stderr.write('Listening on local port [1].\\n')\n"
+            "sys.stderr.write('ERROR: error from callback <function "
+            "CloudShellTunnel._AcceptConnection.<locals>.<lambda> at 0x1>: "
+            "[Errno 9] Bad file descriptor\\n')\n"
+            "sys.stderr.write('Tunnel stopped.\\n')\n"
+            "sys.stderr.write('  File \\\"x\\\", line 1, in y\\n')\n"
+            "sys.stderr.write('ERROR: real failure\\n')\n"
+            "sys.exit(7)\n"
+        )
+        err = io.StringIO()
+        with mock.patch.object(mod.sys, "stderr", err):
+            rc = mod.run_gcloud([sys.executable, "-c", script])
+        self.assertEqual(rc, 7)
+        self.assertEqual(err.getvalue(), "ERROR: real failure\n")
+
+
 class TestReconnectPolicy(unittest.TestCase):
     r"""ssh reserves 255 for its own failures (ECONNRESET when the interface
     goes away, auth, DNS) and passes the remote command's status through
@@ -70,12 +138,12 @@ class TestMainReconnect(unittest.TestCase):
     def run_main(self, codes, argv=None):
         calls = []
 
-        def fake_call(cmd):
+        def fake_session(cmd):
             calls.append(cmd)
             return codes[len(calls) - 1]
 
         with mock.patch.object(mod, "gcloud", "gcloud"), mock.patch.object(
-            mod.subprocess, "call", side_effect=fake_call
+            mod, "run_gcloud", side_effect=fake_session
         ), mock.patch.object(mod.time, "sleep") as sleep:
             rc = mod.main(argv if argv is not None else [])
         return rc, calls, sleep
@@ -100,6 +168,13 @@ class TestMainReconnect(unittest.TestCase):
         rc, calls, _ = self.run_main([1], ["false"])
         self.assertEqual(rc, 1)
         self.assertEqual(len(calls), 1)
+
+    def test_ctrl_c_exits_without_a_traceback(self):
+        with mock.patch.object(mod, "gcloud", "gcloud"), mock.patch.object(
+            mod, "run_gcloud", side_effect=KeyboardInterrupt
+        ), mock.patch.object(mod.time, "sleep") as sleep:
+            self.assertEqual(mod.main([]), 130)
+        sleep.assert_not_called()
 
 
 class TestRemoteCommand(unittest.TestCase):

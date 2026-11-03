@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
 import time
 
 gcloud: str | None = shutil.which("gcloud")
+
+# gcloud prints the tunnel's local port and its Stop() status on stderr, and the
+# tunnel's teardown races its websocket callbacks: Stop() closes the ssh client
+# socket while the last frames are still arriving, so websocket-client logs a
+# traceback per frame. None of that is the user's business. Match the status
+# lines separately from the callback error, which starts a traceback burst.
+STATUS_NOISE = re.compile(r"^(?:Listening on local port \[\d+\]\.|Tunnel stopped\.)$")
+CALLBACK_ERROR = re.compile(
+    r"^ERROR: error from callback <function CloudShellTunnel\._AcceptConnection\."
+    r"<locals>\.<lambda> .*>: \[Errno 9\] Bad file descriptor$"
+)
 
 # One-shot commands stop retrying; interactive sessions keep trying until the
 # user gives up, since a network switch is exactly what they are waiting out.
@@ -54,6 +66,45 @@ def build_command(argv: list[str]) -> str:
     return " ".join(argv)
 
 
+def filter_stderr(lines):
+    """Yield gcloud's stderr without the tunnel's teardown noise.
+
+    A callback error line is followed by its traceback and can have a status
+    line interleaved, so stay in the burst until a line that is neither blank,
+    indented, nor another noise line arrives. That keeps a real error printed
+    after the traceback while dropping the frames themselves.
+    """
+    in_traceback = False
+    for line in lines:
+        text = line.rstrip("\r\n")
+        callback = CALLBACK_ERROR.match(text)
+        noise = STATUS_NOISE.match(text) or callback
+        if in_traceback:
+            if not text or text[:1] in (" ", "\t") or noise:
+                continue
+            in_traceback = False
+        if noise:
+            in_traceback = bool(callback)
+            continue
+        yield line
+
+
+def run_gcloud(cmd: list[str]) -> int:
+    """Run one gcloud session, relaying stderr through filter_stderr.
+
+    stdout stays inherited so ssh keeps the terminal; only stderr is piped.
+    """
+    proc = subprocess.Popen(cmd, stderr=subprocess.PIPE, text=True, bufsize=1)
+    try:
+        with proc.stderr:
+            for line in filter_stderr(proc.stderr):
+                sys.stderr.write(line)
+                sys.stderr.flush()
+    finally:
+        returncode = proc.wait()
+    return returncode
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="SSH into Google Cloud Shell.")
     parser.add_argument('command', nargs='*', help='Command to run on remote')
@@ -67,7 +118,10 @@ def main(argv: list[str] | None = None) -> int:
     attempt = 0
     while True:
         attempt += 1
-        rc = subprocess.call(build_cloudsh_cmd(command))
+        try:
+            rc = run_gcloud(build_cloudsh_cmd(command))
+        except KeyboardInterrupt:
+            return 130
 
         if not should_retry(rc):
             return rc
