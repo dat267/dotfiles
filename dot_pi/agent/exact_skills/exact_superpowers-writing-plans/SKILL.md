@@ -11,8 +11,6 @@ Write implementation plans for an engineer who has not seen this codebase or thi
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**Context:** If working in an isolated worktree, it should have been created via the `superpowers-using-git-worktrees` skill at execution time.
-
 **Save plans to:** `${TMPDIR:-/tmp}/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
 - Never write plans into the repository. (User preferences for plan location override this default)
 
@@ -56,7 +54,7 @@ independently testable deliverable.
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For agentic workers:** Work through this plan task by task. Use the `tdd` skill for every step and `superpowers-verification-before-completion` before claiming a task is done. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** Work through this plan task by task. Use the `tdd` skill for every step and verify each task before claiming it done. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -186,6 +184,5 @@ review before implementation.
 
 Pi has no subagent tool, so execute the plan inline, task by task. Use the
 `tdd` skill for every step, `systematic-debugging` when a step fails for an
-unknown reason, and `superpowers-verification-before-completion` before
-claiming a task done. Use `code-maintenance` for the final whole-branch
-review.
+unknown reason, and verify before claiming a task done. Use `code-maintenance`
+for the final whole-branch review.

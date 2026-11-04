@@ -8,10 +8,8 @@ MIT licensed; see `LICENSE` in this directory.
 
 - `superpowers-brainstorming`
 - `superpowers-writing-plans`
-- `superpowers-verification-before-completion`
 - `superpowers-receiving-code-review`
 - `superpowers-finishing-a-development-branch`
-- `superpowers-using-git-worktrees`
 
 ## Adaptations
 
@@ -30,12 +28,17 @@ MIT licensed; see `LICENSE` in this directory.
   live in `${TMPDIR:-/tmp}/superpowers/`, and visual-companion sessions in
   `${TMPDIR:-/tmp}/brainstorm-*`. The upstream `--project-dir` option and the
   `.superpowers/` repository writes were removed from the scripts and docs.
-- Harness-specific instructions were removed. The skills assume Pi: git
-  worktrees instead of native worktree tools, inline builder checks instead of
-  subagent dispatch, and a single launch path for the visual companion.
+- Harness-specific instructions were removed. The skills assume Pi: inline
+  builder checks instead of subagent dispatch, and a single launch path for the
+  visual companion.
 - The visual companion sends no telemetry and loads no remote branding image.
 - Not vendored: `test-driven-development` and `systematic-debugging` (local
   equivalents exist), `subagent-driven-development`,
   `dispatching-parallel-agents`, `executing-plans`, `requesting-code-review`
   (subagent tool required), `diagnosing-superpowers` (maintainer diagnostics),
   and `writing-skills` (its testing method requires subagents).
+- Removed after review as redundant here:
+  `superpowers-verification-before-completion` (the `karpathy-guidelines` and
+  `tdd` skills already require verification before a completion claim) and
+  `superpowers-using-git-worktrees` (rarely applicable, and the repository's
+  branch and commit policy lives in `AGENTS.md`).
