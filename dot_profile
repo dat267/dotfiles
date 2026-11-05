@@ -172,6 +172,7 @@ prepend_paths \
 	"$HOME/.local/opt/go/bin" \
 	"$HOME/.local/opt/VSCode-linux/bin" \
 	"$HOME/.local/bin" \
+	"$HOME/.local/opt/npm/bin" \
 	"$HOME/.cargo/bin" \
 	"$HOME/gopath/bin" \
 	"$HOME/go/bin" \
