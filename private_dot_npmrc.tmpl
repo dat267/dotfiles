@@ -7,16 +7,19 @@
 # "nvm is not compatible with the npm config 'prefix' option" on every shell
 # startup. Under nvm the prefix belongs to nvm's per-version layout, so
 # `npm i -g` should follow NVM_DIR like on any nvm machine.
-# Linux otherwise: `npm i -g` installs into a dedicated prefix at
-# ~/.local/opt/npm (packages in lib/node_modules, binaries in bin/ which
-# dot_profile puts on PATH) instead of /usr/lib/node_modules, which needs
-# root, or the top level of ~/.local, which mixes npm packages in with pip
-# and uv tooling.
+# Linux otherwise: `npm i -g` installs into ~/.local (packages in
+# lib/node_modules, binaries in bin/, already on PATH via dot_profile)
+# instead of /usr/lib/node_modules, which needs root.
+#
+# Windows must never use ~/.local here: npm has no lib/bin split there, so it
+# writes node_modules and the .cmd shims straight into the prefix root, which
+# would dump shims at the top of the chezmoi-managed ~/.local tree. A dedicated
+# directory keeps that clutter out of ~/.local.
 {{- if eq .chezmoi.os "windows" }}
 prefix=${APPDATA}/npm
 {{- else if env "CLOUD_SHELL" }}
 {{- else }}
-prefix=${HOME}/.local/opt/npm
+prefix=${HOME}/.local
 {{- end }}
 
 # Retained from the pre-existing ~/.npmrc: allow installing deps from any git host.
