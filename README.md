@@ -5,8 +5,8 @@ Cross-platform dotfiles managed with [chezmoi](https://chezmoi.io), targeting **
 ## Quick Start
 
 ```sh
-# Linux / macOS (uses git)
-sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply dat267
+# Linux, Android (Termux), macOS. On Termux: pkg install curl git first.
+sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin" init --apply dat267
 ```
 
 ```powershell
@@ -14,11 +14,15 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply dat267
 iex "&{$(irm 'https://get.chezmoi.io/ps1')} -- init --apply dat267"
 ```
 
-The PowerShell installer places the binary in `.\bin` (it does not touch
-`PATH`), so add that directory to `PATH` — or `winget install
-twpayne.chezmoi` — before running further `chezmoi` commands. No system git
-is required: chezmoi falls back to its built-in git when `git` is not on
-`PATH`.
+Both installers drop the binary in `./bin` under the current directory and
+leave `PATH` alone. The `-b` above installs into `~/.local/bin`, which the
+deployed `~/.profile` puts on `PATH`, so later `chezmoi apply` runs work
+without further setup; without it, move `bin/chezmoi` there yourself. On
+Windows the installer always writes `.\bin`: move `bin\chezmoi.exe` to
+`$HOME\bin`, which the profile also puts on `PATH` (a relative `.\bin` entry
+in `PATH` is not worth keeping), or install with
+`winget install twpayne.chezmoi` instead. No system git is required: chezmoi
+falls back to its built-in git when `git` is not on `PATH`.
 
 Secrets (`auth.json`, credential-store entries) are untracked — copy them
 separately after the first apply.
@@ -45,6 +49,8 @@ Flagged by `.chezmoiignore` and `.tmpl` template guards:
 - **Linux** — primary target; bash/zsh, Neovim, mpv, aria2, rclone, fzf
 - **Windows** — PowerShell profile, VS Code settings, Windows Terminal, junctions
 - **Android (Termux)** — `~/.termux/termux.properties`, platform-adjusted shell config
+- **macOS** — untested: the install script above works and the Linux/Windows-only
+  pieces are guarded out, but nothing exercises it in CI
 
 ## Repository Layout
 
