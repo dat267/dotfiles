@@ -135,7 +135,7 @@ jobs:
               }
             }
 
-            $files = @($profilePath)
+            $files = @($profilePath, (Join-Path $dest ".config\powershell\modules\Utils.psm1"))
             foreach ($t in @(
                 "run_once_before_bootstrap-local-configs.ps1.tmpl",
                 "run_onchange_after_create-junctions.ps1.tmpl"
@@ -166,6 +166,36 @@ jobs:
             }
             if ($bad.Count -gt 0) { throw "PowerShell syntax errors in: $($bad -join ', ')" }
             "parsed $($files.Count) PowerShell files"
+          }
+
+      # chezmoi runs a .ps1 hook with pwsh when it is installed and falls back to
+      # Windows PowerShell 5.1 otherwise, so the two run_ hooks must parse under
+      # 5.1 too. The pwsh parsing above cannot see this class of bug: a single
+      # PS7-only operator (the `? :` ternary, `??`) is a parse error that leaves
+      # the whole hook doing nothing, and a fresh Windows box has no pwsh yet.
+      # The profile and Utils.psm1 stay out of this step: they are loaded by pwsh.
+      - name: Windows PowerShell 5.1 parses the run_ hooks
+        shell: powershell
+        run: |
+          . .github/scripts/step-report.ps1
+          Invoke-WithReport "windows-powershell-5.1" {
+            $files = @(
+              (Join-Path $env:RUNNER_TEMP "run_once_before_bootstrap-local-configs.ps1"),
+              (Join-Path $env:RUNNER_TEMP "run_onchange_after_create-junctions.ps1")
+            )
+            $bad = @()
+            foreach ($file in $files) {
+              if (-not (Test-Path -LiteralPath $file)) { throw "missing file to parse: $file" }
+              Write-Host "--- $file"
+              $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$null, [ref]$errors) | Out-Null
+              if ($errors -and $errors.Count -gt 0) {
+                foreach ($e in $errors) { Write-Host "$($e.Extent.StartLineNumber): $($e.Message)" }
+                $bad += $file
+              }
+            }
+            if ($bad.Count -gt 0) { throw "Windows PowerShell 5.1 cannot parse: $($bad -join ', ')" }
+            "parsed $($files.Count) files under PowerShell $($PSVersionTable.PSVersion)"
           }
 
       # No flags: exercises the official installer's Windows half (install.ps1),

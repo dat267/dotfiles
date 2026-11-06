@@ -1,4 +1,7 @@
 # --- Bash-equivalent utilities (extracted from user profile) ---
+# Windows PowerShell 5.1 must be able to parse this file: the profile imports it
+# with -ErrorAction SilentlyContinue, so a PS7-only operator (`??`, `? :`) would
+# drop every function here without a word.
 
 # ls variants
 function global:ll  { Get-ChildItem -Force @args | Format-Table Mode, LastWriteTime, Length, Name -AutoSize }
@@ -37,9 +40,9 @@ function global:cat {
 }
 
 # realpath / basename / dirname
-function global:realpath { param([string]$Path) (Resolve-Path $Path -ErrorAction SilentlyContinue).Path ?? [System.IO.Path]::GetFullPath($Path) }
+function global:realpath { param([string]$Path) $resolved = (Resolve-Path $Path -ErrorAction SilentlyContinue).Path; if ($resolved) { $resolved } else { [System.IO.Path]::GetFullPath($Path) } }
 function global:basename { param([string]$Path, [string]$Suffix) $b = [System.IO.Path]::GetFileName($Path); if ($Suffix -and $b.EndsWith($Suffix)) { $b = $b.Substring(0, $b.Length - $Suffix.Length) }; $b }
-function global:dirname { param([string]$Path) [System.IO.Path]::GetDirectoryName((Resolve-Path $Path -ErrorAction SilentlyContinue).Path ?? $Path) }
+function global:dirname { param([string]$Path) $resolved = (Resolve-Path $Path -ErrorAction SilentlyContinue).Path; if (-not $resolved) { $resolved = $Path }; [System.IO.Path]::GetDirectoryName($resolved) }
 
 # env / export
 function global:env {

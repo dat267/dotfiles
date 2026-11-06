@@ -1,4 +1,8 @@
 {{ if eq .chezmoi.os "windows" -}}
+# chezmoi runs a .ps1 hook with pwsh when it is installed and falls back to
+# Windows PowerShell 5.1 otherwise, so everything here must parse under 5.1:
+# a PS7-only operator (the `? :` ternary, `??`) is a parse error that leaves
+# the whole hook doing nothing, and a fresh Windows box has no pwsh yet.
 $docsDir = [System.Environment]::GetFolderPath('MyDocuments')
 $script:junctionFailures = 0
 
@@ -58,7 +62,13 @@ $folderMap = @{
     "$env:APPDATA\Code\User"                         = "{{ .chezmoi.homeDir }}/.config/Code/User"
     "$env:APPDATA\Code - OSS\User"                   = "{{ .chezmoi.homeDir }}/.config/Code/User"
     "$env:APPDATA\yazi\config"                       = "{{ .chezmoi.homeDir }}/.config/yazi"
-    "$HOME\scoop\persist\vscode\data\user-data\User" = "{{ .chezmoi.homeDir }}/.config/Code/User"
+}
+
+# Scoop's VS Code keeps user data inside the app's persist dir. Only map it
+# when scoop actually has that app, so a machine without scoop never grows a
+# ~\scoop tree just to hold a junction.
+if (Test-Path -LiteralPath "$HOME\scoop\persist\vscode") {
+    $folderMap["$HOME\scoop\persist\vscode\data\user-data\User"] = "{{ .chezmoi.homeDir }}/.config/Code/User"
 }
 
 function Create-Junction($link, $target) {
@@ -126,8 +136,8 @@ foreach ($prof in $profiles) {
         }
 
         if (-not $hasSource) {
-            $newContent = $sourceLine + "`r`n" + ($content ? $content.Trim() : "")
-            Set-Content -Path $prof -Value $newContent -Encoding UTF8
+            $body = if ($content) { $content.Trim() } else { "" }
+            Set-Content -Path $prof -Value ($sourceLine + "`r`n" + $body) -Encoding UTF8
         }
     } else {
         $profDir = Split-Path $prof -Parent
