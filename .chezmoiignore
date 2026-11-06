@@ -6,7 +6,6 @@ LICENSE
 .github
 .vscode
 docs
-node_modules
 
 
 
@@ -39,6 +38,13 @@ run_onchange_after_systemd-user-reload.sh.tmpl
 
 {{- if ne .chezmoi.os "linux" }}
 .config/systemd
+{{- end }}
+
+{{- if or (eq .chezmoi.os "darwin") (eq .chezmoi.os "windows") }}
+# pip reads ~/.config/pip/pip.conf only on Linux and Android (XDG); macOS uses
+# ~/Library/Application Support/pip and Windows %APPDATA%\pip\pip.ini, so
+# deploying it there would only leave an inert copy.
+.config/pip
 {{- end }}
 
 .local/bin

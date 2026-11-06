@@ -27,6 +27,7 @@ private_dot_{bashrc,zshrc} Bash and Zsh rc files
 dot_vimrc, dot_vim/       Vim config, plugins, colors (vim-plug, ALE, molokai)
 dot_tmux.conf             tmux
 private_dot_npmrc.tmpl    npm config
+dot_config/private_pip/   pip config (`user = true`; deployed on Linux/Android only)
 private_dot_termux/       Termux properties (Android only)
 modify_private_dot_gitconfig    Git config (merged, mode 0600)
 dot_config/modify_mimeapps.list, modify_konsolerc  Merged into existing configs
