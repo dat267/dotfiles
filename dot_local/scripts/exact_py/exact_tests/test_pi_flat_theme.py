@@ -18,7 +18,7 @@ PANEL_TOKENS = [
 class PiFlatThemeTest(unittest.TestCase):
     def setUp(self):
         repo = Path(__file__).resolve().parents[4]
-        self.theme = json.loads((repo / "dot_pi/agent/themes/flat.json").read_text())
+        self.theme = json.loads((repo / "dot_pi/private_agent/themes/flat.json").read_text())
 
     def test_every_panel_uses_the_terminal_background(self):
         colors = self.theme["colors"]

@@ -4,7 +4,7 @@ Guidelines for AI agents working in this dotfiles repository.
 
 ## Chezmoi Filename Conventions
 
-`dot_` → deployed dotfile (`dot_vimrc` → `~/.vimrc`) · `private_` → mode 0600 (never remove from SSH/gitconfig) · `executable_` → executable bit, prefix stripped · `modify_` → merges into an existing file at deploy, never a full replacement · `exact_` → directory contents are exact, unmanaged files removed on apply · `run_once_` / `run_onchange_` → lifecycle hooks · `*.tmpl` → Go template. Prefixes stack (`private_executable_`, `executable_dot_`).
+`dot_` → deployed dotfile (`dot_vimrc` → `~/.vimrc`) · `private_` → mode 0600, or 0700 on a directory (never remove from SSH/gitconfig) · `executable_` → executable bit, prefix stripped · `modify_` → merges into an existing file at deploy, never a full replacement · `exact_` → directory contents are exact, unmanaged files removed on apply · `run_once_` / `run_onchange_` → lifecycle hooks · `*.tmpl` → Go template. Prefixes stack (`private_executable_`, `executable_dot_`).
 
 Edit chezmoi source files, never deployed targets. Preserve `{{- ... -}}` trimming and `{{ if eq .chezmoi.os "..." }}` guards. In Yazi rules, never quote `%s`/`%s1` in unix rules (Yazi escapes those paths); Windows rules quote them on purpose, see `dot_config/yazi/yazi.toml`.
 
@@ -15,10 +15,10 @@ Notable source → deployed mappings:
 | Source | Deployed |
 |---|---|
 | `dot_local/scripts/exact_py/` | `~/.local/scripts/py/` (on `PATH`) |
-| `dot_pi/agent/exact_extensions/` | `~/.pi/agent/extensions/` |
-| `dot_pi/agent/exact_skills/` | `~/.pi/agent/skills/` |
-| `dot_pi/agent/private_APPEND_SYSTEM.md` | `~/.pi/agent/APPEND_SYSTEM.md` (mode 0600) |
-| `dot_pi/agent/modify_settings.json` | `~/.pi/agent/settings.json` (merged) |
+| `dot_pi/private_agent/exact_extensions/` | `~/.pi/agent/extensions/` |
+| `dot_pi/private_agent/exact_skills/` | `~/.pi/agent/skills/` |
+| `dot_pi/private_agent/private_APPEND_SYSTEM.md` | `~/.pi/agent/APPEND_SYSTEM.md` (mode 0600) |
+| `dot_pi/private_agent/modify_settings.json` | `~/.pi/agent/settings.json` (merged) |
 | `dot_config/opencode/private_opencode.json` | `~/.config/opencode/opencode.json` |
 
 ```
@@ -41,10 +41,10 @@ dot_config/powershell/    PowerShell profile + Utils.psm1 module
 dot_config/opencode/      opencode config (points at ~/.pi/agent/skills)
 dot_config/Code/User/     VS Code settings + snippets
 dot_config/systemd/user/  Linux systemd user services (dsh-web)
-dot_pi/agent/             Pi config: APPEND_SYSTEM.md, settings modify template, themes
-dot_pi/agent/exact_extensions/  Pi extensions (deployed as extensions/)
-dot_pi/agent/exact_skills/      Pi skills (deployed as skills/); exact_superpowers/ holds vendored Superpowers provenance and license
-dot_pi/agent/themes/            Pi themes, including flat.json
+dot_pi/private_agent/     Pi config (deployed as ~/.pi/agent, mode 0700; the tools create it 0700)
+dot_pi/private_agent/exact_extensions/  Pi extensions (deployed as extensions/)
+dot_pi/private_agent/exact_skills/      Pi skills (deployed as skills/); exact_superpowers/ holds vendored Superpowers provenance and license
+dot_pi/private_agent/themes/            Pi themes, including flat.json
 dot_local/scripts/        Scripts on PATH: exact_py → py/, sh/, ps1/
 dot_local/scripts/exact_py/  stdlib-only Python (exact: strays removed on apply)
 dot_local/share/konsole/  Konsole profile + One Dark and One Light schemes

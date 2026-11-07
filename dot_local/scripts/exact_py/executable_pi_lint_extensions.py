@@ -3,7 +3,7 @@
 
 node --test strips types and never typechecks, so extension debt (unused
 declarations, nullability, bad narrowing) ships silently. This runs
-tsc --strict over each extension dir in dot_pi/agent/exact_extensions and
+tsc --strict over each extension dir in dot_pi/private_agent/exact_extensions and
 reports per-directory pass/fail. First failure wins the exit code; run it
 before committing extension changes.
 
@@ -31,7 +31,7 @@ TSC_FLAGS = [
 	"--allowImportingTsExtensions", "--skipLibCheck", "--types", "node",
 ]
 
-EXTENSIONS_REL = Path("dot_pi/agent/exact_extensions")
+EXTENSIONS_REL = Path("dot_pi/private_agent/exact_extensions")
 
 
 def discover_extensions(root):

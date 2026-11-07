@@ -12,7 +12,7 @@ import unittest
 class PiSettingsTest(unittest.TestCase):
     def test_retired_goal_exclusion_is_removed_and_is_idempotent(self):
         repo = Path(__file__).resolve().parents[4]
-        template = repo / "dot_pi/agent/modify_settings.json"
+        template = repo / "dot_pi/private_agent/modify_settings.json"
         retired = "-extensions/goal/index.ts"
         selections = ["extensions/custom.ts", "-builtin:mcp"]
         cases = [

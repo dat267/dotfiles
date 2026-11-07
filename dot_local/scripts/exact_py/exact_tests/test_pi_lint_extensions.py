@@ -27,7 +27,7 @@ class PiplineCase(unittest.TestCase):
 
 	def make_ext(self, name, files):
 		"""Fixture: an extension dir with the given .ts files."""
-		d = self.root / "dot_pi" / "agent" / "exact_extensions" / name
+		d = self.root / "dot_pi" / "private_agent" / "exact_extensions" / name
 		d.mkdir(parents=True, exist_ok=True)
 		for f in files:
 			(d / f).write_text("export {};\n")
@@ -38,7 +38,7 @@ class TestDiscovery(PiplineCase):
 	def test_finds_extension_dirs_containing_typescript(self):
 		self.make_ext("exact_sample", ["index.ts"])
 		self.make_ext("exact_empty", [])
-		pi_root = self.root / "dot_pi" / "agent" / "exact_extensions"
+		pi_root = self.root / "dot_pi" / "private_agent" / "exact_extensions"
 		(pi_root / "not-an-ext.txt").write_text("x")
 		self.assertEqual(pi_lint.discover_extensions(self.root), ["exact_sample"])
 
@@ -291,8 +291,8 @@ class TestAggregation(PiplineCase):
 		results = pi_lint.run_lint(self.root, runner=fake_run, pi_pkg=self.fake_pkg)
 		self.assertEqual({name: ok for name, ok, _ in results}, {"exact_a": True, "exact_b": False})
 		# tsc resolves --types from the cwd, so each lint must run IN its dir.
-		self.assertEqual(seen_cwd, [self.root / "dot_pi" / "agent" / "exact_extensions" / "exact_a",
-			self.root / "dot_pi" / "agent" / "exact_extensions" / "exact_b"])
+		self.assertEqual(seen_cwd, [self.root / "dot_pi" / "private_agent" / "exact_extensions" / "exact_a",
+			self.root / "dot_pi" / "private_agent" / "exact_extensions" / "exact_b"])
 
 	def test_output_drops_npm_notice_noise(self):
 		self.make_ext("exact_a", ["index.ts"])

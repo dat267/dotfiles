@@ -19,7 +19,7 @@ The main target platforms are Linux, Windows, and Android through Termux. Most c
 
 ### Pi and opencode
 
-`dot_pi/agent/` supplies Pi settings, themes, extensions, and skills. Extensions are deployed to `~/.pi/agent/extensions/`; skills are deployed to `~/.pi/agent/skills/` and can also be referenced by opencode's configuration. `modify_settings.json` merges the managed Pi settings into the existing settings file, preserving unrelated user settings. The `system` theme remains the default and `flat` is an optional theme.
+`dot_pi/private_agent/` supplies Pi settings, themes, extensions, and skills. Extensions are deployed to `~/.pi/agent/extensions/`; skills are deployed to `~/.pi/agent/skills/` and can also be referenced by opencode's configuration. `modify_settings.json` merges the managed Pi settings into the existing settings file, preserving unrelated user settings. The `system` theme remains the default and `flat` is an optional theme.
 
 ### Sandboxed launchers
 

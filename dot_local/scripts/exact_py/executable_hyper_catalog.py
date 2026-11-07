@@ -31,7 +31,7 @@ import urllib.request
 from pathlib import Path
 
 API_URL = "https://hyper.charm.land/v1/models"
-DEFAULT_FILE = Path("dot_pi/agent/exact_extensions/exact_providers/hyper/catalog.ts")
+DEFAULT_FILE = Path("dot_pi/private_agent/exact_extensions/exact_providers/hyper/catalog.ts")
 AUTH_PATH = Path("~/.pi/agent/auth.json").expanduser()
 TIMEOUT = 30
 
