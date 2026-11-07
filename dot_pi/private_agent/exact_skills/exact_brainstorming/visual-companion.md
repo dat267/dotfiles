@@ -55,7 +55,7 @@ without repeating it.
 
 **Finding connection info:** The server writes its startup JSON to `$STATE_DIR/server-info`. If you launched the server in the background and didn't capture stdout, read that file to get the URL and port. The session directory is the parent of `screen_dir`.
 
-**Note:** Session files live under the OS temp directory and are removed when the server stops. Do not pass a project directory or create `.superpowers/` in the repository.
+**Note:** Session files live under the OS temp directory and are removed when the server stops. Do not pass a project directory or write session state into the repository.
 
 **Launching the server:**
 

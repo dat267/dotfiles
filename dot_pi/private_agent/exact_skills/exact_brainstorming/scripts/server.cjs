@@ -103,7 +103,7 @@ const URL_HOST = process.env.BRAINSTORM_URL_HOST || (HOST === '127.0.0.1' ? 'loc
 const SESSION_DIR = process.env.BRAINSTORM_DIR || path.join(os.tmpdir(), 'brainstorm');
 const CONTENT_DIR = path.join(SESSION_DIR, 'content');
 const STATE_DIR = path.join(SESSION_DIR, 'state');
-const SUPERPOWERS_BRAND_URL = 'https://github.com/obra/superpowers';
+const BRAND_URL = 'https://github.com/dat267/dotfiles';
 let ownerPid = process.env.BRAINSTORM_OWNER_PID ? Number(process.env.BRAINSTORM_OWNER_PID) : null;
 
 // Per-session secret key. The companion is reachable by any local browser tab
@@ -200,7 +200,7 @@ const helperInjection = '<script>\n' + helperScript + '\n</script>';
 // ========== Helper Functions ==========
 
 function brandMarkup() {
-  return '<div class="brand"><a href="' + SUPERPOWERS_BRAND_URL + '"><span class="brand-copy">Superpowers</span></a></div>';
+  return '<div class="brand"><a href="' + BRAND_URL + '"><span class="brand-copy">Brainstorming</span></a></div>';
 }
 
 function renderBranding(html) {

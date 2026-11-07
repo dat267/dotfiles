@@ -1,6 +1,6 @@
 ---
-name: superpowers-brainstorming
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, modifying behavior, or planning anything new, in software or out of it (a talk, a business, a renovation)."
+name: brainstorming
+description: "Use before any creative work - creating features, building components, adding functionality, modifying behavior, or planning anything new, in software or out of it (a talk, a business, a renovation)."
 ---
 
 # Brainstorming
@@ -29,7 +29,8 @@ Before you start implementing, you must, in order:
    human partner pick one (see Lay out the approaches).
 2. Write the design doc, short or full (see Size the Work).
 3. Get their approval of that doc.
-4. Invoke the superpowers-writing-plans skill.
+4. Break the approved design into tasks and build it, verifying each
+   task before claiming it done.
 
 Two things aren't implementing: a spike they said yes to (see Spike to
 feel things out), and doing what they asked once they've opted out of
@@ -222,7 +223,7 @@ or two each and goes straight to your human partner, without the
 builder check.
 
 **Where it goes:** under the OS temp directory,
-`${TMPDIR:-/tmp}/superpowers/specs/YYYY-MM-DD-<topic>-design.md`. Do not
+`${TMPDIR:-/tmp}/brainstorm/specs/YYYY-MM-DD-<topic>-design.md`. Do not
 write specs into the repository. Otherwise, ask. Your human partner's
 preferences override both.
 
@@ -248,7 +249,7 @@ round of questions the check produces.
 Nothing gets built until your human partner approves the design doc:
 the short one for a small change, the full one for a project.
 Building includes writing product code, scaffolding, installing
-dependencies, creating projects, and invoking an implementation skill.
+dependencies, creating projects, and starting implementation.
 Reading and exploring are fine.
 
 Two exceptions. If they opted out of the questions, the skill is done
@@ -256,8 +257,8 @@ and the gate goes with it. A spike they said yes to may be built; it
 stays labeled throwaway, and keeping what it produced is a new request
 that comes back through this gate.
 
-After the design doc is approved, the next step is the plan: invoke
-superpowers-writing-plans and no other skill.
+After the design doc is approved, break the work into tasks and start
+building, one verified task at a time.
 </HARD-GATE>
 
 ## Red Flags
