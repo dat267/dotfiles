@@ -23,6 +23,7 @@ Notable source → deployed mappings:
 
 ```
 dot_profile               Shell env for bash/zsh (PATH, aliases: pix, piex)
+dot_zshenv, dot_zprofile  zsh startup files; both defer PATH to dot_profile
 private_dot_{bashrc,zshrc} Bash and Zsh rc files
 dot_vimrc, dot_vim/       Vim config, plugins, colors (vim-plug, ALE, molokai)
 dot_tmux.conf             tmux

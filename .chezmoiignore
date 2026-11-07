@@ -27,6 +27,8 @@ run_onchange_after_create-junctions.ps1.tmpl
 .bashrc
 .profile
 .zshrc
+.zshenv
+.zprofile
 run_after_create-symlinks.sh.tmpl
 run_onchange_after_systemd-user-reload.sh.tmpl
 {{- end }}

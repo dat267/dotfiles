@@ -1,0 +1,9 @@
+# ~/.zshenv — read by every zsh, including non-interactive and script shells.
+#
+# zsh's first startup file, so it is the only place a script-mode zsh picks up
+# the shared environment. Keep it limited to that: login/interactive-only setup
+# belongs in .zprofile/.zshrc.
+if [ -n "${ZSH_VERSION:-}" ]; then
+	typeset -U path
+fi
+[[ -f ~/.profile ]] && . ~/.profile

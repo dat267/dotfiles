@@ -31,7 +31,7 @@ separately after the first apply.
 
 | Category | Tools / Configs |
 |---|---|
-| **Shell** | Bash (`~/.bashrc`), Zsh (`~/.zshrc`), `~/.profile` |
+| **Shell** | Bash (`~/.bashrc`), Zsh (`~/.zshrc`, `~/.zshenv`, `~/.zprofile`), `~/.profile` |
 | **Editors** | Neovim (minimal, zero-plugin), Vim (vim-plug, ALE, molokai), Helix, Zed, VS Code |
 | **Terminal** | WezTerm, Windows Terminal, tmux, Konsole |
 | **File Managers** | Yazi (Linux + Windows), lf |

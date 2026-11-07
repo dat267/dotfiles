@@ -1,0 +1,3 @@
+# ~/.zprofile — login zsh only; .zshenv has already sourced ~/.profile.
+# Intentionally empty of PATH edits: the shared profile owns PATH ordering,
+# and re-prepending here would demote ~/bin below ~/.local/bin.
