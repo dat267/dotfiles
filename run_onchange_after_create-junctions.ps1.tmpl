@@ -35,7 +35,7 @@ function Remove-ReparsePointSafely {
 }
 
 # Timestamped backup name that never collides with an existing backup. Existing
-# backups are never deleted — an old .bak may be the only copy of user data.
+# backups are never deleted: an old .bak may be the only copy of user data.
 function New-UniqueBackupPath {
     param($link)
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -75,7 +75,7 @@ function Create-Junction($link, $target) {
     $target = $target.Replace('/', '\')
     $item = Get-Item -Force -LiteralPath $link -ErrorAction SilentlyContinue
     if ($item) {
-        # Already a junction pointing to the right place — skip
+        # Already a junction pointing to the right place - skip
         if ($item.Attributes -match "ReparsePoint" -and (Test-SameTarget $item.Target $target)) { return }
         # Otherwise backup real directory or remove link so we can re-create
         if ($item.Attributes -notmatch "ReparsePoint") {

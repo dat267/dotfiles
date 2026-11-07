@@ -170,10 +170,11 @@ jobs:
 
       # chezmoi runs a .ps1 hook with pwsh when it is installed and falls back to
       # Windows PowerShell 5.1 otherwise, so the two run_ hooks must parse under
-      # 5.1 too. The pwsh parsing above cannot see this class of bug: a single
-      # PS7-only operator (the `? :` ternary, `??`) is a parse error that leaves
-      # the whole hook doing nothing, and a fresh Windows box has no pwsh yet.
-      # The profile and Utils.psm1 stay out of this step: they are loaded by pwsh.
+      # 5.1 too. The pwsh parsing above cannot see this class of bug: a PS7-only
+      # operator (the `? :` ternary, `??`) is a parse error that leaves the whole
+      # hook doing nothing, and a fresh Windows box has no pwsh yet. Neither can
+      # it see the encoding trap below. The profile and Utils.psm1 stay out of
+      # this step: they are loaded by pwsh.
       - name: Windows PowerShell 5.1 parses the run_ hooks
         shell: powershell
         run: |
@@ -187,6 +188,24 @@ jobs:
             foreach ($file in $files) {
               if (-not (Test-Path -LiteralPath $file)) { throw "missing file to parse: $file" }
               Write-Host "--- $file"
+              # chezmoi writes the rendered hook as UTF-8 without a BOM, and 5.1
+              # decodes a BOM-less file with the ANSI code page. A non-ASCII
+              # character in a string then arrives as mojibake, and the byte that
+              # decodes to a quote character makes the parser report "The string
+              # is missing the terminator" for the whole file.
+              $utf8 = [System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)
+              $nonAscii = @()
+              $line = 0
+              foreach ($text in $utf8 -split "`n") {
+                $line++
+                if ($text -match '[^\x00-\x7F]') { $nonAscii += "${line}: $($text.Trim())" }
+              }
+              if ($nonAscii.Count -gt 0) {
+                foreach ($n in $nonAscii) { Write-Host "non-ASCII $n" }
+                Write-Host "$file must stay ASCII: 5.1 reads a BOM-less file as ANSI"
+                $bad += $file
+                continue
+              }
               $errors = $null
               [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$null, [ref]$errors) | Out-Null
               if ($errors -and $errors.Count -gt 0) {
