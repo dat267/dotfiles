@@ -1,3 +1,11 @@
+# Sourced from .zshenv, .zshrc, .bashrc, and .bash_profile, so the same shell
+# can reach this file twice: zsh reads .zshenv and then .zshrc, whose fallback
+# source would otherwise run the whole body again (a second ssh-agent probe and
+# mkdir pass on every interactive shell). Once is enough.
+if [ -n "${DOTFILES_PROFILE_SOURCED:-}" ]; then
+	return 0 2>/dev/null || exit 0
+fi
+
 # One-way handoff to .bashrc for interactive bash login shells (tmux, ssh,
 # console logins): without it, login shells never see the bashrc at all —
 # aliases, PS1, and /google/devshell/bashrc.google included. .bashrc sources
@@ -11,7 +19,39 @@ fi
 prepend_paths() {
 	for p in "$@"; do
 		if [ -d "$p" ]; then
-			case ":$PATH:" in *:"$p":*) ;; *) PATH="$p:$PATH" ;; esac
+			# An entry that is already on PATH gets moved to the front, not
+			# left where it was found: a caller that asks for it explicitly
+			# ("$HOME/bin" overriding a tool another entry also ships)
+			# means it outranks everything else, however PATH was built.
+			case ":$PATH:" in
+			*:"$p":*)
+				# Peel the entries with parameter expansion rather than
+				# `for x in $PATH`: that word-splits and pathname-expands, so
+				# an entry such as /opt/a* would turn into one entry per
+				# match. Empty entries survive as _sep records them.
+				_rest=""
+				_sep=""
+				_remain=$PATH
+				while :; do
+					if [ "${_remain#*:}" != "$_remain" ]; then
+						_entry=${_remain%%:*}
+						_remain=${_remain#*:}
+						_has_more=1
+					else
+						_entry=$_remain
+						_remain=""
+						_has_more=0
+					fi
+					if [ "$_entry" != "$p" ]; then
+						_rest=$_rest$_sep$_entry
+						_sep=:
+					fi
+					[ "$_has_more" = 1 ] || break
+				done
+				PATH="$p${_sep}${_rest}"
+				;;
+			*) PATH="$p:$PATH" ;;
+			esac
 		fi
 	done
 }
