@@ -109,7 +109,16 @@ def member_names(path, backend):
             return [info.filename for info in zf.infolist() if not info.is_dir()]
     if backend == "tar":
         with tarfile.open(path) as tf:
-            return [m.name for m in tf.getmembers() if m.isfile() or m.issym() or m.islnk()]
+            names = []
+            for member in tf.getmembers():
+                if not (member.isfile() or member.issym() or member.islnk()):
+                    continue
+                names.append(member.name)
+                # A link member is an escape vector too: its linkname decides
+                # where the link points, so it gets the same traversal check.
+                if member.issym() or member.islnk():
+                    names.append(member.linkname)
+            return names
     if backend == "7z":
         out = subprocess.run(["7z", "l", "-slt", "-ba", "--", path], capture_output=True, text=True)
         return parse_7z_listing(out.stdout)
@@ -132,11 +141,26 @@ def extract_zip(path, dest, force):
 def extract_tar(path, dest, force):
     with tarfile.open(path) as tf:
         for member in tf.getmembers():
-            if not (member.isfile() or member.isdir() or member.issym()):
+            if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
                 continue
             target = os.path.join(dest, *member.name.replace("\\", "/").split("/"))
             if member.isdir():
                 os.makedirs(target, exist_ok=True)
+                continue
+            if member.issym() or member.islnk():
+                # Names were already checked for traversal, so the linkname can
+                # only resolve inside dest. Keep the link: materializing it as a
+                # copy duplicated the bytes and silently changed the tree.
+                link_target = os.path.join(dest, *member.linkname.replace("\\", "/").split("/"))
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                if os.path.lexists(target):
+                    if not force:
+                        continue
+                    os.remove(target)
+                if member.issym():
+                    os.symlink(member.linkname, target)
+                else:
+                    os.link(link_target, target)
                 continue
             os.makedirs(os.path.dirname(target), exist_ok=True)
             if os.path.exists(target) and not force:

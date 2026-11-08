@@ -193,6 +193,57 @@ class TestExtraction(unittest.TestCase):
         self.assertIn("../escaped.txt", err)
         self.assertFalse(os.path.exists(os.path.join(self.root, "escaped.txt")))
 
+    def test_keeps_tar_symlinks_as_links(self):
+        """A symlink member used to be written as a copy of its target, so a
+        tree extracted from a tarball lost its links and duplicated bytes."""
+        path = os.path.join(self.root, "links.tar.gz")
+        with tarfile.open(path, "w:gz") as tf:
+            data = b"TARGET"
+            target = tarfile.TarInfo("target.txt")
+            target.size = len(data)
+            tf.addfile(target, io.BytesIO(data))
+            link = tarfile.TarInfo("link.txt")
+            link.type = tarfile.SYMTYPE
+            link.linkname = "target.txt"
+            tf.addfile(link)
+        code, _, _ = run_main([path])
+        self.assertEqual(code, 0)
+        extracted = os.path.join(self.root, "links", "link.txt")
+        self.assertTrue(os.path.islink(extracted), "symlink member became a regular file")
+        self.assertEqual(os.readlink(extracted), "target.txt")
+
+    def test_refuses_a_symlink_pointing_outside(self):
+        """Keeping links real makes the link target an escape vector, so a
+        linkname with `..` or an absolute path is refused like a member name."""
+        path = os.path.join(self.root, "sly.tar.gz")
+        with tarfile.open(path, "w:gz") as tf:
+            link = tarfile.TarInfo("door")
+            link.type = tarfile.SYMTYPE
+            link.linkname = "../outside"
+            tf.addfile(link)
+        code, _, err = run_main([path])
+        self.assertEqual(code, 1)
+        self.assertIn("../outside", err)
+        self.assertFalse(os.path.lexists(os.path.join(self.root, "sly", "door")))
+
+    def test_keeps_tar_hardlinks_as_links(self):
+        path = os.path.join(self.root, "hard.tar.gz")
+        with tarfile.open(path, "w:gz") as tf:
+            data = b"TARGET"
+            target = tarfile.TarInfo("target.txt")
+            target.size = len(data)
+            tf.addfile(target, io.BytesIO(data))
+            link = tarfile.TarInfo("hard.txt")
+            link.type = tarfile.LNKTYPE
+            link.linkname = "target.txt"
+            tf.addfile(link)
+        code, _, _ = run_main([path])
+        self.assertEqual(code, 0)
+        target = os.path.join(self.root, "hard", "target.txt")
+        linked = os.path.join(self.root, "hard", "hard.txt")
+        self.assertTrue(os.path.exists(linked), "hardlink member was skipped entirely")
+        self.assertEqual(os.stat(target).st_ino, os.stat(linked).st_ino)
+
     def test_existing_non_empty_destination_is_refused(self):
         self.make_zip("bundle.zip", {"one.txt": "1"})
         dest = os.path.join(self.root, "bundle")
