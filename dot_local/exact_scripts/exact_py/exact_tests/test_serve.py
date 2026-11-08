@@ -309,6 +309,66 @@ class TestUploadRejectsMalformedLength(unittest.TestCase):
     def test_negative_length_is_a_client_error(self):
         self.assertEqual(self.post("-5"), 400)
 
+    def test_upload_over_the_cap_is_refused_with_413(self):
+        """The body length was read into memory whatever the client claimed."""
+        over = self.mod.MAX_UPLOAD_BYTES + 1
+        self.assertEqual(self.post(str(over)), 413)
+        self.assertFalse(
+            any(name.startswith("from-phone") for name in os.listdir(self.tmp.name)),
+            "a refused upload must not create a file",
+        )
+
+
+class TestUploadCapBoundary(unittest.TestCase):
+    """The cap is a byte count: below it the upload lands, above it is 413."""
+
+    CAP = 512
+
+    def setUp(self):
+        self.mod = _loader.load("serve")
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        patcher = mock.patch.object(self.mod, "MAX_UPLOAD_BYTES", self.CAP)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.server = self.mod.make_server(
+            root=self.tmp.name, host="127.0.0.1", port=0, upload=True
+        )
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.port = self.server.server_address[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def post_file(self, name, content):
+        boundary = "----caps"
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="{name}"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode() + content + f"\r\n--{boundary}--\r\n".encode()
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        try:
+            conn.request(
+                "POST",
+                "/__upload",
+                body=body,
+                headers={
+                    "Content-Type": f"multipart/form-data; boundary={boundary}",
+                    "Content-Length": str(len(body)),
+                },
+            )
+            return conn.getresponse().status
+        finally:
+            conn.close()
+
+    def test_body_below_the_cap_is_written(self):
+        self.assertEqual(self.post_file("small.txt", b"x" * 100), 201)
+        self.assertTrue(os.path.exists(os.path.join(self.tmp.name, "small.txt")))
+
+    def test_body_above_the_cap_is_refused_and_writes_nothing(self):
+        self.assertEqual(self.post_file("big.txt", b"x" * (self.CAP + 100)), 413)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp.name, "big.txt")))
+
 
 class TestOnce(unittest.TestCase):
     def test_server_stops_after_the_first_completed_transfer(self):

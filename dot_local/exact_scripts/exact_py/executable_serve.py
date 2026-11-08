@@ -29,6 +29,12 @@ import urllib.parse
 DEFAULT_PORT = 8000
 PORT_TRIES = 20
 
+# A listener bound to every interface is reachable from the LAN, so an upload
+# is a write primitive for anything on the network. 100 MB covers a phone photo
+# or a short screen recording, and bounds what one request can make the process
+# buffer in memory before it is parsed.
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024
+
 
 def eprint(*args):
     print(*args, file=sys.stderr)
@@ -207,6 +213,13 @@ def _make_handler(root, upload=False, token=None, only=None):
             length = self._content_length()
             if length is None:
                 self.send_error(400, "Bad Content-Length")
+                return
+            if length > MAX_UPLOAD_BYTES:
+                # Refuse before reading: the whole point is not to buffer it.
+                self.send_error(
+                    413,
+                    f"Upload too large (limit {MAX_UPLOAD_BYTES // (1024 * 1024)} MB)",
+                )
                 return
             body = self.rfile.read(length)
             ctype = self.headers.get("Content-Type", "")
