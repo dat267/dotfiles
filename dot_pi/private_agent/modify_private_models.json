@@ -18,9 +18,6 @@ chezmoi:modify-template
         "google/gemini-3.8-flash"
         "Qwen/Qwen3.8-Flash"
         "z-ai/glm-5.3-flash")
-    "deepseek" (list
-        "deepseek-flash"
-        "deepseek-v4-pro")
     "hyper" (list
         "deepseek-v4.1-flash")
     "opencode-go" (list
@@ -35,4 +32,4 @@ chezmoi:modify-template
 {{- $_ := setValueAtPath (list "providers" $provider "modelOverrides" $id "contextWindow") $cap $current }}
 {{- end }}
 {{- end }}
-{{- trimSuffix "\n" (toPrettyJson $current) -}}
+{{- toPrettyJson $current -}}
