@@ -97,7 +97,8 @@ jobs:
             $version = "2.72.2"
             $zip = Join-Path $env:RUNNER_TEMP "chezmoi.zip"
             $url = "https://github.com/twpayne/chezmoi/releases/download/v$version/chezmoi_${version}_windows_amd64.zip"
-            Invoke-WebRequest -Uri $url -OutFile $zip
+            # The release CDN sometimes answers 504; pwsh 7 retries 4xx/5xx itself.
+            Invoke-WebRequest -Uri $url -OutFile $zip -MaximumRetryCount 4 -RetryIntervalSec 10
             Expand-Archive -Path $zip -DestinationPath (Join-Path $env:RUNNER_TEMP "chezmoi-bin") -Force
             $chezmoi = (Resolve-Path (Join-Path $env:RUNNER_TEMP "chezmoi-bin\chezmoi.exe")).Path
             Invoke-Native "chezmoi --version" { & $chezmoi --version } | Out-Null
