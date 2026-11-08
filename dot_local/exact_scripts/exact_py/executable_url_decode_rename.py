@@ -15,14 +15,24 @@ def rename_files(directory="."):
         # Decode the filename (converts '%xx' to actual characters)
         new_name = urllib.parse.unquote(f)
 
+        # A decoded name must stay a name in this directory: '%2F' decodes to a
+        # separator and '%2E%2E' to '..', either of which would move the file
+        # somewhere else instead of renaming it.
+        if "/" in new_name or "\\" in new_name or new_name in (".", ".."):
+            print(f"skip: {f} -> {new_name} (decodes to a path)")
+            continue
+
+        src = os.path.join(directory, f)
+        dst = os.path.join(directory, new_name)
+
         # Skip if the new filename already exists
-        if os.path.exists(new_name):
+        if os.path.exists(dst):
             print(f"skip: {f} -> {new_name} (exists)")
             continue
 
         # Rename the file
         print(f"{f} -> {new_name}")
-        os.rename(f, new_name)
+        os.rename(src, dst)
 
 
 def main():
