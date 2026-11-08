@@ -1,70 +1,75 @@
 # dotfiles
 
-Cross-platform dotfiles managed with [chezmoi](https://chezmoi.io), targeting **Linux**, **Windows**, and **Android (Termux)**.
+My dotfiles for **Linux**, **Windows**, and **Android (Termux)**, managed with [chezmoi](https://chezmoi.io).
 
-## Quick Start
+## Quick start
 
 ```sh
-# Linux, Android (Termux), macOS. On Termux: pkg install curl git first.
+# Linux, Android (Termux), macOS. On Termux, run `pkg install curl git` first.
 sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin" init --apply dat267
 ```
 
 ```powershell
-# Windows (PowerShell 5.1+) — installs chezmoi, then applies the dotfiles
+# Windows (PowerShell 5.1 or later): installs chezmoi, then applies the dotfiles.
 iex "&{$(irm 'https://get.chezmoi.io/ps1')} -- init --apply dat267"
 ```
 
-Both installers drop the binary in `./bin` under the current directory and
-leave `PATH` alone. The `-b` above installs into `~/.local/bin`, which the
-deployed `~/.profile` puts on `PATH`, so later `chezmoi apply` runs work
-without further setup; without it, move `bin/chezmoi` there yourself. On
-Windows the installer always writes `.\bin`: move `bin\chezmoi.exe` to
-`$HOME\bin`, which the profile also puts on `PATH` (a relative `.\bin` entry
-in `PATH` is not worth keeping), or install with
-`winget install twpayne.chezmoi` instead. No system git is required: chezmoi
-falls back to its built-in git when `git` is not on `PATH`.
+By default both installers put the chezmoi binary in `./bin` and leave `PATH`
+alone. On Unix, the `-b "$HOME/.local/bin"` above installs it into a directory
+the deployed `~/.profile` already puts on `PATH`, so later `chezmoi apply` runs
+need no setup. Without `-b`, move `bin/chezmoi` there yourself.
 
-Secrets (`auth.json`, credential-store entries) are untracked — copy them
-separately after the first apply.
+The Windows installer always writes to `.\bin`. Move `bin\chezmoi.exe` to
+`$HOME\bin`, which the profile also puts on `PATH`, or install chezmoi with
+`winget install twpayne.chezmoi` instead. Adding the relative `.\bin` to `PATH`
+is not worth it.
 
-## What's Included
+Git is optional: chezmoi uses its built-in git when `git` is not on `PATH`.
 
-| Category | Tools / Configs |
+Secrets are not in the repo. After the first apply, copy `auth.json` and any
+credential-store entries over by hand.
+
+## What's included
+
+| Category | Configs |
 |---|---|
 | **Shell** | Bash (`~/.bashrc`), Zsh (`~/.zshrc`, `~/.zshenv`, `~/.zprofile`), `~/.profile` |
 | **Scripts** | Python helpers and tool installers in `~/.local/scripts/py` (on `PATH`) |
-| **Editors** | Neovim (minimal, zero-plugin), Vim (vim-plug, ALE, molokai), Helix, Zed, VS Code (settings + snippets) |
-| **Terminal** | WezTerm, Windows Terminal, tmux, Konsole |
-| **File Managers** | Yazi (Linux + Windows), lf |
+| **Editors** | Neovim (minimal, no plugins), Vim (vim-plug, ALE, molokai), Helix, Zed, VS Code (settings and snippets) |
+| **Terminals** | WezTerm, Windows Terminal, tmux, Konsole |
+| **File managers** | Yazi (Linux and Windows), lf |
 | **Media** | mpv, aria2 |
 | **Git** | `~/.gitconfig` (autosquash, auto-setup-remote, global identity) |
-| **PowerShell** | Profile + custom `Utils.psm1` module |
-| **SSH** | Client config (Tailscale/CGNAT hosts) |
-| **AI** | opencode (minimal config, shares Pi skills), Pi (agent config, extensions, skills) |
+| **PowerShell** | Profile and the `Utils.psm1` module |
+| **SSH** | Client config for Tailscale/CGNAT hosts |
+| **AI agents** | Pi (settings, extensions, skills) and opencode (minimal config that reuses Pi's skills) |
 
-## Platform Support
+## Platforms
 
-Flagged by `.chezmoiignore` and `.tmpl` template guards:
+`.chezmoiignore` and template guards decide what each platform gets:
 
-- **Linux** — primary target; everything except the Windows- and Termux-only pieces, plus Konsole and systemd user units
-- **Windows** — PowerShell profile, VS Code settings, Windows Terminal, junctions
-- **Android (Termux)** — `~/.termux/termux.properties`, platform-adjusted shell config
-- **macOS** — untested: the install script above works and the Linux/Windows-only
-  pieces are guarded out, but nothing exercises it in CI
-
-## Repository Layout
-
-The source tree and its chezmoi conventions are described in [AGENTS.md](AGENTS.md). [ARCHITECTURE.md](ARCHITECTURE.md) explains how the source tree maps to deployed configuration and how the main runtime components fit together.
+- **Linux:** the primary target. Gets everything except the Windows- and
+  Termux-only pieces, plus Konsole and systemd user units.
+- **Windows:** PowerShell profile, VS Code settings, Windows Terminal, and
+  directory junctions.
+- **Android (Termux):** `~/.termux/termux.properties` and a shell config
+  adjusted for Termux.
+- **macOS:** untested. The install command works and the Linux- and
+  Windows-only pieces are guarded out, but CI does not cover it.
 
 ## Secrets
 
-Sensitive or machine-local credentials live in OS credential stores, never in
-this repo:
+Credentials live in the OS credential store, never in this repo:
 
-- **Windows** — Windows Credential Manager; proxy credentials via
-  `Set-ProxyCredential` (PowerShell profile helper)
-- **Linux/macOS** — your system secret manager / environment
+- **Windows:** Windows Credential Manager. The PowerShell profile's
+  `Set-ProxyCredential` stores proxy credentials there.
+- **Linux and macOS:** the system secret manager or the environment.
+
+## More
+
+[AGENTS.md](AGENTS.md) describes the source tree and its chezmoi conventions.
+[ARCHITECTURE.md](ARCHITECTURE.md) explains how the pieces fit together.
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE).
