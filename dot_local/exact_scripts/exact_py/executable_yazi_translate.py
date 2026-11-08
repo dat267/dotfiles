@@ -95,12 +95,9 @@ def translate_mymemory(text, target, source):
 
 
 # Lingva uses GET with text in the URL path. URL-encoded CJK text
-# expands ~3x (each UTF-8 byte → %XX), so cap at 200 raw chars to stay
-# under common 2000-char URI limits. Non-CJK text is fine since ASCII
-# is not percent-encoded by urllib.
-_MAX_CHUNK = 200
+# expands ~3x (each UTF-8 byte → %XX), so the budget is measured from the
+# encoded size rather than assumed from the character count.
 _UA_LIMIT = 2000
-
 
 def _url_size(text):
     """Rough URL path size for Lingva API with this text.
@@ -128,21 +125,52 @@ def _translate_one(text, target, source):
     raise RuntimeError("all providers failed")
 
 
+def _fit_pieces(line, limit=_UA_LIMIT):
+    """Cut one over-long line into the largest pieces whose URL still fits.
+
+    Newline packing cannot help with a single unbroken line, and cutting by a
+    fixed character count both wastes budget on ASCII and overflows on CJK
+    (one character costs 9 encoded bytes). The bound is measured, so pieces
+    stay as large as the provider allows.
+    """
+    pieces = []
+    rest = line
+    while rest:
+        lo, hi = 1, len(rest)
+        while lo < hi:
+            mid = (lo + hi + 1) // 2
+            if _url_size(rest[:mid]) < limit:
+                lo = mid
+            else:
+                hi = mid - 1
+        pieces.append(rest[:lo])
+        rest = rest[lo:]
+    return pieces or [""]
+
+
 def translate(text, target, source="auto"):
     if _url_size(text) < _UA_LIMIT:
         return _translate_one(text, target, source)
 
-    lines = text.split("\n")
+    # Pack whole lines while they fit. A line that cannot fit even alone is
+    # translated piece by piece and stitched back without inserting anything
+    # between the pieces, so the returned text keeps the original line breaks.
     result = []
     buf = ""
-    for line in lines:
-        candidate = (buf + "\n" + line).strip() if buf else line
+    for line in text.split("\n"):
+        candidate = f"{buf}\n{line}" if buf else line
         if _url_size(candidate) < _UA_LIMIT:
             buf = candidate
-        else:
-            if buf:
-                result.append(_translate_one(buf, target, source))
+            continue
+        if buf:
+            result.append(_translate_one(buf, target, source))
+            buf = ""
+        if _url_size(line) < _UA_LIMIT:
             buf = line
+            continue
+        result.append(
+            "".join(_translate_one(piece, target, source) for piece in _fit_pieces(line))
+        )
     if buf:
         result.append(_translate_one(buf, target, source))
     return "\n".join(result)

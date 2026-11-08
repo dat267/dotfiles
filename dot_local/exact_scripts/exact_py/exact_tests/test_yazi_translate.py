@@ -70,10 +70,41 @@ class TestTranslateChunking(unittest.TestCase):
             return text.upper()
 
         line = "a" * 2000  # one line exceeds the chunk budget once encoded
+        source = "\n".join([line, line, line])
         with mock.patch.object(yt, "_translate_one", side_effect=fake_one):
-            result = yt.translate("\n".join([line, line, line]), "en")
-        self.assertEqual(len(calls), 3)
-        self.assertEqual(result.count("\n"), 2)
+            result = yt.translate(source, "en")
+        self.assertGreater(len(calls), 3, "an over-long line must be split, not sent whole")
+        self.assertEqual(result, source.upper())
+        for sent in calls:
+            self.assertLess(yt._url_size(sent), yt._UA_LIMIT)
+
+    def test_one_long_line_is_split_not_sent_whole(self):
+        """Splitting on newlines alone left a single over-long line intact, so
+        the Lingva URL overflowed and the whole translation failed."""
+        calls = []
+
+        def fake_one(text, target, source):
+            calls.append(text)
+            return text
+
+        with mock.patch.object(yt, "_translate_one", side_effect=fake_one):
+            result = yt.translate("\u3042" * 3000, "en")
+        self.assertGreater(len(calls), 1, "the single long line was sent in one request")
+        for sent in calls:
+            self.assertLess(yt._url_size(sent), yt._UA_LIMIT, "a chunk still overflows the URL")
+        self.assertEqual(result, "\u3042" * 3000, "chunking must not lose text")
+
+    def test_a_chunk_without_breaks_still_fits(self):
+        calls = []
+
+        def fake_one(text, target, source):
+            calls.append(text)
+            return text
+
+        with mock.patch.object(yt, "_translate_one", side_effect=fake_one):
+            yt.translate("a" * 10000, "en")
+        for sent in calls:
+            self.assertLess(yt._url_size(sent), yt._UA_LIMIT)
 
 
 class TestTranslateOneFallback(unittest.TestCase):
