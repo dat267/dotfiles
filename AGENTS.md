@@ -81,7 +81,7 @@ Each fact has one home:
 - `ARCHITECTURE.md`: the major components and how they fit together.
 - `TODO.md`: unfinished work.
 
-Write markdown with one line per paragraph or list item; never hard-wrap prose. Tables, code blocks, and the layout tree keep their own lines.
+Write markdown with each paragraph and list item on one line. Tables, code blocks, and the layout tree keep their own lines.
 
 When a change alters a fact, update the file that owns it in the same piece of work. These four files, `LICENSE`, and `.github/` are in `.chezmoiignore` and never deploy.
 
