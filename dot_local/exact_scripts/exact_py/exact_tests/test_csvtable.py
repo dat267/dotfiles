@@ -47,6 +47,17 @@ class TestRenderTable(unittest.TestCase):
         self.assertIn("a", out)
         self.assertIn("1", out)
 
+    def test_short_row_is_padded_not_crashed(self):
+        """A row with fewer cells than the header raised IndexError, and real
+        exports have those."""
+        rows = [["name", "size", "owner"], ["a.txt"], ["b.txt", "2"]]
+        out = csvtable.render_table(rows)
+        lines = out.splitlines()
+        self.assertEqual(len(lines), 3)
+        self.assertEqual(lines[1].strip(), "a.txt")
+        self.assertIn("b.txt", lines[2])
+        self.assertIn("2", lines[2])
+
 
 if __name__ == "__main__":
     unittest.main()

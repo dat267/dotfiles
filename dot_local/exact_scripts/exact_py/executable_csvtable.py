@@ -31,11 +31,15 @@ def render_table(rows, header=False, truncate=None, align_right=False):
         return ""
     if truncate:
         table = [[cell[: truncate - 1] + "…" if len(cell) > truncate else cell for cell in row] for row in table]
-    widths = [max(len(row[i]) for row in table) for i in range(len(table[0]))]
+    widths = [
+        max((len(row[i]) if i < len(row) else 0) for row in table)
+        for i in range(max(len(row) for row in table))
+    ]
 
     def fmt(row):
         cells = []
-        for i, cell in enumerate(row):
+        for i in range(len(widths)):
+            cell = row[i] if i < len(row) else ""
             width = widths[i]
             if align_right and cell.replace(".", "", 1).isdigit():
                 cells.append(cell.rjust(width))
