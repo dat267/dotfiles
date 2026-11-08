@@ -181,6 +181,19 @@ def _make_handler(root, upload=False, token=None, only=None):
             self.wfile.write(body)
             return None
 
+        def _content_length(self):
+            """Body length, or None when the header is absent or not a count.
+
+            int() on the raw header raised inside do_POST, so a malformed
+            request killed the connection with a traceback instead of a 400.
+            """
+            raw = (self.headers.get("Content-Length") or "0").strip()
+            try:
+                length = int(raw)
+            except ValueError:
+                return None
+            return length if length >= 0 else None
+
         def do_POST(self):
             if not upload:
                 self.send_error(403, "Uploads disabled")
@@ -191,7 +204,10 @@ def _make_handler(root, upload=False, token=None, only=None):
             if urllib.parse.urlsplit(self.path).path != "/__upload":
                 self.send_error(404, "Not found")
                 return
-            length = int(self.headers.get("Content-Length") or 0)
+            length = self._content_length()
+            if length is None:
+                self.send_error(400, "Bad Content-Length")
+                return
             body = self.rfile.read(length)
             ctype = self.headers.get("Content-Type", "")
             filename, content = parse_multipart(ctype, body)

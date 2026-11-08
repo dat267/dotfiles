@@ -2,11 +2,9 @@
 
 ## Bugs
 
-- [ ] MAIN-1 high: `install_code` and `install_rclone` always fail with `NameError: install_release_binary is not defined` (never imported), so neither CLI installs anything.
-- [ ] MAIN-2 high: `lsp.py`'s Lua recipe calls `create_proxy(lua_bin, "lua-language-server")` with the platform argument missing, so a fresh install and a re-link both raise `TypeError` after the download.
-- [ ] MAIN-3 medium: `serve --only <name>` 404s whenever the shared file's name has a space or non-ASCII character, because the guard compares the percent-encoded request path to the raw name.
-- [ ] MAIN-4 medium: `extract` materializes tar symlinks as copies of their target, so extracted trees lose their links and duplicate the bytes.
-- [ ] MAIN-5 low: `extract` skips tar hardlink members without reporting them, and `serve`'s docstring raises a `SyntaxWarning` for `D:\` under Python 3.12+.
+All confirmed findings are repaired; the tests that pin them live with their modules.
+
+- [ ] MAIN-6 open decision: `serve --upload` reads whatever `Content-Length` the client sends, with no cap, so one request can make the server buffer unbounded input in memory. Needs a size limit and an answer for oversized bodies.
 
 ## Later
 

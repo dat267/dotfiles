@@ -271,6 +271,45 @@ class TestSingleFileShareWithAwkwardName(unittest.TestCase):
         self.assertNotIn(b"SECRET", body)
 
 
+class TestUploadRejectsMalformedLength(unittest.TestCase):
+    """A bad Content-Length must be a 400, not a dropped connection.
+
+    int() on the header raised inside do_POST, so socketserver logged a
+    traceback and closed the socket with no response. The body length is also
+    now bounded, so one client cannot make the server buffer unbounded input.
+    """
+
+    def setUp(self):
+        self.mod = _loader.load("serve")
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.server = self.mod.make_server(
+            root=self.tmp.name, host="127.0.0.1", port=0, upload=True
+        )
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.port = self.server.server_address[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def post(self, length):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        headers = {"Content-Type": "multipart/form-data; boundary=b"}
+        if length is not None:
+            headers["Content-Length"] = length
+        try:
+            conn.request("POST", "/__upload", body=b"", headers=headers)
+            resp = conn.getresponse()
+            return resp.status
+        finally:
+            conn.close()
+
+    def test_non_numeric_length_is_a_client_error(self):
+        self.assertEqual(self.post("abc"), 400)
+
+    def test_negative_length_is_a_client_error(self):
+        self.assertEqual(self.post("-5"), 400)
+
+
 class TestOnce(unittest.TestCase):
     def test_server_stops_after_the_first_completed_transfer(self):
         mod = _loader.load("serve")
