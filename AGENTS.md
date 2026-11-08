@@ -46,7 +46,7 @@ dot_pi/private_agent/     Pi config (deployed as ~/.pi/agent, mode 0700; the too
 dot_pi/private_agent/exact_extensions/  Pi extensions (deployed as extensions/)
 dot_pi/private_agent/exact_skills/      Pi skills (deployed as skills/); exact_brainstorming/ holds its Superpowers attribution and license
 dot_pi/private_agent/themes/            Pi themes, including flat.json
-dot_local/scripts/        Scripts on PATH: exact_py → py/, sh/, ps1/
+dot_local/scripts/        Scripts: exact_py → py/, sh/, ps1/ (on PATH); js/ (Node, playwright-core; not on PATH)
 dot_local/scripts/exact_py/  stdlib-only Python (exact: strays removed on apply)
 dot_local/share/konsole/  Konsole profile + One Dark and One Light schemes
 AppData/Local/            Windows Terminal settings (Windows only)

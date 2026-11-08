@@ -4,8 +4,8 @@ This repository is a declarative chezmoi source tree. Files are transformed from
 
 ## Source-to-home deployment
 
-- `dot_` and `private_` encode target paths and permissions; `executable_` changes executable mode, `modify_` merges content into an existing target, and `exact_` makes a directory's deployed contents authoritative. Prefixes can stack.
-- `*.tmpl` files use Go templates for platform-specific values and guards. `.chezmoiignore` selects which sources are relevant for each OS and excludes documentation, runtime state, and generated artifacts.
+- Filename prefixes (`dot_`, `private_`, `executable_`, `modify_`, `exact_`) encode target paths, modes, merge behavior, and directory exactness; [AGENTS.md](AGENTS.md) lists them.
+- `*.tmpl` files use Go templates for platform-specific values and guards. `.chezmoiignore` selects which sources apply on each OS and excludes documentation, runtime state, and generated artifacts.
 - `run_once_`, `run_onchange_`, and `run_` scripts handle bootstrap or post-deployment work that cannot be expressed as static files. Hooks are platform-gated through `.chezmoiignore` and templates.
 - `.chezmoi.toml.tmpl` configures chezmoi behavior. When Git is available it enables source auto-add and auto-commit, while leaving pushes manual.
 
@@ -23,7 +23,7 @@ The main target platforms are Linux, Windows, and Android through Termux. Most c
 
 ### Sandboxed launchers
 
-The `pi_sandbox` and `pier_sandbox` Python entry points share policy and argument handling through `_sandbox.py`. Shell aliases `pix` and `piex` invoke these launchers; the bare `pi` and `pier` commands remain unsandboxed. In sandboxed modes, bubblewrap supplies the process boundary: the root filesystem is read-only, a limited set of writable paths is exposed, and host IPC endpoints are masked. The launcher implementation and its constraints are documented in `dot_local/scripts/exact_py/AGENTS.md`.
+The `pi_sandbox` and `pier_sandbox` Python entry points share policy and argument handling through `_sandbox.py`. Shell aliases `pix` and `piex` invoke these launchers; the bare `pi` and `pier` commands remain unsandboxed. In sandboxed modes, bubblewrap supplies the process boundary: the root filesystem is read-only, a limited set of writable paths is exposed, and host IPC endpoints are masked. The policy invariants are in [AGENTS.md](AGENTS.md); implementation detail is in `dot_local/scripts/exact_py/AGENTS.md`.
 
 ### Lifecycle integration
 
@@ -32,8 +32,6 @@ Linux and Android hooks repair the VS Code `Code/User` symlink and reload system
 ## Verification and ownership
 
 Python script tests live in `dot_local/scripts/exact_py/exact_tests/`. Pi extensions have local Node tests and are checked with `pi_lint_extensions.py`; the Windows workflow additionally renders templates and parses Windows PowerShell scripts. The relevant commands and ordering constraints are in [AGENTS.md](AGENTS.md).
-
-`README.md` owns installation and user-facing overview. `AGENTS.md` owns repository conventions and commands. `ARCHITECTURE.md` owns this component map. `TODO.md` owns unfinished work. Keep each fact in its owning document and update it alongside changes that alter that fact.
 
 Credentials and machine-local runtime state are not source configuration. Secrets belong in OS credential stores; generated files, package artifacts, caches, and opencode runtime state are excluded from chezmoi management.
 

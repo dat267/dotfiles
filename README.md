@@ -32,13 +32,13 @@ separately after the first apply.
 | Category | Tools / Configs |
 |---|---|
 | **Shell** | Bash (`~/.bashrc`), Zsh (`~/.zshrc`, `~/.zshenv`, `~/.zprofile`), `~/.profile` |
-| **Editors** | Neovim (minimal, zero-plugin), Vim (vim-plug, ALE, molokai), Helix, Zed, VS Code |
+| **Scripts** | Python helpers and tool installers in `~/.local/scripts/py` (on `PATH`) |
+| **Editors** | Neovim (minimal, zero-plugin), Vim (vim-plug, ALE, molokai), Helix, Zed, VS Code (settings + snippets) |
 | **Terminal** | WezTerm, Windows Terminal, tmux, Konsole |
 | **File Managers** | Yazi (Linux + Windows), lf |
 | **Media** | mpv, aria2 |
 | **Git** | `~/.gitconfig` (autosquash, auto-setup-remote, global identity) |
 | **PowerShell** | Profile + custom `Utils.psm1` module |
-| **VS Code** | Settings + snippet files across languages |
 | **SSH** | Client config (Tailscale/CGNAT hosts) |
 | **AI** | opencode (minimal config, shares Pi skills), Pi (agent config, extensions, skills) |
 
@@ -46,7 +46,7 @@ separately after the first apply.
 
 Flagged by `.chezmoiignore` and `.tmpl` template guards:
 
-- **Linux** — primary target; bash/zsh, Neovim, mpv, aria2, rclone, fzf
+- **Linux** — primary target; everything except the Windows- and Termux-only pieces, plus Konsole and systemd user units
 - **Windows** — PowerShell profile, VS Code settings, Windows Terminal, junctions
 - **Android (Termux)** — `~/.termux/termux.properties`, platform-adjusted shell config
 - **macOS** — untested: the install script above works and the Linux/Windows-only
