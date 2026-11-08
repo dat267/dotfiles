@@ -5,7 +5,7 @@ import sys
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import Platform, download, log
+from _shared import Platform, install_release_binary, log
 
 # VS Code CLI's download vocabulary: amd64 releases are tagged "x64".
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}

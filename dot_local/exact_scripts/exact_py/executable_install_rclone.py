@@ -5,7 +5,7 @@ import sys
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import Platform, download, log
+from _shared import Platform, install_release_binary, log
 
 # rclone's download vocabulary: darwin releases are tagged "osx".
 OS_WORDS = {"linux": "linux", "darwin": "osx", "windows": "windows"}

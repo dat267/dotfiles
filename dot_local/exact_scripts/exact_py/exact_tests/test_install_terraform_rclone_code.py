@@ -100,5 +100,39 @@ class TestCleanDirectory(unittest.TestCase):
         remove.assert_not_called()
 
 
+class TestInstallersReachTheSharedHelper(unittest.TestCase):
+    """Both main() bodies call install_release_binary; the name must exist.
+
+    Neither module imported it, so every run died with NameError before the
+    download started, which a name lookup in the module namespace catches
+    without touching the network.
+    """
+
+    def test_rclone_main_uses_the_shared_installer(self):
+        for name in ("install_rclone", "install_code"):
+            with self.subTest(module=name):
+                module = _loader.load(name)
+                self.assertTrue(
+                    hasattr(module, "install_release_binary"),
+                    f"{name} calls install_release_binary but does not import it",
+                )
+                self.assertEqual(
+                    module.install_release_binary.__module__,
+                    "_shared",
+                    f"{name} should bind the shared helper, not a local copy",
+                )
+
+    def test_rclone_and_code_install_through_the_helper(self):
+        for name, expected_binary in (("install_rclone", "rclone"), ("install_code", "code")):
+            with self.subTest(module=name):
+                module = _loader.load(name)
+                with mock.patch.object(module, "Platform") as platform, mock.patch.object(
+                    module, "install_release_binary", return_value="/tmp/bin"
+                ) as helper, mock.patch.object(module, "log"), mock.patch.object(module.sys, "argv", [name]):
+                    platform.detect.return_value.vendor.return_value = ("linux", "x64")
+                    module.main()
+                self.assertEqual(helper.call_args[0][1], expected_binary)
+
+
 if __name__ == "__main__":
     unittest.main()
