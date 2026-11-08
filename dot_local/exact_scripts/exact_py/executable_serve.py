@@ -102,8 +102,14 @@ def _make_handler(root, upload=False, token=None, only=None):
             return secrets.compare_digest(supplied, token)
 
         def _requested_path(self):
-            """URL path with the query stripped and the shared-file shorthand applied."""
-            raw = urllib.parse.urlsplit(self.path).path
+            """Decoded URL path with the query stripped and the shared-file shorthand applied.
+
+            Decoding matters: `only` holds the raw filename, while a browser
+            asks for the percent-encoded form, so a name with a space or a
+            non-ASCII character would never compare equal and 404 every
+            request, the QR code's own URL included.
+            """
+            raw = urllib.parse.unquote(urllib.parse.urlsplit(self.path).path)
             if only and raw in ("", "/"):
                 return "/" + only
             return raw
@@ -332,7 +338,7 @@ def display_path(target):
     """Path for the banner: relative to the cwd when that is expressible.
 
     os.path.relpath raises ValueError on Windows when the path is on another
-    drive than the cwd (serving D:\ while sitting on C:), which used to kill
+    drive than the cwd (serving D: while sitting on C:), which used to kill
     the server before it listened. Show the absolute path instead.
     """
     try:

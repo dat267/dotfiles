@@ -220,6 +220,57 @@ class TestSingleFileShare(ServeTestBase):
         self.assertEqual(status, 404)
 
 
+class TestSingleFileShareWithAwkwardName(unittest.TestCase):
+    """The only-file guard must compare decoded paths, not encoded ones.
+
+    Browsers request the percent-encoded form while `only` holds the raw name,
+    so a shared file whose name has a space or a non-ASCII character answered
+    404 for every request, including the QR code's own URL.
+    """
+
+    def serve(self, name):
+        mod = _loader.load("serve")
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        with open(os.path.join(tmp.name, name), "w") as fh:
+            fh.write("shared body")
+        with open(os.path.join(tmp.name, "sibling.txt"), "w") as fh:
+            fh.write("SECRET")
+        server = mod.make_server(root=tmp.name, host="127.0.0.1", port=0, only=name)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        port = server.server_address[1]
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        return port
+
+    def fetch(self, port, path):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        try:
+            conn.request("GET", path)
+            resp = conn.getresponse()
+            return resp.status, resp.read()
+        finally:
+            conn.close()
+
+    def test_name_with_a_space_is_served(self):
+        port = self.serve("my file.txt")
+        status, body = self.fetch(port, "/my%20file.txt")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"shared body")
+
+    def test_non_ascii_name_is_served(self):
+        port = self.serve("caf\u00e9.txt")
+        status, body = self.fetch(port, "/caf%C3%A9.txt")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, b"shared body")
+
+    def test_sibling_is_still_hidden(self):
+        port = self.serve("my file.txt")
+        status, body = self.fetch(port, "/sibling.txt")
+        self.assertEqual(status, 404)
+        self.assertNotIn(b"SECRET", body)
+
+
 class TestOnce(unittest.TestCase):
     def test_server_stops_after_the_first_completed_transfer(self):
         mod = _loader.load("serve")
