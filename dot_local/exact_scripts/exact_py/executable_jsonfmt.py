@@ -40,6 +40,9 @@ def main(argv=None, stdin=None):
     except json.JSONDecodeError as e:
         print(f"jsonfmt: error: invalid JSON: {e}", file=sys.stderr)
         sys.exit(1)
+    except UnicodeDecodeError as e:
+        print(f"jsonfmt: error: input is not valid UTF-8: {e}", file=sys.stderr)
+        sys.exit(1)
     except OSError as e:
         print(f"jsonfmt: error: {e}", file=sys.stderr)
         sys.exit(1)

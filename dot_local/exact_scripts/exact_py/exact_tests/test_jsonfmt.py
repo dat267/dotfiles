@@ -60,6 +60,18 @@ class TestMain(unittest.TestCase):
         self.assertEqual(cm.exception.code, 1)
         self.assertIn("error", err.getvalue().lower())
 
+    def test_non_utf8_input_exits_1_with_stderr(self):
+        """Undecodable input raised UnicodeDecodeError out of main, printing a
+        traceback instead of the error-and-exit-1 every sibling tool gives."""
+        err = io.StringIO()
+        raw = io.BytesIO(b"\xff\xfe{}%s" % b"\}").read()
+        stream = io.TextIOWrapper(io.BytesIO(raw), encoding="utf-8")
+        with redirect_stderr(err):
+            with self.assertRaises(SystemExit) as cm:
+                jsonfmt.main(argv=[], stdin=stream)
+            self.assertEqual(cm.exception.code, 1)
+        self.assertIn("utf-8", err.getvalue().lower())
+
 
 if __name__ == "__main__":
     unittest.main()
