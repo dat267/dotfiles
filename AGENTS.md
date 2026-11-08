@@ -19,6 +19,7 @@ Notable source → deployed mappings:
 | `dot_pi/private_agent/exact_skills/` | `~/.pi/agent/skills/` |
 | `dot_pi/private_agent/private_APPEND_SYSTEM.md` | `~/.pi/agent/APPEND_SYSTEM.md` (mode 0600) |
 | `dot_pi/private_agent/modify_settings.json` | `~/.pi/agent/settings.json` (merged) |
+| `dot_pi/private_agent/modify_private_models.json` | `~/.pi/agent/models.json` (merged, mode 0600; context caps keyed by exact model ID, kept in step with `enabledModels`) |
 | `dot_config/opencode/private_opencode.json` | `~/.config/opencode/opencode.json` |
 
 ```
