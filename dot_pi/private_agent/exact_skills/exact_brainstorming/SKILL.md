@@ -32,9 +32,9 @@ Before you start implementing, you must, in order:
 4. Break the approved design into tasks and build it, verifying each
    task before claiming it done.
 
-Two things aren't implementing: a spike they said yes to (see Spike to
-feel things out), and doing what they asked once they've opted out of
-the questions.
+Two things don't count as implementing: a spike they said yes to (see
+Spike to feel things out), and doing what they asked once they've opted
+out of the questions.
 
 ## Look Before You Ask
 

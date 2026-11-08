@@ -6,60 +6,67 @@ license: MIT
 
 # Karpathy Guidelines
 
-Guardrails derived from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls. They trade speed for caution. Skip them for trivial work. The workspace's own instructions (`AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, editor rule directories) and existing conventions override this skill.
+Guardrails based on [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876)
+about how LLMs go wrong when coding. They trade speed for caution, so skip
+them for trivial work. The workspace's own instructions (`AGENTS.md`,
+`CLAUDE.md`, `CONTRIBUTING.md`, editor rule directories) and its existing
+conventions override this skill.
 
 ## 1. Think before coding
 
-Proceed on low-risk, reversible assumptions. Ask when ambiguity changes scope, correctness, security, or irreversible effects.
+Proceed on assumptions that are low-risk and reversible. Ask when the
+ambiguity affects scope, correctness, security, or anything irreversible.
 
-- Ask when competing interpretations require materially different changes.
-- Name a simpler approach when one exists. Push back with evidence.
-- Do not present an unverified assumption as fact.
+- Ask when competing readings of the task lead to materially different changes.
+- When a simpler approach exists, say so. Push back with evidence.
+- Never present an unverified assumption as fact.
 
 ## 2. Write the minimum code
 
-Implement exactly what the task asks. Add nothing speculative.
+Implement exactly what the task asks, and nothing speculative.
 
-- Write no feature beyond the request.
-- Extract no abstraction for single-use code.
-- Add no flexibility or configuration nobody requested.
-- Handle no error that cannot occur.
-- If your change takes 200 lines and could take 50, rewrite it before handing it over.
+- No features beyond the request.
+- No abstraction for code used once.
+- No flexibility or configuration nobody asked for.
+- No handling for errors that cannot occur.
+- If your change takes 200 lines and could take 50, rewrite it before handing
+  it over.
 
-Ask: "Would a senior engineer call this overcomplicated?" If yes, simplify.
+Ask: "Would a senior engineer call this overcomplicated?" If so, simplify.
 
 ## 3. Keep changes surgical
 
-Touch only what the task requires. Clean up only your own mess.
+Touch only what the task requires, and clean up only your own mess.
 
-- Never improve adjacent code, comments, or formatting.
-- Never refactor code that already works.
-- Match the surrounding style, even when you disagree with it.
-- Report unrelated dead code. Do not delete it.
-- Remove imports, variables, and functions your change orphaned.
+- Leave adjacent code, comments, and formatting alone.
+- Do not refactor code that already works.
+- Match the surrounding style, even where you would choose differently.
+- Report unrelated dead code instead of deleting it.
+- Remove the imports, variables, and functions your change left orphaned.
 
-Gate: every changed line traces to the user's request.
+Gate: every changed line traces back to the request.
 
 ```bash
 git diff --stat   # scope of the change
 git diff          # each hunk traces to the request
 ```
 
-Without version control, read back every file you touched in full and apply the
-same test to each hunk.
+Without version control, read back every file you touched in full and hold each
+hunk to the same test.
 
 ## 4. Verify before claiming done
 
 Turn the task into a verifiable goal and define the check before writing code.
 Weak goals such as "make it work" force constant clarification. For multi-step
-work, plan one verification command per step; share the plan only when
-coordination or approval is needed.
+work, plan one verification command per step, and share the plan only when
+coordination or approval needs it.
 
-The failing-test loop belongs to the **tdd** skill and root-causing to
-**systematic-debugging** when they are available. Without them: a fix starts
-with a test that reproduces the bug, new behavior with a failing test, and a
-refactor passes the same tests before and after.
+The failing-test loop belongs to the **tdd** skill, and root-causing to
+**systematic-debugging**, when they are available. Without them: a fix starts
+with a test that reproduces the bug, new behavior starts with a failing test,
+and a refactor passes the same tests before and after.
 
 Gate: run the relevant tests.
 
-For prompt or skill revisions, use [prompt-evaluation.md](prompt-evaluation.md) when evaluating instruction compliance.
+When revising a prompt or skill, use [prompt-evaluation.md](prompt-evaluation.md)
+to evaluate instruction compliance.

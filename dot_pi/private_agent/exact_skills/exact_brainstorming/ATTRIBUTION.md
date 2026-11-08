@@ -20,5 +20,7 @@ Changes made for standalone use in Pi:
   `builder-check-prompt.md` was dropped.
 - The description is narrowed to open-ended or explicitly requested design
   work, so clear, specified tasks no longer load the skill.
+- `visual-companion.md` was reorganized: the duplicated launch and file-naming
+  instructions were merged, and `$STATE_DIR` is defined once.
 - Harness-specific instructions and the visual companion's telemetry, remote
   branding image, and per-harness launch sections were removed.

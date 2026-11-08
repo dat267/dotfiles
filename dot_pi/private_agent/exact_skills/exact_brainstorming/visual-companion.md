@@ -1,103 +1,122 @@
 # Visual Companion Guide
 
-Browser-based visual brainstorming companion for showing mockups, diagrams, and options.
+A browser tab for showing mockups, diagrams, and options during brainstorming.
 
-## When to Use
+## When to use it
 
-Decide per-question, not per-session. The test: **would the user understand this better by seeing it than reading it?**
+Decide question by question, not once per session. The test: **would the user
+understand this better by seeing it than by reading it?**
 
 **Use the browser** when the content itself is visual:
 
-- **UI mockups** — wireframes, layouts, navigation structures, component designs
-- **Architecture diagrams** — system components, data flow, relationship maps
-- **Side-by-side visual comparisons** — comparing two layouts, two color schemes, two design directions
-- **Design polish** — when the question is about look and feel, spacing, visual hierarchy
-- **Spatial relationships** — state machines, flowcharts, entity relationships rendered as diagrams
+- **UI mockups:** wireframes, layouts, navigation structures, component designs.
+- **Architecture diagrams:** system components, data flow, relationship maps.
+- **Side-by-side comparisons:** two layouts, two color schemes, two design
+  directions.
+- **Design polish:** questions about look and feel, spacing, visual hierarchy.
+- **Spatial relationships:** state machines, flowcharts, and entity
+  relationships drawn as diagrams.
 
-**Use the terminal** when the content is text or tabular:
+**Stay in the terminal** when the content is text or a table:
 
-- **Requirements and scope questions** — "what does X mean?", "which features are in scope?"
-- **Conceptual A/B/C choices** — picking between approaches described in words
-- **Tradeoff lists** — pros/cons, comparison tables
-- **Technical decisions** — API design, data modeling, architectural approach selection
-- **Clarifying questions** — anything where the answer is words, not a visual preference
+- **Requirements and scope:** "what does X mean?", "which features are in
+  scope?"
+- **Conceptual A/B/C choices:** picking between approaches described in words.
+- **Tradeoff lists:** pros and cons, comparison tables.
+- **Technical decisions:** API design, data modeling, choosing an architecture.
+- **Clarifying questions:** anything answered in words, not by visual
+  preference.
 
-A question *about* a UI topic is not automatically a visual question. "What kind of wizard do you want?" is conceptual — use the terminal. "Which of these wizard layouts feels right?" is visual — use the browser.
+A question *about* a UI topic is not automatically a visual question. "What
+kind of wizard do you want?" is conceptual, so use the terminal. "Which of these
+wizard layouts feels right?" is visual, so use the browser.
 
-## How It Works
+## How it works
 
-The server watches a directory for HTML files and serves the newest one to the browser. You write HTML content to `screen_dir`, the user sees it in their browser and can click to select options. Selections are recorded to `state_dir/events` that you read on your next turn.
+The server watches a directory for HTML files and serves the newest one. You
+write a file into `screen_dir`; the user sees it in the browser and can click to
+select options. Their clicks are recorded in `state_dir/events`, which you read
+on your next turn.
 
-**Content fragments vs full documents:** If your HTML file starts with `<!DOCTYPE` or `<html`, the server serves it as-is (just injects the helper script). Otherwise, the server automatically wraps your content in the frame template — adding the header, CSS theme, connection status, and all interactive infrastructure. **Write content fragments by default.** Only write full documents when you need complete control over the page.
+**Fragments or full documents.** If a file starts with `<!DOCTYPE` or `<html`,
+the server serves it as is, injecting only the helper script. Anything else is
+wrapped in the frame template, which adds the header, theme CSS, connection
+status, and the interactive machinery. **Write fragments by default**, and full
+documents only when you need complete control of the page.
 
-## Starting a Session
+## Starting a session
+
+Start the server only after the user accepts the companion:
 
 ```bash
-# Start AFTER the user approves the companion. --open auto-opens their browser on
-# the first screen. Session files go under the OS temp directory.
 bash scripts/start-server.sh --open
 
-# Returns: {"type":"server-started","port":52341,
-#           "url":"http://localhost:52341/?key=ab12…",
-#           "screen_dir":"/tmp/brainstorm-12345-1706000000/content",
-#           "state_dir":"/tmp/brainstorm-12345-1706000000/state"}
+# Prints:
+# {"type":"server-started","port":52341,
+#  "url":"http://localhost:52341/?key=ab12…",
+#  "screen_dir":"/tmp/brainstorm-12345-1706000000/content",
+#  "state_dir":"/tmp/brainstorm-12345-1706000000/state"}
 ```
 
-Save `screen_dir` and `state_dir` from the response. With `--open`, the browser opens itself when you push the first screen — you don't need to ask the user to open it, but still share the URL as a fallback (headless/remote setups won't auto-open).
+- Save `screen_dir` and `state_dir` from the output. The session directory is
+  the parent of `screen_dir`. Below, `$STATE_DIR` means the saved `state_dir`.
+- The script backgrounds itself; no background flag is needed. Under Git Bash
+  on Windows it runs in the foreground instead, so start it from a persistent
+  terminal there.
+- With `--open`, the browser opens on its own when you push the first screen.
+  Share the URL anyway, since headless and remote setups do not auto-open.
+- If you lose the startup output, read `$STATE_DIR/server-info`, which holds
+  the same JSON.
+- Session files live under the OS temp directory and are deleted when the
+  server stops. Never pass a project directory or write session state into the
+  repository.
 
-**The URL contains a session key (`?key=…`).** The server rejects any request
-without it, so always give the user the **complete** URL from the `url` field —
-never strip the query string, and never hand out a bare `http://host:port`. The
-key gates HTTP and WebSocket access so a stray browser tab or another machine on
-the network can't read the screens or inject events. After the first load the
-browser remembers the key via a cookie, so reloads and `/files/*` assets work
-without repeating it.
+**Always share the complete URL.** It carries a session key (`?key=…`), and the
+server rejects any request without it, so never strip the query string or hand
+out a bare `http://host:port`. The key keeps stray tabs and other machines on
+the network from reading the screens or injecting events. After the first load,
+a cookie remembers the key, so reloads and `/files/*` assets work without it.
 
-**Finding connection info:** The server writes its startup JSON to `$STATE_DIR/server-info`. If you launched the server in the background and didn't capture stdout, read that file to get the URL and port. The session directory is the parent of `screen_dir`.
-
-**Note:** Session files live under the OS temp directory and are removed when the server stops. Do not pass a project directory or write session state into the repository.
-
-**Launching the server:**
+**If the URL is unreachable** from the user's browser (common with remote or
+containerized setups), bind a non-loopback host, and use `--url-host` to set the
+hostname printed in the URL:
 
 ```bash
-# The script backgrounds itself, so no special background flag is needed.
-# On Windows via Git Bash it switches to the foreground; run it from a
-# persistent terminal there.
-bash scripts/start-server.sh --open
+bash scripts/start-server.sh --host 0.0.0.0 --url-host localhost
 ```
 
-If the URL is unreachable from your browser (common in remote/containerized setups), bind a non-loopback host:
+## The loop
 
-```bash
-bash scripts/start-server.sh \
-  --host 0.0.0.0 \
-  --url-host localhost
-```
+1. **Check that the server is alive, then write a screen.**
+   - **Required:** before mentioning the URL or pushing a screen, confirm that
+     `$STATE_DIR/server-info` exists and `$STATE_DIR/server-stopped` does not.
+     If the server has stopped, restart it with `start-server.sh` and share the
+     new URL and port it prints. It exits on its own after 4 hours idle
+     (`--idle-timeout-minutes` changes that).
+   - Write each screen to a **new** file in `screen_dir` with your file-creation
+     tool, never with `cat` or a heredoc, which dump noise into the terminal.
+     See [File naming](#file-naming).
 
-Use `--url-host` to control what hostname is printed in the returned URL JSON.
+2. **Tell the user what to expect, then end your turn.**
+   - Repeat the URL every time, not just the first.
+   - Summarize what is on screen in a line ("Showing 3 layout options for the
+     homepage").
+   - Ask them to answer in the terminal: "Take a look and let me know what you
+     think. Click to select an option if you'd like."
 
-## The Loop
+3. **On your next turn**, after they reply in the terminal:
+   - Read `$STATE_DIR/events` if it exists. It holds their browser clicks and
+     selections as JSON lines.
+   - Combine it with their terminal message. The terminal message is the main
+     feedback; the events add structured detail.
 
-1. **Check server is alive**, then **write HTML** to a new file in `screen_dir`:
-   - **Required: confirm the server is alive before referring to the URL or pushing a screen.** Check that `$STATE_DIR/server-info` exists and `$STATE_DIR/server-stopped` does not. If it has shut down, restart it with `start-server.sh`; the new server prints a new URL and port, so share them. The server auto-exits after 4 hours idle (configurable with `--idle-timeout-minutes`).
-   - Use semantic filenames: `platform.html`, `visual-style.html`, `layout.html`
-   - **Never reuse filenames** — each screen gets a fresh file
-   - Use your file-creation tool — **never use cat/heredoc** (dumps noise into terminal)
-   - Server automatically serves the newest file
+4. **Iterate or advance.** If the feedback changes the current screen, write a
+   new version (`layout-v2.html`). Move to the next question only once the
+   current one is settled.
 
-2. **Tell user what to expect and end your turn:**
-   - Remind them of the URL (every step, not just first)
-   - Give a brief text summary of what's on screen (e.g., "Showing 3 layout options for the homepage")
-   - Ask them to respond in the terminal: "Take a look and let me know what you think. Click to select an option if you'd like."
-
-3. **On your next turn** — after the user responds in the terminal:
-   - Read `$STATE_DIR/events` if it exists — this contains the user's browser interactions (clicks, selections) as JSON lines
-   - Merge with the user's terminal text to get the full picture
-   - The terminal message is the primary feedback; `state_dir/events` provides structured interaction data
-
-4. **Iterate or advance** — if feedback changes current screen, write a new file (e.g., `layout-v2.html`). Only move to the next question when the current step is validated.
-
-5. **Unload when returning to terminal** — when the next step doesn't need the browser (e.g., a clarifying question, a tradeoff discussion), push a waiting screen to clear the stale content:
+5. **Clear the screen when you return to the terminal.** When the next step
+   needs no browser (a clarifying question, a tradeoff discussion), push a
+   waiting screen so the user is not left looking at a settled choice:
 
    ```html
    <!-- filename: waiting.html (or waiting-2.html, etc.) -->
@@ -106,15 +125,20 @@ Use `--url-host` to control what hostname is printed in the returned URL JSON.
    </div>
    ```
 
-   This prevents the user from staring at a resolved choice while the conversation has moved on. When the next visual question comes up, push a new content file as usual.
+   When the next visual question comes up, push a new content file as usual.
 
 6. Repeat until done.
 
-## Writing Content Fragments
+## File naming
 
-Write just the content that goes inside the page. The server wraps it in the frame template automatically (header, theme CSS, connection status, and all interactive infrastructure).
+- Use descriptive names: `platform.html`, `visual-style.html`, `layout.html`.
+- Never reuse a filename; every screen is a new file.
+- Version iterations with a suffix: `layout-v2.html`, `layout-v3.html`.
+- The server shows the file with the newest modification time.
 
-**Minimal example:**
+## Writing fragments
+
+Write only what goes inside the page; the frame template supplies the rest.
 
 ```html
 <h2>Which layout works better?</h2>
@@ -138,11 +162,11 @@ Write just the content that goes inside the page. The server wraps it in the fra
 </div>
 ```
 
-That's it. No `<html>`, no CSS, no `<script>` tags needed. The server provides all of that.
+No `<html>`, CSS, or `<script>` tags are needed.
 
-## CSS Classes Available
+## CSS classes
 
-The frame template provides these CSS classes for your content:
+The frame template provides these classes.
 
 ### Options (A/B/C choices)
 
@@ -158,11 +182,12 @@ The frame template provides these CSS classes for your content:
 </div>
 ```
 
-**Multi-select:** Add `data-multiselect` to the container to let users select multiple options. Each click toggles the item's selected styling.
+**Multi-select:** add `data-multiselect` to the container and each click
+toggles an option's selected state.
 
 ```html
 <div class="options" data-multiselect>
-  <!-- same option markup — users can select/deselect multiple -->
+  <!-- same option markup; users can select and deselect several -->
 </div>
 ```
 
@@ -189,7 +214,7 @@ The frame template provides these CSS classes for your content:
 </div>
 ```
 
-### Split view (side-by-side)
+### Split view (side by side)
 
 ```html
 <div class="split">
@@ -198,7 +223,7 @@ The frame template provides these CSS classes for your content:
 </div>
 ```
 
-### Pros/Cons
+### Pros and cons
 
 ```html
 <div class="pros-cons">
@@ -222,15 +247,16 @@ The frame template provides these CSS classes for your content:
 
 ### Typography and sections
 
-- `h2` — page title
-- `h3` — section heading
-- `.subtitle` — secondary text below title
-- `.section` — content block with bottom margin
-- `.label` — small uppercase label text
+- `h2`: page title
+- `h3`: section heading
+- `.subtitle`: secondary text under the title
+- `.section`: content block with a bottom margin
+- `.label`: small uppercase label
 
-## Browser Events Format
+## Browser events
 
-When the user clicks options in the browser, their interactions are recorded to `$STATE_DIR/events` (one JSON object per line). The file is cleared automatically when you push a new screen.
+Clicks are appended to `$STATE_DIR/events`, one JSON object per line. The file
+is cleared whenever you push a new screen.
 
 ```jsonl
 {"type":"click","choice":"a","text":"Option A - Simple Layout","timestamp":1706000101}
@@ -238,35 +264,36 @@ When the user clicks options in the browser, their interactions are recorded to 
 {"type":"click","choice":"b","text":"Option B - Hybrid","timestamp":1706000115}
 ```
 
-The full event stream shows the user's exploration path — they may click multiple options before settling. The last `choice` event is typically the final selection, but the pattern of clicks can reveal hesitation or preferences worth asking about.
+The stream shows how the user explored: they may click several options before
+settling. The last `choice` is usually the final pick, but the pattern of clicks
+can reveal hesitation or preferences worth asking about.
 
-If `$STATE_DIR/events` doesn't exist, the user didn't interact with the browser — use only their terminal text.
+If the file does not exist, the user did not use the browser; go by their
+terminal message alone.
 
-## Design Tips
+## Design tips
 
-- **Scale fidelity to the question** — wireframes for layout, polish for polish questions
-- **Explain the question on each page** — "Which layout feels more professional?" not just "Pick one"
-- **Iterate before advancing** — if feedback changes current screen, write a new version
-- **2-4 options max** per screen
-- **Use real content when it matters** — for a photography portfolio, use actual images (Unsplash). Placeholder content obscures design issues.
-- **Keep mockups simple** — focus on layout and structure, not pixel-perfect design
+- **Match fidelity to the question:** wireframes for layout, polish for polish
+  questions.
+- **State the question on each page:** "Which layout feels more professional?",
+  not just "Pick one".
+- **Iterate before advancing:** when feedback changes the screen, write a new
+  version.
+- **Two to four options** per screen at most.
+- **Use real content when it matters.** For a photography portfolio, use real
+  images (Unsplash); placeholder content hides design problems.
+- **Keep mockups simple:** focus on layout and structure, not pixel-perfect
+  design.
 
-## File Naming
-
-- Use semantic names: `platform.html`, `visual-style.html`, `layout.html`
-- Never reuse filenames — each screen must be a new file
-- For iterations: append version suffix like `layout-v2.html`, `layout-v3.html`
-- Server serves newest file by modification time
-
-## Cleaning Up
+## Cleaning up
 
 ```bash
-bash scripts/stop-server.sh $SESSION_DIR
+bash scripts/stop-server.sh "$SESSION_DIR"
 ```
 
-Session files live in the OS temp directory and are deleted when the server stops.
+This stops the server and deletes the session directory.
 
 ## Reference
 
 - Frame template (CSS reference): `scripts/frame-template.html`
-- Helper script (client-side): `scripts/helper.js`
+- Client-side helper: `scripts/helper.js`
