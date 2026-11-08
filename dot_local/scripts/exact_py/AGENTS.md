@@ -14,7 +14,7 @@ Python utility scripts chezmoi-deployed to `~/.local/scripts/py/` (on PATH via `
 - `executable_install_*.py` — Tool installers; most download the latest GitHub release to `~/.local/bin/`; `install_pi.py` just runs the official installer for the platform (`https://pi.dev/install.sh` under sh on POSIX, `install.ps1` under PowerShell on Windows), detached from the terminal so its tty-gated prompts take non-interactive defaults.
 - `executable_install_tools.py` / `executable_uninstall_tools.py` — install or remove the tool binaries published in this repo's own GitHub releases (`dat267/dotfiles`)
 - `executable_pi_sandbox.py` / `executable_pier_sandbox.py` — bubblewrap launchers for pi and pier (aliases `pix`/`piex`); thin `Profile` declarations over `_sandbox.py`
-- `executable_pi_lint_extensions.py` — `tsc --strict` over each pi extension dir; creates the per-dir `node_modules` symlink layout on demand
+- `executable_pi_lint_extensions.py` — `tsc --strict` over each pi extension dir; creates the per-dir `node_modules` symlink layout on demand; installs the pinned TypeScript into `~/.cache/pi_lint_extensions/` and runs `node …/tsc` directly, never a shebang
 - `executable_ntfy.py` — push notifications via ntfy.sh or a self-hosted server; body from arg or stdin, target from `--topic`, `$NTFY_TARGET`, or `~/.config/ntfy/target`
 - `executable_gim.py` — install private Go binaries over SSH (`gim <repo[@version]>`)
 - `executable_dotfiles.py` — rclone + git sync (`dotfiles up`/`dotfiles down`)

@@ -262,8 +262,8 @@ jobs:
           }
 
       # Resolves the managed pi release first, then the npm prefixes;
-      # symlinks each extension's deps and runs npx.cmd — a bare "npx" is a
-      # shell script Windows cannot launch.
+      # symlinks each extension's deps, installs typescript via npm.cmd into
+      # a cache, and runs its tsc.js with node directly.
       - name: pi_lint_extensions
         shell: pwsh
         run: |

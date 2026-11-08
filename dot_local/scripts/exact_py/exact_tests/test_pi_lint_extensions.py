@@ -57,19 +57,63 @@ class TestDiscovery(PiplineCase):
 class TestCommandPlanning(PiplineCase):
 	def test_strict_flags_and_all_ts_files(self):
 		d = self.make_ext("exact_sample", ["index.ts", "index.test.ts"])
-		cmd = pi_lint.plan_command(d, npx="npx")
-		self.assertEqual(cmd[0:4], ["npx", "-y", "-p", f"typescript@{TS}"])
-		self.assertIn("tsc", cmd)
+		cmd = pi_lint.plan_command(d, _Path("/cache/tsc"), node="node")
+		# node runs tsc's JS entry itself: no shebang, no .bin shim.
+		self.assertEqual(cmd[0:2], ["node", str(_Path("/cache/tsc"))])
 		for flag in ("--noEmit", "--strict", "--noUnusedLocals", "--noUnusedParameters"):
 			self.assertIn(flag, cmd, flag)
 		self.assertEqual(cmd[-2:], [str(d / "index.test.ts"), str(d / "index.ts")])
 
-	def test_npx_is_resolved_through_which(self):
-		# Windows: a bare "npx" is a shell script CreateProcess cannot launch.
+	def test_node_is_resolved_through_which(self):
 		d = self.make_ext("exact_sample", ["index.ts"])
-		with patch.object(pi_lint.shutil, "which", return_value=r"C:\node\npx.cmd"):
-			cmd = pi_lint.plan_command(d)
-		self.assertEqual(cmd[0], r"C:\node\npx.cmd")
+		with patch.object(pi_lint.shutil, "which", return_value=r"C:\node\node.exe"):
+			cmd = pi_lint.plan_command(d, _Path("tsc"))
+		self.assertEqual(cmd[0], r"C:\node\node.exe")
+
+
+class TestEnsureTypescript(PiplineCase):
+	def tsc_path(self, cache):
+		return cache / "node_modules" / "typescript" / "bin" / "tsc"
+
+	def test_cached_install_skips_npm(self):
+		cache = self.root / "cache"
+		tsc = self.tsc_path(cache)
+		tsc.parent.mkdir(parents=True)
+		tsc.write_text("")
+
+		def no_run(cmd, cwd):
+			raise AssertionError("npm must not run when tsc is cached")
+
+		self.assertEqual(pi_lint.ensure_typescript(no_run, cache=cache), tsc)
+
+	def test_installs_pinned_version_into_cache(self):
+		cache = self.root / "cache"
+		seen = []
+
+		def fake_npm(cmd, cwd):
+			seen.append(cmd)
+			tsc = self.tsc_path(cache)
+			tsc.parent.mkdir(parents=True)
+			tsc.write_text("")
+			return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+		tsc = pi_lint.ensure_typescript(fake_npm, cache=cache, npm="npm")
+		self.assertEqual(tsc, self.tsc_path(cache))
+		self.assertEqual(seen[0][0:4], ["npm", "install", "--prefix", str(cache)])
+		self.assertEqual(seen[0][-1], f"typescript@{TS}")
+
+	def test_failed_install_exits_with_output(self):
+		def failing_npm(cmd, cwd):
+			return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="ENOTFOUND")
+
+		with self.assertRaises(SystemExit) as cm:
+			pi_lint.ensure_typescript(failing_npm, cache=self.root / "cache", npm="npm")
+		self.assertIn("ENOTFOUND", str(cm.exception.code))
+
+	def test_cache_follows_xdg_and_version(self):
+		with patch.dict(pi_lint.os.environ, {"XDG_CACHE_HOME": str(self.root)}):
+			self.assertEqual(pi_lint.typescript_cache(),
+				self.root / "pi_lint_extensions" / f"typescript-{TS}")
 
 
 class TestResolvePiPackage(unittest.TestCase):
@@ -286,22 +330,13 @@ class TestAggregation(PiplineCase):
 			seen_cwd.append(cwd)
 			ok = "exact_a" in " ".join(cmd)
 			return subprocess.CompletedProcess(
-				cmd, 0 if ok else 1, stdout="" if ok else "error TS2322: bad\nnpm notice run npx", stderr="")
+				cmd, 0 if ok else 1, stdout="" if ok else "error TS2322: bad", stderr="")
 
-		results = pi_lint.run_lint(self.root, runner=fake_run, pi_pkg=self.fake_pkg)
+		results = pi_lint.run_lint(self.root, runner=fake_run, pi_pkg=self.fake_pkg, tsc=_Path("tsc"))
 		self.assertEqual({name: ok for name, ok, _ in results}, {"exact_a": True, "exact_b": False})
 		# tsc resolves --types from the cwd, so each lint must run IN its dir.
 		self.assertEqual(seen_cwd, [self.root / "dot_pi" / "private_agent" / "exact_extensions" / "exact_a",
 			self.root / "dot_pi" / "private_agent" / "exact_extensions" / "exact_b"])
-
-	def test_output_drops_npm_notice_noise(self):
-		self.make_ext("exact_a", ["index.ts"])
-
-		def noisy_run(cmd, cwd, **kw):
-			return subprocess.CompletedProcess(cmd, 1, stdout="error TS1: x\n", stderr="npm notice run npx")
-
-		_, _, output = pi_lint.run_lint(self.root, runner=noisy_run, pi_pkg=self.fake_pkg)[0]
-		self.assertEqual(output, "error TS1: x")
 
 	def test_exit_code_zero_only_when_all_pass(self):
 		self.assertEqual(pi_lint.exit_code([("a", True, ""), ("b", True, "")]), 0)

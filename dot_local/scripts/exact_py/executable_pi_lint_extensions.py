@@ -11,6 +11,11 @@ per-dir node_modules layout (symlink to the installed pi package plus its
 @types/node) is created on demand — tsc resolves @earendil-works/* imports
 and the --types node entry through it.
 
+TypeScript is installed once into a versioned cache dir and its tsc.js is run
+by node directly. Going through npx or node_modules/.bin would execute tsc's
+`#!/usr/bin/env node` shebang, which breaks wherever /usr/bin/env does not
+exist (Termux without termux-exec) and needs a .cmd shim on Windows.
+
 Run: pi_lint_extensions [--root REPO] [--dir NAME] [--quiet]
 """
 
@@ -48,16 +53,40 @@ def discover_extensions(root):
 	return names
 
 
-def plan_command(ext_dir, npx=None):
+def typescript_cache():
+	"""Versioned install prefix for the pinned TypeScript."""
+	base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+	return Path(base) / "pi_lint_extensions" / f"typescript-{TSC_VERSION}"
+
+
+def ensure_typescript(run, cache=None, npm=None):
+	"""Path to tsc's JS entry, installing TypeScript into `cache` if missing.
+
+	npm goes through shutil.which so Windows resolves npm.cmd, which
+	CreateProcess can launch where the bare name cannot.
+	"""
+	cache = cache or typescript_cache()
+	tsc = cache / "node_modules" / "typescript" / "bin" / "tsc"
+	if tsc.is_file():
+		return tsc
+	npm = npm or shutil.which("npm") or "npm"
+	cache.mkdir(parents=True, exist_ok=True)
+	proc = run([npm, "install", "--prefix", str(cache), "--no-audit", "--no-fund",
+			f"typescript@{TSC_VERSION}"], cache)
+	if proc.returncode != 0 or not tsc.is_file():
+		output = ((proc.stdout or "") + (proc.stderr or "")).strip()
+		sys.exit(f"pi_lint_extensions: installing typescript@{TSC_VERSION} failed\n{output}")
+	return tsc
+
+
+def plan_command(ext_dir, tsc, node=None):
 	"""The tsc argv for one extension: strict flags plus every .ts file.
 
-	npx goes through shutil.which so Windows resolves npx.cmd — a bare
-	"npx" is a shell script there and CreateProcess cannot launch it.
+	node runs tsc's JS entry itself so no shebang is ever executed.
 	"""
-	if npx is None:
-		npx = shutil.which("npx") or "npx"
+	node = node or shutil.which("node") or "node"
 	files = sorted(str(p) for p in ext_dir.rglob("*.ts") if "node_modules" not in p.parts)
-	return [npx, "-y", "-p", f"typescript@{TSC_VERSION}", "tsc", *TSC_FLAGS, *files]
+	return [node, str(tsc), *TSC_FLAGS, *files]
 
 
 def points_at(link, target):
@@ -138,26 +167,24 @@ def ensure_deps(ext_dir, pi_pkg):
 	return changed
 
 
-def run_lint(root, runner=None, only=None, pi_pkg=None):
+def run_lint(root, runner=None, only=None, pi_pkg=None, tsc=None):
 	"""Lint each extension; returns [(name, ok, output)] in discovery order.
 
-	The pi package is resolved once per run (injectable for tests). Each tsc
+	The pi package and tsc are resolved once per run (injectable for tests). Each tsc
 	runs with cwd set to the extension dir — tsc resolves --types from the
 	working directory, so the per-dir node_modules layout counts.
 	"""
 	run = runner or (lambda cmd, cwd: subprocess.run(cmd, capture_output=True, text=True, cwd=cwd))
 	pi_pkg = pi_pkg or resolve_pi_package()
+	tsc = tsc or ensure_typescript(run)
 	results = []
 	for name in discover_extensions(root):
 		if only and name != only:
 			continue
 		ext_dir = root / EXTENSIONS_REL / name
 		ensure_deps(ext_dir, pi_pkg)
-		proc = run(plan_command(ext_dir), ext_dir)
-		output = "\n".join(
-			line for line in ((proc.stdout or "") + (proc.stderr or "")).splitlines()
-			if not line.startswith("npm notice")
-		).strip()
+		proc = run(plan_command(ext_dir, tsc), ext_dir)
+		output = ((proc.stdout or "") + (proc.stderr or "")).strip()
 		results.append((name, proc.returncode == 0, output))
 	return results
 
