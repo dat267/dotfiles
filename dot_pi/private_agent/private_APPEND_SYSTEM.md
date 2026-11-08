@@ -1,8 +1,3 @@
-## Skills
-
-Before starting a task, read every skill whose description matches it, and
-follow it.
-
 ## Response contract
 
 Re-read this list before sending a final message.
