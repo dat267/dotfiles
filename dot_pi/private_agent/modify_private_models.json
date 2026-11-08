@@ -18,6 +18,8 @@ chezmoi:modify-template
         "google/gemini-3.8-flash"
         "Qwen/Qwen3.8-Flash"
         "z-ai/glm-5.3-flash")
+    "deepseek" (list
+        "deepseek-flash")
     "hyper" (list
         "deepseek-v4.1-flash")
     "opencode-go" (list
