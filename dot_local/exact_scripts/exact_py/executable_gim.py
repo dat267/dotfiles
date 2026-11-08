@@ -60,6 +60,11 @@ def main(argv=None):
     if not argv:
         print(USAGE)
         return 2
+    if argv[0] in ("-h", "--help"):
+        # Without this the flag was resolved as a module name, so the tool ran
+        # `go install github.com/dat267/--help@main` over the network.
+        print(USAGE)
+        return 0
     module, version, owner = resolve_spec(argv[0])
     target = module + version
     if os.environ.get("GIM_DRYRUN"):

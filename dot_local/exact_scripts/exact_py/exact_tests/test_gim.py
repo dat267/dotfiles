@@ -80,6 +80,17 @@ class TestMain(unittest.TestCase):
         self.assertEqual(rc, 0)
         run.assert_not_called()
 
+    def test_help_is_not_treated_as_a_module_name(self):
+        """`gim --help` ran `go install github.com/dat267/--help@main`, which
+        hits the network and fails instead of printing usage."""
+        for flag in ("-h", "--help"):
+            with self.subTest(flag=flag):
+                with mock.patch.object(gim.subprocess, "run") as run, mock.patch("sys.stdout") as stdout:
+                    rc = gim.main([flag])
+                self.assertEqual(rc, 0)
+                run.assert_not_called()
+                stdout.write.assert_called()
+
 
 if __name__ == "__main__":
     unittest.main()
