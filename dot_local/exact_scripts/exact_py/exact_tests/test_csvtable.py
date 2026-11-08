@@ -1,4 +1,7 @@
+import io
 import unittest
+from contextlib import redirect_stderr
+from unittest import mock
 
 import _loader
 
@@ -46,6 +49,15 @@ class TestRenderTable(unittest.TestCase):
         out = csvtable.render_table(rows)
         self.assertIn("a", out)
         self.assertIn("1", out)
+
+    def test_non_utf8_stdin_reports_instead_of_crashing(self):
+        """Reading stdin raised UnicodeDecodeError out of main."""
+        err = io.StringIO()
+        stream = io.TextIOWrapper(io.BytesIO(b"\xff\xfe"), encoding="utf-8")
+        with redirect_stderr(err), mock.patch.object(csvtable.sys, "stdin", stream):
+            rc = csvtable.main([])
+        self.assertEqual(rc, 1)
+        self.assertIn("utf-8", err.getvalue().lower())
 
     def test_short_row_is_padded_not_crashed(self):
         """A row with fewer cells than the header raised IndexError, and real

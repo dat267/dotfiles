@@ -73,6 +73,9 @@ def main(argv=None):
     except OSError as e:
         print(f"csvtable: error: {e}", file=sys.stderr)
         return 1
+    except UnicodeDecodeError as e:
+        print(f"csvtable: error: input is not valid UTF-8: {e}", file=sys.stderr)
+        return 1
     return 0
 
 

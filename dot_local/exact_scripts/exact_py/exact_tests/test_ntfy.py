@@ -110,6 +110,15 @@ class StdinCase(unittest.TestCase):
 		with patch("sys.stdin", io.StringIO(payload)):
 			self.assertEqual(ntfy.read_message(None), payload)
 
+	def test_non_utf8_stdin_reports_instead_of_crashing(self):
+		"""read_message raised UnicodeDecodeError straight out of main."""
+		stream = io.TextIOWrapper(io.BytesIO(b"\xff\xfe"), encoding="utf-8")
+		err = io.StringIO()
+		with patch.object(ntfy.sys, "stdin", stream), contextlib.redirect_stderr(err):
+			rc = ntfy.main([])
+		self.assertEqual(rc, 2)
+		self.assertIn("utf-8", err.getvalue().lower())
+
 
 class GenerateCase(unittest.TestCase):
 	def test_print_topic_prints_a_url_and_setup_commands(self):

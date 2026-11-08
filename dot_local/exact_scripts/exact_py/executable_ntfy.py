@@ -138,7 +138,11 @@ def main(argv=None, opener=None, home=None):
 		print(f"chmod 600 ~/.config/ntfy/target")
 		return 0
 
-	message = read_message(args.message)
+	try:
+		message = read_message(args.message)
+	except UnicodeDecodeError:
+		print("ntfy: stdin is not valid UTF-8", file=sys.stderr)
+		return 2
 	if not message.strip():
 		print("ntfy: empty message (pass one or pass to stdin)", file=sys.stderr)
 		return 2
