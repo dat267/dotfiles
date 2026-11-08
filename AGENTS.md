@@ -45,7 +45,7 @@ dot_config/nvim/          Neovim minimal Lua config (zero plugins)
 dot_config/yazi/          Yazi file manager
 dot_config/lf/            lf file manager (wrap-around navigation)
 dot_config/powershell/    PowerShell profile + Utils.psm1 module
-dot_config/opencode/      opencode config (points at ~/.pi/agent/skills)
+dot_config/opencode/      opencode config (Pi skills, Command Code provider)
 dot_config/Code/User/     VS Code settings + snippets
 dot_config/systemd/user/  Linux systemd user services (dsh-web)
 dot_pi/private_agent/     Pi config (deployed as ~/.pi/agent, mode 0700 to match what pi creates)
