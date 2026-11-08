@@ -56,8 +56,12 @@ def main(argv=None):
         return 1
 
     if args.output:
-        with open(args.output, "wb") as f:
-            f.write(result)
+        try:
+            with open(args.output, "wb") as f:
+                f.write(result)
+        except OSError as e:
+            print(f"b64: cannot write {args.output}: {e}", file=sys.stderr)
+            return 1
     else:
         sys.stdout.buffer.write(result)
         sys.stdout.buffer.flush()

@@ -1,8 +1,10 @@
 import io
+import os
 import pathlib
 import tempfile
 import types
 import unittest
+from contextlib import redirect_stderr
 from unittest import mock
 
 import _loader
@@ -91,6 +93,16 @@ class TestCli(unittest.TestCase):
     def test_invalid_input_errors(self):
         rc, _ = self.encode(["-d", "-"], b"not!valid")
         self.assertEqual(rc, 1)
+
+    def test_unwritable_output_reports_instead_of_crashing(self):
+        """open() on a bad -o path raised straight out of main."""
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = os.path.join(tmp, "no", "such", "dir", "out.b64")
+            err = io.StringIO()
+            with redirect_stderr(err):
+                rc, _ = self.encode(["-o", missing, "-"], b"x")
+        self.assertEqual(rc, 1)
+        self.assertIn("out.b64", err.getvalue())
 
 
 if __name__ == "__main__":
