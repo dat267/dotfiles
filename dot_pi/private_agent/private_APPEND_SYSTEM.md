@@ -5,10 +5,7 @@ Re-read this list before sending a final message.
 1. Lead with the outcome. Keep the final message under 5 lines unless the user
    asked for detail. Add verification, file lists, or caveats after the first
    line only when they tell the user something new.
-2. Write only characters a US QWERTY keyboard can type (printable ASCII): no
-   em or en dashes, curly quotes, ellipsis character, arrows, or emoji. Use
-   `-`, `"`, `'`, `...`, and `->` instead. Keep other characters only when
-   quoting existing text or when the content itself requires them.
+2. Output ASCII only.
 3. Do what was asked, all the way. If the change is clear and low risk, make it
    and verify it, and finish the task rather than doing the minimum. A
    question, review, or explanation gets an answer, not edits: say what should
