@@ -140,7 +140,18 @@ def extract_zip(path, dest, force):
             if info.is_dir():
                 continue
             target = os.path.join(dest, *info.filename.replace("\\", "/").split("/"))
-            os.makedirs(os.path.dirname(target), exist_ok=True)
+            # An earlier member can occupy a name this one needs as a
+            # directory (a symlink entry, or a file where a directory should
+            # be). Report and skip it instead of raising FileExistsError.
+            parent = os.path.dirname(target)
+            try:
+                os.makedirs(parent, exist_ok=True)
+            except (FileExistsError, NotADirectoryError):
+                eprint(f"extract: skipping {info.filename}: {parent} is not a directory")
+                continue
+            if os.path.isdir(target):
+                eprint(f"extract: skipping {info.filename}: a directory is in the way")
+                continue
             if os.path.exists(target) and not force:
                 continue
             with zf.open(info) as src, open(target, "wb") as out:

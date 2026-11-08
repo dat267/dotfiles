@@ -201,6 +201,20 @@ class TestExtraction(unittest.TestCase):
         self.assertIn("../escaped.txt", err)
         self.assertFalse(os.path.exists(os.path.join(self.root, "escaped.txt")))
 
+    def test_member_through_an_earlier_member_is_skipped(self):
+        """A zip whose member path runs through an earlier file entry raised
+        FileExistsError instead of skipping the impossible member."""
+        path = os.path.join(self.root, "contested.zip")
+        with zipfile.ZipFile(path, "w") as zf:
+            zf.writestr("blocker", "i am a file")
+            zf.writestr("blocker/nested.txt", "cannot be placed")
+            zf.writestr("fine.txt", "ok")
+        code, _, err = run_main([path])
+        self.assertEqual(code, 0)
+        self.assertIn("blocker/nested.txt", err)
+        self.assertEqual(self.read("contested", "fine.txt"), "ok")
+        self.assertFalse(os.path.exists(os.path.join(self.root, "contested", "blocker", "nested.txt")))
+
     def test_keeps_tar_symlinks_as_links(self):
         """A symlink member used to be written as a copy of its target, so a
         tree extracted from a tarball lost its links and duplicated bytes."""
