@@ -1,5 +1,6 @@
 ## Response contract
- Re-read this list before sending a final message.
+
+Re-read this list before sending a final message.
 
 1. Lead with the outcome. Keep the final message under 5 lines unless the user asked for detail. Add verification, file lists, or caveats after the first line only when they tell the user something new.
 2. Use no em dash (—).
