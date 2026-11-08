@@ -32,7 +32,7 @@ Notable source → deployed mappings:
 | `dot_pi/private_agent/exact_skills/` | `~/.pi/agent/skills/` |
 | `dot_pi/private_agent/private_APPEND_SYSTEM.md` | `~/.pi/agent/APPEND_SYSTEM.md` (mode 0600) |
 | `dot_pi/private_agent/modify_settings.json` | `~/.pi/agent/settings.json` (merged) |
-| `dot_pi/private_agent/modify_private_models.json` | `~/.pi/agent/models.json` (merged, mode 0600; 500k context cap on every 1M+ catalog model, keyed by exact model ID; refresh the list when a catalog gains one) |
+| `dot_pi/private_agent/modify_private_models.json` | `~/.pi/agent/models.json` (merged, mode 0600). Caps every 1M-context model at 500k by exact ID; add new 1M models to its list |
 | `dot_config/opencode/private_opencode.json` | `~/.config/opencode/opencode.json` |
 
 ```
@@ -51,12 +51,12 @@ dot_config/{helix,zed}/   Helix and Zed editor settings
 dot_config/wezterm/       WezTerm config
 dot_config/yazi/          Yazi file manager
 dot_config/lf/            lf file manager (wrap-around navigation)
-dot_config/mpv,aria2/     mpv and aria2 configs
+dot_config/{mpv,aria2}/   mpv and aria2 configs
 dot_config/powershell/    PowerShell profile + Utils.psm1 module
 dot_config/opencode/      opencode config (points at ~/.pi/agent/skills)
 dot_config/Code/User/     VS Code settings + snippets
 dot_config/systemd/user/  Linux systemd user services (dsh-web)
-dot_pi/private_agent/     Pi config (deployed as ~/.pi/agent, mode 0700; the tools create it 0700)
+dot_pi/private_agent/     Pi config (deployed as ~/.pi/agent, mode 0700 to match what pi creates)
 dot_pi/private_agent/exact_extensions/  Pi extensions (deployed as extensions/)
 dot_pi/private_agent/exact_skills/      Pi skills (deployed as skills/); exact_brainstorming/ holds its Superpowers attribution and license
 dot_pi/private_agent/themes/            Pi themes, including flat.json
@@ -92,10 +92,7 @@ work. These four files, `LICENSE`, and `.github/` are in `.chezmoiignore` and
 never deploy.
 
 Keep `AGENTS.md` current without being asked: update it whenever paths,
-commands, conventions, constraints, or policies change. In a project without
-one, create it once a change sets up durable project-specific instructions
-that future agents will need, and keep it to layout, commands, conventions,
-and constraints.
+commands, conventions, constraints, or policies change, and keep it to those.
 
 ## Commands
 

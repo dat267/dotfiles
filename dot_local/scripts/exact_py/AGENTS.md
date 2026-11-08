@@ -68,12 +68,14 @@ prefix; the shared modules (`_*.py`) do not.
   `qrencode`; without it only the URLs print.
 - `executable_extract.py`: archive extraction. zip and tar use the standard
   library; .7z and .rar use `7z` and `unrar`. It refuses absolute or `..`
-  member paths and a non-empty destination unless `--force` is given. Flags:
-  `-C`, `-l`, `-f`, `-q`.
+  member paths, and a non-empty destination unless `-f`/`--force` is given.
+  `-C` sets the destination, `-l` lists members without extracting, and `-q`
+  reports only errors.
 - `executable_crypt.py`: authenticated file encryption with ChaCha20-Poly1305
   and scrypt, in pure Python.
-- `executable_dua.py`: a dua-style disk usage analyzer: totals or the largest
-  files, forked in parallel with `-t`, hardlinks counted once.
+- `executable_dua.py`: a disk usage analyzer in the style of dua. It shows
+  totals or the largest files, scans with one forked worker per core (`-t`
+  sets the count), and counts hardlinks once unless given `-l`.
 - `executable_mdk.py`: one-shot markdown search. ripgrep lists matching lines,
   fzf picks one, and `$EDITOR` opens at the match (alias `mdk`).
 - `executable_ports.py`: listening sockets from `ss -tlnp`, classified as
