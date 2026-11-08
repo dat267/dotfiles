@@ -16,7 +16,7 @@ Linux, Windows, and Android (Termux) share most of the configuration. Templates 
 
 ### Shell and desktop
 
-`dot_profile`, the shell rc files, and the editor, terminal, and application configs make up the interactive environment. `dot_local/scripts/` puts helper commands on `PATH`. Its `exact_py/` subtree deploys to `~/.local/scripts/py/` and holds standard-library-only Python tools with `unittest` coverage.
+`dot_profile`, the shell rc files, and the editor, terminal, and application configs make up the interactive environment. `dot_local/exact_scripts/` puts helper commands on `PATH`. Its `exact_py/` subtree deploys to `~/.local/scripts/py/` and holds standard-library-only Python tools with `unittest` coverage.
 
 ### Pi and opencode
 
@@ -31,7 +31,7 @@ The `system` theme is the default; `flat` is installed as an option.
 
 ### Sandboxed launchers
 
-`pi_sandbox` and `pier_sandbox` are Python launchers that share their policy and argument handling through `_sandbox.py`. The shell aliases `pix` and `piex` run them, while the bare `pi` and `pier` commands stay unsandboxed. In sandboxed modes, bubblewrap is the process boundary: the root filesystem is read-only, only a short list of paths is writable, and host IPC endpoints are masked. [AGENTS.md](AGENTS.md) states the policy invariants, and `dot_local/scripts/exact_py/AGENTS.md` covers the implementation.
+`pi_sandbox` and `pier_sandbox` are Python launchers that share their policy and argument handling through `_sandbox.py`. The shell aliases `pix` and `piex` run them, while the bare `pi` and `pier` commands stay unsandboxed. In sandboxed modes, bubblewrap is the process boundary: the root filesystem is read-only, only a short list of paths is writable, and host IPC endpoints are masked. [AGENTS.md](AGENTS.md) states the policy invariants, and `dot_local/exact_scripts/exact_py/AGENTS.md` covers the implementation.
 
 ### Lifecycle hooks
 
@@ -39,7 +39,7 @@ On Linux and Android, a hook repairs the VS Code `Code/User` symlink on every ap
 
 ## Verification
 
-Python script tests live in `dot_local/scripts/exact_py/exact_tests/`. Pi extensions have their own Node tests and are typechecked by `pi_lint_extensions.py`. The Windows workflow also renders the templates and parses the PowerShell scripts. [AGENTS.md](AGENTS.md) lists the commands and the order to run them in.
+Python script tests live in `dot_local/exact_scripts/exact_py/exact_tests/`. Pi extensions have their own Node tests and are typechecked by `pi_lint_extensions.py`. The Windows workflow also renders the templates and parses the PowerShell scripts. [AGENTS.md](AGENTS.md) lists the commands and the order to run them in.
 
 ## What is not source
 

@@ -24,7 +24,7 @@ Notable source → deployed mappings:
 
 | Source | Deployed |
 |---|---|
-| `dot_local/scripts/exact_py/` | `~/.local/scripts/py/` (on `PATH`) |
+| `dot_local/exact_scripts/exact_py/` | `~/.local/scripts/py/` (on `PATH`) |
 | `dot_pi/private_agent/exact_extensions/` | `~/.pi/agent/extensions/` |
 | `dot_pi/private_agent/exact_skills/` | `~/.pi/agent/skills/` |
 | `dot_pi/private_agent/private_APPEND_SYSTEM.md` | `~/.pi/agent/APPEND_SYSTEM.md` (mode 0600) |
@@ -51,8 +51,8 @@ dot_config/systemd/user/  Linux systemd user services (dsh-web)
 dot_pi/private_agent/     Pi config (deployed as ~/.pi/agent, mode 0700 to match what pi creates)
 dot_pi/private_agent/exact_skills/exact_brainstorming/  Holds its Superpowers attribution and license
 dot_pi/private_agent/themes/            Pi themes, including flat.json
-dot_local/scripts/        Scripts: exact_py → py/, sh/, ps1/ (on PATH); js/ (Node, playwright-core; not on PATH)
-dot_local/scripts/exact_py/  stdlib-only Python (exact: strays removed on apply)
+dot_local/exact_scripts/  Scripts, exact at every level (strays removed on apply): exact_py → py/, exact_sh → sh/, exact_ps1 → ps1/ (on PATH); exact_js → js/ (Node, playwright-core; not on PATH)
+dot_local/exact_scripts/exact_py/  stdlib-only Python
 dot_local/share/konsole/  Konsole profile + One Dark and One Light schemes
 AppData/Local/            Windows Terminal settings (Windows only)
 .chezmoi.toml.tmpl        chezmoi config
@@ -88,7 +88,7 @@ chezmoi status                                # deploy drift, including forgotte
 chezmoi execute-template --file <template>    # render a template without deploying
 chezmoi apply --force <target-path>           # targeted deploy; a full apply is the user's call
 python3 script.py --help                      # verify a new CLI script parses
-(cd dot_local/scripts/exact_py && python3 -m unittest discover -s exact_tests)
+(cd dot_local/exact_scripts/exact_py && python3 -m unittest discover -s exact_tests)
 pi_lint_extensions.py --root "$PWD"           # from repo root; --dir <name> lints one extension
 node --test                                   # per extension dir: runs every *.test.ts (Node >= 24)
 ```
@@ -119,7 +119,7 @@ chezmoi's own source is the authoritative reference. Clone it and grep `internal
 
 ## Filesystem policy
 
-Pi has no in-process sandbox or permissions extension here, so there are no `/permissions` modes and no status-line indicator. The boundary is in the kernel: the bubblewrap launchers `pi_sandbox` (`dot_local/scripts/exact_py/executable_pi_sandbox.py`) and `pier_sandbox` (`…/executable_pier_sandbox.py`) wrap the whole process, with shared logic in `_sandbox.py`. `dot_profile` aliases them to `pix` and `piex`, so the bare `pi` and `pier` binaries stay unsandboxed. `PI_SANDBOX_MODE` or `PIER_SANDBOX_MODE` selects `ww` (the default), `ro` (the launch directory is read-only too), or `fa` (no sandbox).
+Pi has no in-process sandbox or permissions extension here, so there are no `/permissions` modes and no status-line indicator. The boundary is in the kernel: the bubblewrap launchers `pi_sandbox` (`dot_local/exact_scripts/exact_py/executable_pi_sandbox.py`) and `pier_sandbox` (`…/executable_pier_sandbox.py`) wrap the whole process, with shared logic in `_sandbox.py`. `dot_profile` aliases them to `pix` and `piex`, so the bare `pi` and `pier` binaries stay unsandboxed. `PI_SANDBOX_MODE` or `PIER_SANDBOX_MODE` selects `ww` (the default), `ro` (the launch directory is read-only too), or `fa` (no sandbox).
 
 - In `ww` and `ro` the root filesystem is read-only. Writes are allowed to the launch directory (the workspace, overridable with `PI_SANDBOX_WORKSPACE` or `PIER_SANDBOX_WORKSPACE`), the shared `~/.pi` agent state, caches, `~/.ssh/known_hosts`, and `/tmp`. Extra writable paths can be listed in `~/.config/pi_sandbox/rw` or `~/.config/pier_sandbox/rw`, or passed in `PI_SANDBOX_RW` or `PIER_SANDBOX_RW`.
 - `$XDG_RUNTIME_DIR` is replaced by a private tmpfs, with only the container service socket and the ssh agent bound back in. Every other host IPC endpoint is masked after the writable binds, because each would let the tool act on the host. The one exception is X11's abstract-namespace socket, which cannot be masked; the X server still refuses the handshake without a cookie.
@@ -127,4 +127,4 @@ Pi has no in-process sandbox or permissions extension here, so there are no `/pe
 - Both launchers point `CONTAINER_HOST` at the user's `podman.socket` when it exists, so containers run with the user's own permissions, outside the writable allowlist.
 - The agent's own `bash` calls run with the account's full OS permissions. They are constrained only when the parent application was started through one of these launchers.
 
-Keep this section to invariants. `_sandbox.py` and `dot_local/scripts/exact_py/AGENTS.md` own the implementation detail.
+Keep this section to invariants. `_sandbox.py` and `dot_local/exact_scripts/exact_py/AGENTS.md` own the implementation detail.

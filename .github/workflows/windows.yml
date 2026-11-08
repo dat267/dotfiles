@@ -30,7 +30,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "dot_local/scripts/exact_py/**"
+      - "dot_local/exact_scripts/exact_py/**"
       - "dot_pi/**"
       - "dot_config/powershell/**"
       - "run_*.ps1.tmpl"
@@ -61,7 +61,7 @@ jobs:
           node-version: "24"
 
       - name: Python script tests
-        working-directory: dot_local/scripts/exact_py
+        working-directory: dot_local/exact_scripts/exact_py
         shell: pwsh
         run: |
           $p = Start-Process python -ArgumentList "-m","unittest","discover","-s","exact_tests" `
@@ -227,7 +227,7 @@ jobs:
           . .github/scripts/step-report.ps1
           Invoke-WithReport "install_pi" {
             Invoke-Native "install_pi.py" {
-              python dot_local/scripts/exact_py/executable_install_pi.py
+              python dot_local/exact_scripts/exact_py/executable_install_pi.py
             } | Out-Null
           }
 
@@ -258,7 +258,7 @@ jobs:
           . .github/scripts/step-report.ps1
           Invoke-WithReport "install_pi-again" {
             Invoke-Native "install_pi.py again" {
-              python dot_local/scripts/exact_py/executable_install_pi.py
+              python dot_local/exact_scripts/exact_py/executable_install_pi.py
             } | Out-Null
           }
 
@@ -271,7 +271,7 @@ jobs:
           . .github/scripts/step-report.ps1
           Invoke-WithReport "pi_lint" {
             Invoke-Native "pi_lint_extensions.py" {
-              python dot_local/scripts/exact_py/executable_pi_lint_extensions.py
+              python dot_local/exact_scripts/exact_py/executable_pi_lint_extensions.py
             } | Out-Null
           }
 
@@ -284,7 +284,7 @@ jobs:
           . .github/scripts/step-report.ps1
           Invoke-WithReport "install_nvim" {
             Invoke-Native "install_nvim.py" {
-              python dot_local/scripts/exact_py/executable_install_nvim.py
+              python dot_local/exact_scripts/exact_py/executable_install_nvim.py
             } | Out-Null
           }
 

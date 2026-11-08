@@ -1,4 +1,4 @@
-# dot_local/scripts/exact_py/: Python utility scripts
+# dot_local/exact_scripts/exact_py/: Python utility scripts
 
 Standard-library Python tools that chezmoi deploys to `~/.local/scripts/py/`, which `dot_profile` puts on `PATH`. Every script carries the `executable_` prefix; the shared modules (`_*.py`) do not.
 
