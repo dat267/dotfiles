@@ -24,7 +24,7 @@ Implement exactly what the task asks. Add nothing speculative.
 - Extract no abstraction for single-use code.
 - Add no flexibility or configuration nobody requested.
 - Handle no error that cannot occur.
-- Rewrite 200 lines that fit in 50.
+- If your change takes 200 lines and could take 50, rewrite it before handing it over.
 
 Ask: "Would a senior engineer call this overcomplicated?" If yes, simplify.
 
@@ -50,17 +50,15 @@ same test to each hunk.
 
 ## 4. Verify before claiming done
 
-Turn the task into a verifiable goal. Define the check before writing code.
+Turn the task into a verifiable goal and define the check before writing code.
+Weak goals such as "make it work" force constant clarification. For multi-step
+work, plan one verification command per step; share the plan only when
+coordination or approval is needed.
 
-- "Add validation" -> write failing tests for invalid inputs, then pass them.
-- "Fix the bug" -> write a test that reproduces it, then pass it.
-- "Refactor X" -> pass the tests before and after.
-
-For multi-step work, plan one verification command per step. Share the plan only when coordination or approval is needed.
-
-When a **tdd** skill is available, follow it for the failing-test loop. When a
-**systematic-debugging** skill is available, follow it when the cause is not
-obvious. Otherwise the checks above stand on their own. Weak goals such as "make it work" force constant clarification.
+The failing-test loop belongs to the **tdd** skill and root-causing to
+**systematic-debugging** when they are available. Without them: a fix starts
+with a test that reproduces the bug, new behavior with a failing test, and a
+refactor passes the same tests before and after.
 
 Gate: run the relevant tests.
 

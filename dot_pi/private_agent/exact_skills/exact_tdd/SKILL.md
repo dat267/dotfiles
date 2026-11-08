@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Test-driven development. Required for any feature, bug fix, behavior change, or test change in any repo — no production code without a failing test that demands it. Config, docs, and renames with no testable behavior are exempt.
+description: Test-driven development. Required for any feature, bug fix, or behavior change in any repo, so no production code exists without a failing test that demands it. Config, docs, and renames with no testable behavior are exempt.
 ---
 
 # Test-Driven Development

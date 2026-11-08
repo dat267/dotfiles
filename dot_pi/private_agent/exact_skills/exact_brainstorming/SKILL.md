@@ -1,6 +1,6 @@
 ---
 name: brainstorming
-description: "Use before any creative work - creating features, building components, adding functionality, modifying behavior, or planning anything new, in software or out of it (a talk, a business, a renovation)."
+description: "Use when the user asks to brainstorm, design, or plan something new, or when a request to build something leaves open what it should be or who it is for, in software or out of it (a talk, a business, a renovation). Not for clear, specified tasks."
 ---
 
 # Brainstorming

@@ -18,5 +18,7 @@ Changes made for standalone use in Pi:
   option and the `.superpowers/` repository writes were removed.
 - The builder check is an inline self-review: Pi core has no subagent tool, so
   `builder-check-prompt.md` was dropped.
+- The description is narrowed to open-ended or explicitly requested design
+  work, so clear, specified tasks no longer load the skill.
 - Harness-specific instructions and the visual companion's telemetry, remote
   branding image, and per-harness launch sections were removed.

@@ -1,7 +1,6 @@
 ---
 name: code-maintenance
-description: Manually audit a codebase for logic flaws, concurrency bugs, security vulnerabilities, parity gaps against specs, and measured performance problems. Reproduce findings before fixing them, then implement and verify repairs. Invoked explicitly, optionally with a scope or audit-only argument.
-disable-model-invocation: true
+description: Audit a codebase or one area of it for logic flaws, concurrency bugs, security vulnerabilities, parity gaps against specs, and measured performance problems, reproduce each finding, then repair and verify it. Use when asked to audit, harden, or do a maintenance pass, or when debugging finds a missing test seam or a design defect. Not for reviewing a single diff or fixing one known bug.
 ---
 
 # Code maintenance
@@ -11,6 +10,11 @@ finding, records it, then repairs and verifies it. Instructions after the
 invocation can narrow the scope, set a time budget, request audit-only, or
 resume existing findings. Honor those limits. Invocation is not permission to
 push, release, or install dependencies.
+
+Audit the whole codebase only when the user asks for that. When you pick this
+skill yourself, or another skill hands you a finding, the scope is that finding
+and the area it lives in; say so, and offer the wider audit rather than
+starting it.
 
 ## 1. Establish the baseline
 
@@ -118,9 +122,9 @@ Record each confirmed, unresolved finding before editing production code. The
 tracker owns the work item, not the analysis:
 
 - In the workspace's unfinished-work list, add one line per finding: the ID, the
-  severity, and the concrete failure. With the five-file convention that is
-  `TODO.md`, under the priority the impact warrants. If the workspace has no such
-  list, report the finding in the response and ask before creating a file.
+  severity, and the concrete failure, under the priority the impact warrants
+  (for example a `TODO.md` section). If the workspace has no such list, report
+  the finding in the response and ask before creating a file.
 - Keep the full record with the run, in your working notes or the response, and
   cite it by ID from the tracker line. Do not create a findings file beside the
   tracker; it duplicates the work items and drifts.
