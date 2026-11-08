@@ -38,7 +38,6 @@ chezmoi:modify-template
     "deepseek/*"
     "**/glm-5.3-flash"
     "**/gpt-6-luna"
-    "**/gpt-6.1-sol"
     "**/gemini-3.8-flash"
     "**/qwen3.8-flash"
     "**/mimo-v2.6*"
