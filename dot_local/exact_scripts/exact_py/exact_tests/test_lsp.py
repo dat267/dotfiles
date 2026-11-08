@@ -68,6 +68,55 @@ class TestCreateProxy(unittest.TestCase):
                 os.remove(proxy)
 
 
+class TestLuaRecipeLinksTheServer(unittest.TestCase):
+    """Both lua branches end in create_proxy; the platform argument is required.
+
+    The fresh-install branch called create_proxy(lua_bin,
+    "lua-language-server"), dropping the Platform, so the download finished and
+    then TypeError killed the recipe before any proxy was written.
+    """
+
+    def install(self, preinstalled):
+        calls = []
+
+        def record(*args, **kwargs):
+            calls.append(args)
+
+        with tempfile.TemporaryDirectory() as share, tempfile.TemporaryDirectory() as bins:
+            lua_bin = pathlib.Path(share, "lua-language-server", "bin", "lua-language-server")
+            with mock.patch.object(lsp, "SHARE_DIR", share), mock.patch.object(
+                lsp, "BIN_DIR", bins
+            ), mock.patch.object(lsp, "create_proxy", side_effect=record):
+                if preinstalled:
+                    lua_bin.parent.mkdir(parents=True)
+                    lua_bin.write_text("#!/bin/sh\n")
+                    lsp.install_lua_lsp(shared.Platform("linux", "x64"))
+                else:
+                    def download_and_extract(url, dest, description="File"):
+                        pathlib.Path(dest).write_bytes(b"archive")
+                        lua_bin.parent.mkdir(parents=True, exist_ok=True)
+                        lua_bin.write_text("#!/bin/sh\n")
+                        return True
+
+                    with mock.patch.object(
+                        lsp, "download_file", side_effect=download_and_extract
+                    ), mock.patch.object(lsp, "extract_archive"):
+                        lsp.install_lua_lsp(shared.Platform("linux", "x64"))
+        return calls
+
+    def test_already_installed_branch_passes_the_platform(self):
+        calls = self.install(preinstalled=True)
+        self.assertEqual(len(calls), 1, "the already-installed branch did not create a proxy")
+        self.assertIsInstance(calls[0][0], shared.Platform)
+        self.assertEqual(calls[0][2], "lua-language-server")
+
+    def test_fresh_install_branch_passes_the_platform(self):
+        calls = self.install(preinstalled=False)
+        self.assertEqual(len(calls), 1, "the fresh-install branch did not create a proxy")
+        self.assertIsInstance(calls[0][0], shared.Platform)
+        self.assertEqual(calls[0][2], "lua-language-server")
+
+
 class TestExtractArchive(unittest.TestCase):
     def test_tar_gz(self):
         import os

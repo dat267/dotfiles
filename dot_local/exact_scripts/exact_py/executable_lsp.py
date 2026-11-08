@@ -152,7 +152,7 @@ def install_lua_lsp(plat):
         extract_archive(archive_path, target_path)
         os.remove(archive_path)
         if os.path.exists(lua_bin):
-            create_proxy(lua_bin, "lua-language-server")
+            create_proxy(plat, lua_bin, "lua-language-server")
 
 
 def install_node_tools(plat):
