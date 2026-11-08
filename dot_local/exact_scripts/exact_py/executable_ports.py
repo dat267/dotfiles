@@ -50,15 +50,29 @@ def parse_ss(text):
 
 
 def split_addr_port(local):
-    """Split '127.0.0.53%lo:53' or '[::]:22' into (addr, port)."""
+    """Split '127.0.0.53%lo:53', '[::]:22' or '[fd7a::1]%eth0:443' into (addr, port).
+
+    The %zone suffix appears on plain addresses, inside a bracketed IPv6
+    literal, and after the closing bracket (what ss prints for a scoped IPv6
+    listener), so every spelling is normalized before the split. A malformed
+    or unknown address yields None for the port instead of raising.
+    """
     if local.startswith("["):
         host, sep, rest = local.partition("]")
-        if not sep or ":" not in rest:
-            return host.lstrip("["), None
-        return host.lstrip("["), int(rest[1:])
+        host = host.lstrip("[").split("%")[0]
+        if not sep:
+            return host, None
+        if rest.startswith("%"):
+            rest = rest[rest.find(":"):] if ":" in rest else ""
+        if not rest.startswith(":"):
+            return host, None
+        try:
+            return host, int(rest[1:])
+        except ValueError:
+            return host, None
     host, sep, port = local.rpartition(":")
     if not sep:
-        return local, None
+        return local.split("%")[0], None
     host = host.split("%")[0]
     try:
         return host, int(port)

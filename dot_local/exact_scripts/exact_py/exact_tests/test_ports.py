@@ -15,13 +15,14 @@ LISTEN 0      4096                 [::]:22                     [::]:*      users
 LISTEN 0      4096                      [::1]:9090          [::]:*
 LISTEN 0      4096                    100.64.0.1:443        0.0.0.0:*   users:(("tailscale",pid=777,fd=9))
 LISTEN 0      4096                    192.168.1.10:8080     0.0.0.0:*
+LISTEN 0      4096   [fd7a:115c:a1e0::7435:765d]%tailscale0:8443          [::]:*   users:(("tailscaled",pid=888,fd=11))
 """
 
 
 class TestParseSs(unittest.TestCase):
     def test_skips_header_and_blank_lines(self):
         rows = ports.parse_ss(SAMPLE)
-        self.assertEqual(len(rows), 9)
+        self.assertEqual(len(rows), 10)
 
     def test_row_fields(self):
         rows = ports.parse_ss(SAMPLE)
@@ -40,6 +41,13 @@ class TestParseSs(unittest.TestCase):
         rows = ports.parse_ss(SAMPLE)
         addrs = {r["addr"] for r in rows if r["port"] == 53}
         self.assertEqual(addrs, {"127.0.0.54", "127.0.0.53"})  # %lo stripped
+
+    def test_scoped_ipv6_listener_parses(self):
+        """`[addr]%iface:port` puts the zone between the bracket and the colon,
+        which raised ValueError and killed the whole listing."""
+        rows = ports.parse_ss(SAMPLE)
+        row = next(r for r in rows if r["port"] == 8443)
+        self.assertEqual(row["addr"], "fd7a:115c:a1e0::7435:765d")
 
     def test_no_process_column_is_empty(self):
         rows = ports.parse_ss(SAMPLE)
@@ -87,7 +95,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(rc, 0)
         ports_listed = [int(line.split()[0]) for line in out.splitlines() if line.strip()]
         self.assertEqual(ports_listed, sorted(ports_listed))
-        self.assertEqual(len(ports_listed), 9)
+        self.assertEqual(len(ports_listed), 10)
 
     def test_exposed_only_flag(self):
         rc, out = self.run_main(["-e"])
