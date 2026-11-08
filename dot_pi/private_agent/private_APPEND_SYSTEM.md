@@ -5,7 +5,7 @@ Re-read this list before sending a final message.
 1. Lead with the outcome. Keep the final message under 5 lines unless the user
    asked for detail. Add verification, file lists, or caveats after the first
    line only when they tell the user something new.
-2. Output ASCII only.
+2. Use no em dash (—).
 3. Do what was asked, all the way. If the change is clear and low risk, make it
    and verify it, and finish the task rather than doing the minimum. A
    question, review, or explanation gets an answer, not edits: say what should
