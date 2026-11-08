@@ -26,6 +26,10 @@ ARCHIVE_SUFFIXES = {
     ".tgz", ".txz", ".tbz2", ".tzst", ".zstd",
 }
 COMPRESSED_TAR_SUFFIXES = {".gz", ".bz2", ".xz", ".zst", ".lzma", ".lz4", ".zstd"}
+# Formats that are only readable through 7z (zip and tar never get here, they
+# are sniffed). Keeping this explicit is what stops a plain file from being
+# treated as an archive.
+SEVEN_ZIP_SUFFIXES = {".7z", ".lzma", ".lz4"}
 
 
 def eprint(*args):
@@ -82,7 +86,12 @@ def unsafe_from_7z_listing(listing):
 
 
 def backend_for(path, which=shutil.which):
-    """Pick an extraction backend: 'zip', 'tar', or an external tool name."""
+    """Pick an extraction backend: 'zip', 'tar', or an external tool name.
+
+    Sniffed formats win. Everything else is chosen by extension, so a file
+    that is not an archive at all is refused here instead of being handed to
+    7z, which used to turn the source into its own destination.
+    """
     try:
         if zipfile.is_zipfile(path):
             return "zip"
@@ -96,7 +105,7 @@ def backend_for(path, which=shutil.which):
             if which(tool):
                 return tool
         return None
-    if which("7z"):
+    if suffix in SEVEN_ZIP_SUFFIXES and which("7z"):
         return "7z"
     if suffix in (".zst", ".tzst", ".zstd") and which("unzstd"):
         return "unzstd"

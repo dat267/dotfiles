@@ -108,6 +108,14 @@ class TestBackendChoice(unittest.TestCase):
             self.assertEqual(extract.backend_for(path, which=lambda n: "/x" if n == "unrar" else None), "unrar")
             self.assertEqual(extract.backend_for(path, which=lambda n: "/x" if n == "7z" else None), "7z")
 
+    def test_a_plain_file_has_no_backend(self):
+        with tempfile.TemporaryDirectory() as root:
+            for name in ("notes.txt", "script.py", "data.json"):
+                path = os.path.join(root, name)
+                open(path, "wb").write(b"not an archive")
+                with self.subTest(name=name):
+                    self.assertIsNone(extract.backend_for(path, which=self.which_all))
+
 
 class TestExtraction(unittest.TestCase):
     def setUp(self):
@@ -211,6 +219,17 @@ class TestExtraction(unittest.TestCase):
         extracted = os.path.join(self.root, "links", "link.txt")
         self.assertTrue(os.path.islink(extracted), "symlink member became a regular file")
         self.assertEqual(os.readlink(extracted), "target.txt")
+
+    def test_unsupported_file_is_refused_not_treated_as_an_archive(self):
+        """A plain text file is not a 7z payload. Before, it fell through to
+        the 7z backend, which made the source its own destination."""
+        path = os.path.join(self.root, "notes.txt")
+        with open(path, "w") as fh:
+            fh.write("just text")
+        code, _, err = run_main([path])
+        self.assertEqual(code, 1)
+        self.assertIn("unsupported", err)
+        self.assertTrue(os.path.isfile(path), "the source file must survive")
 
     def test_refuses_a_symlink_pointing_outside(self):
         """Keeping links real makes the link target an escape vector, so a
