@@ -7,7 +7,6 @@
 ## Next
 
 - [ ] Decide how to cap Pi's context window for large-catalog models: enumerated `modelOverrides` per enabled model pattern, or an extension that registers providers with a lower `contextWindow`.
-- [ ] Extend `install_nerd_font.py` to take a font name, so Iosevka or Iosevka Term can be installed alongside Hack.
 - [ ] Replace the dropped bottom config with a non-interactive status script, if the shell still needs at-a-glance system state.
 
 ## Later

@@ -139,7 +139,7 @@ class FakeCtypes:
 
 
 class TestNerdFont(unittest.TestCase):
-    """The installer is Hack-only: no font argument and no font list."""
+    """Hack by default; an optional FONT argument picks another release archive."""
 
     def test_release_url_is_hack(self):
         self.assertEqual(nf.FONT, "Hack")
@@ -152,7 +152,7 @@ class TestNerdFont(unittest.TestCase):
         with mock.patch.object(nf, "install_font") as install:
             with mock.patch("sys.argv", ["nf"]):
                 nf.main()
-        install.assert_called_once_with()
+        install.assert_called_once_with("Hack")
 
     def test_font_dir_posix(self):
         p1, p2, p3 = patch_platform("Linux", "x86_64")
@@ -261,12 +261,26 @@ class TestNerdFont(unittest.TestCase):
         self.assertEqual(fake_ctypes.added, [installed])
         self.assertEqual(len(fake_ctypes.broadcasts), 1)
 
-    def test_font_argument_rejected(self):
-        with mock.patch.object(nf, "install_font") as install:
-            with mock.patch("sys.argv", ["nf", "FiraCode"]):
-                with self.assertRaises(SystemExit):
+    def test_font_argument_selects_archive(self):
+        for arg, name in (("Iosevka", "Iosevka"), ("IosevkaTerm", "IosevkaTerm"),
+                          ("Iosevka Term", "IosevkaTerm")):
+            with mock.patch.object(nf, "install_font") as install:
+                with mock.patch("sys.argv", ["nf", arg]):
                     nf.main()
-        install.assert_not_called()
+            install.assert_called_once_with(name)
+        self.assertEqual(
+            nf.latest_release_url("IosevkaTerm"),
+            "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/IosevkaTerm.zip",
+        )
+
+    def test_invalid_font_name_rejected(self):
+        for arg in ("../Hack", "Hack.zip", "", "Hack?x=1"):
+            with mock.patch.object(nf, "install_font") as install:
+                with mock.patch("sys.argv", ["nf", arg]), \
+                        mock.patch("sys.stderr", io.StringIO()):
+                    with self.assertRaises(SystemExit):
+                        nf.main()
+            install.assert_not_called()
 
 
 class Response(io.BytesIO):
@@ -302,7 +316,7 @@ class TestTermuxNerdFont(unittest.TestCase):
                 mock.patch.object(nf, "install_termux_font") as termux, \
                 mock.patch.object(nf, "install_desktop_font") as desktop:
             nf.install_font()
-        termux.assert_called_once_with()
+        termux.assert_called_once_with("Hack")
         desktop.assert_not_called()
 
     def test_install_font_routes_desktop(self):
@@ -311,7 +325,7 @@ class TestTermuxNerdFont(unittest.TestCase):
                 mock.patch.object(nf, "install_termux_font") as termux, \
                 mock.patch.object(nf, "install_desktop_font") as desktop:
             nf.install_font()
-        desktop.assert_called_once_with()
+        desktop.assert_called_once_with("Hack")
         termux.assert_not_called()
 
     def test_install_termux_font_writes_font_ttf_and_reloads(self):
@@ -348,6 +362,23 @@ class TestTermuxNerdFont(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 nf.install_termux_font()
         self.assertFalse(os.path.exists(dest))
+
+    def test_install_termux_font_uses_the_named_fonts_mono_face(self):
+        dest = os.path.join(tempfile.mkdtemp(), ".termux", "font.ttf")
+        requested = []
+        p1, p2, p3 = patch_platform("Linux", "aarch64", termux=True)
+        with p1, p2, p3, \
+                mock.patch.object(nf.urllib.request, "urlopen",
+                                  lambda url: requested.append(url) or hack_zip(
+                                      "IosevkaTermNerdFontMono-Regular.ttf")), \
+                mock.patch.object(nf, "termux_font_path", return_value=dest), \
+                mock.patch.object(nf.subprocess, "run"):
+            nf.install_termux_font("IosevkaTerm")
+        self.assertEqual(
+            requested,
+            ["https://github.com/ryanoasis/nerd-fonts/releases/latest/download/IosevkaTerm.zip"],
+        )
+        self.assertTrue(os.path.exists(dest))
 
 
 if __name__ == "__main__":
