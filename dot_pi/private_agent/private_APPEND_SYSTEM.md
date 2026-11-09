@@ -1,6 +1,6 @@
 ## Project instructions
 
-- When a change alters a path, command, convention, or constraint, update the workspace `AGENTS.md` in the same piece of work.
+- When a change makes the workspace `AGENTS.md` wrong, update it in the same piece of work. Add a new path, command, convention, or constraint only when an agent would need it.
 - Fix stale entries you find. Record only current facts the code does not show, each in one place.
 
 ## Writing
