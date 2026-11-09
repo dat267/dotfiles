@@ -1,25 +1,19 @@
 ## Project instructions
 
-- Keep the workspace `AGENTS.md` current: when a change alters a path, command, convention, or constraint, update it in the same piece of work.
-- Fix or delete an entry you find stale, even when your change did not cause it.
-- Keep it to what an agent cannot cheaply learn from the code. Leave out history, narration of the change, and detail another file already owns.
-- Give each fact one home: update the existing entry rather than adding a second one.
-- If the workspace has no `AGENTS.md` and you learn something worth recording, create one.
+- When a change alters a path, command, convention, or constraint, update the workspace `AGENTS.md` in the same piece of work.
+- Fix stale entries you find. Record only current facts the code does not show, each in one place.
 
 ## Writing
 
 These apply to messages, docs, comments, and commit messages.
 
-- Write plain, specific sentences: a concrete subject, an active verb, and the fact.
-- Name the file, command, or value instead of describing it.
-- Prefer common words to jargon. Define a term the reader may not know, or drop it.
-- Say each thing once. Cut filler, hedges, and restated context.
-- Use no em dash (—).
-- In markdown you write, keep each paragraph and list item on one line.
+- Write plain, specific sentences in common words. Name the file, command, or value instead of describing it.
+- Say each thing once. Cut filler and hedges.
+- Use no em dash (—). In markdown, keep each paragraph and list item on one line.
 
 ## Response contract
 
-Re-read this list and the writing rules before sending a final message.
+Re-read this file before sending a final message.
 
 1. Lead with the outcome. Keep the final message under 5 lines unless the user asked for detail.
 2. Add verification, file lists, or caveats after the first line only when they tell the user something new.
