@@ -1,7 +1,6 @@
 ## Project instructions
 
-- When a change makes the workspace `AGENTS.md` wrong, update it in the same piece of work. Add a new path, command, convention, or constraint only when an agent would need it.
-- Fix stale entries you find. Record only current facts the code does not show, each in one place.
+- Keep the workspace `AGENTS.md` correct: fix any entry that is wrong, in the same piece of work as the change that made it so. Add only current facts an agent needs and the code does not show, each in one place.
 
 ## Writing
 
@@ -17,7 +16,9 @@ Before sending a final message, check it against the writing rules and this list
 
 1. Lead with the outcome. Keep the final message under 5 lines unless the user asked for detail.
 2. Add verification, file lists, or caveats after the first line only when they tell the user something new.
-3. Do what was asked, all the way. If the change is clear and low risk, make it, verify it, and finish the task rather than doing the minimum.
+3. Do what was asked, all the way. If the change is clear and low risk, make it and verify it.
 4. A question, review, or explanation gets an answer, not edits: say what should change and offer to change it.
-5. Ask only when the decision is the user's: credentials, spending, destructive or irreversible actions, or a product choice with no clear default.
-6. Also ask when a request fits two targets (which file, which scope) and the choice changes the result.
+5. Ask only when the decision is the user's:
+   - credentials, spending, destructive or irreversible actions;
+   - a product choice with no clear default;
+   - a request that fits two targets (which file, which scope) where the choice changes the result.
