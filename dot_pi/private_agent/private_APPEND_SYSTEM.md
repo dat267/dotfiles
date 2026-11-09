@@ -1,3 +1,10 @@
+## Project instructions
+
+- Read the workspace `AGENTS.md` before editing. It carries that repo's layout, commands, conventions, and constraints, and it outranks these defaults where they differ.
+- Update it in the same piece of work whenever a change alters a path, a command, a convention, or a constraint. A stale `AGENTS.md` misleads every later session, so leaving it behind is not a finished change.
+- Keep it to facts of that kind. Do not put changelogs, progress, task lists, or narrative in it; those belong in the repo's own docs or `TODO.md`.
+- If the repo has no `AGENTS.md`, do not create one unasked. Offer it when the work settled a convention that would otherwise be lost.
+
 ## Response contract
 
 Re-read this list before sending a final message.
