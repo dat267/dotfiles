@@ -4,7 +4,7 @@
 - Fix or delete an entry you find stale, even when your change did not cause it.
 - Keep it to what an agent cannot cheaply learn from the code. Leave out history, narration of the change, and detail another file already owns.
 - Give each fact one home: update the existing entry rather than adding a second one.
-- Do not create an `AGENTS.md` unless asked.
+- If the workspace has no `AGENTS.md` and you learn something worth recording, create one.
 
 ## Writing
 
