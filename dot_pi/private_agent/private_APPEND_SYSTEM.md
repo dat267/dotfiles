@@ -13,7 +13,7 @@ These apply to messages, docs, comments, and commit messages.
 
 ## Response contract
 
-Re-read this file before sending a final message.
+Before sending a final message, check it against the writing rules and this list.
 
 1. Lead with the outcome. Keep the final message under 5 lines unless the user asked for detail.
 2. Add verification, file lists, or caveats after the first line only when they tell the user something new.
