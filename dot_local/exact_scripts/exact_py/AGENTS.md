@@ -13,6 +13,7 @@ Standard-library Python tools that chezmoi deploys to `~/.local/scripts/py/`, wh
 ### Installers
 
 - `executable_install_*.py`: tool installers. Most download the latest GitHub release into `~/.local/bin/`. `install_pi.py` instead runs the platform's official installer (`https://pi.dev/install.sh` under sh on POSIX, `install.ps1` under PowerShell on Windows), detached from the terminal so its tty-gated prompts take their non-interactive defaults.
+- `executable_install_claude.py`, `executable_install_opencode.py`: install or update Claude Code and OpenCode from the native binary in each tool's npm platform package (`@anthropic-ai/claude-code-<platform>`, `@opencode/cli-<platform>`), fetched from the registry and checked against its sha512 integrity; no node or npm is involved. Rerunning one is the update, `--check` only compares versions (exit 1 when an update is available), `--version` pins one, and `--force` reinstalls. On Termux the binary goes to `~/.local/lib/<tool>-native/` and a generated launcher at `~/.local/bin/<tool>` runs it through `grun`, with `claude update` and `opencode upgrade` sent back to the installer. OpenCode starts its server by re-executing `process.execPath`, which under `grun` is the glibc loader, so its launcher runs `opencode serve` on `127.0.0.1:47096` (`OPENCODE_TERMUX_PORT`) with a password in `~/.local/state/opencode-termux/` and appends `--server` to every other command. Patching the binary with `grun --configure` instead makes these Bun builds segfault.
 - `executable_install_tools.py`, `executable_uninstall_tools.py`: install or remove the tool binaries published in this repo's own GitHub releases (`dat267/dotfiles`).
 - `executable_lsp.py`: installs LSP servers (gopls, pyright, and others).
 - `executable_gim.py`: installs private Go binaries over SSH (`gim <repo[@version]>`).
@@ -44,6 +45,7 @@ Standard-library Python tools that chezmoi deploys to `~/.local/scripts/py/`, wh
 ### Shared modules
 
 - `_shared.py`: platform detection, colored logging, and download helpers, including `install_github_binary` for the single-binary release installers.
+- `_npm_native.py`: the npm-registry install, integrity check, atomic binary swap, and Termux launcher behind `install_claude.py` and `install_opencode.py`. Each script declares a `Tool` (package, os words, launcher template) and delegates here.
 - `_pi_install.py`: resolves the pi package and launcher, for both managed releases and legacy npm installs.
 - `_sandbox.py`: the bubblewrap launcher behind `pi_sandbox.py` and `pier_sandbox.py`. Each of those declares a `Profile` (tool, env prefix, unsandboxed subcommands, agent-state variables, host service sockets) and delegates here, so the writable allowlist, argv assembly, probe, and fallbacks exist once. It replaces `$XDG_RUNTIME_DIR` with a private tmpfs, binds back only the profile's socket and the ssh agent, and, after the writable binds, masks the host IPC endpoints outside it (system bus, X11/ICE/XIM, tmux, journald), since each is a way to act on the host. It also unshares the PID and SysV IPC namespaces. X11's abstract socket is the one endpoint it cannot mask.
 

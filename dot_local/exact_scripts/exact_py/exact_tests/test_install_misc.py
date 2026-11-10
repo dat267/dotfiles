@@ -7,7 +7,6 @@ import _loader
 shared = _loader.load("_shared")
 lf = _loader.load("install_lf")
 firefox = _loader.load("install_firefox")
-opencode = _loader.load("install_opencode")
 aws = _loader.load("install_aws")
 pwsh = _loader.load("install_pwsh")
 go = _loader.load("install_go")
@@ -81,23 +80,6 @@ class TestFirefoxGuard(unittest.TestCase):
             with self.assertRaises(SystemExit) as ctx:
                 firefox.main()
             self.assertEqual(ctx.exception.code, 0)
-
-
-class TestOpencodePlatform(unittest.TestCase):
-    """OpenCode's filename via Platform: canonical words, glibc-runner gate."""
-
-    def test_linux(self):
-        with mock.patch.object(shared.platform, "system", return_value="Linux"), mock.patch.object(
-            shared.platform, "machine", return_value="x86_64"
-        ), mock.patch.object(shared, "is_termux", return_value=False):
-            self.assertEqual(opencode.get_platform_filename(), "opencode-linux-x64.tar.gz")
-
-    def test_android_requires_glibc_runner(self):
-        with mock.patch.object(shared.platform, "system", return_value="Android"), mock.patch.object(
-            shared.platform, "machine", return_value="aarch64"
-        ), mock.patch.object(opencode.shutil, "which", return_value=None):
-            with self.assertRaises(SystemExit):
-                opencode.get_platform_filename()
 
 
 class TestGoCleanDirectory(unittest.TestCase):

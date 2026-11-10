@@ -43,7 +43,7 @@ Secrets are not in the repo. After the first apply, copy `auth.json` and any cre
 
 - **Linux:** the primary target. Gets everything except the Windows- and Termux-only pieces, plus Konsole and systemd user units.
 - **Windows:** PowerShell profile, VS Code settings, Windows Terminal, and directory junctions.
-- **Android (Termux):** `~/.termux/termux.properties` and a shell config adjusted for Termux.
+- **Android (Termux):** `~/.termux/termux.properties` and a shell config adjusted for Termux. Claude Code and OpenCode have no Android build; `install_claude.py` and `install_opencode.py` install their Linux arm64 builds to run through glibc-runner (`pkg install glibc-runner`), and rerunning them updates.
 - **macOS:** untested. The install command works and the Linux- and Windows-only pieces are guarded out, but CI does not cover it.
 
 ## Secrets
