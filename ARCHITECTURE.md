@@ -1,12 +1,12 @@
 # Architecture
 
-This repository is a chezmoi source tree. chezmoi reads each path's name and attributes and turns it into a file, a directory, or a lifecycle action in the home directory. [AGENTS.md](AGENTS.md) covers the naming conventions and everyday commands; this document covers the major components and how they fit together.
+This repository holds a chezmoi source tree in `home/`, which `.chezmoiroot` names as the source root, with the tests (`tests/`), development tools (`tools/`), CI, and documentation beside it where they cannot deploy. chezmoi reads each path's name and attributes and turns it into a file, a directory, or a lifecycle action in the home directory. [AGENTS.md](AGENTS.md) covers the naming conventions and everyday commands; this document covers the major components and how they fit together.
 
 ## From source to home directory
 
 - **Filename prefixes** (`dot_`, `private_`, `executable_`, `modify_`, `exact_`) set the target path, file mode, merge behavior, and whether a directory is exact. [AGENTS.md](AGENTS.md) lists them.
 - **Templates** (`*.tmpl`) are Go templates that fill in platform-specific values and guard platform-specific content.
-- **`.chezmoiignore`** decides which sources apply on each OS, and keeps documentation, runtime state, and generated files out of the managed set.
+- **`.chezmoiignore`** decides which sources apply on each OS, and keeps runtime state, generated files, and the few development files that sit beside deployed sources out of the managed set.
 - **Hooks** (`run_once_`, `run_onchange_`, `run_`) handle bootstrap and post-deploy work that a static file cannot express. Templates and `.chezmoiignore` gate them by platform.
 - **`.chezmoi.toml.tmpl`** configures chezmoi itself. When git is available, it turns on auto-add and auto-commit of source edits and leaves pushing manual.
 
@@ -41,7 +41,7 @@ On Linux and Android, a hook repairs the VS Code `Code/User` symlink on every ap
 
 ## Verification
 
-Python script tests live in `dot_local/exact_scripts/exact_py/exact_tests/`. Pi extensions have their own Node tests and are typechecked by `pi_lint_extensions.py`. The Windows workflow also renders the templates and parses the PowerShell scripts. [AGENTS.md](AGENTS.md) lists the commands and the order to run them in.
+Python tests live in `tests/`: `tests/scripts/` covers the scripts and tools, and `tests/repo/` covers the shell profile, hooks, and Pi and Yazi configs by reading them from `home/`. Pi extensions keep their Node tests beside their code and are typechecked by `tools/pi_lint_extensions.py`. The Windows workflow also renders the templates and parses the PowerShell scripts. [AGENTS.md](AGENTS.md) lists the commands and the order to run them in.
 
 ## What is not source
 

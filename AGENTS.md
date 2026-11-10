@@ -20,6 +20,17 @@ Edit the chezmoi source, never the deployed target. Keep `{{- ... -}}` whitespac
 
 ## Layout
 
+The repo root is not the chezmoi source root. `.chezmoiroot` names `home/`, so only what is under `home/` can deploy. Everything else is development material:
+
+```
+home/      chezmoi source root: every deployed file, the hooks, and chezmoi's own .chezmoi* files
+tests/     Python tests: scripts/ covers the exact_py scripts and tools/, repo/ covers the profile, hooks, and configs; _loader.py locates the repo and imports scripts
+tools/     dev-only scripts run from the repo: pi_lint_extensions.py, hyper_catalog.py
+.github/   the Windows CI workflow
+```
+
+Source paths in this document are relative to `home/` unless they start with `tests/`, `tools/`, or `.github/`. `chezmoi source-path` prints `home/`; the repo root is `{{ .chezmoi.workingTree }}`, which is where `cm cd` goes.
+
 Notable source → deployed mappings:
 
 | Source | Deployed |
@@ -63,7 +74,7 @@ run_once_before_bootstrap-local-configs.ps1.tmpl    Windows: one-time bootstrap
 run_onchange_after_create-junctions.ps1.tmpl        Windows: recreate junctions
 ```
 
-`.chezmoiignore` keeps generated and runtime files out of chezmoi's managed set, including the files opencode writes under `~/.config/opencode/` (its `service.json` holds a password), `node_modules`, `__pycache__`, `*.pyc`, and logs. Never create, commit, or restore any of them.
+`.chezmoiignore` keeps development files that sit beside deployed sources out of the home directory: `exact_py/AGENTS.md`, and the Pi extensions' `*.test.ts` files and `testlib/`. chezmoi leaves ignored targets alone even in an `exact_` directory, so a copy deployed before a rule existed stays until it is deleted by hand. It also keeps generated and runtime files out of chezmoi's managed set, including the files opencode writes under `~/.config/opencode/` (its `service.json` holds a password), `node_modules`, `__pycache__`, `*.pyc`, and logs. Never create, commit, or restore any of them.
 
 ## Project documents
 
@@ -76,7 +87,7 @@ Each fact has one home:
 
 Write markdown with each paragraph and list item on one line. Tables, code blocks, and the layout tree keep their own lines.
 
-When a change alters a fact, update the file that owns it in the same piece of work. These four files, `LICENSE`, and `.github/` are in `.chezmoiignore` and never deploy.
+When a change alters a fact, update the file that owns it in the same piece of work. These four files, `LICENSE`, and `.github/` sit outside `home/` and never deploy.
 
 Keep `AGENTS.md` current without being asked: update it whenever paths, commands, conventions, constraints, or policies change, and keep it to those.
 
@@ -85,25 +96,25 @@ Keep `AGENTS.md` current without being asked: update it whenever paths, commands
 ```bash
 chezmoi diff                                  # verify before applying
 chezmoi status                                # deploy drift, including forgotten files
-chezmoi execute-template --file <template>    # render a template without deploying
+chezmoi execute-template --file home/<template>  # render a template without deploying
 chezmoi apply --force <target-path>           # targeted deploy; a full apply is the user's call
 python3 script.py --help                      # verify a new CLI script parses
-(cd dot_local/exact_scripts/exact_py && python3 -m unittest discover -s exact_tests)
-pi_lint_extensions.py --root "$PWD"           # from repo root; --dir <name> lints one extension
+python3 -m unittest discover -s tests         # from repo root
+tools/pi_lint_extensions.py                   # --dir <name> lints one extension
 node --test                                   # per extension dir: runs every *.test.ts (Node >= 24)
 ```
 
 Before reporting done, run the checks for the area you changed:
 
-- `exact_py`: the Python tests.
-- Extensions: `pi_lint_extensions.py`, then `node --test`. `node --test` alone does not typecheck.
+- `exact_py`, `tools/`, the shell profile, hooks, or Pi and Yazi config: the Python tests.
+- Extensions: `tools/pi_lint_extensions.py`, then `node --test`. `node --test` alone does not typecheck.
 - Config: `chezmoi diff`.
 
-Order matters. Run `chezmoi diff` or `status` before `pi_lint_extensions.py`, because the linter's `node_modules` symlinks can dangle and make chezmoi fail with `ENOENT`. Lint before `node --test` so extension imports resolve.
+Order matters. Run `chezmoi diff` or `status` before `tools/pi_lint_extensions.py`, because the linter's `node_modules` symlinks can dangle and make chezmoi fail with `ENOENT`. Lint before `node --test` so extension imports resolve.
 
 ### CI
 
-The only CI config is `.github/workflows/windows.yml`, which covers what Linux cannot test. Run it by hand with `gh workflow run windows`.
+The only CI config is `.github/workflows/windows.yml`, which covers what Linux cannot test. Pushes that touch `home/`, `tests/`, or `tools/` start it. Run it by hand with `gh workflow run windows`.
 
 The Windows `run_*.ps1.tmpl` hooks must stay ASCII. chezmoi falls back to Windows PowerShell 5.1 when pwsh is missing, writes the hooks without a BOM, and 5.1 decodes BOM-less files with the ANSI code page.
 

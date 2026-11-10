@@ -22,18 +22,18 @@ name: windows
 # an annotation and the step summary instead.
 #
 # Note AGENTS.md says automation belongs in chezmoi lifecycle hooks with no CI
-# configs. This overrides that for Windows coverage only; .github is listed in
-# .chezmoiignore so it is never deployed into $HOME.
+# configs. This overrides that for Windows coverage only; .github sits outside
+# the chezmoi source root (home/, named by .chezmoiroot), so it never deploys.
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - "dot_local/exact_scripts/exact_py/**"
-      - "dot_pi/**"
-      - "dot_config/powershell/**"
-      - "run_*.ps1.tmpl"
+      - "home/**"
+      - "tests/**"
+      - "tools/**"
+      - ".chezmoiroot"
       - ".github/workflows/windows.yml"
   pull_request:
 
@@ -61,10 +61,9 @@ jobs:
           node-version: "24"
 
       - name: Python script tests
-        working-directory: dot_local/exact_scripts/exact_py
         shell: pwsh
         run: |
-          $p = Start-Process python -ArgumentList "-m","unittest","discover","-s","exact_tests" `
+          $p = Start-Process python -ArgumentList "-m","unittest","discover","-s","tests" `
             -RedirectStandardOutput test-out.txt -RedirectStandardError test-err.txt `
             -NoNewWindow -Wait -PassThru
           Get-Content test-out.txt, test-err.txt
@@ -144,7 +143,7 @@ jobs:
               $out = Join-Path $env:RUNNER_TEMP ([IO.Path]::GetFileNameWithoutExtension($t))
               # --file: without it the argument is executed as a literal template.
               Invoke-Native "execute-template $t" {
-                & $env:DOTFILES_CHEZMOI execute-template --file $t
+                & $env:DOTFILES_CHEZMOI execute-template --file (Join-Path "home" $t)
               } | Set-Content -Path $out -Encoding utf8
               $files += $out
             }
@@ -227,7 +226,7 @@ jobs:
           . .github/scripts/step-report.ps1
           Invoke-WithReport "install_pi" {
             Invoke-Native "install_pi.py" {
-              python dot_local/exact_scripts/exact_py/executable_install_pi.py
+              python home/dot_local/exact_scripts/exact_py/executable_install_pi.py
             } | Out-Null
           }
 
@@ -258,7 +257,7 @@ jobs:
           . .github/scripts/step-report.ps1
           Invoke-WithReport "install_pi-again" {
             Invoke-Native "install_pi.py again" {
-              python dot_local/exact_scripts/exact_py/executable_install_pi.py
+              python home/dot_local/exact_scripts/exact_py/executable_install_pi.py
             } | Out-Null
           }
 
@@ -271,7 +270,7 @@ jobs:
           . .github/scripts/step-report.ps1
           Invoke-WithReport "pi_lint" {
             Invoke-Native "pi_lint_extensions.py" {
-              python dot_local/exact_scripts/exact_py/executable_pi_lint_extensions.py
+              python tools/pi_lint_extensions.py
             } | Out-Null
           }
 
@@ -284,7 +283,7 @@ jobs:
           . .github/scripts/step-report.ps1
           Invoke-WithReport "install_nvim" {
             Invoke-Native "install_nvim.py" {
-              python dot_local/exact_scripts/exact_py/executable_install_nvim.py
+              python home/dot_local/exact_scripts/exact_py/executable_install_nvim.py
             } | Out-Null
           }
 

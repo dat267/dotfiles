@@ -1,0 +1,522 @@
+# Sourced from .zshenv, .zshrc, .bashrc, and .bash_profile, so the same shell
+# can reach this file twice: zsh reads .zshenv and then .zshrc, whose fallback
+# source would otherwise run the whole body again (a second ssh-agent probe and
+# mkdir pass on every interactive shell). Once is enough.
+if [ -n "${DOTFILES_PROFILE_SOURCED:-}" ]; then
+	return 0 2>/dev/null || exit 0
+fi
+
+# One-way handoff to .bashrc for interactive bash login shells (tmux, ssh,
+# console logins): without it, login shells never see the bashrc at all —
+# aliases, PS1, and /google/devshell/bashrc.google included. .bashrc sources
+# this file back for the shared env; DOTFILES_VIA_BASHRC marks that path so
+# the handoff is skipped and the chain terminates exactly once.
+DOTFILES_PROFILE_SOURCED=1
+if [ -n "$BASH_VERSION" ] && [ -z "$DOTFILES_VIA_BASHRC" ] && [ -f "$HOME/.bashrc" ]; then
+	. "$HOME/.bashrc"
+fi
+
+prepend_paths() {
+	for p in "$@"; do
+		if [ -d "$p" ]; then
+			# An entry that is already on PATH gets moved to the front, not
+			# left where it was found: a caller that asks for it explicitly
+			# ("$HOME/bin" overriding a tool another entry also ships)
+			# means it outranks everything else, however PATH was built.
+			case ":$PATH:" in
+			*:"$p":*)
+				# Peel the entries with parameter expansion rather than
+				# `for x in $PATH`: that word-splits and pathname-expands, so
+				# an entry such as /opt/a* would turn into one entry per
+				# match. Empty entries survive as _sep records them.
+				_rest=""
+				_sep=""
+				_remain=$PATH
+				while :; do
+					if [ "${_remain#*:}" != "$_remain" ]; then
+						_entry=${_remain%%:*}
+						_remain=${_remain#*:}
+						_has_more=1
+					else
+						_entry=$_remain
+						_remain=""
+						_has_more=0
+					fi
+					if [ "$_entry" != "$p" ]; then
+						_rest=$_rest$_sep$_entry
+						_sep=:
+					fi
+					[ "$_has_more" = 1 ] || break
+				done
+				PATH="$p${_sep}${_rest}"
+				;;
+			*) PATH="$p:$PATH" ;;
+			esac
+		fi
+	done
+}
+append_paths() {
+	for p in "$@"; do
+		if [ -d "$p" ]; then
+			case ":$PATH:" in *:"$p":*) ;; *) PATH="$PATH:$p" ;; esac
+		fi
+	done
+}
+ensure_directories_exist() {
+	for dir in "$@"; do
+		if [ ! -L "$dir" ] && [ ! -d "$dir" ]; then
+			mkdir -p "$dir"
+		fi
+	done
+}
+permit_execution_all() {
+	for folder in "$@"; do
+		folder="${folder%/}"
+		if [ -d "$folder" ]; then
+			chmod +x "$folder"/* 2>/dev/null
+		fi
+	done
+	prepend_paths "$@"
+}
+permit_execution_extension() {
+	for folder in "$@"; do
+		folder="${folder%/}"
+		extension="${folder##*/}"
+		if [ -d "$folder" ]; then
+			chmod +x "$folder"/*."$extension" 2>/dev/null
+		fi
+	done
+	prepend_paths "$@"
+}
+for editor in nvim vim hx helix nano; do
+	if command -v "$editor" >/dev/null 2>&1; then
+		export EDITOR="$editor"
+		break
+	fi
+done
+# Neovim's startup DSR/OSC background query assumes a local terminal. Over
+# SSH the reply can miss its 100ms window and warn E1568. The query runs
+# before user config, so the documented switch is the environment variable.
+if [ -n "${SSH_TTY:-}${SSH_CONNECTION:-}" ]; then
+	export NVIM_NOTTYFAST=1
+fi
+# Test-only flag for nvim development; commented out so it does not leak
+# into every shell session.
+# export NVIM_TEST=1
+export AWS_PAGER=""
+export GLOBIGNORE=.:..
+export PYENV_ROOT="$HOME/.pyenv"
+export NVM_DIR="$HOME/.nvm"
+if [ -d "$HOME/Android/Sdk" ]; then
+	export ANDROID_HOME="$HOME/Android/Sdk"
+	append_paths "$ANDROID_HOME/platform-tools" "$ANDROID_HOME/emulator"
+fi
+if [ -d "$HOME/.sdkman" ] && [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
+	export SDKMAN_DIR="$HOME/.sdkman"
+	# Keep installed tools and their HOME variables usable without loading SDKMAN.
+	export SDKMAN_CANDIDATES_DIR="$SDKMAN_DIR/candidates"
+	_sdkman_paths() {
+		# Zsh otherwise aborts profile loading when no candidates match.
+		if [ -n "${ZSH_VERSION:-}" ]; then
+			setopt localoptions nonomatch
+		fi
+		for _sdk_current in "$SDKMAN_CANDIDATES_DIR"/*/current; do
+			[ -d "$_sdk_current" ] || continue
+			_sdk_name="${_sdk_current%/current}"
+			_sdk_name="${_sdk_name##*/}"
+			_sdk_home="$(printf '%s' "$_sdk_name" | tr '[:lower:]' '[:upper:]')_HOME"
+			export "$_sdk_home=$_sdk_current"
+			if [ -d "$_sdk_current/bin" ]; then
+				prepend_paths "$_sdk_current/bin"
+			else
+				prepend_paths "$_sdk_current"
+			fi
+		done
+	}
+	_sdkman_paths
+	unset -f _sdkman_paths
+	unset _sdk_current _sdk_name _sdk_home
+	# SDKMAN's modules, completion, and auto-env hooks load on first use.
+	sdk() {
+		unset -f sdk
+		. "$SDKMAN_DIR/bin/sdkman-init.sh" || return
+		sdk "$@"
+	}
+fi
+if [ -d "$HOME/.termux" ] && { [ -n "$TERMUX_VERSION" ] || [ -f /data/data/com.termux/files/usr/bin/termux-info ]; }; then
+	DISTRO_NAME="android"
+elif [ -r /etc/os-release ]; then
+	. /etc/os-release
+	DISTRO_NAME="$ID"
+else
+	DISTRO_NAME="unknown"
+fi
+export DISTRO_NAME
+export POWERSHELL_UPDATECHECK=Off
+# Truecolor (24-bit) support for TUIs (opencode default theme renders mangled
+# without it on terminals like Termux that don't export COLORTERM).
+export COLORTERM=truecolor
+# V8 compile cache for Node ESM/TS (Node 22+). Skipping recompilation of
+# every node CLI's modules on each launch saves ~100ms per pi start.
+export NODE_COMPILE_CACHE="$HOME/.cache/node-compile-cache"
+# Trust the OS certificate store *in addition to* Node's bundled Mozilla set
+# (Node 24.6+, backported to 22.19). Node ignores the system store by default,
+# so anything that intercepts TLS — a corporate MITM proxy, or a local CA added
+# with `trust anchor` — fails every request in pi, npm, opencode and friends.
+# This is the switch that fixes them without NODE_EXTRA_CA_CERTS, which would
+# have to be set per-tool and per-machine. 121 bundled -> 847 on this box.
+export NODE_USE_SYSTEM_CA=1
+# Python has no NODE_USE_SYSTEM_CA equivalent: certifi-based tools (requests,
+# pip, httpx) ship their own CA bundle and ignore the OS store, so a locally
+# added — or corporate — CA is invisible to them while curl, openssl and
+# python's own ssl trust it. Point the certifi consumers at the system bundle
+# (the default cafile path is distro-specific; first one that exists wins).
+# uv does have a real switch — UV_NATIVE_TLS is deprecated in its favour as of
+# 0.11, and uv otherwise uses its own baked-in roots.
+# Termux has no /etc/ssl — its bundle lives at $PREFIX/etc/tls/cert.pem, and
+# openssl's default CApath dir ($PREFIX/etc/tls/certs) doesn't exist, which
+# makes node print a warning on startup; pointing at the bundle silences it
+# and uses the pkg-managed roots instead of node's baked-in ones. node also
+# probes openssl's compiled-in default CApath dir on startup and warns when
+# it doesn't exist — exporting SSL_CERT_DIR (even to the still-missing path)
+# makes it skip that probe.
+for _ca in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt \
+	$PREFIX/etc/tls/cert.pem; do
+	if [ -f "$_ca" ]; then
+		export SSL_CERT_FILE="$_ca"
+		export REQUESTS_CA_BUNDLE="$_ca"
+		export PIP_CERT="$_ca"
+		break
+	fi
+done
+if [ "${_ca:-}" = "$PREFIX/etc/tls/cert.pem" ]; then
+	export SSL_CERT_DIR="$PREFIX/etc/tls/certs"
+fi
+unset _ca
+export UV_SYSTEM_CERTS=1
+export LIBVIRT_DEFAULT_URI="qemu:///system"
+if command -v podman >/dev/null 2>&1 && [ -S "$XDG_RUNTIME_DIR/podman/podman.sock" ]; then
+	export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
+elif command -v docker >/dev/null 2>&1 && [ -S "$XDG_RUNTIME_DIR/docker.sock" ]; then
+	export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/docker.sock"
+fi
+if [ ! -d "$HOME/tmp" ]; then
+	mkdir -p "$HOME/.cargo/bin" "$HOME/.local/bin" "$HOME/.vim/backup" "$HOME/bin" "$HOME/logs" "$HOME/repos" "$HOME/tmp"
+fi
+prepend_paths \
+	"$HOME/.local/share/mise/shims" \
+	"$PYENV_ROOT/bin" \
+	"$HOME/.local/scripts/py" \
+	"$HOME/.local/scripts/sh" \
+	"$HOME/.local/scripts/ps1" \
+	"$HOME/.local/opt/go/bin" \
+	"$HOME/.local/opt/VSCode-linux/bin" \
+	"$HOME/.local/bin" \
+	"$HOME/.cargo/bin" \
+	"$HOME/gopath/bin" \
+	"$HOME/go/bin" \
+	"$HOME/bin"
+lfcd() {
+	if ! command -v lf >/dev/null 2>&1; then
+		echo "lf: command not found" >&2
+		return 127
+	fi
+	local tmp
+	tmp="$(mktemp -t "lfcd-cwd.XXXXXX")"
+	command lf -last-dir-path="$tmp" "$@"
+	if [ -s "$tmp" ]; then
+		local last_dir
+		read -r last_dir < "$tmp"
+		if [ -d "$last_dir" ] && [ "$last_dir" != "$PWD" ]; then
+			cd "$last_dir"
+		fi
+	fi
+	rm -f -- "$tmp"
+}
+y() {
+	if ! command -v yazi >/dev/null 2>&1; then
+		echo "yazi: command not found" >&2
+		return 127
+	fi
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
+	yazi "$@" --cwd-file="$tmp" 2>/dev/null
+	if [ -s "$tmp" ]; then
+		local cwd
+		read -r cwd < "$tmp"
+		if [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+			builtin cd -- "$cwd"
+		fi
+	fi
+	rm -f -- "$tmp"
+}
+codeat() {
+	if ! command -v code >/dev/null 2>&1; then
+		echo "code: command not found" >&2
+		return 127
+	fi
+	code "${1:-.}" -r
+}
+mkcd() {
+	if [ -z "$1" ]; then
+		echo "Usage: mkcd <directory>" >&2
+		return 1
+	fi
+	mkdir -p "$1" && cd "$1"
+}
+if [ "$DISTRO_NAME" = "android" ]; then
+	alias open='termux-open'
+	alias pst='termux-clipboard-get'
+	alias cpy='termux-clipboard-set'
+	alias terraform='termux-chroot terraform'
+	# playwright-core aborts with "Unsupported platform: android" whenever it
+	# computes its default browser cache, even when a browser is passed in.
+	# Setting this is what skips that check; there is no bundled download on
+	# Termux. Scripts launch the native Chromium as executablePath instead:
+	# $PREFIX/lib/chromium/chrome (pkg install x11-repo chromium).
+	export PLAYWRIGHT_BROWSERS_PATH="$HOME/.cache/ms-playwright"
+fi
+# Resolve sudo once for all package utilities
+SUDO=""
+command -v sudo >/dev/null 2>&1 && SUDO="sudo"
+
+case "$DISTRO_NAME" in
+	arch)
+		ipkgs() { $SUDO pacman -S --noconfirm --needed "$@"; }
+		upkgs() { $SUDO pacman -Syu --noconfirm; }
+		rpkgs() { $SUDO pacman -Rns --noconfirm "$@"; }
+		cpkgs() {
+			local orphans
+			orphans=$(pacman -Qtdq)
+			if [ -z "$orphans" ]; then
+				echo "No orphan packages to remove."
+			else
+				$SUDO pacman -Rns --noconfirm "$orphans"
+			fi
+		}
+		;;
+	fedora|rhel|centos)
+		ipkgs() { $SUDO dnf install -y "$@"; }
+		upkgs() { $SUDO dnf upgrade -y; }
+		rpkgs() { $SUDO dnf remove -y "$@"; }
+		cpkgs() { $SUDO dnf autoremove -y; }
+		;;
+	ubuntu|debian|pop)
+		ipkgs() { $SUDO apt-get install -y "$@"; }
+		upkgs() { $SUDO apt-get update && $SUDO apt-get upgrade -y; }
+		rpkgs() { $SUDO apt-get purge -y "$@"; }
+		cpkgs() { $SUDO apt-get autoremove --purge -y; }
+		;;
+	android)
+		if command -v pacman >/dev/null 2>&1; then
+			ipkgs() { pacman -S --noconfirm --needed "$@"; }
+			upkgs() { pacman -Syu --noconfirm; }
+			rpkgs() { pacman -Rns --noconfirm "$@"; }
+			cpkgs() {
+				local orphans
+				orphans=$(pacman -Qtdq)
+				if [ -z "$orphans" ]; then
+					echo "No orphan packages to remove."
+				else
+					pacman -Rns --noconfirm "$orphans"
+				fi
+			}
+		else
+			ipkgs() { pkg install -y "$@"; }
+			upkgs() { pkg update && pkg upgrade -y; }
+			rpkgs() { apt remove --yes "$@"; }
+		fi
+		;;
+	*)
+		if command -v pacman >/dev/null 2>&1; then
+			ipkgs() { $SUDO pacman -S --noconfirm --needed "$@"; }
+			upkgs() { $SUDO pacman -Syu --noconfirm; }
+			rpkgs() { $SUDO pacman -Rns --noconfirm "$@"; }
+			cpkgs() {
+				local orphans
+				orphans=$(pacman -Qtdq)
+				if [ -z "$orphans" ]; then
+					echo "No orphan packages to remove."
+				else
+					$SUDO pacman -Rns --noconfirm "$orphans"
+				fi
+			}
+		elif command -v dnf >/dev/null 2>&1; then
+			ipkgs() { $SUDO dnf install -y "$@"; }
+			upkgs() { $SUDO dnf upgrade -y; }
+			rpkgs() { $SUDO dnf remove -y "$@"; }
+			cpkgs() { $SUDO dnf autoremove -y; }
+		elif command -v apt-get >/dev/null 2>&1; then
+			ipkgs() { $SUDO apt-get install -y "$@"; }
+			upkgs() { $SUDO apt-get update && $SUDO apt-get upgrade -y; }
+			rpkgs() { $SUDO apt-get purge -y "$@"; }
+			cpkgs() { $SUDO apt-get autoremove --purge -y; }
+		elif command -v pkg >/dev/null 2>&1 && [ -d "$HOME/.termux" ]; then
+			ipkgs() { pkg install -y "$@"; }
+			upkgs() { pkg update && pkg upgrade -y; }
+			rpkgs() { apt remove --yes "$@"; }
+		fi
+		;;
+esac
+alias ...='cd ../..'
+alias ..='cd ..'
+alias cd..='cd ..'
+alias cdd='cd -'
+alias which='which -a'
+alias tree='tree --dirsfirst -F'
+alias uctl='systemctl --user'
+alias sctl='sudo systemctl'
+alias now='date +"%Y-%m-%d %H:%M:%S"'
+alias mtmp='cd "$(mktemp -d)"'
+alias ll='ls -Alh'
+alias lr='ls -Alrth'
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
+alias la='ls -A'
+# Note: no `alias exit=...` here — default `exit` preserves the last command's
+# exit status. Forcing `exit 0` masks failures, so it is intentionally removed.
+# The repo root is chezmoi's working tree; source-path is its home/ subdirectory.
+cm() {
+	if [ "$1" = "cd" ]; then
+		cd "$(chezmoi execute-template '{{ .chezmoi.workingTree }}')"
+	else
+		chezmoi "$@"
+	fi
+}
+alias codecm='code "$(chezmoi execute-template "{{ .chezmoi.workingTree }}")"'
+alias dotfiles='dotfiles.py'
+alias mdk='mdk.py'
+alias lf=lfcd
+# The sandboxed agents carry a trailing x: pix and piex run under bubblewrap,
+# and the bare pi and pier binaries stay unsandboxed. Each launcher makes the
+# root read-only and exposes the workspace, shared agent state, and explicit
+# extras. Set PI_SANDBOX_MODE=fa or PIER_SANDBOX_MODE=fa to disable the sandbox
+# for one run. Args pass through unchanged.
+alias pix='pi_sandbox.py'
+alias piex='pier_sandbox.py'
+getrclone() {
+	if [ -z "$1" ]; then
+		echo "Usage: getrclone [user@host-or-ip]"
+		return 1
+	fi
+	mkdir -p "$HOME/.config/rclone"
+	scp "$1:~/.config/rclone/rclone.conf" "$HOME/.config/rclone/rclone.conf"
+}
+alias music='mpv --no-video --shuffle --loop=inf --replaygain=track'
+# aria2c download helper; all behavior (incl. bt-stop-timeout for no-seed
+# torrents) lives in ~/.config/aria2/aria2.conf, which aria2c auto-loads.
+alias dl='aria2c'
+
+
+alias usevenv='source ".venv/bin/activate"'
+alias codes='code serve-web --without-connection-token --accept-server-license-terms'
+alias codet='code tunnel --no-sleep --accept-server-license-terms'
+alias dkclean='docker system prune --all --volumes'
+alias pandock='docker run --rm --volume "$(pwd):/data" pandoc/latex'
+alias gobu='$HOME/repos/gotools/build.sh'
+alias install_gotools='git clone git@github.com:dat267/gotools.git $HOME/repos/gotools && gobu'
+alias update_gotools='git -C $HOME/repos/gotools pull && gobu'
+prepend_paths "$HOME/.local/share/fnm"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+	nvm() {
+		unset -f nvm node npm npx
+		. "$NVM_DIR/nvm.sh"
+		nvm "$@"
+	}
+	node() { unset -f nvm node npm npx; . "$NVM_DIR/nvm.sh"; node "$@"; }
+	npm() { unset -f nvm node npm npx; . "$NVM_DIR/nvm.sh"; npm "$@"; }
+	npx() { unset -f nvm node npm npx; . "$NVM_DIR/nvm.sh"; npx "$@"; }
+fi
+if command -v pyenv >/dev/null 2>&1; then
+	pyenv() {
+		unset -f pyenv
+		eval "$(pyenv init -)"
+		pyenv "$@"
+	}
+fi
+if command -v fnm >/dev/null 2>&1; then
+	fnm() {
+		unset -f fnm
+		eval "$(command fnm env --shell bash 2>/dev/null)"
+		fnm "$@"
+	}
+fi
+
+# Smart parent directory jump
+up() {
+	local limit=$1
+	if [ -z "$limit" ]; then
+		cd ..
+		return
+	fi
+	if [ "$limit" -eq "$limit" ] 2>/dev/null; then
+		local cmd=""
+		local i=0
+		while [ "$i" -lt "$limit" ]; do
+			cmd="../$cmd"
+			i=$((i + 1))
+		done
+		cd "$cmd"
+	else
+		local target="$PWD"
+		while [ "$target" != "/" ] && [ -n "$target" ]; do
+			if [ "${target##*/}" = "$limit" ]; then
+				cd "$target"
+				return
+			fi
+			local parent="${target%/*}"
+			target="${parent:-/}"
+		done
+		echo "No parent directory matches '$limit'"
+	fi
+}
+
+# Fuzzy Finder integrations
+	if command -v fzf >/dev/null 2>&1; then
+		fd() {
+			local dir
+			dir=$(find ${1:-.} -path '*/.*' -prune -o -type d -print 2> /dev/null | fzf +m) && cd "$dir"
+		}
+		fkill() {
+			local pid
+			pid=$(ps -ef | sed 1d | fzf -m | awk '{print $2}')
+			if [ -n "$pid" ]; then
+				echo "$pid" | xargs kill -9
+			fi
+		}
+	fi
+
+# --- SSH agent: use systemd ssh-agent (Linux) or OpenSSH ssh-agent (Termux) ---
+# On Linux, systemd socket-activates ssh-agent at /run/user/$UID/ssh-agent.socket.
+# On Termux/Android, use a plain OpenSSH ssh-agent on a fixed socket, reused
+# across shells. gpg-agent's SSH emulation is NOT used: gpg 2.5 re-protects
+# every ssh-added key through pinentry, which needs a TTY the daemon lacks,
+# so ssh-add would fail with "agent refused operation" on headless Android.
+# OpenSSH's agent keeps keys in memory and needs no pinentry. Keys must be
+# added once per agent lifetime with `ssh-add ~/.ssh/id_ed25519` (or let
+# AddKeysToAgent yes add them on first successful auth).
+if [ -S "/run/user/$(id -u)/ssh-agent.socket" ]; then
+	export SSH_AUTH_SOCK="/run/user/$(id -u)/ssh-agent.socket"
+elif command -v ssh-agent >/dev/null 2>&1; then
+	agent_sock="$HOME/.ssh/ssh-agent.sock"
+	if [ -S "$agent_sock" ]; then
+		# Socket exists — check if the agent is still alive.
+		# ssh-add -l exits 0 (has keys) or 1 (empty, alive);
+		# any other exit means the socket is stale (dead agent).
+		# Connecting to a dead Unix socket returns ECONNREFUSED
+		# instantly, so timeout is only a safety net.
+		if command -v timeout >/dev/null 2>&1; then
+			SSH_AUTH_SOCK="$agent_sock" timeout 1 ssh-add -l >/dev/null 2>&1
+		else
+			SSH_AUTH_SOCK="$agent_sock" ssh-add -l >/dev/null 2>&1
+		fi
+		rc=$?
+		if [ $rc -ne 0 ] && [ $rc -ne 1 ]; then
+			rm -f "$agent_sock"
+		fi
+	fi
+	if [ ! -S "$agent_sock" ]; then
+		mkdir -p "$HOME/.ssh"
+		eval "$(ssh-agent -a "$agent_sock" 2>/dev/null)"
+	fi
+	export SSH_AUTH_SOCK="$agent_sock"
+fi
