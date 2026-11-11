@@ -6,8 +6,8 @@
  * prompt and prefills the entire history cold. This extension instead replays the
  * last real request with one instruction appended: the prefix is byte-for-byte
  * what the server just processed, so DeepSeek serves it from cache and only the
- * summary is generated cold. Afterwards a 1-token warm-up puts the post-compaction
- * context in the cache too, so the next turn does not prefill it either.
+ * summary is generated cold. Keeping the cache warm between turns is Pi's own
+ * job, through the model's `promptCache` lifetimes and the `cacheWarming` setting.
  *
  * Anything unexpected steps aside and Pi's own compaction runs: no capture yet, a
  * capture for a different model, a non-DeepSeek model, an unwritable budget, an
@@ -19,17 +19,14 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { buildSessionContext, convertToLlm } from "@earendil-works/pi-coding-agent";
 import {
 	type WireApi,
 	appliesTo,
 	buildSummaryBody,
-	buildWarmupBody,
 	extractSummary,
 	isCapturable,
 	isSummarizerRequest,
 	modelKey,
-	nativeWarmingCovers,
 	servedFromCache,
 	summaryTokenBudget,
 	systemText,
@@ -42,8 +39,6 @@ export interface PrefixCompactionOptions {
 	minSummaryTokens?: number;
 	/** Room reserved for the appended instruction and chat-template overhead. */
 	promptOverheadTokens?: number;
-	/** Send a 1-token request after compaction so the next turn starts cached. */
-	warmup?: boolean;
 	/** Report what happened in the UI. */
 	notify?: boolean;
 	/** Replace the request sender. Tests inject a fake; production uses the registry. */
@@ -106,7 +101,6 @@ export function registerPrefixCompaction(pi: ExtensionAPI, options: PrefixCompac
 	const maxSummaryTokens = options.maxSummaryTokens ?? 16_000;
 	const minSummaryTokens = options.minSummaryTokens ?? 4_000;
 	const promptOverheadTokens = options.promptOverheadTokens ?? 3_000;
-	const warmup = options.warmup ?? true;
 	const notify = options.notify ?? true;
 	const sendRequest = options.sendRequest ?? registrySender;
 
@@ -144,20 +138,6 @@ export function registerPrefixCompaction(pi: ExtensionAPI, options: PrefixCompac
 		captures.set(id, { payload: structuredClone(payload), modelKey: key, api: model ? (model.api as WireApi) : "openai-completions" });
 		stale.delete(id);
 	});
-
-	/** One 1-token request so the context Pi will send next is already cached. */
-	async function warmNextTurn(ctx: ExtensionContext, capture: Capture, signal: AbortSignal): Promise<void> {
-		const model = ctx.model;
-		if (!model) return;
-		const entries = (ctx.sessionManager as unknown as { getBranch(): unknown[] }).getBranch();
-		const leaf = (ctx.sessionManager as unknown as { getLeafId?(): string | null }).getLeafId?.() ?? null;
-		const session = buildSessionContext(entries as never[], leaf);
-		const messages = convertToLlm(session.messages);
-		// The warmed prefix must be the one the next real turn sends: the captured
-		// routing, thinking and tool fields, with only the messages replaced.
-		const body = buildWarmupBody(capture.payload, messages, systemText(capture.payload));
-		await sendRequest(ctx, model, body, signal);
-	}
 
 	pi.on("session_before_compact", async (event, ctx) => {
 		const model = ctx.model;
@@ -219,7 +199,7 @@ export function registerPrefixCompaction(pi: ExtensionAPI, options: PrefixCompac
 		const seconds = ((Date.now() - started) / 1000).toFixed(1);
 
 		// The capture described the pre-compaction history, so no further summary may
-		// use it. It is kept until the warm-up has read it, then session_compact drops it.
+		// use it. The next real request replaces it.
 		stale.add(id);
 
 		return {
@@ -242,36 +222,6 @@ export function registerPrefixCompaction(pi: ExtensionAPI, options: PrefixCompac
 		};
 	});
 
-	pi.on("session_compact", async (event, ctx) => {
-		const id = sessionId(ctx);
-		stale.add(id);
-		if (!warmup) return;
-		const model = ctx.model;
-		if (!appliesTo(model) || event.willRetry) return;
-		// Pi's own cache warmer refreshes a model that declares a prompt-cache
-		// lifetime, so a warm-up here would pay for the same request twice.
-		if (nativeWarmingCovers(model)) return;
-		const capture = captures.get(id);
-		if (!capture) {
-			// Nothing to warm from: the post-compaction request differs from the
-			// captured one anyway, and Pi's own next turn will prefill it.
-			return;
-		}
-		const details = (event.compactionEntry as { details?: { prefixCache?: string } }).details;
-		if (details?.prefixCache === undefined) return;
-		try {
-			await warmNextTurn(ctx, capture, new AbortController().signal);
-			say(ctx, "[prefix-compaction] context re-warmed; next turn starts from cache");
-		} catch (error) {
-			// Silent in the UI on purpose: a failed warm-up only means the next turn
-			// prefills normally, which is Pi's ordinary behaviour.
-			if (process.env.PI_PREFIX_COMPACTION_DEBUG) {
-				process.stderr.write(`prefix-compaction: warm-up failed: ${error instanceof Error ? error.message : String(error)}\n`);
-			}
-		} finally {
-			captures.delete(id);
-		}
-	});
 }
 
 export default function (pi: ExtensionAPI) {

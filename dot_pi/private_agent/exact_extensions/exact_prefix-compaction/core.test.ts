@@ -12,8 +12,6 @@ import {
 	appliesTo,
 	assertPrefixPreserved,
 	buildSummaryBody,
-	buildWarmupBody,
-	nativeWarmingCovers,
 	extractSummary,
 	isCapturable,
 	isSummarizerRequest,
@@ -304,61 +302,3 @@ void describe("cache reporting", () => {
 	});
 });
 
-void describe("buildWarmupBody", () => {
-	const nextMessages = [
-		{ role: "user", content: "do the thing" },
-		{ role: "assistant", content: "done" },
-		{ role: "user", content: "next" },
-	];
-
-	void it("caps the output at one token in the captured spelling", () => {
-		const body = buildWarmupBody(OPENAI_CAPTURED, nextMessages, "You are Pi.");
-		assert.equal(body.max_tokens, 1);
-		assert.equal("max_completion_tokens" in body, false);
-	});
-
-	void it("keeps the tools and thinking settings of the captured turn", () => {
-		const captured = { ...OPENAI_CAPTURED, reasoning_effort: "high" };
-		const body = buildWarmupBody(captured, nextMessages, "You are Pi.");
-		assert.deepEqual(body.tools, captured.tools);
-		assert.equal(body.reasoning_effort, "high");
-	});
-
-	void it("keeps the system prompt that the OpenAI wire carries as a message", () => {
-		const body = buildWarmupBody(OPENAI_CAPTURED, nextMessages, "You are Pi.");
-		assert.equal(systemText(body), "You are Pi.", "dropping the system prompt would change the prefix");
-	});
-
-	void it("keeps anthropic's top-level system field without duplicating it", () => {
-		const body = buildWarmupBody(ANTHROPIC_CAPTURED, nextMessages, "You are Pi.");
-		assert.deepEqual(body.system, ANTHROPIC_CAPTURED.system);
-		assert.equal((body.messages as unknown[]).length, nextMessages.length, "no extra system message on anthropic");
-	});
-
-	void it("uses the new messages, not the captured ones", () => {
-		const body = buildWarmupBody(OPENAI_CAPTURED, nextMessages, "You are Pi.");
-		assert.match(JSON.stringify(body.messages), /next/);
-		assert.doesNotMatch(JSON.stringify(body.messages), /do the thing.*do the thing/);
-	});
-});
-
-void describe("nativeWarmingCovers", () => {
-	const deepseek = { id: "deepseek-v4-flash", api: "openai-completions" };
-	void it("defers to pi when the model declares a short cache lifetime", () => {
-		assert.equal(nativeWarmingCovers({ ...deepseek, promptCache: { short: 300 } }), true);
-	});
-
-	void it("defers to pi when the model declares a long cache lifetime", () => {
-		assert.equal(nativeWarmingCovers({ ...deepseek, promptCache: { long: 3600 } }), true);
-	});
-
-	void it("warms itself when no lifetime is declared", () => {
-		assert.equal(nativeWarmingCovers(deepseek), false);
-		assert.equal(nativeWarmingCovers({ ...deepseek, promptCache: {} }), false);
-	});
-
-	void it("warms itself when there is no model", () => {
-		assert.equal(nativeWarmingCovers(undefined), false);
-		assert.equal(nativeWarmingCovers(null), false);
-	});
-});
