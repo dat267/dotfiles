@@ -29,6 +29,7 @@ import {
 	isCapturable,
 	isSummarizerRequest,
 	modelKey,
+	nativeWarmingCovers,
 	servedFromCache,
 	summaryTokenBudget,
 	systemText,
@@ -247,6 +248,9 @@ export function registerPrefixCompaction(pi: ExtensionAPI, options: PrefixCompac
 		if (!warmup) return;
 		const model = ctx.model;
 		if (!appliesTo(model) || event.willRetry) return;
+		// Pi's own cache warmer refreshes a model that declares a prompt-cache
+		// lifetime, so a warm-up here would pay for the same request twice.
+		if (nativeWarmingCovers(model)) return;
 		const capture = captures.get(id);
 		if (!capture) {
 			// Nothing to warm from: the post-compaction request differs from the

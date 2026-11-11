@@ -286,3 +286,18 @@ void describe("warm-up", () => {
 		assert.equal(h.sent.length, before);
 	});
 });
+
+void describe("warm-up and pi's own warming", () => {
+	void it("leaves warming to pi when the model declares a prompt cache", async () => {
+		const h = harness();
+		await h.capture(payload());
+		const result = await h.compact();
+		h.setModel({ ...DEEPSEEK, promptCache: { short: 300 } } as typeof DEEPSEEK);
+		const before = h.sent.length;
+		await h.handlers.session_compact(
+			{ compactionEntry: { details: result.compaction.details }, willRetry: false, reason: "threshold", fromExtension: true },
+			h.ctx,
+		);
+		assert.equal(h.sent.length, before, "pi warms this model itself, so a second request would double the cost");
+	});
+});

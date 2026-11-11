@@ -16,6 +16,8 @@ Pi's own compaction runs, unchanged, when there is no capture yet, the model cha
 
 A failed warm-up is silent: the next turn simply prefills normally, which is Pi's ordinary behaviour. `PI_PREFIX_COMPACTION_DEBUG=1` prints the reason to stderr.
 
+The warm-up stands down for a model that declares a `promptCache` lifetime, because Pi's own cache warmer refreshes those models and a second request would pay twice. The DeepSeek catalog entries declare no lifetime, so today the warm-up is the only one that runs.
+
 ## Files
 
 - `core.ts`: pure logic, no Pi imports. Payload rewriting, the prefix assertion, the budget, cache reporting.

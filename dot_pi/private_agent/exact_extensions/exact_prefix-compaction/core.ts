@@ -285,3 +285,14 @@ export function buildWarmupBody(
 	}
 	return body;
 }
+
+/**
+ * Pi warms a model's prompt cache itself when the model declares a lifetime in
+ * `promptCache`. Warming the same model here too would send two requests, so the
+ * extension only warms models Pi leaves alone.
+ */
+export function nativeWarmingCovers(model: unknown): boolean {
+	const cache = (model as { promptCache?: { short?: unknown; long?: unknown } } | null | undefined)?.promptCache;
+	if (!cache) return false;
+	return typeof cache.short === "number" || typeof cache.long === "number";
+}

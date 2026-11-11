@@ -13,6 +13,7 @@ import {
 	assertPrefixPreserved,
 	buildSummaryBody,
 	buildWarmupBody,
+	nativeWarmingCovers,
 	extractSummary,
 	isCapturable,
 	isSummarizerRequest,
@@ -338,5 +339,26 @@ void describe("buildWarmupBody", () => {
 		const body = buildWarmupBody(OPENAI_CAPTURED, nextMessages, "You are Pi.");
 		assert.match(JSON.stringify(body.messages), /next/);
 		assert.doesNotMatch(JSON.stringify(body.messages), /do the thing.*do the thing/);
+	});
+});
+
+void describe("nativeWarmingCovers", () => {
+	const deepseek = { id: "deepseek-v4-flash", api: "openai-completions" };
+	void it("defers to pi when the model declares a short cache lifetime", () => {
+		assert.equal(nativeWarmingCovers({ ...deepseek, promptCache: { short: 300 } }), true);
+	});
+
+	void it("defers to pi when the model declares a long cache lifetime", () => {
+		assert.equal(nativeWarmingCovers({ ...deepseek, promptCache: { long: 3600 } }), true);
+	});
+
+	void it("warms itself when no lifetime is declared", () => {
+		assert.equal(nativeWarmingCovers(deepseek), false);
+		assert.equal(nativeWarmingCovers({ ...deepseek, promptCache: {} }), false);
+	});
+
+	void it("warms itself when there is no model", () => {
+		assert.equal(nativeWarmingCovers(undefined), false);
+		assert.equal(nativeWarmingCovers(null), false);
 	});
 });
