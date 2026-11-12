@@ -51,8 +51,12 @@ CONTAINER_SOCKETS = (("CONTAINER_HOST", "podman/podman.sock"),)
 
 # Sockets in the private runtime dir that stay reachable, named by the env var
 # that points at them. The container socket comes from the profile; git push
-# over ssh needs the agent, which the sandbox has always allowed.
-RUNTIME_ENV_SOCKETS = ("SSH_AUTH_SOCK",)
+# over ssh needs the agent; the Wayland socket is the only path to the
+# clipboard, which wl-clipboard and every editor and agent that pastes an image
+# reads there. A Wayland client can read and write the clipboard and nothing
+# else: input goes only to its own surfaces, and screen capture on KWin needs
+# the portal on the system bus, which stays masked.
+RUNTIME_ENV_SOCKETS = ("SSH_AUTH_SOCK", "WAYLAND_DISPLAY")
 
 # Host IPC endpoints outside the runtime dir that the sandbox must not reach,
 # because each one runs or steers something outside it: the system bus (logind
@@ -216,9 +220,14 @@ def runtime_socket_paths(profile, env=None):
     paths = [os.path.join(runtime, rel) for _var, rel in profile.remote_sockets]
     for var in RUNTIME_ENV_SOCKETS:
         value = env.get(var)
-        parent = os.path.dirname(os.path.normpath(value)) if value else ""
-        if value and (parent == runtime or parent.startswith(runtime + os.sep)):
-            paths.append(value)
+        if not value:
+            continue
+        # SSH_AUTH_SOCK is a path; WAYLAND_DISPLAY is a name inside the runtime
+        # dir, so it only becomes one after joining. Both end up absolute here.
+        path = os.path.normpath(value if os.path.isabs(value) else os.path.join(runtime, value))
+        parent = os.path.dirname(path)
+        if parent == runtime or parent.startswith(runtime + os.sep):
+            paths.append(path)
     return paths
 
 
@@ -230,7 +239,8 @@ def plan_runtime_mounts(profile, env=None, exists=os.path.exists, isdir=os.path.
     outside the sandbox, and pipewire, dconf, kwallet, at-spi, and the yazi and
     mpv IPC endpoints drive processes outside it. The directory therefore
     starts empty and writable, and only the sockets the tool needs come back,
-    read-only. bwrap resolves bind sources against the original root, so a
+    read-only. A socket file is exempt from the read-only superblock check, so
+    a read-only bind still accepts a connect. bwrap resolves bind sources against the original root, so a
     source inside the masked directory still resolves afterwards.
     """
     env = os.environ if env is None else env
