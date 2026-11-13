@@ -24,6 +24,21 @@ chezmoi:modify-template
 {{- $_ := unset $current "extensions" }}
 {{- end }}
 {{- end }}
+{{- /* The Claude Code subscription provider ships as a Pi package, so Pi clones it
+     into ~/.pi/agent/git on start and loads its extension. Added only when no
+     entry declares it, in string or object form, so the user's own packages stay
+     and a filtered declaration is left as written. */}}
+{{- $claudeCode := "https://github.com/earendil-works/pi-claude-code" }}
+{{- $packages := index $current "packages" | default list }}
+{{- $declared := false }}
+{{- range $packages }}
+{{- $source := . }}
+{{- if kindIs "map" . }}{{ $source = index . "source" }}{{ end }}
+{{- if eq $source $claudeCode }}{{ $declared = true }}{{ end }}
+{{- end }}
+{{- if not $declared }}
+{{- $_ := setValueAtPath "packages" (append $packages $claudeCode) $current }}
+{{- end }}
 {{- $_ := setValueAtPath "doubleEscapeAction" "none" $current }}
 {{- $_ := setValueAtPath "fullscreenScrollbar" "auto" $current }}
 {{- $_ := setValueAtPath "outputPad" 1 $current }}

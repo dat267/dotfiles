@@ -45,3 +45,33 @@ class PiSettingsTest(unittest.TestCase):
                     self.assertEqual(rendered["customPreference"], "keep")
                     self.assertEqual(rendered["theme"], "flat", "the managed theme is selected, not left to the terminal")
                     self.assertEqual(render(rendered), rendered)
+
+    def test_claude_code_package_is_declared_once_beside_the_users_own(self):
+        repo = Path(__file__).resolve().parents[4]
+        template = repo / "dot_pi/private_agent/modify_private_settings.json"
+        source = "https://github.com/earendil-works/pi-claude-code"
+        cases = [
+            (None, [source]),
+            (["npm:elsewhere"], ["npm:elsewhere", source]),
+            ([source], [source]),
+            # The object form filters a package's resources; it still counts as declared.
+            ([{"source": source, "autoload": False}], [{"source": source, "autoload": False}]),
+        ]
+        with tempfile.TemporaryDirectory() as temp:
+            for packages, expected in cases:
+                with self.subTest(packages=packages):
+                    settings = {} if packages is None else {"packages": packages}
+
+                    def render(current):
+                        result = subprocess.run(
+                            [shutil.which("chezmoi"), "--source", temp,
+                             "--destination", temp, "--config", str(Path(temp) / "chezmoi.toml"),
+                             "execute-template", "--with-stdin", "--file", str(template)],
+                            input=json.dumps(current), capture_output=True, text=True,
+                            timeout=10, check=True,
+                        )
+                        return json.loads(result.stdout.removeprefix("chezmoi:modify-template"))
+
+                    rendered = render(settings)
+                    self.assertEqual(rendered["packages"], expected)
+                    self.assertEqual(render(rendered), rendered)
