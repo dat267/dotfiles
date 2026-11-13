@@ -22,7 +22,7 @@ Linux, Windows, and Android (Termux) share most of the configuration. Templates 
 
 `dot_pi/private_agent/` holds Pi's settings, themes, extensions, and skills. Extensions deploy to `~/.pi/agent/extensions/` and skills to `~/.pi/agent/skills/`, which opencode's config also points at. That config registers the Command Code provider against its OpenAI-compatible endpoint, reading `COMMAND_CODE_API_KEY` or `CMD_API_KEY`.
 
-The extensions register the Command Code, ClinePass and hyper providers, sync each session onto the default model, draw the footer, push a notification when Pi settles, and shorten compaction for DeepSeek models by replaying the previous provider request so the server's prefix cache covers the history. The settings template also declares the `pi-claude-code` package, the provider that routes Claude models through the official Claude Code CLI on a Pro or Max subscription; Pi clones it into `~/.pi/agent/git/` on start, outside chezmoi's managed set.
+The extensions register the Command Code, ClinePass and hyper providers, sync each session onto the default model, draw the footer, push a notification when Pi settles, and shorten compaction for DeepSeek models by replaying the previous provider request so the server's prefix cache covers the history.
 
 Two files merge into Pi's own state instead of replacing it, so settings Pi or the user wrote survive:
 

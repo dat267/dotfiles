@@ -46,16 +46,17 @@ class PiSettingsTest(unittest.TestCase):
                     self.assertEqual(rendered["theme"], "flat", "the managed theme is selected, not left to the terminal")
                     self.assertEqual(render(rendered), rendered)
 
-    def test_claude_code_package_is_declared_once_beside_the_users_own(self):
+    def test_retired_claude_code_package_is_dropped_and_the_users_stay(self):
         repo = Path(__file__).resolve().parents[4]
         template = repo / "dot_pi/private_agent/modify_private_settings.json"
         source = "https://github.com/earendil-works/pi-claude-code"
         cases = [
-            (None, [source]),
-            (["npm:elsewhere"], ["npm:elsewhere", source]),
-            ([source], [source]),
-            # The object form filters a package's resources; it still counts as declared.
-            ([{"source": source, "autoload": False}], [{"source": source, "autoload": False}]),
+            # A declaration an earlier apply wrote must not survive, in either form.
+            ([source], None),
+            ([{"source": source, "autoload": False}], None),
+            (["npm:elsewhere", source], ["npm:elsewhere"]),
+            (["npm:elsewhere"], ["npm:elsewhere"]),
+            (None, None),
         ]
         with tempfile.TemporaryDirectory() as temp:
             for packages, expected in cases:
@@ -73,5 +74,5 @@ class PiSettingsTest(unittest.TestCase):
                         return json.loads(result.stdout.removeprefix("chezmoi:modify-template"))
 
                     rendered = render(settings)
-                    self.assertEqual(rendered["packages"], expected)
+                    self.assertEqual(rendered.get("packages"), expected)
                     self.assertEqual(render(rendered), rendered)

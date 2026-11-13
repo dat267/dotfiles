@@ -24,20 +24,24 @@ chezmoi:modify-template
 {{- $_ := unset $current "extensions" }}
 {{- end }}
 {{- end }}
-{{- /* The Claude Code subscription provider ships as a Pi package, so Pi clones it
-     into ~/.pi/agent/git on start and loads its extension. Added only when no
-     entry declares it, in string or object form, so the user's own packages stay
-     and a filtered declaration is left as written. */}}
-{{- $claudeCode := "https://github.com/earendil-works/pi-claude-code" }}
-{{- $packages := index $current "packages" | default list }}
-{{- $declared := false }}
-{{- range $packages }}
+{{- /* The pi-claude-code package is retired: it routed requests through a Claude
+     Code child process, which dropped Pi's builtin tool definitions, so a switch
+     to its provider left the session with only the MCP server's tools. Drop a
+     declaration an earlier apply wrote, in string or object form, and keep the
+     user's own packages. The key goes away when it held only this entry. */}}
+{{- $retired := "https://github.com/earendil-works/pi-claude-code" }}
+{{- if hasKey $current "packages" }}
+{{- $packages := list }}
+{{- range index $current "packages" }}
 {{- $source := . }}
 {{- if kindIs "map" . }}{{ $source = index . "source" }}{{ end }}
-{{- if eq $source $claudeCode }}{{ $declared = true }}{{ end }}
+{{- if ne $source $retired }}{{ $packages = append $packages . }}{{ end }}
 {{- end }}
-{{- if not $declared }}
-{{- $_ := setValueAtPath "packages" (append $packages $claudeCode) $current }}
+{{- if $packages }}
+{{- $_ := setValueAtPath "packages" $packages $current }}
+{{- else }}
+{{- $_ := unset $current "packages" }}
+{{- end }}
 {{- end }}
 {{- $_ := setValueAtPath "doubleEscapeAction" "none" $current }}
 {{- $_ := setValueAtPath "fullscreenScrollbar" "auto" $current }}
