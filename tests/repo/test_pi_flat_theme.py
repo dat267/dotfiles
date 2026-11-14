@@ -6,9 +6,10 @@ import unittest
 
 import _loader
 
+# Panels that stay on the terminal background, which is what keeps the theme
+# flat. Selection and search are not panels: they mark a row the user is acting
+# on, so they carry a background of their own and are checked separately.
 PANEL_TOKENS = [
-    "selectedBg",
-    "searchMatchBg",
     "userMessageBg",
     "customMessageBg",
     "toolPendingBg",
@@ -27,6 +28,13 @@ class PiFlatThemeTest(unittest.TestCase):
         for token in PANEL_TOKENS:
             with self.subTest(token=token):
                 self.assertEqual(colors[token], "")
+
+    def test_selection_and_search_are_visible(self):
+        colors = self.theme["colors"]
+        for token in ("selectedBg", "searchMatchBg"):
+            with self.subTest(token=token):
+                self.assertIsInstance(colors[token], int, "an empty value is the terminal background, so the mark disappears")
+                self.assertGreaterEqual(colors[token], 16, "16-255 only: 0-15 follow the terminal's own palette")
 
     def test_colors_are_terminal_defaults_or_ansi_slots(self):
         for token, value in self.theme["colors"].items():

@@ -380,6 +380,27 @@ class RuntimeMountsTest(unittest.TestCase):
 
         self.each(check)
 
+    def test_wayland_socket_inside_the_runtime_dir_is_kept(self):
+        def check(profile):
+            socket = os.path.join(self.runtime, "wayland-1")
+            env = {"XDG_RUNTIME_DIR": self.runtime, "WAYLAND_DISPLAY": "wayland-1"}
+            got = sandbox.plan_runtime_mounts(profile, env=env, exists=lambda p: p == socket,
+                                              isdir=lambda p: True)
+            self.assertEqual(got, ["--tmpfs", self.runtime,
+                                   "--ro-bind-try", socket, socket])
+
+        self.each(check)
+
+    def test_wayland_socket_absolute_or_elsewhere_is_left_alone(self):
+        def check(profile):
+            for value in (os.path.join(ROOT, "tmp", "wayland-1"), "../escape", ""):
+                env = {"XDG_RUNTIME_DIR": self.runtime, "WAYLAND_DISPLAY": value}
+                got = sandbox.plan_runtime_mounts(profile, env=env, exists=lambda p: "wayland" in p,
+                                                  isdir=lambda p: True)
+                self.assertEqual(got, ["--tmpfs", self.runtime], value)
+
+        self.each(check)
+
     def test_ssh_agent_socket_outside_the_runtime_dir_is_left_alone(self):
         def check(profile):
             agent = os.path.join(ROOT, "tmp", "agent.sock")

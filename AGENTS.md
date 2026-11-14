@@ -39,7 +39,7 @@ Notable source → deployed mappings:
 | `dot_pi/private_agent/exact_extensions/` | `~/.pi/agent/extensions/` |
 | `dot_pi/private_agent/exact_skills/` | `~/.pi/agent/skills/` |
 | `dot_pi/private_agent/private_APPEND_SYSTEM.md` | `~/.pi/agent/APPEND_SYSTEM.md` (mode 0600) |
-| `dot_pi/private_agent/modify_settings.json` | `~/.pi/agent/settings.json` (merged) |
+| `dot_pi/private_agent/modify_private_settings.json` | `~/.pi/agent/settings.json` (merged, mode 0600) |
 | `dot_pi/private_agent/modify_private_models.json` | `~/.pi/agent/models.json` (merged, mode 0600). Caps every 1M-context model at 500k by exact ID; add new 1M models to its list |
 | `dot_config/opencode/private_opencode.json` | `~/.config/opencode/opencode.json` |
 
@@ -133,7 +133,7 @@ chezmoi's own source is the authoritative reference. Clone it and grep `internal
 Pi has no in-process sandbox or permissions extension here, so there are no `/permissions` modes and no status-line indicator. The boundary is in the kernel: the bubblewrap launchers `pi_sandbox` (`dot_local/exact_scripts/exact_py/executable_pi_sandbox.py`) and `pier_sandbox` (`…/executable_pier_sandbox.py`) wrap the whole process, with shared logic in `_sandbox.py`. `dot_profile` aliases them to `pix` and `piex`, so the bare `pi` and `pier` binaries stay unsandboxed. `PI_SANDBOX_MODE` or `PIER_SANDBOX_MODE` selects `ww` (the default), `ro` (the launch directory is read-only too), or `fa` (no sandbox).
 
 - In `ww` and `ro` the root filesystem is read-only. Writes are allowed to the launch directory (the workspace, overridable with `PI_SANDBOX_WORKSPACE` or `PIER_SANDBOX_WORKSPACE`), the shared `~/.pi` agent state, caches, `~/.ssh/known_hosts`, and `/tmp`. Extra writable paths can be listed in `~/.config/pi_sandbox/rw` or `~/.config/pier_sandbox/rw`, or passed in `PI_SANDBOX_RW` or `PIER_SANDBOX_RW`.
-- `$XDG_RUNTIME_DIR` is replaced by a private tmpfs, with only the container service socket and the ssh agent bound back in. Every other host IPC endpoint is masked after the writable binds, because each would let the tool act on the host. The one exception is X11's abstract-namespace socket, which cannot be masked; the X server still refuses the handshake without a cookie.
+- `$XDG_RUNTIME_DIR` is replaced by a private tmpfs, with only the container service socket, the ssh agent, and the Wayland compositor socket bound back in. Wayland is the only path to the clipboard, and a client there learns nothing about input aimed elsewhere; screen capture on KWin needs the portal on the system bus, which stays masked. Every other host IPC endpoint is masked after the writable binds, because each would let the tool act on the host. The one endpoint that cannot be masked is X11's abstract-namespace socket; the X server still refuses the handshake without a cookie.
 - The tool gets its own PID and SysV IPC namespaces, so it cannot signal the user's processes or touch their shared memory. The system SSH config drop-in directory is masked.
 - Both launchers point `CONTAINER_HOST` at the user's `podman.socket` when it exists, so containers run with the user's own permissions, outside the writable allowlist.
 - The agent's own `bash` calls run with the account's full OS permissions. They are constrained only when the parent application was started through one of these launchers.

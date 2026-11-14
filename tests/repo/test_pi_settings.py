@@ -14,7 +14,7 @@ import _loader
 class PiSettingsTest(unittest.TestCase):
     def test_retired_goal_exclusion_is_removed_and_is_idempotent(self):
         repo = _loader.SOURCE
-        template = repo / "dot_pi/private_agent/modify_settings.json"
+        template = repo / "dot_pi/private_agent/modify_private_settings.json"
         retired = "-extensions/goal/index.ts"
         selections = ["extensions/custom.ts", "-builtin:mcp"]
         cases = [
@@ -43,5 +43,5 @@ class PiSettingsTest(unittest.TestCase):
                     rendered = render(settings)
                     self.assertEqual(rendered.get("extensions"), expected)
                     self.assertEqual(rendered["customPreference"], "keep")
-                    self.assertEqual(rendered["theme"], "system")
+                    self.assertEqual(rendered["theme"], "flat", "the managed theme is selected, not left to the terminal")
                     self.assertEqual(render(rendered), rendered)

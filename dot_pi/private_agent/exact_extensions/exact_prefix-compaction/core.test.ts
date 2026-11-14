@@ -12,7 +12,6 @@ import {
 	appliesTo,
 	assertPrefixPreserved,
 	buildSummaryBody,
-	buildWarmupBody,
 	extractSummary,
 	isCapturable,
 	isSummarizerRequest,
@@ -300,43 +299,5 @@ void describe("cache reporting", () => {
 		assert.equal(servedFromCache(undefined, undefined), "unknown");
 		assert.equal(servedFromCache(0, 0), "unknown");
 		assert.equal(servedFromCache(100_000, undefined), "miss");
-	});
-});
-
-void describe("buildWarmupBody", () => {
-	const nextMessages = [
-		{ role: "user", content: "do the thing" },
-		{ role: "assistant", content: "done" },
-		{ role: "user", content: "next" },
-	];
-
-	void it("caps the output at one token in the captured spelling", () => {
-		const body = buildWarmupBody(OPENAI_CAPTURED, nextMessages, "You are Pi.");
-		assert.equal(body.max_tokens, 1);
-		assert.equal("max_completion_tokens" in body, false);
-	});
-
-	void it("keeps the tools and thinking settings of the captured turn", () => {
-		const captured = { ...OPENAI_CAPTURED, reasoning_effort: "high" };
-		const body = buildWarmupBody(captured, nextMessages, "You are Pi.");
-		assert.deepEqual(body.tools, captured.tools);
-		assert.equal(body.reasoning_effort, "high");
-	});
-
-	void it("keeps the system prompt that the OpenAI wire carries as a message", () => {
-		const body = buildWarmupBody(OPENAI_CAPTURED, nextMessages, "You are Pi.");
-		assert.equal(systemText(body), "You are Pi.", "dropping the system prompt would change the prefix");
-	});
-
-	void it("keeps anthropic's top-level system field without duplicating it", () => {
-		const body = buildWarmupBody(ANTHROPIC_CAPTURED, nextMessages, "You are Pi.");
-		assert.deepEqual(body.system, ANTHROPIC_CAPTURED.system);
-		assert.equal((body.messages as unknown[]).length, nextMessages.length, "no extra system message on anthropic");
-	});
-
-	void it("uses the new messages, not the captured ones", () => {
-		const body = buildWarmupBody(OPENAI_CAPTURED, nextMessages, "You are Pi.");
-		assert.match(JSON.stringify(body.messages), /next/);
-		assert.doesNotMatch(JSON.stringify(body.messages), /do the thing.*do the thing/);
 	});
 });

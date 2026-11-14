@@ -26,10 +26,10 @@ The extensions register the Command Code, ClinePass and hyper providers, sync ea
 
 Two files merge into Pi's own state instead of replacing it, so settings Pi or the user wrote survive:
 
-- `modify_settings.json` merges the managed settings into `settings.json`.
+- `modify_private_settings.json` merges the managed settings into `settings.json` and keeps it at 0600, the mode Pi writes.
 - `modify_private_models.json` merges into `models.json` a 500k `contextWindow` cap for every model whose catalog advertises 1M tokens or more.
 
-The `system` theme is the default; `flat` is installed as an option.
+The `flat` theme is the default: it paints no panel backgrounds and is written in 256-color indices and terminal defaults, so it follows the terminal's palette. `system` is still selectable.
 
 ### Sandboxed launchers
 

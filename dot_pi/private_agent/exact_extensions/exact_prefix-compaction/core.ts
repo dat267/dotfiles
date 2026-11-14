@@ -261,27 +261,3 @@ export function servedFromCache(inputTokens: number | undefined, cacheReadTokens
 	if (input <= 0) return "unknown";
 	return read / input >= 0.9 ? "hit" : "partial";
 }
-
-/**
- * The warm-up request: the context Pi will send next turn, wrapped in the routing,
- * thinking and tool fields of the captured request, capped so the server stops after
- * one token. The system prompt is passed explicitly because the OpenAI wire carries it
- * as a leading message, and dropping it from the swapped-in message list would make
- * the warmed prefix differ from the next real turn.
- */
-export function buildWarmupBody(
-	captured: Record<string, unknown>,
-	messages: unknown[],
-	system: string,
-): Record<string, unknown> {
-	const body: Record<string, unknown> = { ...captured, messages, stream: true };
-	setMaxTokens(body, captured, 1);
-	for (const key of PROMPT_AFFECTING_KEYS) {
-		if (key === "messages") continue;
-		body[key] = captured[key];
-	}
-	if (system && body.system === undefined) {
-		body.messages = [{ role: "system", content: system }, ...messages];
-	}
-	return body;
-}
