@@ -279,9 +279,6 @@ class TestPlatformVendor(unittest.TestCase):
         self.assertEqual(words, ("linux", "arm64"))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class TestDownloadProgress(unittest.TestCase):
     """download() gains an optional on_progress(done, total) hook."""
@@ -645,3 +642,7 @@ class TestRealUrlopenConvention(unittest.TestCase):
             dest = os.path.join(d, "out.bin")
             self.assertEqual(download(url, dest), dest)
             self.assertEqual(pathlib.Path(dest).read_bytes(), b"payload-bytes")
+
+
+if __name__ == "__main__":
+    unittest.main()
