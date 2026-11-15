@@ -28,6 +28,31 @@ class TestGetUptime(unittest.TestCase):
             self.assertEqual(sysinfo.get_uptime(), "2 days, 3:15")
 
 
+class TestGetCpuInfo(unittest.TestCase):
+    # x86 /proc/cpuinfo repeats both "processor" and "model name" once per core,
+    # so counting both lines reported twice the core count (4 CPUs as "8 cores").
+    X86 = (
+        "processor\t: 0\nmodel name\t: Intel(R) N150\n\n"
+        "processor\t: 1\nmodel name\t: Intel(R) N150\n\n"
+    )
+
+    def test_one_core_per_processor_block(self):
+        with mock.patch.object(sysinfo.os.path, "exists", return_value=True), \
+                mock.patch("builtins.open", mock.mock_open(read_data=self.X86)):
+            self.assertEqual(sysinfo.get_cpu_info(), "Intel® N150 (2 cores)")
+
+    def test_arm_hardware_is_the_model(self):
+        data = (
+            "processor\t: 0\nHardware\t: BCM2711\n"
+            "processor\t: 1\nHardware\t: BCM2711\n"
+            "processor\t: 2\nHardware\t: BCM2711\n"
+            "processor\t: 3\nHardware\t: BCM2711\n"
+        )
+        with mock.patch.object(sysinfo.os.path, "exists", return_value=True), \
+                mock.patch("builtins.open", mock.mock_open(read_data=data)):
+            self.assertEqual(sysinfo.get_cpu_info(), "BCM2711 (4 cores)")
+
+
 class TestGetMemInfo(unittest.TestCase):
     # The /proc branch is Linux-only; Windows takes the wmic branch. Pin the
     # probe so the expectation is about parsing, not about the host.

@@ -68,11 +68,12 @@ def get_cpu_info():
             cores = 0
             with open("/proc/cpuinfo") as f:
                 for line in f:
-                    if line.startswith("model name"):
+                    # One "processor" line per core. "model name" also appears once
+                    # per core on x86, so counting both doubled the core count.
+                    if line.startswith("processor"):
+                        cores += 1
+                    elif line.startswith("model name"):
                         model = line.split(":", 1)[1].strip()
-                        cores += 1
-                    elif line.startswith("processor"):
-                        cores += 1
                     elif line.startswith("Hardware"):
                         model = line.split(":", 1)[1].strip()
                     elif line.startswith("CPU implementer"):
