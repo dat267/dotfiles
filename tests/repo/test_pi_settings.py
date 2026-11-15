@@ -47,7 +47,7 @@ class PiSettingsTest(unittest.TestCase):
                     self.assertEqual(render(rendered), rendered)
 
     def test_retired_claude_code_package_is_dropped_and_the_users_stay(self):
-        repo = Path(__file__).resolve().parents[4]
+        repo = _loader.SOURCE
         template = repo / "dot_pi/private_agent/modify_private_settings.json"
         source = "https://github.com/earendil-works/pi-claude-code"
         cases = [
