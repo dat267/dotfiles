@@ -102,5 +102,4 @@ class TestGoVersionFetch(unittest.TestCase):
             self.assertEqual(go.fetch_latest_go_version(), "go1.24.1")
 
 
-if __name__ == "__main__":
-    unittest.main()
+

@@ -309,5 +309,4 @@ class TestServerManifest(unittest.TestCase):
             self.assertIn(binary, lsp.NPM_BINS, f"{binary} not produced by the node recipe")
 
 
-if __name__ == "__main__":
-    unittest.main()
+

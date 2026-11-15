@@ -60,5 +60,4 @@ class TestYaziCompress(unittest.TestCase):
         self.assertIn("/tmp/a/y.txt", cmd)
 
 
-if __name__ == "__main__":
-    unittest.main()
+

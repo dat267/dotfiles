@@ -47,5 +47,4 @@ class TestDefaults(unittest.TestCase):
         self.assertEqual(df.DEFAULT_PATH, "chezmoi")
 
 
-if __name__ == "__main__":
-    unittest.main()
+

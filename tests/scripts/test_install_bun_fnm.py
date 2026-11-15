@@ -91,5 +91,4 @@ class TestFnmPlatformFilename(unittest.TestCase):
             self.select("SunOS", "x86_64")
 
 
-if __name__ == "__main__":
-    unittest.main()
+

@@ -132,5 +132,3 @@ class TestPromoteStream(unittest.TestCase):
         run.assert_not_called()
 
 
-if __name__ == "__unittest__":
-    unittest.main()

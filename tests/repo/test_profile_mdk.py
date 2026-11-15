@@ -37,7 +37,3 @@ class MarkdownSearchAliasTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "alias mdk='mdk.py'")
-
-
-if __name__ == "__main__":
-    unittest.main()

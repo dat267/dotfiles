@@ -102,5 +102,4 @@ class TestInstallTools(unittest.TestCase):
         self.assertEqual(helper.call_args.args[2], tmp)
 
 
-if __name__ == "__main__":
-    unittest.main()
+

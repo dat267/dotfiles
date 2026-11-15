@@ -820,5 +820,4 @@ class MainTest(unittest.TestCase):
         self.each(check)
 
 
-if __name__ == "__main__":
-    unittest.main()
+

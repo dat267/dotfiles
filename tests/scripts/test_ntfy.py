@@ -167,7 +167,3 @@ class GenerateCase(unittest.TestCase):
 
 	def home(self, tmp):
 		return type(tmp)(tmp)
-
-
-if __name__ == "__main__":
-	unittest.main()

@@ -95,7 +95,3 @@ class TestCli(unittest.TestCase):
                 rc, _ = self.encode(["-o", missing, "-"], b"x")
         self.assertEqual(rc, 1)
         self.assertIn("out.b64", err.getvalue())
-
-
-if __name__ == "__main__":
-    unittest.main()

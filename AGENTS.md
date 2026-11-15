@@ -104,6 +104,8 @@ tools/pi_lint_extensions.py                   # --dir <name> lints one extension
 node --test                                   # per extension dir: runs every *.test.ts (Node >= 24)
 ```
 
+A test module imports `_loader` from `tests/`, so running one directly fails at import: tests run only through `discover`.
+
 Before reporting done, run the checks for the area you changed:
 
 - `exact_py`, `tools/`, the shell profile, hooks, or Pi and Yazi config: the Python tests.

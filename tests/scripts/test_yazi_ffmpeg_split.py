@@ -45,5 +45,4 @@ class TestInvalidInput(unittest.TestCase):
         self.assertEqual(bad, ["1:0a"])
 
 
-if __name__ == "__main__":
-    unittest.main()
+

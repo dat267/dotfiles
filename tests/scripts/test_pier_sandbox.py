@@ -45,5 +45,4 @@ class PierMainTest(unittest.TestCase):
         self.assertEqual(run.call_args.args, (pier_sandbox.PROFILE, None))
 
 
-if __name__ == "__main__":
-    unittest.main()
+

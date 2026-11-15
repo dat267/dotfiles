@@ -196,7 +196,3 @@ class TestRemoteCommand(unittest.TestCase):
 
     def test_empty_is_interactive(self):
         self.assertEqual(mod.build_command([]), "")
-
-
-if __name__ == "__main__":
-    unittest.main()

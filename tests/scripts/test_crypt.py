@@ -156,7 +156,3 @@ class TestRFC8439Vectors(unittest.TestCase):
         poly = crypt._Poly1305(key)
         poly.update(msg)
         self.assertEqual(poly.digest(), bytes.fromhex("a8061dc1305136c6c22b8baf0c0127a9"))
-
-
-if __name__ == "__main__":
-    unittest.main()

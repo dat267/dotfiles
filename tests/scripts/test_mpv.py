@@ -259,5 +259,4 @@ class TestExistingInstance(unittest.TestCase):
                                       [os.path.abspath("a.mp4")], self.sock_path)
 
 
-if __name__ == "__main__":
-    unittest.main()
+

@@ -83,5 +83,4 @@ class InstallerNetworkTimeoutTest(unittest.TestCase):
         rec.assertAllTimed(self)
 
 
-if __name__ == "__main__":
-    unittest.main()
+

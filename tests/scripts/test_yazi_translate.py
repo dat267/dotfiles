@@ -137,5 +137,3 @@ class TestTranslateOneFallback(unittest.TestCase):
                 yt._translate_one("hi", "en", "de")
 
 
-if __name__ == "__main__":
-    unittest.main()

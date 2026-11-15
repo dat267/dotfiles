@@ -125,7 +125,3 @@ class ShellStartupBinPriorityTest(unittest.TestCase):
 
     def test_bash_login_shell_prioritizes_bin(self):
         self.assert_bin_wins("bash", ["-l", "-c"], f"{self.tools}:{self.npm_bin}", "bash login shell")
-
-
-if __name__ == "__main__":
-    unittest.main()

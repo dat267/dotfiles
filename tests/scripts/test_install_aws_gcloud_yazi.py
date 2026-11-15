@@ -78,5 +78,4 @@ class TestYaziTargetTriple(unittest.TestCase):
         self.assertEqual(self.target("Darwin", "arm64"), "aarch64-apple-darwin")
 
 
-if __name__ == "__main__":
-    unittest.main()
+

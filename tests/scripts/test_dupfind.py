@@ -80,5 +80,3 @@ class TestMain(unittest.TestCase):
         self.assertIn("no duplicates", buf.getvalue())
 
 
-if __name__ == "__main__":
-    unittest.main()

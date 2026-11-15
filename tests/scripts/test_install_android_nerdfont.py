@@ -413,5 +413,4 @@ class TestTermuxNerdFont(unittest.TestCase):
         self.assertTrue(os.path.exists(dest))
 
 
-if __name__ == "__main__":
-    unittest.main()
+

@@ -92,5 +92,3 @@ class TestMain(unittest.TestCase):
                 stdout.write.assert_called()
 
 
-if __name__ == "__main__":
-    unittest.main()

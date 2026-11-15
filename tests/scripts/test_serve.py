@@ -578,5 +578,4 @@ class TestHelpers(unittest.TestCase):
                 blocker.close()
 
 
-if __name__ == "__main__":
-    unittest.main()
+

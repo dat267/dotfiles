@@ -161,5 +161,4 @@ class TestNvimMain(unittest.TestCase):
             self.assertEqual(nvim.main(), 1)
 
 
-if __name__ == "__main__":
-    unittest.main()
+

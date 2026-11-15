@@ -134,5 +134,4 @@ class TestInstallersReachTheSharedHelper(unittest.TestCase):
                 self.assertEqual(helper.call_args[0][1], expected_binary)
 
 
-if __name__ == "__main__":
-    unittest.main()
+

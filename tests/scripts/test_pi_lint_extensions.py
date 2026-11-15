@@ -386,5 +386,3 @@ class TestMain(PiplineCase):
 		self.assertIn("no extensions", err)
 
 
-if __name__ == "__main__":
-	unittest.main()

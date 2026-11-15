@@ -39,5 +39,4 @@ class TestGetDestDir(unittest.TestCase):
         self.assertEqual(self.dest("a.b.zip"), os.path.join(self.tmp, "a.b"))
 
 
-if __name__ == "__main__":
-    unittest.main()
+

@@ -102,7 +102,3 @@ class BinPriorityTest(unittest.TestCase):
                 self.assertEqual(len(entries), len(set(entries)), result.stdout)
                 self.assertLess(entries.index(str(self.override)),
                                 entries.index(str(self.npm_bin)), result.stdout)
-
-
-if __name__ == "__main__":
-    unittest.main()

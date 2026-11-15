@@ -123,5 +123,4 @@ class TestRipgrepSpec(unittest.TestCase):
             binary_name=rg.binary_name, install_dir=rg.INSTALL_DIR, tag_prefix="")
 
 
-if __name__ == "__main__":
-    unittest.main()
+

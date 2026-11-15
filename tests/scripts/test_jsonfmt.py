@@ -73,5 +73,3 @@ class TestMain(unittest.TestCase):
         self.assertIn("utf-8", err.getvalue().lower())
 
 
-if __name__ == "__main__":
-    unittest.main()

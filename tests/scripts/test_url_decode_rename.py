@@ -56,5 +56,4 @@ class TestRenameFiles(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.tmp, "a", "b.txt")))
 
 
-if __name__ == "__main__":
-    unittest.main()
+

@@ -51,5 +51,4 @@ class PiMainTest(unittest.TestCase):
         self.assertEqual(run.call_args.args, (pi_sandbox.PROFILE, None))
 
 
-if __name__ == "__main__":
-    unittest.main()
+

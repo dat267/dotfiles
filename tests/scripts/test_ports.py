@@ -103,5 +103,4 @@ class TestMain(unittest.TestCase):
         self.assertEqual(len(listed), 3)  # 0.0.0.0:5355, 0.0.0.0:22, [::]:22
 
 
-if __name__ == "__main__":
-    unittest.main()
+

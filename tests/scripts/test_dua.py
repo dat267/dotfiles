@@ -837,5 +837,3 @@ class TestMain(unittest.TestCase):
         self.assertIn("/nonexistent/path/xyz", err.getvalue())
 
 
-if __name__ == "__main__":
-    unittest.main()

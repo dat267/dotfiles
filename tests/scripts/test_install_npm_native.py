@@ -347,5 +347,4 @@ class TestStopServer(unittest.TestCase):
             self.assertFalse(opencode.stop_server(lay))
 
 
-if __name__ == "__main__":
-    unittest.main()
+

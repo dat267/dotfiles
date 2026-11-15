@@ -88,5 +88,3 @@ class TestBatchRename(unittest.TestCase):
             self.assertEqual(fh.read(), "keep")
 
 
-if __name__ == "__main__":
-    unittest.main()

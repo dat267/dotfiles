@@ -31,5 +31,4 @@ class TestTempdir(unittest.TestCase):
         os.rmdir(d)
 
 
-if __name__ == "__main__":
-    unittest.main()
+

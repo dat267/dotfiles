@@ -64,7 +64,3 @@ class TestYaziConfigReferencesScripts(unittest.TestCase):
             "yazi_translate.py",
         ):
             self.assertIn(expected, refs)
-
-
-if __name__ == "__main__":
-    unittest.main()

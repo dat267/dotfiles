@@ -50,7 +50,3 @@ class SandboxAliasTest(unittest.TestCase):
         aliases = self.aliases()
         self.assertNotIn("pi", aliases)
         self.assertNotIn("pier", aliases)
-
-
-if __name__ == "__main__":
-    unittest.main()

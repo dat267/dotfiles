@@ -74,5 +74,3 @@ class TestMain(unittest.TestCase):
         self.assertEqual(buf.getvalue().strip(), "1970-01-01 00:00:00")
 
 
-if __name__ == "__main__":
-    unittest.main()

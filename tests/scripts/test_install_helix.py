@@ -162,5 +162,4 @@ class TestHelixMain(unittest.TestCase):
             self.assertEqual(helix.main(), 1)
 
 
-if __name__ == "__main__":
-    unittest.main()
+

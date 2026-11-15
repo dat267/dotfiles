@@ -644,5 +644,4 @@ class TestRealUrlopenConvention(unittest.TestCase):
             self.assertEqual(pathlib.Path(dest).read_bytes(), b"payload-bytes")
 
 
-if __name__ == "__main__":
-    unittest.main()
+

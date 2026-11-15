@@ -68,5 +68,4 @@ class TestDuaSpec(unittest.TestCase):
             binary_name=dua.binary_name, install_dir=dua.INSTALL_DIR, tag_prefix="v")
 
 
-if __name__ == "__main__":
-    unittest.main()
+

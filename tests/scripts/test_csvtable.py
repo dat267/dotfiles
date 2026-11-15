@@ -70,6 +70,3 @@ class TestRenderTable(unittest.TestCase):
         self.assertIn("b.txt", lines[2])
         self.assertIn("2", lines[2])
 
-
-if __name__ == "__main__":
-    unittest.main()

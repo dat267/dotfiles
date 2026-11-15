@@ -78,5 +78,4 @@ class TestTranscode(unittest.TestCase):
         self.assertEqual(cmd[-1], self.expected("/d/video.MP4", "video_transcoded.mp4"))
 
 
-if __name__ == "__main__":
-    unittest.main()
+

@@ -135,5 +135,4 @@ class RecordingRunner:
         return mock.Mock(stdout="ok", stderr="", returncode=self.returncode)
 
 
-if __name__ == "__main__":
-    unittest.main()
+

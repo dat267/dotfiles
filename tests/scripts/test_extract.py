@@ -411,5 +411,4 @@ class TestExternalBackendSafety(unittest.TestCase):
         self.assertEqual(extract.unsafe_from_7z_listing(listing), [])
 
 
-if __name__ == "__main__":
-    unittest.main()
+
