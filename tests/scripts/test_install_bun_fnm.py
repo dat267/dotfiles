@@ -40,12 +40,25 @@ class TestBunPlatformSuffix(unittest.TestCase):
     def test_darwin_arm64(self):
         self.assertEqual(self.select("Darwin", "arm64"), "darwin-aarch64")
 
+    def termux(self, termux):
+        """Make _shared.is_termux answer without guessing at module identity:
+        Platform.detect resolves the name from that module's own globals."""
+        return mock.patch.dict(bun.log.__globals__, {"is_termux": lambda: termux})
+
     def test_android_exits(self):
-        p1, p2 = platform_patch(bun, "Android", "aarch64")
-        with p1, p2:
+        """Termux reports platform.system() == "Linux", so the glibc warning has to
+        come from the repo's own Termux marker; a literal "Android" system string
+        never occurs at runtime, which is how this guard stayed dead."""
+        p1, p2 = platform_patch(bun, "Linux", "aarch64")
+        with p1, p2, self.termux(True):
             with self.assertRaises(SystemExit) as ctx:
                 bun.get_platform_suffix()
             self.assertEqual(ctx.exception.code, 0)
+
+    def test_desktop_linux_is_not_treated_as_termux(self):
+        p1, p2 = platform_patch(bun, "Linux", "aarch64")
+        with p1, p2, self.termux(False):
+            self.assertEqual(bun.get_platform_suffix(), "linux-aarch64")
 
     def test_unsupported_os_exits(self):
         with self.assertRaises(SystemExit):
