@@ -24,6 +24,24 @@ def parse_ts(s):
         return int(parts[0]) * 60 + float(parts[1])
     return float(parts[0])
 
+def parse_points(inp):
+    """Sorted timestamp points plus the entries that are not timestamps.
+
+    A typo is user input, not a crash: float() on it used to kill the script with
+    a traceback right where a person types.
+    """
+    points, rejected = [], []
+    for chunk in inp.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        try:
+            points.append(parse_ts(chunk))
+        except (ValueError, IndexError):
+            rejected.append(chunk)
+    return sorted(points), rejected
+
+
 def main():
     parser = argparse.ArgumentParser(description="Split a media file into segments by timestamps")
     parser.add_argument("filepath", help="Path to the media file")
@@ -48,7 +66,10 @@ def main():
     if not inp:
         return
 
-    points = [parse_ts(t) for t in inp.split(",") if t.strip()]
+    points, rejected = parse_points(inp)
+    if rejected:
+        print_flush(f"Invalid timestamp(s): {', '.join(rejected)}")
+        return
     if not points:
         print_flush("No valid timestamps.")
         return
