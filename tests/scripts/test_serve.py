@@ -4,7 +4,9 @@ Slices are added one at a time: serve a file, traversal defence, listing,
 token gate, upload, port fallback, URL/QR formatting.
 """
 import http.client
+import html
 import os
+import re
 import socket
 import tempfile
 import threading
@@ -14,6 +16,7 @@ from unittest import mock
 import _loader
 import http.client as _http
 import urllib.parse as _urlparse
+import urllib.parse
 
 
 def _fetch(url):
@@ -138,6 +141,45 @@ class TestTokenGate(ServeTestBase):
         status, _, body = self.request("GET", "/hello.txt?t=sekrit")
         self.assertEqual(status, 200)
         self.assertEqual(body, b"hello world")
+
+    def test_listing_links_keep_the_token_a_browser_arrives_with(self):
+        """A browser resolves relative hrefs against the URL it opened, so a
+        bare name drops the query and every click is a 403."""
+        _, _, body = self.request("GET", "/?t=sekrit")
+        hrefs = re.findall(r'href="([^"]+)"', body.decode())
+        self.assertIn("hello.txt", [urllib.parse.unquote(h.split("?")[0]) for h in hrefs])
+        for href in hrefs:
+            with self.subTest(href=href):
+                target = urllib.parse.urljoin("/?t=sekrit", html.unescape(href))
+                status, _, _ = self.request("GET", target)
+                self.assertEqual(status, 200, target)
+
+
+class TestTokenWithUpload(ServeTestBase):
+    token = "sekrit"
+    upload = True
+
+    def test_upload_form_keeps_the_token(self):
+        _, _, body = self.request("GET", "/?t=sekrit")
+        action = re.search(r'<form[^>]*action="([^"]+)"', body.decode()).group(1)
+        self.assertIn("t=sekrit", action)
+
+    def test_upload_posts_to_the_form_action(self):
+        _, _, body = self.request("GET", "/?t=sekrit")
+        action = html.unescape(re.search(r'<form[^>]*action="([^"]+)"', body.decode()).group(1))
+        boundary = "----serveboundary"
+        payload = (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="file"; filename="token-up.txt"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode() + b"bytes" + f"\r\n--{boundary}--\r\n".encode()
+        status, _, _ = self.request(
+            "POST",
+            action,
+            body=payload,
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}", "Content-Length": str(len(payload))},
+        )
+        self.assertEqual(status, 201, action)
 
 
 class TestUpload(ServeTestBase):

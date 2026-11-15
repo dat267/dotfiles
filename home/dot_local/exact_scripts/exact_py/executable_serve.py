@@ -161,18 +161,22 @@ def _make_handler(root, upload=False, token=None, only=None):
 
         def _send_listing(self, path):
             entries = sorted(os.listdir(path))
+            # A browser resolves relative links and the form action against the URL
+            # it opened, so a bare name or path drops the query and every click is
+            # a 403. Carry the token the page was reached with.
+            query = "" if not token else "?t=" + urllib.parse.quote(token, safe="")
             rows = []
             for name in entries:
                 full = os.path.join(path, name)
                 is_dir = os.path.isdir(full)
                 label = html.escape(name + ("/" if is_dir else ""))
-                href = urllib.parse.quote(name + ("/" if is_dir else ""))
+                href = html.escape(urllib.parse.quote(name + ("/" if is_dir else "")) + query)
                 size = "" if is_dir else f" <span>{human_size(os.path.getsize(full))}</span>"
                 rows.append(f'<li><a href="{href}">{label}</a>{size}</li>')
             form = ""
             if upload:
                 form = (
-                    '<form method="post" action="/__upload" enctype="multipart/form-data">'
+                    f'<form method="post" action="/__upload{html.escape(query)}" enctype="multipart/form-data">'
                     '<input type="file" name="file"><button>upload</button></form>'
                 )
             body = (
