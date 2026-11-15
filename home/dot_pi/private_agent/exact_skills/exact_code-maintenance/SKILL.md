@@ -5,7 +5,7 @@ description: Audit a codebase or one area of it for logic flaws, concurrency bug
 
 # Code maintenance
 
-The workflow audits code, confirms each finding, records it, then repairs and verifies it.
+The workflow audits code, confirms each finding, repairs and verifies it, and records what it leaves open.
 
 **Scope.** When the user invokes this skill, the default scope is the whole first-party codebase. When you pick it yourself, or another skill hands you a finding, the scope is that finding and the area it lives in: say so, and offer the wider audit instead of starting it. Either way, honor any instructions that narrow the scope, set a time budget, ask for audit-only, or resume existing findings. Invocation is not permission to push, release, or install dependencies.
 
@@ -28,7 +28,7 @@ Cover the codebase, do not sample it:
 - Split the inventory into slices by component, each small enough to read in full, and work through every slice. A large codebase means more slices, not a lighter read of each.
 - A file counts as inspected only when you have read all of it and applied every lens that fits. A search hit, a file listing, an outline, or reading the first part of a file is not inspection.
 - Finishing a slice, finding a few bugs, or reaching a clean-looking area is not a reason to stop. Stop only when every row is inspected, unverified, or not applicable, or the user's budget runs out.
-- When the budget runs out, say so, and leave the remaining rows pending in the ledger so the next run resumes there. If a later run finds the ledger gone, it rebuilds the pending list from the tracker and the commit history.
+- When the budget runs out, say so, and leave the remaining rows pending in the ledger so the next run resumes there. If a later run finds the ledger gone, it redoes the inventory, treats every file as pending, and skips findings already in the tracker.
 
 Order the slices by risk: trust boundaries, persistence, cancellation and shutdown, churn hotspots, files that past fixes touched, and recent changes first. Trace values through callers, callees, and error paths. An analyzer warning marks an area to inspect; it is not a finding.
 
@@ -52,7 +52,7 @@ Order the slices by risk: trust boundaries, persistence, cancellation and shutdo
 
 ## 3. Confirm and record before repairing
 
-For each candidate, establish a reachable scenario, the actual result, the expected result and the authority for it, the root cause, and the impact on users. The expected result comes from the workspace's contract or the pinned specs, not from personal preference or another project's convention.
+For each bug candidate, establish a reachable scenario, the actual result, the expected result and the authority for it, the root cause, and the impact on users. The expected result comes from the workspace's contract or the pinned specs, not from personal preference or another project's convention.
 
 Minimize the case and include a matching control. Reject scenarios that rely on impossible internal state, documented divergences, or unsupported features. A candidate you cannot reproduce stays explicitly unconfirmed and gets no patch. Report one finding per root cause: the same defect reached through several call sites is one finding.
 
@@ -61,9 +61,9 @@ Dead code and simplicity findings are confirmed without a failing case. For dead
 Before editing production code, record each confirmed finding you will not repair in this run. If a repair later gets blocked or fails verification, record it then. The tracker owns the work item; the analysis lives elsewhere:
 
 - Add one line per bug finding to the workspace's unfinished-work list: the ID, the severity, the affected path, and the concrete failure, so the line makes sense without the full record, under the priority its impact warrants (for example a `TODO.md` section). If the workspace has no such list, report the finding in your response and ask before creating a file.
+- The exception is dead code and simplicity findings: group them into one line per area, so low-severity cleanup does not flood the list.
 - Keep the full record in the ledger file. Repeat the full record of each open finding in your final response, since the scratch file may not outlive the run, and summarize each fixed finding in one line. Do not create a findings file next to the tracker; it duplicates the work items and drifts.
 - Preserve existing entries and do not duplicate them.
-- The exception is dead code and simplicity findings: group them into one line per area, so low-severity cleanup does not flood the list.
 
 Use this structure for the full record:
 
