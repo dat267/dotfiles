@@ -72,13 +72,25 @@ def symlink_binary(dest, os_name):
     os.symlink(os.path.join(dest, "bin", "nvim"), link)
 
 
-def verify(dest, os_name):
+def verify_command(dest, os_name):
+    """Command that runs the installed nvim.
+
+    On Termux the release binary is glibc-linked and only starts under
+    glibc-runner (grun), which needs an explicit path.
+    """
     binary = os.path.join(dest, "bin", "nvim.exe" if os_name == "windows" else "nvim")
-    result = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=30)
+    if os_name == "android":
+        return ["grun", binary]
+    return [binary]
+
+
+def verify(dest, os_name):
+    cmd = verify_command(dest, os_name)
+    result = subprocess.run([*cmd, "--version"], capture_output=True, text=True, timeout=30)
     if result.returncode != 0:
-        log(f"Error: {binary} --version failed (exit {result.returncode}).", "red")
+        log(f"Error: {cmd[0]} --version failed (exit {result.returncode}).", "red")
         return 1
-    log(f"nvim installed -> {binary} ({result.stdout.strip().splitlines()[0]})", "green")
+    log(f"nvim installed -> {cmd[-1]} ({result.stdout.strip().splitlines()[0]})", "green")
     return 0
 
 

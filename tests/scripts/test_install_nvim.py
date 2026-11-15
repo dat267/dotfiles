@@ -61,6 +61,37 @@ class TestNvimAssetNaming(unittest.TestCase):
         self.assertEqual(nvim.install_dir("windows"), shared.windows_home("Apps", "nvim"))
 
 
+class TestNvimVerifyCommand(unittest.TestCase):
+    """Termux runs the linux glibc build through glibc-runner, so running the
+    extracted binary directly cannot work there: the install succeeded but the
+    verification reported a failure and the script exited 1."""
+
+    def body(self, cmd, **kwargs):
+        return mock.Mock(returncode=0, stdout="NVIM v0.12.5\n")
+
+    def test_android_verifies_through_glibc_runner(self):
+        runs = []
+
+        def record(cmd, **kwargs):
+            runs.append(cmd)
+            return self.body(cmd, **kwargs)
+
+        with mock.patch.object(nvim.subprocess, "run", record):
+            self.assertEqual(nvim.verify("/o/nvim", "android"), 0)
+        self.assertEqual(runs, [["grun", os.path.join("/o/nvim", "bin", "nvim"), "--version"]])
+
+    def test_unix_runs_the_binary_directly(self):
+        runs = []
+
+        def record(cmd, **kwargs):
+            runs.append(cmd)
+            return self.body(cmd, **kwargs)
+
+        with mock.patch.object(nvim.subprocess, "run", record):
+            self.assertEqual(nvim.verify("/o/nvim", "linux"), 0)
+        self.assertEqual(runs, [[os.path.join("/o/nvim", "bin", "nvim"), "--version"]])
+
+
 class TestNvimMain(unittest.TestCase):
     """main() installs the extracted dir under a stable path and, on unix,
     drops a ~/.local/bin/nvim symlink — the whole dir is needed at runtime
