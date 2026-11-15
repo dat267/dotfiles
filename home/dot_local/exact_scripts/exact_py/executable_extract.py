@@ -36,6 +36,10 @@ def eprint(*args):
     print(*args, file=sys.stderr)
 
 
+class ArchiveError(Exception):
+    """The archive could not be read, so it cannot be validated."""
+
+
 def dest_name(filename):
     """Directory name for an archive: strip one or two archive suffixes.
 
@@ -127,11 +131,16 @@ def _members(path, backend):
         return
     if backend == "7z":
         out = subprocess.run(["7z", "l", "-slt", "-ba", "--", path], capture_output=True, text=True)
+        if out.returncode != 0:
+            # An unreadable listing yields no member names, and empty names pass
+            # every traversal check. Extracting then runs 7z with nothing
+            # validated, so a failed listing is a refusal, not an empty archive.
+            raise ArchiveError(f"cannot list {os.path.basename(path)} with 7z")
         for name in parse_7z_listing(out.stdout):
             yield name, False, None
 
 
-def member_paths(path, backend):
+def member_paths(members):
     """Every path validation must see: member names of every type, plus link targets.
 
     Directories count. A tar directory member named `../outside` is created
@@ -139,7 +148,7 @@ def member_paths(path, backend):
     and links were collected here.
     """
     paths = []
-    for name, _is_dir, link in _members(path, backend):
+    for name, _is_dir, link in members:
         paths.append(name)
         if link:
             # A link member is an escape vector too: its linkname decides where
@@ -148,9 +157,9 @@ def member_paths(path, backend):
     return paths
 
 
-def member_names(path, backend):
+def member_names(members):
     """Member paths to print and to extract: files and links, not directories."""
-    return [name for name, is_dir, _link in _members(path, backend) if not is_dir]
+    return [name for name, is_dir, _link in members if not is_dir]
 
 
 def extract_zip(path, dest, force):
@@ -276,8 +285,17 @@ def main(argv=None):
             failures += 1
             continue
 
-        names = member_names(archive, backend)
-        offenders = unsafe_members(member_paths(archive, backend))
+        try:
+            # One listing feeds both checks: the 7z backend shells out, and a
+            # second pass listed the whole archive again.
+            members = list(_members(archive, backend))
+        except ArchiveError as exc:
+            eprint(f"extract: {exc}")
+            failures += 1
+            continue
+
+        names = member_names(members)
+        offenders = unsafe_members(member_paths(members))
         if offenders:
             eprint(f"extract: refusing {os.path.basename(archive)}: unsafe member path(s): {', '.join(offenders)}")
             failures += 1

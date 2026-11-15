@@ -11,6 +11,7 @@ import tempfile
 import unittest
 import zipfile
 from contextlib import redirect_stderr, redirect_stdout
+from unittest import mock
 
 import _loader
 
@@ -338,6 +339,68 @@ class TestExtraction(unittest.TestCase):
 
 
 class TestExternalBackendSafety(unittest.TestCase):
+    """The 7z path is a listing followed by an extraction, and the listing is
+    the only thing standing between a crafted archive and the filesystem. No
+    test drove that pair, so a change that extracted without validating, or
+    that validated a different command line than it ran, would pass silently."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = self.tmp.name
+        self.archive = os.path.join(self.root, "a.7z")
+        with open(self.archive, "wb") as fh:
+            fh.write(b"7z\xbc\xaf\x27\x1c")
+        self.runs = []
+
+    def fake_run(self, listing, listing_rc=0):
+        def run(args, **kwargs):
+            self.runs.append(list(args))
+            if args[1] == "l":
+                return mock.Mock(returncode=listing_rc, stdout=listing, stderr="")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+        return run
+
+    def run_extract(self, argv):
+        with mock.patch.object(extract.shutil, "which",
+                               lambda name: "/usr/bin/7z" if name == "7z" else None), \
+                mock.patch.object(extract.subprocess, "run", self.fake_run(
+                    "Path = ../escaped.txt\nSize = 5\n\nPath = ok.txt\nSize = 1\n")):
+            return run_main(argv)
+
+    def test_traversal_in_the_listing_refuses_before_extracting(self):
+        code, _, err = self.run_extract([self.archive])
+        self.assertEqual(code, 1)
+        self.assertIn("../escaped.txt", err)
+        verbs = [args[1] for args in self.runs]
+        self.assertEqual(verbs, ["l"])  # listed and stopped, never `x`
+        self.assertFalse(os.path.exists(os.path.join(self.root, "a")))
+
+    def test_clean_listing_extracts_into_the_destination(self):
+        def run(args, **kwargs):
+            self.runs.append(list(args))
+            if args[1] == "l":
+                return mock.Mock(returncode=0, stdout="Path = ok.txt\nSize = 1\n", stderr="")
+            os.makedirs(os.path.join(self.root, "a"), exist_ok=True)
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(extract.shutil, "which",
+                               lambda name: "/usr/bin/7z" if name == "7z" else None), \
+                mock.patch.object(extract.subprocess, "run", run):
+            code, _, err = run_main([self.archive])
+        self.assertEqual(code, 0, err)
+        self.assertEqual([args[1] for args in self.runs], ["l", "x"])
+        self.assertIn(f"-o{os.path.join(self.root, 'a')}", self.runs[1])
+
+    def test_failed_listing_extracts_nothing(self):
+        with mock.patch.object(extract.shutil, "which",
+                               lambda name: "/usr/bin/7z" if name == "7z" else None), \
+                mock.patch.object(extract.subprocess, "run",
+                                  self.fake_run("", listing_rc=2)):
+            code, _, err = run_main([self.archive])
+        self.assertEqual(code, 1)
+        self.assertNotIn("x", [args[1] for args in self.runs])
+
     def test_seven_zip_listing_with_traversal_is_refused(self):
         listing = "Path = ../escaped.txt\nSize = 5\n\nPath = ok.txt\nSize = 1\n"
         offenders = extract.unsafe_from_7z_listing(listing)
