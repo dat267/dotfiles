@@ -491,6 +491,38 @@ class TestHelpers(unittest.TestCase):
             # A leading double slash is still root-relative, not an absolute escape.
             self.assertEqual(self.mod.safe_join(real, "//etc/passwd"), os.path.join(real, "etc", "passwd"))
 
+    def test_symlink_pointing_outside_the_root_is_refused(self):
+        """safe_join resolves the real path, so a symlink planted in the shared
+        directory must not become a way to read what it points at."""
+        with tempfile.TemporaryDirectory() as root:
+            secret_dir = tempfile.TemporaryDirectory()
+            self.addCleanup(secret_dir.cleanup)
+            secret = os.path.join(secret_dir.name, "secret.txt")
+            with open(secret, "w") as fh:
+                fh.write("SECRET")
+            os.symlink(secret, os.path.join(root, "leak.txt"))
+            os.symlink(secret_dir.name, os.path.join(root, "leakdir"))
+            server = self.mod.make_server(root=root, host="127.0.0.1", port=0)
+            self.addCleanup(server.server_close)
+            self.addCleanup(server.shutdown)
+            port = server.server_address[1]
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+
+            for path in ("/leak.txt", "/leakdir/secret.txt"):
+                with self.subTest(path=path):
+                    status, _, body = self.request(port, path)
+                    self.assertEqual(status, 403, path)
+                    self.assertNotIn(b"SECRET", body)
+
+    def request(self, port, path):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        try:
+            conn.request("GET", path)
+            resp = conn.getresponse()
+            return resp.status, dict(resp.getheaders()), resp.read()
+        finally:
+            conn.close()
+
     def test_display_path_relative_to_cwd(self):
         with mock.patch.object(self.mod.os, "getcwd", return_value=os.path.join(os.sep, "root")):
             self.assertEqual(self.mod.display_path(os.path.join(os.sep, "root", "sub")), "sub")
