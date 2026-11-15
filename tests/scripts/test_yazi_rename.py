@@ -79,6 +79,16 @@ class TestBatchRename(unittest.TestCase):
         with open(os.path.join(self.dir, "c.txt")) as fh:
             self.assertEqual(fh.read(), "b.txt")
 
+    def test_two_entries_aimed_at_one_name_keep_the_first(self):
+        # The second rename would overwrite the first one's result, so it is
+        # reported and dropped: the first entry in the list wins.
+        self.assertEqual(self.run_rename(["a.txt", "b.txt"], ["same.txt", "same.txt"]),
+                         ["b.txt", "same.txt"])
+        with open(os.path.join(self.dir, "same.txt")) as fh:
+            self.assertEqual(fh.read(), "a.txt")
+        with open(os.path.join(self.dir, "b.txt")) as fh:
+            self.assertEqual(fh.read(), "b.txt")
+
     def test_collision_with_an_unrelated_file_is_still_skipped(self):
         with open(os.path.join(self.dir, "taken.txt"), "w") as fh:
             fh.write("keep")
