@@ -82,6 +82,24 @@ class TestAggregateTotals(unittest.TestCase):
         self.assertEqual(dua.aggregate_totals(raw, children, "a"), 50)
         self.assertEqual(dua.aggregate_totals(raw, children, "c"), 40)
 
+    def test_a_tree_deeper_than_the_recursion_limit_still_sums(self):
+        """The scanner is an iterative BFS precisely so depth cannot break it, but
+        the aggregation walked the same tree recursively and died with
+        RecursionError on a path deeper than sys.getrecursionlimit()."""
+        depth = 1200
+        root = "/r"
+        raw = {root: 1}
+        children = {root: []}
+        parent = root
+        for i in range(depth):
+            child = f"{parent}/d{i}"
+            raw[child] = 1
+            children[child] = []
+            children[parent].append(child)
+            parent = child
+        self.assertEqual(dua.aggregate_totals(raw, children, root), depth + 1)
+        self.assertEqual(dua.aggregate_errors({root: 0}, children, root), 0)
+
 
 # Windows os.stat reports st_nlink = 1 for hardlinks, so the product keys off
 # the (st_dev, st_ino) file index there (NLINK_UNRELIABLE) instead.

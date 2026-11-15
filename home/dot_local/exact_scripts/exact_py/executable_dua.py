@@ -71,10 +71,17 @@ class ByteFormat:
 
 
 def aggregate_totals(raw, children, root):
-    """Subtree byte total: root's own direct bytes + all descendants."""
-    total = raw.get(root, 0)
-    for child in children.get(root, ()):
-        total += aggregate_totals(raw, children, child)
+    """Subtree byte total: root's own direct bytes + all descendants.
+
+    Iterative, like the scan: a path deeper than the recursion limit must not
+    raise RecursionError just because the total is collected afterwards.
+    """
+    total = 0
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        total += raw.get(node, 0)
+        stack.extend(children.get(node, ()))
     return total
 
 
@@ -339,10 +346,16 @@ def _parallel_scan(chunks, apparent, count_hard_links, top_n, progress=None, bas
 
 def aggregate_errors(errs, children, root):
     """Subtree error total: root's own + all descendants (dua reports subtree
-    error counts on the line of the entry they belong to)."""
-    total = errs.get(root, 0)
-    for child in children.get(root, ()):
-        total += aggregate_errors(errs, children, child)
+    error counts on the line of the entry they belong to).
+
+    Iterative for the same reason as aggregate_totals.
+    """
+    total = 0
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        total += errs.get(node, 0)
+        stack.extend(children.get(node, ()))
     return total
 
 
