@@ -11,7 +11,7 @@ The workflow audits code, confirms each finding, records it, then repairs and ve
 
 ## 1. Establish the baseline
 
-- Read the workspace's agent instructions, architecture notes, and contributing or testing docs (for example `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, or `docs/`). Use a TDD or debugging skill when one is available; otherwise follow the repair loop in section 4.
+- Read the workspace's agent instructions, architecture notes, and contributing or testing docs (for example `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, or `docs/`). Use a TDD or debugging skill for bug findings when one is available; otherwise follow the repair loop in section 4. Dead code and simplicity repairs always follow section 4's covering-test path, since they have no red step.
 - Read `ARCHITECTURE.md` for the component map and `TODO.md` for planned or known work, when they exist. Account for documented structure and planned work instead of reporting them as findings.
 - Under version control, record the working-tree status and the current commit. Preserve existing edits: never reset, stash, or overwrite someone else's work.
 - If the project pins specs, confirm the pin from the workspace's own documentation, not from memory, and treat the specs as read-only. When the pin is missing, dirty, or mismatched, say so and do not claim parity was verified.
@@ -27,7 +27,7 @@ Cover the codebase, do not sample it:
 
 - Split the inventory into slices by component, each small enough to read in full, and work through every slice. A large codebase means more slices, not a lighter read of each.
 - A file counts as inspected only when you have read all of it and applied every lens that fits. A search hit, a file listing, an outline, or reading the first part of a file is not inspection.
-- Finishing a slice, finding a few bugs, or reaching a clean-looking area is not a reason to stop. Stop only when every row is inspected or not applicable, or the user's budget runs out.
+- Finishing a slice, finding a few bugs, or reaching a clean-looking area is not a reason to stop. Stop only when every row is inspected, unverified, or not applicable, or the user's budget runs out.
 - When the budget runs out, say so, and leave the remaining rows pending in the ledger so the next run resumes there.
 
 Order the slices by risk: trust boundaries, persistence, cancellation and shutdown, churn hotspots, files that past fixes touched, and recent changes first. Trace values through callers, callees, and error paths. An analyzer warning marks an area to inspect; it is not a finding.
@@ -58,12 +58,12 @@ Minimize the case and include a matching control. Reject scenarios that rely on 
 
 Dead code and simplicity findings are confirmed without a failing case. For dead code, the evidence is each reach path you ruled out and the search that ruled it out. For a simplification, the evidence is the simpler version and the tests that pin the behavior both versions share. Rate them low unless the dead or tangled code hides a bug, which makes it a logic finding.
 
-Record each confirmed, unresolved finding before editing production code. The tracker owns the work item; the analysis lives elsewhere:
+Before editing production code, record each confirmed finding you will not repair in this run. The tracker owns the work item; the analysis lives elsewhere:
 
-- Add one line per finding to the workspace's unfinished-work list: the ID, the severity, and the concrete failure, under the priority its impact warrants (for example a `TODO.md` section). If the workspace has no such list, report the finding in your response and ask before creating a file.
-- Keep the full record in the ledger file, and cite it by ID from the tracker line. Do not create a findings file next to the tracker; it duplicates the work items and drifts.
+- Add one line per finding to the workspace's unfinished-work list: the ID, the severity, the affected path, and the concrete failure, so the line makes sense without the full record, under the priority its impact warrants (for example a `TODO.md` section). If the workspace has no such list, report the finding in your response and ask before creating a file.
+- Keep the full record in the ledger file and repeat it in your final response, since the scratch file may not outlive the run. Do not create a findings file next to the tracker; it duplicates the work items and drifts.
 - Preserve existing entries and do not duplicate them.
-- Dead code and simplicity findings you repair in this run need no tracker line. Record only the ones you leave open.
+- Group open dead code and simplicity findings into one line per area, so low-severity cleanup does not flood the list.
 
 Use this structure for the full record:
 
@@ -84,13 +84,13 @@ Prioritize by reachable impact, not by warning count, and keep IDs stable while 
 
 ## 4. Execute confirmed repairs
 
-Once the plan exists, keep going without asking permission for each ordinary fix. Ask first when a repair would change a documented divergence, a public contract, or a trust policy, or needs a destructive action, and keep blocked findings recorded with the open decision.
+Once the plan exists, keep going without asking permission for each ordinary fix. Ask first when a repair would change a documented divergence, a public contract, or a trust policy, or needs a destructive action, and keep blocked findings recorded with the open decision. Deleting dead code that version control tracks is not destructive, since history restores it.
 
 For each finding, in priority order:
 
 1. Add the smallest regression test at the supported boundary, run it, and see the intended failure before touching production code. A compile error or a broken harness is not the red signal you need. For a concurrency bug, use controlled handshakes instead of sleeps. For performance, keep the pre-change measurement, and prefer a stable regression check over a wall-clock threshold in ordinary tests. Dead code and simplicity repairs have no red step: first make sure tests cover the behavior the change must keep, and when they do not, add a test that passes on the current code.
 2. Change only what the evidence demands. Preserve documented invariants, byte and wire formats, ownership boundaries, and platform behavior. Do not touch code outside the finding, and never weaken a test to make it pass. A simplification must leave the covering tests unchanged and passing.
-3. Run the failing test again and see it pass, or for a dead code or simplicity repair, run the covering tests and see them still pass. Then run the adjacent tests and the matching controls. Confirm that the original reproduction is resolved and no intended behavior was lost.
+3. Run the failing test again and see it pass, or for a dead code or simplicity repair, run the covering tests and see them still pass. Then run the adjacent tests. For a bug finding, also run the matching controls and confirm the original reproduction is resolved. Either way, confirm no intended behavior was lost.
 4. Update the docs that own the changed fact: `TODO.md` for the remaining work, `ARCHITECTURE.md` for durable structural changes, `AGENTS.md` for instructions or conventions, `README.md` for visible usage. Remove the finding from the tracker only after its repair is verified, and say what was confirmed. Do not erase unrelated or blocked work.
 5. Commit each finished piece before starting the next. A finished piece is one independent unit: a finding's regression test plus its minimal fix, a deletion or simplification plus any covering test added for it, or one coherent docs or skill change. Check the pending changes (status and diff, or the equivalent) so they contain only that piece, keeping the user's unrelated edits and other findings out. Follow the workspace's commit convention (for example `type(scope): summary`) and state the verification you actually ran. Never commit a red test, a half-applied repair, or work whose focused tests have not passed. If a piece cannot be verified, leave it uncommitted, say which check failed, and revert or park it. If the workspace's rules reserve commits for the user, leave the piece staged and say so.
 
@@ -99,5 +99,5 @@ For each finding, in priority order:
 - Run the focused and affected tests and the workspace gate. Never skip a failure silently or claim a check you did not run.
 - Under version control, inspect the diff and new files for scope, accidental secrets, unrelated edits, and whitespace errors.
 - Report the fixed findings, the remaining entries, the verification you ran, and any next action the user must take.
-- Report coverage from the ledger: files inspected out of the total in scope, and which files or slices remain. Do not call the audit complete while any row is pending.
+- Report coverage from the ledger: files inspected out of the total in scope, the unverified files and their open probes, which files or slices remain, and the ledger's path so a later run can resume. Do not call the audit complete while any row is pending.
 - State the limits plainly: static analysis plus passing tests cannot prove the absence of bugs, vulnerabilities, or races.
