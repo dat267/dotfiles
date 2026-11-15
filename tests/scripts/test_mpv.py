@@ -199,5 +199,65 @@ class TestRecursionGuard(unittest.TestCase):
         self.assertIn("refusing to re-exec", stderr.getvalue())
 
 
+@unittest.skipIf(os.name == "nt", "the wrapper talks to mpv over an AF_UNIX socket")
+class TestExistingInstance(unittest.TestCase):
+    """Handing a file to an mpv that is already running is the reason for the
+    wrapper, and no test drove it."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, self.tmp, True)
+        self.sock_path = os.path.join(self.tmp, "sock")
+
+    def run_main(self, argv):
+        with mock.patch.dict(os.environ, {}, clear=False) as env, \
+                mock.patch.object(mpv, "find_mpv_binary", return_value="/usr/bin/mpv"), \
+                mock.patch.object(mpv, "get_socket_path", return_value=self.sock_path), \
+                mock.patch.object(sys, "argv", argv), \
+                mock.patch("os.execv") as execv:
+            env.pop(mpv.DEPTH_ENV, None)
+            mpv.main()
+        return execv
+
+    def test_a_running_instance_receives_the_files(self):
+        import socket
+        import threading
+
+        server = socket.socket(socket.AF_UNIX)
+        server.bind(self.sock_path)
+        server.listen(1)
+        self.addCleanup(server.close)
+        received = []
+
+        def accept():
+            conn, _ = server.accept()
+            with conn:
+                while True:
+                    chunk = conn.recv(4096)
+                    if not chunk:
+                        break
+                    received.append(chunk)
+
+        worker = threading.Thread(target=accept, daemon=True)
+        worker.start()
+        execv = self.run_main(["mpv", "a.mp4"])
+        worker.join(timeout=10)
+
+        execv.assert_not_called()
+        self.assertEqual(b"".join(received),
+                         b'raw loadfile "' + os.path.abspath("a.mp4").encode() + b'" replace\n')
+
+    def test_no_listener_starts_a_new_player_on_the_socket(self):
+        with mock.patch.object(mpv, "start_mpv") as start:
+            with mock.patch.dict(os.environ, {}, clear=False) as env, \
+                    mock.patch.object(mpv, "find_mpv_binary", return_value="/usr/bin/mpv"), \
+                    mock.patch.object(mpv, "get_socket_path", return_value=self.sock_path), \
+                    mock.patch.object(sys, "argv", ["mpv", "--vo=null", "a.mp4"]):
+                env.pop(mpv.DEPTH_ENV, None)
+                mpv.main()
+        start.assert_called_once_with("/usr/bin/mpv", ["--vo=null"],
+                                      [os.path.abspath("a.mp4")], self.sock_path)
+
+
 if __name__ == "__main__":
     unittest.main()
