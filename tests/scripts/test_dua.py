@@ -523,7 +523,7 @@ class TestByteFormat(unittest.TestCase):
         self.assertEqual(f.format(10 * 1024**2), "10.00 MiB")
         self.assertEqual(f.format(1024**3), "1.00 GiB")
 
-    def test_binary_column_width_is_15(self):
+    def test_binary_column_width_is_11(self):
         f = dua.ByteFormat("binary")
         self.assertEqual(f.width, 11)
 
