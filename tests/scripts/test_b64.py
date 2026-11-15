@@ -48,14 +48,6 @@ class TestDecode(unittest.TestCase):
             b64.decode_data("not!valid")
 
 
-class RoundtripMixin:
-    def roundtrip(self, data):
-        return b64.decode_data(self.encode(data))
-
-    def encode(self, data):  # pragma: no cover - subclass defines
-        raise NotImplementedError
-
-
 class TestCli(unittest.TestCase):
     def encode(self, argv, data):
         stdin = types.SimpleNamespace(buffer=io.BytesIO(data))
