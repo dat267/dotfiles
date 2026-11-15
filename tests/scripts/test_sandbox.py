@@ -781,6 +781,44 @@ class MainTest(unittest.TestCase):
 
         self.each(check)
 
+    def test_fallback_warns_that_the_sandbox_is_off(self):
+        """A fallback must be visible: otherwise the user believes a sandbox is
+        protecting them when bwrap never ran."""
+        def check(profile):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.run_main(profile, env=self.base_env(profile), is_linux=False)
+            self.assertEqual(
+                err.getvalue(),
+                f"{profile.tool}_sandbox: not Linux; running {profile.tool} without a sandbox\n")
+
+        self.each(check)
+
+    def test_termux_silences_the_fallback_warning(self):
+        """Termux has no bwrap, so the warning would be printed on every launch
+        there; the profile stays quiet on that platform without QUIET."""
+        def check(profile):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.run_main(profile, env=self.base_env(profile, TERMUX_VERSION="0.118"),
+                              is_linux=False)
+            self.assertEqual(err.getvalue(), "")
+
+        self.each(check)
+
+    def test_missing_tool_warns_even_when_quiet(self):
+        """The tool-not-found message is not a sandbox fallback: without it the
+        user only sees exit 127."""
+        def check(profile):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                rc = self.run_main(profile, env=self.base_env(profile, **{profile.var("QUIET"): "1"}),
+                                   which=lambda name: None)
+            self.assertEqual(rc, 127)
+            self.assertIn("not found on PATH", err.getvalue())
+
+        self.each(check)
+
 
 if __name__ == "__main__":
     unittest.main()
