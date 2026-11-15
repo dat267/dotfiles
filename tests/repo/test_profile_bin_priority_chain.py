@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 import _loader
 
@@ -102,9 +103,12 @@ class ShellStartupBinPriorityTest(unittest.TestCase):
                 self.assertEqual(self.count_profile_sources(shell, flags), "1")
 
     def probe_winner(self, shell, flags, path):
+        binary = shutil.which(shell)
+        if not binary:
+            self.skipTest(f"{shell} is not installed")
         env = dict(self.env, PATH=path)
         return subprocess.run(
-            [shutil.which(shell), *flags, "-c", "command -v probe"],
+            [binary, *flags, "-c", "command -v probe"],
             env=env, capture_output=True, text=True, timeout=20,
         )
 
@@ -122,6 +126,13 @@ class ShellStartupBinPriorityTest(unittest.TestCase):
 
     def test_zsh_interactive_shell_prioritizes_bin(self):
         self.assert_bin_wins("zsh", ["-i", "-c"], f"{self.tools}:{self.npm_bin}", "zsh interactive shell")
+
+    def test_a_missing_shell_skips_instead_of_erroring(self):
+        # Termux ships bash only; subprocess.run([None, ...]) raised TypeError
+        # there, so the zsh cases errored instead of skipping.
+        with mock.patch.object(shutil, "which", return_value=None):
+            with self.assertRaises(unittest.SkipTest):
+                self.assert_bin_wins("zsh", ["-c"], "/nonexistent", "zsh")
 
     def test_bash_login_shell_prioritizes_bin(self):
         self.assert_bin_wins("bash", ["-l", "-c"], f"{self.tools}:{self.npm_bin}", "bash login shell")
