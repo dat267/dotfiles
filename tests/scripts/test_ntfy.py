@@ -24,18 +24,18 @@ ntfy = _loader.load("ntfy")
 class TargetCase(unittest.TestCase):
 	def test_flag_beats_env_beats_config(self):
 		with tempfile.TemporaryDirectory() as tmp:
-			cfg = ntfy.config_path(self.home(tmp))
+			cfg = ntfy.config_path(tmp)
 			cfg.parent.mkdir(parents=True)
 			cfg.write_text("https://conf.example/topic-c\n")
 			with patch.dict(os.environ, {"NTFY_TARGET": "env-topic"}):
 				# resolve_target returns the raw target; URL expansion is
 				# target_url's job (tested separately) — layered, composed in main.
-				self.assertEqual(ntfy.resolve_target("flag-topic", self.home(tmp)), "flag-topic")
-				self.assertEqual(ntfy.resolve_target(None, self.home(tmp)), "env-topic")
+				self.assertEqual(ntfy.resolve_target("flag-topic", tmp), "flag-topic")
+				self.assertEqual(ntfy.resolve_target(None, tmp), "env-topic")
 				with patch.dict(os.environ, {}, clear=True):
-					self.assertEqual(ntfy.resolve_target(None, self.home(tmp)), "https://conf.example/topic-c")
+					self.assertEqual(ntfy.resolve_target(None, tmp), "https://conf.example/topic-c")
 					self.assertEqual(
-						ntfy.target_url(ntfy.resolve_target(None, self.home(tmp))),
+						ntfy.target_url(ntfy.resolve_target(None, tmp)),
 						"https://conf.example/topic-c")
 
 	def test_bare_topic_gets_public_base_url(self):
@@ -44,9 +44,6 @@ class TargetCase(unittest.TestCase):
 	def test_full_url_and_self_hosted_pass_through(self):
 		self.assertEqual(ntfy.target_url("https://ntfy.sh/x"), "https://ntfy.sh/x")
 		self.assertEqual(ntfy.target_url("http://lan.local:2586/x"), "http://lan.local:2586/x")
-
-	def home(self, tmp):
-		return type(tmp)(tmp)
 
 
 class RequestCase(unittest.TestCase):
@@ -103,6 +100,18 @@ class TransportCase(unittest.TestCase):
 		rc = ntfy.send("https://ntfy.sh/t", message="x", opener=bad_opener)
 		self.assertEqual(rc, 1)
 
+	def test_network_failure_is_reported_not_raised(self):
+		# A dead link raises URLError, not HTTPError: ntfy runs from hooks and
+		# cron, where a traceback is a failed notification plus noise.
+		def broken(req, timeout=0):
+			raise urllib.error.URLError("Name or service not known")
+
+		err = io.StringIO()
+		with contextlib.redirect_stderr(err):
+			rc = ntfy.send("https://ntfy.sh/t", message="x", opener=broken)
+		self.assertEqual(rc, 1)
+		self.assertIn("Name or service not known", err.getvalue())
+
 
 class StdinCase(unittest.TestCase):
 	def test_message_from_stdin_when_no_positional(self):
@@ -146,12 +155,12 @@ class GenerateCase(unittest.TestCase):
 
 	def test_print_topic_ignores_existing_target_config(self):
 		with tempfile.TemporaryDirectory() as tmp:
-			cfg = ntfy.config_path(self.home(tmp))
+			cfg = ntfy.config_path(tmp)
 			cfg.parent.mkdir(parents=True)
 			cfg.write_text("https://ntfy.sh/old-configured-topic\n")
 			buf = io.StringIO()
 			with contextlib.redirect_stdout(buf):
-				rc = ntfy.main(["--print-topic", "--topic", "ignored-env-value"], home=self.home(tmp))
+				rc = ntfy.main(["--print-topic", "--topic", "ignored-env-value"], home=tmp)
 			self.assertEqual(rc, 0)
 			self.assertNotIn("old-configured-topic", buf.getvalue())
 			self.assertNotIn("ignored-env-value", buf.getvalue())
@@ -164,6 +173,3 @@ class GenerateCase(unittest.TestCase):
 				ntfy.main(["--print-topic"])
 			urls.append(buf.getvalue().splitlines()[0])
 		self.assertNotEqual(*urls, "crypto-secure generation should not collide across two calls")
-
-	def home(self, tmp):
-		return type(tmp)(tmp)
