@@ -48,8 +48,11 @@ $XDG_RUNTIME_DIR is a private tmpfs rather than the user's own. Every socket
 the session keeps there is a way to act on the host: the session bus and the
 systemd user manager run commands as the user outside the sandbox, and
 pipewire, dconf, kwallet, at-spi, and the yazi and mpv IPC endpoints drive
-processes outside it. Only the container service socket and the ssh agent
-that `git push` needs are bound back, read-only. The host sockets outside the
+processes outside it. Only the container service socket, the ssh agent that
+`git push` needs, and the Wayland compositor socket are bound back, read-only.
+Wayland is the only path to the clipboard; a client there reads and writes the
+clipboard and sees no input aimed at other surfaces, and screen capture on KWin
+needs the portal on the system bus, which stays masked. The host sockets outside the
 runtime dir are masked for the same reason: the system bus, the X11, ICE
 session-management, and XIM input-method sockets under /tmp, the tmux socket
 directory, and the journald sockets, which would let the sandbox forge log
