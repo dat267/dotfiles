@@ -123,7 +123,12 @@ def extract_archive(src, dest_dir):
 
 
 def install_release_binary(url, binary_names, dest_dir, *, extract=None, headers=None, opener=None, timeout=DEFAULT_TIMEOUT):
-    """Install binary/binary list from a release URL: download → extract → chmod → atomic replace.
+    """Install binary/binary list from a release URL: download → extract → chmod → replace.
+
+    Not atomic: the old file is removed before the new one is moved in, and the
+    move copies across filesystems (temp dir to install dir), so a crash in
+    between leaves no binary. Kept that way because os.replace over a running
+    executable fails on Windows.
 
     binary_names is one name (returns the dest path) or a sequence of names
     (downloads and extracts ONCE, returns a list of dest paths). extract:
