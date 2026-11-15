@@ -112,26 +112,45 @@ def backend_for(path, which=shutil.which):
     return None
 
 
-def member_names(path, backend):
+def _members(path, backend):
+    """(name, is_dir, linkname) for every archive member the stdlib can see."""
     if backend == "zip":
         with zipfile.ZipFile(path) as zf:
-            return [info.filename for info in zf.infolist() if not info.is_dir()]
+            for info in zf.infolist():
+                yield info.filename, info.is_dir(), None
+        return
     if backend == "tar":
         with tarfile.open(path) as tf:
-            names = []
             for member in tf.getmembers():
-                if not (member.isfile() or member.issym() or member.islnk()):
-                    continue
-                names.append(member.name)
-                # A link member is an escape vector too: its linkname decides
-                # where the link points, so it gets the same traversal check.
-                if member.issym() or member.islnk():
-                    names.append(member.linkname)
-            return names
+                link = member.linkname if member.issym() or member.islnk() else None
+                yield member.name, member.isdir(), link
+        return
     if backend == "7z":
         out = subprocess.run(["7z", "l", "-slt", "-ba", "--", path], capture_output=True, text=True)
-        return parse_7z_listing(out.stdout)
-    return []
+        for name in parse_7z_listing(out.stdout):
+            yield name, False, None
+
+
+def member_paths(path, backend):
+    """Every path validation must see: member names of every type, plus link targets.
+
+    Directories count. A tar directory member named `../outside` is created
+    outside the destination, and it never reached the check while only files
+    and links were collected here.
+    """
+    paths = []
+    for name, _is_dir, link in _members(path, backend):
+        paths.append(name)
+        if link:
+            # A link member is an escape vector too: its linkname decides where
+            # the link points, so it gets the same traversal check.
+            paths.append(link)
+    return paths
+
+
+def member_names(path, backend):
+    """Member paths to print and to extract: files and links, not directories."""
+    return [name for name, is_dir, _link in _members(path, backend) if not is_dir]
 
 
 def extract_zip(path, dest, force):
@@ -164,15 +183,23 @@ def extract_tar(path, dest, force):
             if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
                 continue
             target = os.path.join(dest, *member.name.replace("\\", "/").split("/"))
+            parent = os.path.dirname(target)
             if member.isdir():
-                os.makedirs(target, exist_ok=True)
+                try:
+                    os.makedirs(target, exist_ok=True)
+                except (FileExistsError, NotADirectoryError):
+                    eprint(f"extract: skipping {member.name}: a file is in the way")
                 continue
             if member.issym() or member.islnk():
                 # Names were already checked for traversal, so the linkname can
                 # only resolve inside dest. Keep the link: materializing it as a
                 # copy duplicated the bytes and silently changed the tree.
                 link_target = os.path.join(dest, *member.linkname.replace("\\", "/").split("/"))
-                os.makedirs(os.path.dirname(target), exist_ok=True)
+                try:
+                    os.makedirs(parent, exist_ok=True)
+                except (FileExistsError, NotADirectoryError):
+                    eprint(f"extract: skipping {member.name}: {parent} is not a directory")
+                    continue
                 if os.path.lexists(target):
                     if not force:
                         continue
@@ -182,7 +209,15 @@ def extract_tar(path, dest, force):
                 else:
                     os.link(link_target, target)
                 continue
-            os.makedirs(os.path.dirname(target), exist_ok=True)
+            # An earlier member can occupy a name this one needs as a directory
+            # (a file where a directory should be). Report and skip it, as the
+            # zip backend does, instead of raising FileExistsError and losing
+            # every member after it.
+            try:
+                os.makedirs(parent, exist_ok=True)
+            except (FileExistsError, NotADirectoryError):
+                eprint(f"extract: skipping {member.name}: {parent} is not a directory")
+                continue
             if os.path.exists(target) and not force:
                 continue
             src = tf.extractfile(member)
@@ -242,7 +277,7 @@ def main(argv=None):
             continue
 
         names = member_names(archive, backend)
-        offenders = unsafe_members(names)
+        offenders = unsafe_members(member_paths(archive, backend))
         if offenders:
             eprint(f"extract: refusing {os.path.basename(archive)}: unsafe member path(s): {', '.join(offenders)}")
             failures += 1

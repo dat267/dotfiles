@@ -201,6 +201,34 @@ class TestExtraction(unittest.TestCase):
         self.assertIn("../escaped.txt", err)
         self.assertFalse(os.path.exists(os.path.join(self.root, "escaped.txt")))
 
+    def test_refuses_a_tar_directory_member_that_escapes(self):
+        """Validation looked only at files and links, so a directory member named
+        ../outside was created outside the destination."""
+        path = os.path.join(self.root, "dirtrap.tar.gz")
+        with tarfile.open(path, "w:gz") as tf:
+            info = tarfile.TarInfo("../outside")
+            info.type = tarfile.DIRTYPE
+            tf.addfile(info)
+        code, _, err = run_main([path])
+        self.assertEqual(code, 1)
+        self.assertIn("../outside", err)
+        self.assertFalse(os.path.exists(os.path.join(self.root, "outside")))
+
+    def test_tar_member_through_an_earlier_member_is_skipped(self):
+        """The zip backend skips a member whose parent is a file; the tar backend
+        raised FileExistsError and lost the rest of the archive."""
+        path = os.path.join(self.root, "contested.tar.gz")
+        with tarfile.open(path, "w:gz") as tf:
+            for name, content in (("blocker", "i am a file"), ("blocker/nested.txt", "no"), ("fine.txt", "ok")):
+                data = content.encode()
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tf.addfile(info, io.BytesIO(data))
+        code, _, err = run_main([path])
+        self.assertEqual(code, 0, err)
+        self.assertIn("blocker/nested.txt", err)
+        self.assertEqual(self.read("contested", "fine.txt"), "ok")
+
     def test_member_through_an_earlier_member_is_skipped(self):
         """A zip whose member path runs through an earlier file entry raised
         FileExistsError instead of skipping the impossible member."""
