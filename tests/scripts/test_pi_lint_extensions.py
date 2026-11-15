@@ -3,6 +3,8 @@ one-command practice. The pure seams (discovery, command planning, exit
 aggregation) are tested directly; the filesystem effects run against tmp.
 """
 
+import contextlib
+import io
 import os
 import pathlib
 import subprocess
@@ -341,6 +343,47 @@ class TestAggregation(PiplineCase):
 	def test_exit_code_zero_only_when_all_pass(self):
 		self.assertEqual(pi_lint.exit_code([("a", True, ""), ("b", True, "")]), 0)
 		self.assertEqual(pi_lint.exit_code([("a", True, ""), ("b", False, "err")]), 1)
+
+
+class TestMain(PiplineCase):
+	"""main() is the gate the repo's own docs tell agents to run, so a run that
+	linted nothing must not report success."""
+
+	def invoke(self, argv):
+		out, err = io.StringIO(), io.StringIO()
+		fake_pkg = self.root / "pi-pkg"
+		(fake_pkg / "node_modules" / "@types" / "node").mkdir(parents=True, exist_ok=True)
+
+		def fake_run(cmd, **kwargs):
+			return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+		with patch.object(pi_lint, "resolve_pi_package", return_value=fake_pkg), \
+				patch.object(pi_lint, "ensure_typescript", return_value=_Path("tsc")), \
+				patch.object(pi_lint.subprocess, "run", fake_run), \
+				contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+			code = pi_lint.main(["--root", str(self.root), *argv])
+		return code, out.getvalue(), err.getvalue()
+
+	def test_dir_flag_lints_only_that_directory(self):
+		self.make_ext("exact_a", ["index.ts"])
+		self.make_ext("exact_b", ["index.ts"])
+		code, out, _ = self.invoke(["--dir", "exact_a"])
+		self.assertEqual(code, 0)
+		self.assertIn("PASS exact_a", out)
+		self.assertNotIn("exact_b", out)
+
+	def test_dir_that_matches_nothing_is_a_failure(self):
+		self.make_ext("exact_a", ["index.ts"])
+		code, _, err = self.invoke(["--dir", "exact_missing"])
+		self.assertEqual(code, 1)
+		self.assertIn("exact_missing", err)
+
+	def test_linting_nothing_is_a_failure(self):
+		# The extensions moved out of the deployed tree once already, and a
+		# silent zero-directory run reported PASS while checking nothing.
+		code, _, err = self.invoke([])
+		self.assertEqual(code, 1)
+		self.assertIn("no extensions", err)
 
 
 if __name__ == "__main__":

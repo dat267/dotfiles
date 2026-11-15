@@ -208,6 +208,12 @@ def main(argv=None):
 	args = parser.parse_args(argv)
 
 	results = run_lint(args.root, only=args.dir)
+	if not results:
+		# exit_code([]) is 0, so a run that found nothing used to report success:
+		# the extensions can sit outside the deployed tree without anyone noticing.
+		scope = f"--dir {args.dir}" if args.dir else str(args.root)
+		print(f"no extensions found for {scope}", file=sys.stderr)
+		return 1
 	any_output = False
 	for name, ok, output in results:
 		if ok and args.quiet:
