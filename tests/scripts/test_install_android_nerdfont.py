@@ -81,8 +81,47 @@ class TestAndroidRepoParsing(unittest.TestCase):
 
 class TestFindJavaHome(unittest.TestCase):
     def test_env_var_wins(self):
-        with mock.patch.dict("os.environ", {"JAVA_HOME": tempfile.mkdtemp()}):
+        home = tempfile.mkdtemp()
+        self.addCleanup(os.rmdir, home)
+        with mock.patch.dict("os.environ", {"JAVA_HOME": home}):
             self.assertEqual(sdk.find_java_home(), os.environ["JAVA_HOME"])
+
+    def env_without_java(self):
+        """Keep every other variable: expanduser needs HOME and USERPROFILE."""
+        keep = {k: v for k, v in os.environ.items() if k not in ("JAVA_HOME", "JDK_HOME")}
+        return mock.patch.dict(sdk.os.environ, keep, clear=True)
+
+    def test_env_var_pointing_nowhere_is_not_returned(self):
+        # A stale JAVA_HOME names a path that no longer exists; returning it
+        # hands sdkmanager a JDK that is not there.
+        with self.env_without_java(), \
+                mock.patch.dict("os.environ", {"JAVA_HOME": "/no/such/jdk"}), \
+                mock.patch.object(sdk.os.path, "isdir", lambda p: False), \
+                mock.patch.object(sdk.subprocess, "run", side_effect=FileNotFoundError), \
+                mock.patch("sys.stderr", io.StringIO()):
+            with self.assertRaises(SystemExit):
+                sdk.find_java_home()
+
+    def test_sdkman_candidate_used_when_it_exists(self):
+        sdkman = os.path.expanduser("~/.sdkman/candidates/java/current")
+        with self.env_without_java(), \
+                mock.patch.object(sdk.os.path, "isdir", lambda p: p == sdkman):
+            self.assertEqual(sdk.find_java_home(), sdkman)
+
+    def test_java_home_read_from_java_settings(self):
+        result = mock.Mock(stderr="    java.home = /opt/jdk17\n    java.version = 17\n")
+        with self.env_without_java(), \
+                mock.patch.object(sdk.os.path, "isdir", lambda p: False), \
+                mock.patch.object(sdk.subprocess, "run", return_value=result):
+            self.assertEqual(sdk.find_java_home(), "/opt/jdk17")
+
+    def test_no_java_at_all_exits(self):
+        with self.env_without_java(), \
+                mock.patch.object(sdk.os.path, "isdir", lambda p: False), \
+                mock.patch.object(sdk.subprocess, "run", side_effect=FileNotFoundError), \
+                mock.patch("sys.stderr", io.StringIO()):
+            with self.assertRaises(SystemExit):
+                sdk.find_java_home()
 
 
 def ttf_with_full_name(full_name):
@@ -171,13 +210,6 @@ class TestNerdFont(unittest.TestCase):
         with zipfile.ZipFile(buf, "w") as z:
             z.writestr("HackNerdFontMono-Regular.ttf", b"font")
         payload = buf.getvalue()
-
-        class Response(io.BytesIO):
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *exc):
-                return False
 
         dest = tempfile.mkdtemp()
         requested = []
