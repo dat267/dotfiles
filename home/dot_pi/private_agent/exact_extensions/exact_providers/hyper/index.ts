@@ -4,7 +4,7 @@
  * Registers the Charm Hyper provider (https://hyper.charm.land) with the
  * catalog from catalog.ts. No fetchModels overlay: pi refreshes at startup
  * with allowNetwork=false and would restore stale entries from
- * ~/.pi/agent/models.json over the static list anyway (dynamic copies
+ * ~/.pi/agent/models-store.json over the static list anyway (dynamic copies
  * replace baseline entries by id). The catalog's data fields are kept in
  * sync with /v1/models by the repo's `tools/hyper_catalog.py`, run by hand —
  * `--check` shows drift, a plain run rewrites it.
