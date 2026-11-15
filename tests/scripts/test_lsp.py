@@ -47,25 +47,53 @@ class TestGetPlatform(unittest.TestCase):
         # Second detection branch: env var absent, Termux root path exists.
         self.assertEqual(self.detect("Linux", "x86_64", termux_root=True), ("android", "x64"))
 
+    def test_darwin(self):
+        self.assertEqual(self.detect("Darwin", "arm64"), ("darwin", "arm64"))
+        self.assertEqual(self.detect("Darwin", "x86_64"), ("darwin", "x64"))
+
     def test_windows(self):
         self.assertEqual(self.detect("Windows", "AMD64"), ("windows", "x64"))
 
 
 class TestCreateProxy(unittest.TestCase):
+    """Every LSP binary lives in SHARE_DIR and reaches PATH through this proxy,
+    so both branches are part of the installer contract."""
+
+    def proxy(self, plat, bin_name="serve", target="/opt/tool/bin/serve"):
+        bins = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, bins, True)
+        with mock.patch.object(lsp, "BIN_DIR", bins):
+            lsp.create_proxy(plat, target, bin_name)
+        return bins
+
     def test_unix_proxy(self):
         import os
-        import tempfile
 
-        with mock.patch.object(lsp, "BIN_DIR", tempfile.mkdtemp()):
-            target = "/opt/tool/bin/serve"
-            lsp.create_proxy(shared.Platform("linux", "x64"), target, "serve")
-            proxy = os.path.join(lsp.BIN_DIR, "serve")
-            try:
-                content = open(proxy).read()
-                self.assertIn(f'exec "{target}" "$@"', content)
-                self.assertTrue(os.access(proxy, os.X_OK))
-            finally:
-                os.remove(proxy)
+        bins = self.proxy(shared.Platform("linux", "x64"))
+        proxy = os.path.join(bins, "serve")
+        with open(proxy) as f:
+            self.assertIn('exec "/opt/tool/bin/serve" "$@"', f.read())
+        self.assertTrue(os.access(proxy, os.X_OK))
+
+    def test_unix_proxy_replaces_a_stale_script(self):
+        import os
+
+        bins = tempfile.mkdtemp()
+        self.addCleanup(__import__("shutil").rmtree, bins, True)
+        with open(os.path.join(bins, "serve"), "w") as f:
+            f.write("#!/bin/sh\nexec /old/serve \"$@\"")
+        with mock.patch.object(lsp, "BIN_DIR", bins):
+            lsp.create_proxy(shared.Platform("linux", "x64"), "/new/serve", "serve")
+        with open(os.path.join(bins, "serve")) as f:
+            self.assertIn("/new/serve", f.read())
+
+    def test_windows_proxy_is_a_batch_file(self):
+        import os
+
+        bins = self.proxy(shared.Platform("windows", "x64"), target=r"C:\tool\serve.exe")
+        self.assertEqual(os.listdir(bins), ["serve.cmd"])
+        with open(os.path.join(bins, "serve.cmd")) as f:
+            self.assertEqual(f.read(), '@echo off\n"C:\\tool\\serve.exe" %*')
 
 
 class TestLuaRecipeLinksTheServer(unittest.TestCase):
