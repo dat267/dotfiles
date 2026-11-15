@@ -19,9 +19,16 @@ The workflow audits code, confirms each finding, records it, then repairs and ve
 
 ## 2. Inventory and inspect systematically
 
-Keep track, in your working notes rather than the repository, of which areas you inspected, which do not apply and why, and which remain.
+Inventory first-party production code, tests, scripts, build and release workflows, and configuration. Exclude vendored dependencies, generated data, and build output. List every file in scope with a command (for example `git ls-files`), not from memory or a directory skim, and count them.
 
-Inventory first-party production code, tests, scripts, build and release workflows, and configuration. Exclude vendored dependencies, generated data, and build output. Work in bounded slices until coverage is complete or the budget runs out.
+Keep a coverage ledger in a scratch file outside the repository, so it survives a long session: one row per file with its status (pending, inspected, or not applicable and why) and the lenses applied. Update it as you go, and reread it after any break or context summary.
+
+Cover the codebase, do not sample it:
+
+- Split the inventory into slices by component, each small enough to read in full, and work through every slice. A large codebase means more slices, not a lighter read of each.
+- A file counts as inspected only when you have read all of it and applied every lens that fits. A search hit, a file listing, an outline, or reading the first part of a file is not inspection.
+- Finishing a slice, finding a few bugs, or reaching a clean-looking area is not a reason to stop. Stop only when every row is inspected or not applicable, or the user's budget runs out.
+- When the budget runs out, say so, and leave the remaining rows pending in the ledger so the next run resumes there.
 
 Start with trust boundaries, persistence, cancellation and shutdown, churn hotspots, files that past fixes touched, and recent changes, but do not stop at the first bug or review only recent diffs. Trace values through callers, callees, and error paths. A search hit or an analyzer warning marks an area to inspect; it is not a finding.
 
@@ -91,4 +98,5 @@ For each finding, in priority order:
 - Run the focused and affected tests and the workspace gate. Never skip a failure silently or claim a check you did not run.
 - Under version control, inspect the diff and new files for scope, accidental secrets, unrelated edits, and whitespace errors.
 - Report the fixed findings, the remaining entries, the verification you ran, and any next action the user must take.
+- Report coverage from the ledger: files inspected out of the total in scope, and which files or slices remain. Do not call the audit complete while any row is pending.
 - State the limits plainly: static analysis plus passing tests cannot prove the absence of bugs, vulnerabilities, or races.
