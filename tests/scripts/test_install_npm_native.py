@@ -190,6 +190,56 @@ class TestMain(unittest.TestCase):
                 mock.patch.object(npm, "fetch_json", return_value=None):
             self.assertEqual(npm.main(claude.TOOL, ["--version", "9.9.9"]), 1)
 
+    def build_tarball(self, tmp, data=b"binary"):
+        """A real platform tarball plus the integrity string npm would publish."""
+        tgz = os.path.join(tmp, "package.tgz")
+        with tarfile.open(tgz, "w:gz") as tar:
+            info = tarfile.TarInfo(f"package/bin/{claude.TOOL.name}")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+        with open(tgz, "rb") as f:
+            integrity = "sha512-" + base64.b64encode(hashlib.sha512(f.read()).digest()).decode()
+        return tgz, integrity
+
+    def install(self, integrity_for):
+        """Run main() against a local tarball; returns (rc, binary path, downloaded)."""
+        home = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, home, True)
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        tgz, integrity = self.build_tarball(tmp)
+        manifest = {"version": "2.0.0",
+                    "dist": {"tarball": "https://x/p.tgz", "integrity": integrity_for(integrity)}}
+        downloaded = []
+
+        def download(url, dest, **kwargs):
+            shutil.copyfile(tgz, dest)
+            downloaded.append(dest)
+
+        with mock.patch.object(npm.Platform, "detect", return_value=P("linux", "x64")), \
+                mock.patch.object(npm, "fetch_json", return_value=manifest), \
+                mock.patch.object(npm, "download", download), \
+                mock.patch.object(npm, "installed_version",
+                                  lambda p, path: "2.0.0" if os.path.exists(path) else None), \
+                mock.patch.object(npm.os.path, "expanduser", return_value=home):
+            code = npm.main(claude.TOOL, [])
+        return code, os.path.join(home, ".local", "bin", claude.TOOL.name), downloaded
+
+    def test_fresh_install_places_the_verified_binary(self):
+        # Nothing tested the install path end to end: download, integrity check,
+        # extraction, and placement. A dropped verify_integrity would pass today.
+        code, binary, downloaded = self.install(lambda integrity: integrity)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(downloaded), 1)
+        with open(binary, "rb") as f:
+            self.assertEqual(f.read(), b"binary")
+
+    def test_bad_integrity_installs_nothing(self):
+        wrong = "sha512-" + base64.b64encode(hashlib.sha512(b"other").digest()).decode()
+        code, binary, _ = self.install(lambda integrity: wrong)
+        self.assertEqual(code, 1)
+        self.assertFalse(os.path.exists(binary))
+
 
 def _bash():
     return shutil.which("bash") if os.name == "posix" else None
