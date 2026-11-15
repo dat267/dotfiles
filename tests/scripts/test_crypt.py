@@ -47,6 +47,29 @@ class TestCryptFile(unittest.TestCase):
             crypt.decrypt_file(enc, dec, "testpass")
             self.assertEqual(open(dec, "rb").read(), content)
 
+    @unittest.skipIf(os.name == "nt", "POSIX permission bits")
+    def test_decrypted_output_is_private(self):
+        """Plaintext written with the default mode follows the umask, so with the
+        common 022 it landed world-readable; a tool that exists to protect a file
+        must not hand it back readable to every user on the box."""
+        import stat
+
+        with tempfile.TemporaryDirectory() as d:
+            enc = f"{d}/secret.enc"
+            dec = f"{d}/secret.txt"
+            with open(f"{d}/plain", "wb") as f:
+                f.write(b"secret")
+            crypt.encrypt_file(f"{d}/plain", enc, "pw")
+
+            old = os.umask(0o022)
+            try:
+                crypt.decrypt_file(enc, dec, "pw")
+            finally:
+                os.umask(old)
+
+            mode = stat.S_IMODE(os.stat(dec).st_mode)
+            self.assertEqual(mode, 0o600, oct(mode))
+
 
 class TestCryptCLI(unittest.TestCase):
     def test_cli_roundtrip_with_prompt(self):

@@ -168,7 +168,10 @@ def decrypt_file(in_path: str, out_path: str, passphrase: str) -> None:
     plaintext = decrypt_data(data, passphrase)
     tmp_out = f"{out_path}.tmp.{os.getpid()}"
     try:
-        with open(tmp_out, "wb") as f:
+        # 0600 explicitly: the default mode follows the umask, and a 022 umask
+        # would leave the decrypted plaintext readable by every local user.
+        fd = os.open(tmp_out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as f:
             f.write(plaintext)
         os.replace(tmp_out, out_path)
     finally:
