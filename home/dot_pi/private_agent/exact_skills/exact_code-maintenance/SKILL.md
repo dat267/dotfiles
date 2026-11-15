@@ -1,11 +1,11 @@
 ---
 name: code-maintenance
-description: Audit a codebase or one area of it for logic flaws, concurrency bugs, security vulnerabilities, parity gaps against specs, and measured performance problems, reproduce each finding, then repair and verify it. Use when asked to audit, harden, or do a maintenance pass, or when debugging finds a missing test seam or a design defect. Not for reviewing a single diff or fixing one known bug.
+description: Audit a codebase or one area of it for logic flaws, concurrency bugs, security vulnerabilities, parity gaps against specs, measured performance problems, dead code, and code that could be simpler, confirm each finding, then repair and verify it. Use when asked to audit, harden, clean up, simplify, or do a maintenance pass, or when debugging finds a missing test seam or a design defect. Not for reviewing a single diff or fixing one known bug.
 ---
 
 # Code maintenance
 
-The workflow audits code, reproduces each finding, records it, then repairs and verifies it.
+The workflow audits code, confirms each finding, records it, then repairs and verifies it.
 
 **Scope.** When the user invokes this skill, the default scope is the whole first-party codebase. When you pick it yourself, or another skill hands you a finding, the scope is that finding and the area it lives in: say so, and offer the wider audit instead of starting it. Either way, honor any instructions that narrow the scope, set a time budget, ask for audit-only, or resume existing findings. Invocation is not permission to push, release, or install dependencies.
 
@@ -33,6 +33,8 @@ Start with trust boundaries, persistence, cancellation and shutdown, churn hotsp
 4. **Security:** name the attacker, the input, the trust boundary, and the asset at risk. Trace path traversal and symlinks, command and argument injection, credential leakage, token validation, redirects and SSRF, untrusted plugin or provider data, file permissions, terminal control injection, resource exhaustion, and update or download integrity. Account for intentional capabilities and authority the user granted. Use synthetic secrets, local servers, and disposable directories; never exploit real systems or print real credentials.
 5. **Performance:** trace loops that scale with input, repeated scans and copies, allocation growth, I/O under locks, unbounded queues, and render or stream paths. Require a concrete workload with a measured baseline, an allocation test, or a reproducible stall. An operation that looks expensive is not therefore a bottleneck. Add no speculative caches, thresholds, workers, or fast paths.
 6. **Design:** note where understanding one concept means bouncing between many small modules, where an interface is as complex as its implementation, and where pure functions were extracted for testability while the real bugs hide in the call sites. Apply the **deletion test**: would deleting this module concentrate complexity (it was doing real work) or merely move it (it was shallow)? Name the **seam** where behavior can vary without touching callers. Report these as design findings. They are not defects, and must not be refactored without the user's agreement.
+7. **Dead code:** find unreachable branches, unused functions, parameters, imports, options, and files, and flags or fallbacks that no supported configuration takes. Before calling code dead, rule out every way to reach it: dynamic dispatch, reflection, string lookups, entry points declared in build, package, or CI files, registrations in config, plugin and hook interfaces, platform and version guards, and callers outside the repository. Code that only its own tests use is dead, and its tests go with it. Exported or documented API is a public contract even with no caller in the repository.
+8. **Simplicity:** find code that does its job in a longer or more indirect way than it needs: duplicated logic, a hand-rolled copy of a standard library function or an existing helper, layers, options, or generality nothing uses, checks for states the code cannot reach, and control flow a reader must untangle. A finding names the simpler version and why it behaves the same. Keep it inside one module and its existing interface; a change that moves boundaries is a design finding. Taste is not a finding: the rewrite must be shorter, remove a concept, or remove a way to get it wrong.
 
 ### Avoid missed findings
 
@@ -46,6 +48,8 @@ Start with trust boundaries, persistence, cancellation and shutdown, churn hotsp
 
 For each candidate, establish a reachable scenario, the actual result, the expected result and the authority for it, the root cause, and the impact on users. The expected result comes from the workspace's contract or the pinned specs, not from personal preference or another project's convention.
 
+Dead code and simplicity findings are confirmed without a failing case. For dead code, the evidence is each reach path you ruled out and the search that ruled it out. For a simplification, the evidence is the simpler version and the tests that pin the behavior both versions share. Rate them low unless the dead or tangled code hides a bug, which makes it a logic finding.
+
 Minimize the case and include a matching control. Reject scenarios that rely on impossible internal state, documented divergences, or unsupported features. A candidate you cannot reproduce stays explicitly unconfirmed and gets no patch. Report one finding per root cause: the same defect reached through several call sites is one finding.
 
 Record each confirmed, unresolved finding before editing production code. The tracker owns the work item; the analysis lives elsewhere:
@@ -53,6 +57,7 @@ Record each confirmed, unresolved finding before editing production code. The tr
 - Add one line per finding to the workspace's unfinished-work list: the ID, the severity, and the concrete failure, under the priority its impact warrants (for example a `TODO.md` section). If the workspace has no such list, report the finding in your response and ask before creating a file.
 - Keep the full record with the run, in your working notes or the response, and cite it by ID from the tracker line. Do not create a findings file next to the tracker; it duplicates the work items and drifts.
 - Preserve existing entries and do not duplicate them.
+- Dead code and simplicity findings you repair in this run need no tracker line. Record only the ones you leave open.
 
 Use this structure for the full record:
 
@@ -75,8 +80,8 @@ Once the plan exists, keep going without asking permission for each ordinary fix
 
 For each finding, in priority order:
 
-1. Add the smallest regression test at the supported boundary, run it, and see the intended failure before touching production code. A compile error or a broken harness is not the red signal you need. For a concurrency bug, use controlled handshakes instead of sleeps. For performance, keep the pre-change measurement, and prefer a stable regression check over a wall-clock threshold in ordinary tests.
-2. Change only what the evidence demands. Preserve documented invariants, byte and wire formats, ownership boundaries, and platform behavior. Do not refactor unrelated code, and never weaken a test to make it pass.
+1. Add the smallest regression test at the supported boundary, run it, and see the intended failure before touching production code. A compile error or a broken harness is not the red signal you need. For a concurrency bug, use controlled handshakes instead of sleeps. For performance, keep the pre-change measurement, and prefer a stable regression check over a wall-clock threshold in ordinary tests. Dead code and simplicity repairs have no red step: first make sure tests cover the behavior the change must keep, and when they do not, add a test that passes on the current code.
+2. Change only what the evidence demands. Preserve documented invariants, byte and wire formats, ownership boundaries, and platform behavior. Do not touch code outside the finding, and never weaken a test to make it pass. A simplification must leave the covering tests unchanged and passing.
 3. Run the failing test again and see it pass, then run the adjacent tests and the matching controls. Confirm that the original reproduction is resolved and no intended behavior was lost.
 4. Update the docs that own the changed fact: `TODO.md` for the remaining work, `ARCHITECTURE.md` for durable structural changes, `AGENTS.md` for instructions or conventions, `README.md` for visible usage. Remove the finding from the tracker only after its repair is verified, and say what was confirmed. Do not erase unrelated or blocked work.
 5. Commit each finished piece before starting the next. A finished piece is one independent unit: a finding's regression test plus its minimal fix, or one coherent docs or skill change. Check the pending changes (status and diff, or the equivalent) so they contain only that piece, keeping the user's unrelated edits and other findings out. Follow the workspace's commit convention (for example `type(scope): summary`) and state the verification you actually ran. Never commit a red test, a half-applied repair, or work whose focused tests have not passed. If a piece cannot be verified, leave it uncommitted, say which check failed, and revert or park it. If the workspace's rules reserve commits for the user, leave the piece staged and say so.
