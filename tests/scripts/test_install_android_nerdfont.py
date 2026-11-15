@@ -185,7 +185,7 @@ class TestNerdFont(unittest.TestCase):
 
         with p1, p2, p3, \
                 mock.patch.object(nf.urllib.request, "urlopen",
-                                  lambda url: requested.append(url) or Response(payload)), \
+                                  lambda url, **kwargs: requested.append(url) or Response(payload)), \
                 mock.patch.object(nf, "font_dir", return_value=dest), \
                 mock.patch.object(nf.subprocess, "run"):
             nf.install_font()
@@ -247,7 +247,7 @@ class TestNerdFont(unittest.TestCase):
         fake_ctypes = FakeCtypes()
         p1, p2, p3 = patch_platform("Windows", "AMD64")
         with p1, p2, p3, \
-                mock.patch.object(nf.urllib.request, "urlopen", lambda url: Response(payload)), \
+                mock.patch.object(nf.urllib.request, "urlopen", lambda url, **kwargs: Response(payload)), \
                 mock.patch.object(nf, "font_dir", return_value=dest), \
                 mock.patch.object(nf.subprocess, "run"), \
                 mock.patch.dict(sys.modules, {"winreg": fake, "ctypes": fake_ctypes}):
@@ -335,7 +335,7 @@ class TestTermuxNerdFont(unittest.TestCase):
         p1, p2, p3 = patch_platform("Linux", "aarch64", termux=True)
         with p1, p2, p3, \
                 mock.patch.object(nf.urllib.request, "urlopen",
-                                  lambda url: requested.append(url) or hack_zip(
+                                  lambda url, **kwargs: requested.append(url) or hack_zip(
                                       "HackNerdFontMono-Bold.ttf",
                                       "HackNerdFontMono-Regular.ttf")), \
                 mock.patch.object(nf, "termux_font_path", return_value=dest), \
@@ -356,7 +356,7 @@ class TestTermuxNerdFont(unittest.TestCase):
         p1, p2, p3 = patch_platform("Linux", "aarch64", termux=True)
         with p1, p2, p3, \
                 mock.patch.object(nf.urllib.request, "urlopen",
-                                  lambda url: hack_zip("HackNerdFont-Regular.ttf")), \
+                                  lambda url, **kwargs: hack_zip("HackNerdFont-Regular.ttf")), \
                 mock.patch.object(nf, "termux_font_path", return_value=dest), \
                 mock.patch.object(nf.subprocess, "run"):
             with self.assertRaises(SystemExit):
@@ -369,7 +369,7 @@ class TestTermuxNerdFont(unittest.TestCase):
         p1, p2, p3 = patch_platform("Linux", "aarch64", termux=True)
         with p1, p2, p3, \
                 mock.patch.object(nf.urllib.request, "urlopen",
-                                  lambda url: requested.append(url) or hack_zip(
+                                  lambda url, **kwargs: requested.append(url) or hack_zip(
                                       "IosevkaTermNerdFontMono-Regular.ttf")), \
                 mock.patch.object(nf, "termux_font_path", return_value=dest), \
                 mock.patch.object(nf.subprocess, "run"):

@@ -27,7 +27,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-from _shared import Platform, log
+from _shared import DEFAULT_TIMEOUT, Platform, log
 
 # Desktop font directories and fc-cache: only the desktop OS matters here.
 # Termux is handled earlier, in install_font(), via Platform.is_android.
@@ -129,7 +129,7 @@ def extracted_fonts(name):
     """Download name.zip from the latest release and yield (dir, font paths)."""
     url = latest_release_url(name)
     log(f"Downloading {name} Nerd Font...", "cyan")
-    with urllib.request.urlopen(url) as resp:
+    with urllib.request.urlopen(url, timeout=DEFAULT_TIMEOUT) as resp:
         data = resp.read()
 
     with tempfile.TemporaryDirectory() as tmp:

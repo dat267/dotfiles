@@ -7,7 +7,7 @@ import urllib.request
 
 INSTALL_DIR = os.path.expanduser("~/.local/bin")
 
-from _shared import Platform, install_release_binary, log
+from _shared import DEFAULT_TIMEOUT, Platform, install_release_binary, log
 
 # HashiCorp's download vocabulary is the canonical one.
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
@@ -17,7 +17,7 @@ def fetch_latest_version():
     url = "https://releases.hashicorp.com/index.json"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             versions = data.get("terraform", {}).get("versions", {})
 

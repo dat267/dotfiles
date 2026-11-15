@@ -9,7 +9,7 @@ import tempfile
 import urllib.request
 import zipfile
 
-from _shared import Platform, download, log, windows_home
+from _shared import DEFAULT_TIMEOUT, Platform, download, log, windows_home
 
 # Go's download vocabulary is the canonical one.
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
@@ -19,7 +19,7 @@ def fetch_latest_go_version():
     url = "https://golang.org/VERSION?m=text"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT) as resp:
             version_str = resp.read().decode("utf-8").strip().split("\n")[0]
             return version_str
     except Exception as e:

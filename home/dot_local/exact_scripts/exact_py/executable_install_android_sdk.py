@@ -13,7 +13,7 @@ import urllib.error
 import xml.etree.ElementTree as ET
 import zipfile
 
-from _shared import Platform, download, log
+from _shared import DEFAULT_TIMEOUT, Platform, download, log
 
 REPO_XML = "https://dl.google.com/android/repository/repository2-3.xml"
 
@@ -85,7 +85,7 @@ def resolve_cmdline_url(os_name):
     REPO = "https://dl.google.com/android/repository/repository2-3.xml"
     req = urllib.request.Request(REPO, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        raw = urllib.request.urlopen(req).read()
+        raw = urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT).read()
     except Exception as e:
         log(f"Error fetching repository manifest: {e}", "red")
         sys.exit(1)
@@ -114,7 +114,7 @@ def resolve_cmdline_url(os_name):
 def fetch_repository_xml():
     req = urllib.request.Request(REPO_XML, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        return urllib.request.urlopen(req).read()
+        return urllib.request.urlopen(req, timeout=DEFAULT_TIMEOUT).read()
     except Exception as e:
         log(f"Error fetching repository manifest: {e}", "red")
         sys.exit(1)
