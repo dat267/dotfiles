@@ -435,39 +435,42 @@ class TestOnce(unittest.TestCase):
 
     def test_cli_once_exits_after_one_fetch(self):
         """The CLI must forward --once; a direct make_server test would miss it."""
-        import subprocess, sys, time
+        import re, subprocess, sys, time
 
         script = os.path.join(_loader.PY_DIR, "executable_serve.py")
         with tempfile.TemporaryDirectory() as root:
             with open(os.path.join(root, "one.txt"), "w") as fh:
                 fh.write("payload")
-            with socket.socket() as probe:
-                probe.bind(("127.0.0.1", 0))
-                port = probe.getsockname()[1]
             log_path = os.path.join(root, "serve-stderr.txt")
+            # Port 0 lets the kernel pick, and serve prints the port it bound.
+            # Reserving a port here and closing it first would hand serve a
+            # port another process can take, and --port with a taken port is a
+            # hard error rather than a walk forward.
             with open(log_path, "wb") as err_log:
                 proc = subprocess.Popen(
                     [sys.executable, "-u", script, root, "--bind", "127.0.0.1",
-                     "--port", str(port), "--no-qr", "--once"],
+                     "--port", "0", "--no-qr", "--once"],
                     stdout=subprocess.DEVNULL,
                     stderr=err_log,
                 )
                 try:
-                    url = f"http://127.0.0.1:{port}/one.txt"
                     deadline = time.time() + 15
-                    result = None
+                    port = None
                     while time.time() < deadline:
-                        try:
-                            result = _fetch(url)
+                        with open(log_path, "rb") as captured:
+                            match = re.search(rb"http://localhost:(\d+)/", captured.read())
+                        if match:
+                            port = int(match.group(1))
                             break
-                        except OSError:
-                            time.sleep(0.2)
-                    if result is None:
+                        if proc.poll() is not None:
+                            break
+                        time.sleep(0.1)
+                    if port is None:
                         # stderr goes to a file, not a pipe: the failure then
                         # carries the child's own diagnosis.
                         with open(log_path, "rb") as captured:
-                            self.fail(f"server never answered; stderr={captured.read(2000)!r}")
-                    status, _, body = result
+                            self.fail(f"serve never printed a URL; stderr={captured.read(2000)!r}")
+                    status, _, body = _fetch(f"http://127.0.0.1:{port}/one.txt")
                     self.assertEqual(status, 200)
                     self.assertEqual(body, b"payload")
                     self.assertIsNotNone(proc.wait(timeout=10), "--once process did not exit")
