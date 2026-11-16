@@ -299,7 +299,7 @@ class TestDownloadProgress(unittest.TestCase):
         def on_progress(done, total):
             chunks.append((done, total))
 
-        dest = os.path.join(tempfile.mkdtemp(), "out")
+        dest = os.path.join(_loader.tempdir(), "out")
         shared.download("http://x", dest, opener=fake_opener, on_progress=on_progress)
         self.assertEqual(chunks, [(10, 10)])
 
@@ -307,7 +307,7 @@ class TestDownloadProgress(unittest.TestCase):
         import _loader
 
         shared = _loader.load("_shared")
-        dest = os.path.join(tempfile.mkdtemp(), "out")
+        dest = os.path.join(_loader.tempdir(), "out")
 
         class Resp(io.BytesIO):
             headers = {}

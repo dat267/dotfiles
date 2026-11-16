@@ -1,5 +1,4 @@
 import os
-import tempfile
 import unittest
 from unittest import mock
 
@@ -51,7 +50,7 @@ def urlopen_patch(payload):
 
 class TestUninstallTools(unittest.TestCase):
     def test_removes_matching_binaries(self):
-        tmp = tempfile.mkdtemp()
+        tmp = _loader.tempdir()
         tool = os.path.join(tmp, "toolA")
         open(tool, "w").close()
         p1, p2, p3 = patch_platform()
@@ -82,7 +81,7 @@ class TestUninstallTools(unittest.TestCase):
 
 class TestInstallTools(unittest.TestCase):
     def test_installs_matching_asset(self):
-        tmp = tempfile.mkdtemp()
+        tmp = _loader.tempdir()
         payload = __import__("json").dumps(RELEASES).encode()
         fake_download = mock.mock_open(read_data=payload)
         p1, p2, p3 = patch_platform()

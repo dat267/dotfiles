@@ -7,6 +7,8 @@ _loader is imported by every test module, so it is the natural place to pin
 a real temp dir before anything calls tempfile.
 """
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -23,12 +25,26 @@ class TestTempdir(unittest.TestCase):
         )
 
     def test_mkdtemp_lands_outside_cwd(self):
-        d = tempfile.mkdtemp()
-        self.assertNotEqual(
-            os.path.realpath(d)[: len(os.path.realpath(os.getcwd()))],
-            os.path.realpath(os.getcwd()),
+        with tempfile.TemporaryDirectory() as d:
+            self.assertNotEqual(
+                os.path.realpath(d)[: len(os.path.realpath(os.getcwd()))],
+                os.path.realpath(os.getcwd()),
+            )
+
+
+class TestTempdirHelper(unittest.TestCase):
+    def test_tempdir_is_removed_when_the_process_exits(self):
+        code = "import _loader, sys; sys.stdout.write(_loader.tempdir('probe-'))"
+        run = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=str(_loader.REPO / "tests"),
+            capture_output=True,
+            text=True,
+            check=True,
         )
-        os.rmdir(d)
+        path = run.stdout
+        self.assertTrue(os.path.basename(path).startswith("probe-"), path)
+        self.assertFalse(os.path.exists(path), f"the temp dir outlived the test process: {path}")
 
 
 

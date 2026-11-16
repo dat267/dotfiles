@@ -2,7 +2,6 @@ import io
 import os
 import struct
 import sys
-import tempfile
 import unittest
 import zipfile
 from unittest import mock
@@ -81,7 +80,7 @@ class TestAndroidRepoParsing(unittest.TestCase):
 
 class TestFindJavaHome(unittest.TestCase):
     def test_env_var_wins(self):
-        home = tempfile.mkdtemp()
+        home = _loader.tempdir()
         self.addCleanup(os.rmdir, home)
         with mock.patch.dict("os.environ", {"JAVA_HOME": home}):
             self.assertEqual(sdk.find_java_home(), os.environ["JAVA_HOME"])
@@ -211,7 +210,7 @@ class TestNerdFont(unittest.TestCase):
             z.writestr("HackNerdFontMono-Regular.ttf", b"font")
         payload = buf.getvalue()
 
-        dest = tempfile.mkdtemp()
+        dest = _loader.tempdir()
         requested = []
         p1, p2, p3 = patch_platform("Linux", "x86_64")
 
@@ -232,13 +231,13 @@ class TestNerdFont(unittest.TestCase):
             self.assertEqual(f.read(), b"font")
 
     def test_font_full_name_reads_ttf_name_table(self):
-        path = os.path.join(tempfile.mkdtemp(), "HackNerdFontMono-Regular.ttf")
+        path = os.path.join(_loader.tempdir(), "HackNerdFontMono-Regular.ttf")
         with open(path, "wb") as f:
             f.write(ttf_with_full_name("Hack Nerd Font Mono Regular"))
         self.assertEqual(nf.font_full_name(path), "Hack Nerd Font Mono Regular")
 
     def test_register_fonts_writes_user_registry(self):
-        path = os.path.join(tempfile.mkdtemp(), "HackNerdFontMono-Regular.ttf")
+        path = os.path.join(_loader.tempdir(), "HackNerdFontMono-Regular.ttf")
         with open(path, "wb") as f:
             f.write(ttf_with_full_name("Hack Nerd Font Mono Regular"))
         fake = FakeWinreg()
@@ -274,7 +273,7 @@ class TestNerdFont(unittest.TestCase):
             def __exit__(self, *exc):
                 return False
 
-        dest = tempfile.mkdtemp()
+        dest = _loader.tempdir()
         fake = FakeWinreg()
         fake_ctypes = FakeCtypes()
         p1, p2, p3 = patch_platform("Windows", "AMD64")
@@ -361,7 +360,7 @@ class TestTermuxNerdFont(unittest.TestCase):
         termux.assert_not_called()
 
     def test_install_termux_font_writes_font_ttf_and_reloads(self):
-        dest = os.path.join(tempfile.mkdtemp(), ".termux", "font.ttf")
+        dest = os.path.join(_loader.tempdir(), ".termux", "font.ttf")
         requested = []
         runs = []
         p1, p2, p3 = patch_platform("Linux", "aarch64", termux=True)
@@ -384,7 +383,7 @@ class TestTermuxNerdFont(unittest.TestCase):
         self.assertEqual(runs, [["termux-reload-settings"]])
 
     def test_install_termux_font_missing_face_exits(self):
-        dest = os.path.join(tempfile.mkdtemp(), ".termux", "font.ttf")
+        dest = os.path.join(_loader.tempdir(), ".termux", "font.ttf")
         p1, p2, p3 = patch_platform("Linux", "aarch64", termux=True)
         with p1, p2, p3, \
                 mock.patch.object(nf.urllib.request, "urlopen",
@@ -396,7 +395,7 @@ class TestTermuxNerdFont(unittest.TestCase):
         self.assertFalse(os.path.exists(dest))
 
     def test_install_termux_font_uses_the_named_fonts_mono_face(self):
-        dest = os.path.join(tempfile.mkdtemp(), ".termux", "font.ttf")
+        dest = os.path.join(_loader.tempdir(), ".termux", "font.ttf")
         requested = []
         p1, p2, p3 = patch_platform("Linux", "aarch64", termux=True)
         with p1, p2, p3, \

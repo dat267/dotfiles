@@ -1,10 +1,34 @@
 """Locate the repo and load its scripts as modules despite the executable_ prefix."""
+import atexit
 import importlib.machinery
 import importlib.util
 import os
 import pathlib
+import shutil
 import sys
 import tempfile
+
+_TEMPDIRS = []
+
+
+def tempdir(prefix="tmp-"):
+    """mkdtemp() that this test process removes when it exits.
+
+    Tests used raw tempfile.mkdtemp(), and nothing removed the result, so each
+    run left a directory behind in TMPDIR. Removal is registered with atexit
+    rather than done inline because a test may fail before it reaches its own
+    cleanup.
+    """
+    path = tempfile.mkdtemp(prefix=prefix)
+    if not _TEMPDIRS:
+        atexit.register(_remove_tempdirs)
+    _TEMPDIRS.append(path)
+    return path
+
+
+def _remove_tempdirs():
+    while _TEMPDIRS:
+        shutil.rmtree(_TEMPDIRS.pop(), ignore_errors=True)
 
 
 def _ensure_real_tempdir() -> None:

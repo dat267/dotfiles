@@ -1,5 +1,4 @@
 import os
-import tempfile
 import unittest
 
 import _loader
@@ -9,7 +8,7 @@ udr = _loader.load("url_decode_rename")
 
 class TestRenameFiles(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.mkdtemp()
+        self.tmp = _loader.tempdir()
         self.cwd = os.getcwd()
         os.chdir(self.tmp)
 

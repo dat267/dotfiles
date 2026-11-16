@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest import mock
@@ -85,7 +84,7 @@ class TestCodePlatform(unittest.TestCase):
 
 class TestCleanDirectory(unittest.TestCase):
     def test_removes_dir(self):
-        tmp = tempfile.mkdtemp()
+        tmp = _loader.tempdir()
         target = os.path.join(tmp, "sub")
         os.makedirs(target)
         vsx = _loader.load("install_vscode")

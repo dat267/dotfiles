@@ -3,7 +3,6 @@ import os
 import pickle
 import signal
 import unittest.mock
-import tempfile
 import unittest
 from contextlib import nullcontext, redirect_stderr, redirect_stdout
 
@@ -24,7 +23,7 @@ def _cross_dir_link_ok():
     REFER-granting gate is deployed."""
     if not hasattr(os, "link"):
         return False
-    d = tempfile.mkdtemp()
+    d = _loader.tempdir()
     try:
         os.makedirs(os.path.join(d, "a"))
         os.makedirs(os.path.join(d, "b"))
@@ -46,7 +45,7 @@ SKIP_NO_REFER = "cross-directory link() denied by sandbox (Landlock REFER; deplo
 
 def make_tree(files, root=None):
     """files: {relative_path: bytes}. Returns root dir."""
-    root = root or tempfile.mkdtemp()
+    root = root or _loader.tempdir()
     for rel, data in files.items():
         path = os.path.join(root, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -201,7 +200,7 @@ class TestWalk(unittest.TestCase):
     def test_relative_dot_input(self):
         # regression: walk(".") feeds raw/children with relative keys, but the
         # caller aggregates via os.path.abspath — totals must still match
-        tmp = tempfile.mkdtemp()
+        tmp = _loader.tempdir()
         make_tree({"a/f.txt": b"x" * 10, "b/g.txt": b"y" * 5}, root=tmp)
         cwd = os.getcwd()
         os.chdir(tmp)

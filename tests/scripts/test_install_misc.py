@@ -84,9 +84,7 @@ class TestFirefoxGuard(unittest.TestCase):
 
 class TestGoCleanDirectory(unittest.TestCase):
     def test_removes_existing(self):
-        import tempfile
-
-        target = os.path.join(tempfile.mkdtemp(), "go")
+        target = os.path.join(_loader.tempdir(), "go")
         os.makedirs(target)
         go.clean_directory(target)
         self.assertFalse(os.path.exists(target))

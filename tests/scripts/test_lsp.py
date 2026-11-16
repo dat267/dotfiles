@@ -149,12 +149,11 @@ class TestExtractArchive(unittest.TestCase):
     def test_tar_gz(self):
         import os
         import tarfile
-        import tempfile
 
-        src = os.path.join(tempfile.mkdtemp(), "a.tar.gz")
-        dest = tempfile.mkdtemp()
+        src = os.path.join(_loader.tempdir(), "a.tar.gz")
+        dest = _loader.tempdir()
         with tarfile.open(src, "w:gz") as t:
-            data = os.path.join(tempfile.mkdtemp(), "x.txt")
+            data = os.path.join(_loader.tempdir(), "x.txt")
             open(data, "w").write("hi")
             t.add(data, arcname="x.txt")
         lsp.extract_archive(src, dest)
@@ -162,11 +161,10 @@ class TestExtractArchive(unittest.TestCase):
 
     def test_zip(self):
         import os
-        import tempfile
         import zipfile
 
-        src = os.path.join(tempfile.mkdtemp(), "a.zip")
-        dest = tempfile.mkdtemp()
+        src = os.path.join(_loader.tempdir(), "a.zip")
+        dest = _loader.tempdir()
         with zipfile.ZipFile(src, "w") as z:
             z.writestr("y.txt", "yo")
         lsp.extract_archive(src, dest)

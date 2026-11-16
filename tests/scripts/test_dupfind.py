@@ -1,6 +1,5 @@
 import io
 import os
-import tempfile
 import unittest
 from contextlib import redirect_stdout
 
@@ -11,7 +10,7 @@ dupfind = _loader.load("dupfind")
 
 def make_tree(files):
     """files: {relative_path: bytes}. Returns root dir."""
-    root = tempfile.mkdtemp()
+    root = _loader.tempdir()
     for rel, data in files.items():
         path = os.path.join(root, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)

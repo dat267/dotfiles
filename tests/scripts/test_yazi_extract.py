@@ -1,5 +1,4 @@
 import os
-import tempfile
 import unittest
 
 import _loader
@@ -9,7 +8,7 @@ get_dest_dir = _loader.load("yazi_extract").get_dest_dir
 
 class TestGetDestDir(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.mkdtemp()
+        self.tmp = _loader.tempdir()
 
     def dest(self, name):
         return get_dest_dir(os.path.join(self.tmp, name))
