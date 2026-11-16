@@ -5,13 +5,14 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readDefaultModelRef } from "./defaults.ts";
+import { tempDir } from "../testlib/temp-dir.ts";
 
 function agentDir(settings: unknown): string {
-	const dir = mkdtempSync(join(tmpdir(), "auto-default-agent-"));
+	const dir = tempDir("auto-default-agent-");
 	writeFileSync(join(dir, "settings.json"), typeof settings === "string" ? settings : JSON.stringify(settings));
 	return dir;
 }

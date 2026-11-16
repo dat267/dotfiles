@@ -1,20 +1,20 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { registerNtfy } from "./index.ts";
 import { makeFakePi } from "../testlib/fake-pi.ts";
+import { tempDir } from "../testlib/temp-dir.ts";
 
 function configure(fake: ReturnType<typeof makeFakePi>, topic: string | undefined, send: typeof fetch) {
-	const agentDir = mkdtempSync(join(tmpdir(), "pi-ntfy-"));
+	const agentDir = tempDir("pi-ntfy-");
 	if (topic !== undefined) writeFileSync(join(agentDir, "ntfy.json"), JSON.stringify({ topic }), { mode: 0o600 });
 	registerNtfy(fake.pi, { agentDir, fetch: send });
 }
 
 void describe("ntfy notification extension", () => {
 	void it("loads topic from ntfy.json in Pi agent directory", async () => {
-		const agentDir = mkdtempSync(join(tmpdir(), "pi-ntfy-"));
+		const agentDir = tempDir("pi-ntfy-");
 		writeFileSync(join(agentDir, "ntfy.json"), JSON.stringify({ topic: "file-topic" }), { mode: 0o600 });
 		const fake = makeFakePi();
 		const requests: string[] = [];

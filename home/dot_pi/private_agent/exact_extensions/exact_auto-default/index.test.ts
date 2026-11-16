@@ -12,11 +12,11 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { registerModelSync } from "./index.ts";
 import { makeFakePi } from "../testlib/fake-pi.ts";
+import { tempDir } from "../testlib/temp-dir.ts";
 
 // Full model objects, as the registry holds them — contextWindow included,
 // because dropping it is the ?/0 footer bug this suite guards against.
@@ -36,7 +36,7 @@ function setup(opts: {
 	pollMs?: number;
 	timeoutMs?: number;
 }) {
-	const agentDir = mkdtempSync(join(tmpdir(), "auto-default-agent-"));
+	const agentDir = tempDir("auto-default-agent-");
 	if (opts.agentSettings !== undefined) {
 		writeFileSync(
 			join(agentDir, "settings.json"),
