@@ -1,6 +1,6 @@
 chezmoi:modify-template
 {{- /* Cap every model whose catalog advertises a 1M-token (or larger) context
-     window at 500k. Compaction keys off the advertised window, so an
+     window at 256k. Compaction keys off the advertised window, so an
      uncapped session grows past the point where these models stay coherent
      and cheap.
 
@@ -13,7 +13,7 @@ chezmoi:modify-template
      slashes. Everything else in models.json, including custom providers and
      other override fields, is preserved. */}}
 {{- $current := fromJson (.chezmoi.stdin | default "{}") }}
-{{- $cap := 500000 }}
+{{- $cap := 262144 }}
 {{- $models := dict
     "cline-pass" (list
         "cline-pass/deepseek-v4-flash"
