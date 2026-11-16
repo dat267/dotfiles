@@ -2,6 +2,13 @@
 """Pure Python authenticated file and data encryption tool (ChaCha20-Poly1305 + scrypt).
 
 Zero external dependencies (pure standard library).
+
+The header is `CH21`, a version byte, a key-derivation id, then the salt and
+nonce, and the tag covers all of it. The id is what makes a file portable: a
+Python without hashlib.scrypt writes PBKDF2 files, and without the id the reader
+would derive with scrypt, fail the tag, and report "Bad passphrase or corrupted
+data". Version 1 files (`CH20`, no id) still decrypt: they were written with
+scrypt when it existed and PBKDF2 otherwise, so both are tried.
 """
 
 import hashlib
@@ -13,9 +20,14 @@ import sys
 import argparse
 import getpass
 
-MAGIC = b"CH20"
-VERSION = 1
-HEADER_LEN = 4 + 1 + 16 + 12  # magic(4) + ver(1) + salt(16) + nonce(12) = 33 bytes
+MAGIC = b"CH21"
+VERSION = 2
+KDF_SCRYPT = 1
+KDF_PBKDF2 = 2
+HEADER_LEN = 4 + 1 + 1 + 16 + 12  # magic(4) + ver(1) + kdf(1) + salt(16) + nonce(12)
+LEGACY_MAGIC = b"CH20"
+LEGACY_VERSION = 1
+LEGACY_HEADER_LEN = 4 + 1 + 16 + 12
 TAG_LEN = 16
 
 
@@ -92,12 +104,18 @@ class _Poly1305:
         return tag.to_bytes(16, "little")
 
 
-def _derive_key(passphrase: str, salt: bytes) -> bytes:
+def _derive_key(passphrase: str, salt: bytes, kdf: int | None = None) -> tuple[bytes, int]:
+    """Return (key, kdf id). With kdf None, prefer scrypt and fall back to PBKDF2."""
     pw_bytes = passphrase.encode("utf-8")
-    try:
-        return hashlib.scrypt(pw_bytes, salt=salt, n=16384, r=8, p=1, dklen=32)
-    except (AttributeError, ValueError):
-        return hashlib.pbkdf2_hmac("sha256", pw_bytes, salt, 600000, 32)
+    if kdf in (None, KDF_SCRYPT):
+        try:
+            return hashlib.scrypt(pw_bytes, salt=salt, n=16384, r=8, p=1, dklen=32), KDF_SCRYPT
+        except (AttributeError, ValueError):
+            if kdf == KDF_SCRYPT:
+                raise DecryptionError(
+                    "this file needs scrypt, which this Python does not provide"
+                ) from None
+    return hashlib.pbkdf2_hmac("sha256", pw_bytes, salt, 600000, 32), KDF_PBKDF2
 
 
 def _compute_tag(key: bytes, nonce: bytes, aad: bytes, ciphertext: bytes) -> bytes:
@@ -116,33 +134,49 @@ def _compute_tag(key: bytes, nonce: bytes, aad: bytes, ciphertext: bytes) -> byt
 def encrypt_data(plaintext: bytes, passphrase: str) -> bytes:
     salt = secrets.token_bytes(16)
     nonce = secrets.token_bytes(12)
-    key = _derive_key(passphrase, salt)
-    header = MAGIC + bytes([VERSION]) + salt + nonce
+    key, kdf = _derive_key(passphrase, salt)
+    header = MAGIC + bytes([VERSION, kdf]) + salt + nonce
     ciphertext = _chacha20_xor(key, 1, nonce, plaintext)
     tag = _compute_tag(key, nonce, header, ciphertext)
     return header + ciphertext + tag
 
 
 def decrypt_data(data: bytes, passphrase: str) -> bytes:
-    if len(data) < HEADER_LEN + TAG_LEN:
-        raise DecryptionError("Data too short to be valid ciphertext")
     magic = data[:4]
-    version = data[4]
-    if magic != MAGIC or version != VERSION:
+    if magic == MAGIC:
+        if len(data) < HEADER_LEN + TAG_LEN:
+            raise DecryptionError("Data too short to be valid ciphertext")
+        if data[4] != VERSION:
+            raise DecryptionError("Invalid or unsupported file format")
+        kdf_ids, salt_at, nonce_at, header_len = (data[5],), 6, 22, HEADER_LEN
+    elif magic == LEGACY_MAGIC:
+        if len(data) < LEGACY_HEADER_LEN + TAG_LEN:
+            raise DecryptionError("Data too short to be valid ciphertext")
+        if data[4] != LEGACY_VERSION:
+            raise DecryptionError("Invalid or unsupported file format")
+        # A version 1 header records nothing, so either KDF may have made it.
+        kdf_ids, salt_at, nonce_at, header_len = (KDF_SCRYPT, KDF_PBKDF2), 5, 21, LEGACY_HEADER_LEN
+    else:
         raise DecryptionError("Invalid or unsupported file format")
-    salt = data[5:21]
-    nonce = data[21:33]
-    header = data[:HEADER_LEN]
-    ciphertext = data[HEADER_LEN:-TAG_LEN]
+
+    salt = data[salt_at:salt_at + 16]
+    nonce = data[nonce_at:nonce_at + 12]
+    header = data[:header_len]
+    ciphertext = data[header_len:-TAG_LEN]
     expected_tag = data[-TAG_LEN:]
 
-    key = _derive_key(passphrase, salt)
-    computed_tag = _compute_tag(key, nonce, header, ciphertext)
-
-    if not hmac.compare_digest(computed_tag, expected_tag):
-        raise DecryptionError("Bad passphrase or corrupted data")
-
-    return _chacha20_xor(key, 1, nonce, ciphertext)
+    for kdf in kdf_ids:
+        if kdf not in (KDF_SCRYPT, KDF_PBKDF2):
+            raise DecryptionError(f"Unsupported key derivation id {kdf}")
+        try:
+            key, _ = _derive_key(passphrase, salt, kdf)
+        except DecryptionError:
+            if len(kdf_ids) == 1:
+                raise
+            continue  # a version 1 file may have been written either way
+        if hmac.compare_digest(_compute_tag(key, nonce, header, ciphertext), expected_tag):
+            return _chacha20_xor(key, 1, nonce, ciphertext)
+    raise DecryptionError("Bad passphrase or corrupted data")
 
 
 def encrypt_file(in_path: str, out_path: str, passphrase: str) -> None:

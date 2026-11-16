@@ -1,3 +1,4 @@
+import hashlib
 import os
 import tempfile
 import unittest
@@ -28,6 +29,55 @@ class TestCryptBytes(unittest.TestCase):
         encrypted[crypt.HEADER_LEN + 2] ^= 0x01
         with self.assertRaises(crypt.DecryptionError):
             crypt.decrypt_data(bytes(encrypted), "password")
+
+
+class TestKeyDerivationIsRecorded(unittest.TestCase):
+    """A file has to say which KDF made its key.
+
+    Without it, a file written on a Python without hashlib.scrypt could not be
+    read anywhere else: the reader derived with scrypt and reported only "Bad
+    passphrase or corrupted data".
+    """
+
+    def test_encrypt_records_scrypt(self):
+        if not hasattr(hashlib, "scrypt"):
+            self.skipTest("this Python has no hashlib.scrypt")
+        data = crypt.encrypt_data(b"x", "pw")
+        self.assertEqual(data[:4], b"CH21")
+        self.assertEqual(data[5], crypt.KDF_SCRYPT)
+
+    def test_pbkdf2_file_is_readable_where_scrypt_exists(self):
+        with mock.patch.object(hashlib, "scrypt", side_effect=AttributeError("no scrypt")):
+            data = crypt.encrypt_data(b"portable", "pw")
+        self.assertEqual(data[5], crypt.KDF_PBKDF2)
+        self.assertEqual(crypt.decrypt_data(data, "pw"), b"portable")
+
+    def test_scrypt_file_is_refused_where_scrypt_is_missing(self):
+        data = crypt.encrypt_data(b"x", "pw")
+        with mock.patch.object(hashlib, "scrypt", side_effect=AttributeError("no scrypt")):
+            with self.assertRaises(crypt.DecryptionError) as ctx:
+                crypt.decrypt_data(data, "pw")
+        self.assertIn("scrypt", str(ctx.exception))
+
+    def test_unknown_kdf_id_is_rejected(self):
+        data = bytearray(crypt.encrypt_data(b"x", "pw"))
+        data[5] = 99
+        with self.assertRaises(crypt.DecryptionError) as ctx:
+            crypt.decrypt_data(bytes(data), "pw")
+        self.assertIn("derivation", str(ctx.exception))
+
+    def test_version_1_files_still_decrypt(self):
+        self.assertEqual(crypt.decrypt_data(legacy_encrypt(b"old file", "pw"), "pw"), b"old file")
+
+
+def legacy_encrypt(plaintext, passphrase):
+    """A version 1 file: CH20, a version byte, and no key derivation id."""
+    salt = crypt.secrets.token_bytes(16)
+    nonce = crypt.secrets.token_bytes(12)
+    key, _ = crypt._derive_key(passphrase, salt, crypt.KDF_SCRYPT)
+    header = crypt.LEGACY_MAGIC + bytes([crypt.LEGACY_VERSION]) + salt + nonce
+    ciphertext = crypt._chacha20_xor(key, 1, nonce, plaintext)
+    return header + ciphertext + crypt._compute_tag(key, nonce, header, ciphertext)
 
 
 class TestCryptFile(unittest.TestCase):
