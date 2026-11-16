@@ -9,7 +9,7 @@ import subprocess
 import sys
 import zipfile
 
-from _shared import Platform, download, extract_archive, fetch_json, github_latest_tag, install_release_binary
+from _shared import Platform, download, extract_archive, fetch_json, github_latest_tag, install_release_binary, windows_home
 
 # Force IPv4 — Termux IPv6 lookups fail on some networks
 _orig_getaddrinfo = socket.getaddrinfo
@@ -21,7 +21,7 @@ def _ipv4_only_getaddrinfo(host, port, family=0, *args, **kwargs):
 
 socket.getaddrinfo = _ipv4_only_getaddrinfo
 
-BIN_DIR = os.path.expanduser("~/.local/bin")
+BIN_DIR = windows_home(".local", "bin")
 SHARE_DIR = os.path.expanduser("~/.local/share")
 
 

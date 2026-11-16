@@ -122,7 +122,11 @@ class TestNvimMain(unittest.TestCase):
             # resolve ~ paths under the test root: ~/.local/opt/nvim etc.
             return os.path.join(self.bin_dir, path.replace("~/", ""))
 
+        def fake_windows_home(*parts):
+            return os.path.join(self.bin_dir, *parts)
+
         with mock.patch.object(nvim, "github_latest_tag", return_value=tag), \
+                mock.patch.object(nvim, "windows_home", side_effect=fake_windows_home), \
                 mock.patch.object(nvim, "download", side_effect=fake_download), \
                 mock.patch.object(nvim, "extract_archive", side_effect=fake_extract), \
                 mock.patch.object(nvim.os.path, "expanduser", side_effect=fake_expanduser), \

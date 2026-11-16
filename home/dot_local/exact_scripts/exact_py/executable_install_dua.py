@@ -9,10 +9,10 @@ libc in the way.
 import os
 import sys
 
-from _shared import install_github_binary
+from _shared import install_github_binary, windows_home
 
 REPO = "Byron/dua-cli"
-INSTALL_DIR = os.path.expanduser("~/.local/bin")
+INSTALL_DIR = windows_home(".local", "bin")
 
 # Same asset shape as fd: /releases/download/v<tag>/dua-v<tag>-<triple>.
 TAG_PREFIX = "v"

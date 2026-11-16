@@ -8,10 +8,10 @@ only x86_64 asset. Unlike fd, ripgrep's release tags carry no leading 'v'.
 import os
 import sys
 
-from _shared import install_github_binary
+from _shared import install_github_binary, windows_home
 
 REPO = "BurntSushi/ripgrep"
-INSTALL_DIR = os.path.expanduser("~/.local/bin")
+INSTALL_DIR = windows_home(".local", "bin")
 
 # ripgrep's tags have no leading v: /releases/download/<tag>/.
 TAG_PREFIX = ""

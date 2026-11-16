@@ -8,7 +8,7 @@ import tarfile
 import tempfile
 import zipfile
 
-from _shared import Platform, download, log
+from _shared import Platform, download, log, windows_home
 
 # Google Cloud SDK's download vocabulary: arm64 releases are tagged "arm".
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
@@ -36,10 +36,10 @@ def main():
 
     archive_ext = "zip" if os_name == "windows" else "tar.gz"
     if os_name == "windows":
-        install_root = os.path.expanduser("~/Apps")
+        install_root = windows_home("Apps")
         install_path = os.path.join(install_root, "google-cloud-sdk")
     else:
-        install_root = os.path.expanduser("~/.local/opt")
+        install_root = windows_home(".local", "opt")
         install_path = os.path.join(install_root, "google-cloud-sdk")
 
     # Construct official download URL

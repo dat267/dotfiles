@@ -7,15 +7,15 @@ import sys
 import tempfile
 import zipfile
 
-from _shared import Platform, download, log
+from _shared import Platform, download, log, windows_home
 
 # AWS CLI's download vocabulary: aarch64 releases are tagged "aarch64".
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
 ARCH_WORDS = {"x64": "x86_64", "arm64": "aarch64"}
 
 def install_unix(os_name, arch_name):
-    install_dir = os.path.expanduser("~/.local/aws-cli")
-    bin_dir = os.path.expanduser("~/.local/bin")
+    install_dir = windows_home(".local", "aws-cli")
+    bin_dir = windows_home(".local", "bin")
 
     if os_name == "darwin":
         url = "https://awscli.amazonaws.com/AWSCLIV2.pkg"

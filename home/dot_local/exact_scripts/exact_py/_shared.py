@@ -243,12 +243,13 @@ def log(message, color=None):
 
 
 def windows_home(*parts):
-    """A path under the Windows user profile: windows_home("Apps", "pi").
+    """A path under the user's real home: windows_home("Apps", "pi").
 
-    Not expanduser("~"): a POSIX-emulated Python on Windows (MSYS2, Cygwin)
-    resolves that to the emulated home (C:\\msys64\\home\\me), while the PATH
-    entries and the dotfiles on the machine are the Windows ones. On native
-    Windows USERPROFILE is the home expanduser returns anyway.
+    Installers build every destination with this, never expanduser("~"). A
+    POSIX-emulated Python on Windows (MSYS2, Cygwin) resolves that to the
+    emulated home (C:\\msys64\\home\\me), while the PATH entries and the
+    dotfiles on the machine are the Windows ones. On native Windows USERPROFILE
+    is the home expanduser returns anyway, and elsewhere the two agree.
     """
     return os.path.join(os.environ.get("USERPROFILE") or os.path.expanduser("~"), *parts)
 

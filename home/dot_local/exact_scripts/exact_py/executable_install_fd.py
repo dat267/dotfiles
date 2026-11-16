@@ -8,10 +8,10 @@ fd's release tags carry a leading 'v' (tag v10.5.0, asset fd-v10.5.0-...).
 import os
 import sys
 
-from _shared import install_github_binary
+from _shared import install_github_binary, windows_home
 
 REPO = "sharkdp/fd"
-INSTALL_DIR = os.path.expanduser("~/.local/bin")
+INSTALL_DIR = windows_home(".local", "bin")
 
 # The download URL is /releases/download/v<tag>/ but the asset name carries
 # the v too: fd-v<tag>-<triple>.tar.gz.

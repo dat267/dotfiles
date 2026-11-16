@@ -138,7 +138,7 @@ def main():
                     os.chmod(binary_exec, 0o755)
 
                 # Set up launcher symlink
-                bin_dir = os.path.expanduser("~/.local/bin")
+                bin_dir = windows_home(".local", "bin")
                 os.makedirs(bin_dir, exist_ok=True)
                 symlink_path = os.path.join(bin_dir, "pwsh")
 

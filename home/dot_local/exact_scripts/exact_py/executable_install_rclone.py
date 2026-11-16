@@ -3,9 +3,9 @@ import argparse
 import os
 import sys
 
-INSTALL_DIR = os.path.expanduser("~/.local/bin")
+from _shared import Platform, install_release_binary, log, windows_home
 
-from _shared import Platform, install_release_binary, log
+INSTALL_DIR = windows_home(".local", "bin")
 
 # rclone's download vocabulary: darwin releases are tagged "osx".
 OS_WORDS = {"linux": "linux", "darwin": "osx", "windows": "windows"}

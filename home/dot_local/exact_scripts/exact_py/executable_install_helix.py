@@ -67,7 +67,7 @@ def symlink_binary(dest, os_name):
     if os_name == "windows":
         log("Windows: ensure ~/Apps is on PATH — no symlink created.", "yellow")
         return
-    bin_dir = os.path.expanduser("~/.local/bin")
+    bin_dir = windows_home(".local", "bin")
     os.makedirs(bin_dir, exist_ok=True)
     link = os.path.join(bin_dir, "hx")
     if os.path.islink(link) or os.path.exists(link):

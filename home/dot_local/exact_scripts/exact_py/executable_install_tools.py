@@ -3,14 +3,14 @@ import argparse
 import os
 import sys
 
-from _shared import Platform, fetch_json, install_release_binary, log
+from _shared import Platform, fetch_json, install_release_binary, log, windows_home
 
 # This repo's own release assets are tagged x86_64/aarch64.
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
 ARCH_WORDS = {"x64": "x86_64", "arm64": "aarch64"}
 
 REPO = "dat267/dotfiles"
-INSTALL_DIR = os.path.expanduser("~/.local/bin")
+INSTALL_DIR = windows_home(".local", "bin")
 
 
 def main():

@@ -4,9 +4,9 @@ import argparse
 import os
 import sys
 
-INSTALL_DIR = os.path.expanduser("~/.local/bin")
+from _shared import Platform, install_release_binary, log, windows_home
 
-from _shared import Platform, install_release_binary, log
+INSTALL_DIR = windows_home(".local", "bin")
 
 # Yazi's release assets use Rust target triples: x86_64/aarch64.
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}

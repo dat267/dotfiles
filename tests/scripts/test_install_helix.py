@@ -122,7 +122,11 @@ class TestHelixMain(unittest.TestCase):
             # resolve ~ paths under the test root: ~/.local/opt/helix etc.
             return os.path.join(self.bin_dir, path.replace("~/", ""))
 
+        def fake_windows_home(*parts):
+            return os.path.join(self.bin_dir, *parts)
+
         with mock.patch.object(helix, "github_latest_tag", return_value=tag), \
+                mock.patch.object(helix, "windows_home", side_effect=fake_windows_home), \
                 mock.patch.object(helix, "download", side_effect=fake_download), \
                 mock.patch.object(helix, "extract_archive", side_effect=fake_extract), \
                 mock.patch.object(helix.os.path, "expanduser", side_effect=fake_expanduser), \

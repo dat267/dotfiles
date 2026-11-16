@@ -3,9 +3,9 @@ import argparse
 import os
 import sys
 
-INSTALL_DIR = os.path.expanduser("~/.local/bin")
+from _shared import Platform, install_release_binary, log, windows_home
 
-from _shared import Platform, install_release_binary, log
+INSTALL_DIR = windows_home(".local", "bin")
 
 # VS Code CLI's download vocabulary: amd64 releases are tagged "x64".
 OS_WORDS = {"linux": "linux", "darwin": "darwin", "windows": "windows"}
