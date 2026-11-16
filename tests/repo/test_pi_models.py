@@ -1,4 +1,4 @@
-"""Verify the models.json cap: every catalogued model over 256k is held at 256k."""
+"""Verify the models.json cap: every catalogued model over 128k is held at 128k."""
 
 import json
 from pathlib import Path
@@ -10,7 +10,7 @@ import unittest
 
 import _loader
 
-MODEL_CAP = 262_144
+MODEL_CAP = 131_072
 
 
 @unittest.skipUnless(shutil.which("chezmoi"), "requires chezmoi")
@@ -42,7 +42,7 @@ class RenderMixin:
 
 @unittest.skipUnless(shutil.which("chezmoi"), "requires chezmoi")
 class ModelsCapTest(RenderMixin, unittest.TestCase):
-    def test_every_id_is_capped_at_256k(self):
+    def test_every_id_is_capped_at_128k(self):
         caps = self.caps(self.render({}))
         self.assertTrue(caps, "the cap list is empty")
         for key, cap in caps.items():
@@ -61,9 +61,10 @@ class ModelsCapTest(RenderMixin, unittest.TestCase):
 class CatalogCoverageTest(RenderMixin, unittest.TestCase):
     """Every model the in-repo catalogs advertise above the cap must be listed.
 
-    The list is maintained by hand, so a catalog that gains a 300k or 512k
-    model was silently left at its advertised window: at a 500k cap that was
-    a rounding error, at 256k it is twice the intended size.
+    The list is maintained by hand, so a catalog that gains a model above the
+    cap is silently left at its advertised window. The cap only lowers a
+    window, so a miss is a session that runs longer and costs more than the
+    rest at the same adverised size.
     """
 
     CATALOGS = ("hyper", "cline-pass", "commandcode")
@@ -96,4 +97,4 @@ class CatalogCoverageTest(RenderMixin, unittest.TestCase):
                     key = f"{provider}/{model}"
                     self.assertIn(key, caps, f"{key} advertises more than the cap but is not listed")
                     self.assertEqual(caps[key], MODEL_CAP)
-        self.assertGreater(checked, 50)
+        self.assertGreaterEqual(checked, 80)

@@ -1,5 +1,5 @@
 chezmoi:modify-template
-{{- /* Cap every model whose catalog advertises more than 256k at 256k.
+{{- /* Cap every model whose catalog advertises more than 128k at 128k.
      Compaction keys off the advertised window, so an uncapped session grows
      past the point where these models stay coherent and cheap.
 
@@ -13,13 +13,14 @@ chezmoi:modify-template
      contain dots and slashes. Everything else in models.json, including
      custom providers and other override fields, is preserved. */}}
 {{- $current := fromJson (.chezmoi.stdin | default "{}") }}
-{{- $cap := 262144 }}
+{{- $cap := 131072 }}
 {{- $models := dict
     "cline-pass" (list
         "cline-pass/deepseek-v4-flash"
         "cline-pass/deepseek-v4-pro"
         "cline-pass/deepseek-v4.1-flash"
         "cline-pass/glm-5.3-flash"
+        "cline-pass/kimi-k2.7-code"
         "cline-pass/kimi-k3"
         "cline-pass/mimo-v2.5"
         "cline-pass/minimax-m3"
@@ -27,6 +28,7 @@ chezmoi:modify-template
     "commandcode" (list
         "claude-fable-5"
         "claude-fable-5-1"
+        "claude-haiku-4-5-20251001"
         "claude-opus-4-7"
         "claude-opus-4-8"
         "claude-opus-5"
@@ -50,30 +52,46 @@ chezmoi:modify-template
         "gpt-5.6-luna"
         "gpt-5.6-sol"
         "gpt-5.6-terra"
+        "inclusionai/ling-3.0-flash-sante:free"
         "meituan/LongCat-2.0:free"
         "meta/muse-spark-1.1"
         "meta/muse-spark-1.2"
         "meta/muse-spark-1.2-contributor"
         "meta/muse-spark-1.3"
         "meta/muse-spark-1.3-contributor"
+        "MiniMaxAI/MiniMax-M2.5"
+        "MiniMaxAI/MiniMax-M2.7"
         "MiniMaxAI/MiniMax-M3"
+        "moonshotai/Kimi-K2.5"
+        "moonshotai/Kimi-K2.6"
+        "moonshotai/Kimi-K2.7-Code"
+        "moonshotai/Kimi-K2.7-Code-Highspeed"
         "moonshotai/Kimi-K3"
         "nvidia/nemotron-3-ultra-550b-a55b"
+        "poolside/laguna-s-2.1-free"
+        "Qwen/Qwen3.6-Max-Preview"
+        "Qwen/Qwen3.6-Plus"
         "Qwen/Qwen3.7-Flash"
         "Qwen/Qwen3.7-Max"
         "Qwen/Qwen3.7-Plus"
+        "Qwen/Qwen3.8-27B"
         "Qwen/Qwen3.8-Flash"
         "Qwen/Qwen3.8-Max"
         "Qwen/Qwen3.8-Max-0902"
         "sakana/fugu-ultra"
         "stepfun/Step-3.5-Flash"
+        "stepfun/Step-3.7-Flash"
+        "tencent/hy3-paid"
         "tencent/hy4-preview"
+        "thinkingmachines/inkling"
         "thinkingmachines/inkling-small"
         "xai/grok-4.5"
         "xai/grok-4.6"
         "xiaomi/mimo-v2.5"
         "xiaomi/mimo-v2.5-pro"
         "z-ai/glm-5.3-flash"
+        "zai-org/GLM-5"
+        "zai-org/GLM-5.1"
         "zai-org/GLM-5.2"
         "zai-org/GLM-5.2-Fast"
         "zai-org/GLM-5.3")
@@ -104,8 +122,11 @@ chezmoi:modify-template
         "gpt-5.6-luna"
         "gpt-6-luna"
         "grok-4.7"
+        "hy3"
         "hy4"
         "hy4-preview"
+        "iceman-contributor-free"
+        "kimi-k2.7-code"
         "kimi-k3"
         "kimi-k3.1-pro"
         "longcat-2.0"
