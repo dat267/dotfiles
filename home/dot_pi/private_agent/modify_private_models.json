@@ -1,17 +1,17 @@
 chezmoi:modify-template
-{{- /* Cap every model whose catalog advertises a 1M-token (or larger) context
-     window at 256k. Compaction keys off the advertised window, so an
-     uncapped session grows past the point where these models stay coherent
-     and cheap.
+{{- /* Cap every model whose catalog advertises more than 256k at 256k.
+     Compaction keys off the advertised window, so an uncapped session grows
+     past the point where these models stay coherent and cheap.
 
      modelOverrides keys are exact provider model IDs, not patterns, and pi
      has no global cap, so the IDs are enumerated: the union of
-     `pi --list-models` (1M and up) and the hyper, cline-pass, and commandcode
-     catalogs in exact_extensions/exact_providers. Refresh the list when a
-     catalog gains a 1M model. Unknown IDs are ignored by pi, so a retired
-     entry is harmless. Paths are lists because the IDs contain dots and
-     slashes. Everything else in models.json, including custom providers and
-     other override fields, is preserved. */}}
+     `pi --list-models` and the hyper, cline-pass, and commandcode catalogs in
+     exact_extensions/exact_providers. tests/repo/test_pi_models.py re-derives
+     that union from the catalogs, so a catalog that gains a model above the
+     cap fails the suite until the ID is listed here. Unknown IDs are ignored
+     by pi, so a retired entry is harmless. Paths are lists because the IDs
+     contain dots and slashes. Everything else in models.json, including
+     custom providers and other override fields, is preserved. */}}
 {{- $current := fromJson (.chezmoi.stdin | default "{}") }}
 {{- $cap := 262144 }}
 {{- $models := dict
@@ -43,6 +43,10 @@ chezmoi:modify-template
         "google/gemini-3.6-flash"
         "google/gemini-3.7-flash"
         "google/gemini-3.8-flash"
+        "gpt-5.3-codex"
+        "gpt-5.4"
+        "gpt-5.4-mini"
+        "gpt-5.5"
         "gpt-5.6-luna"
         "gpt-5.6-sol"
         "gpt-5.6-terra"
@@ -65,6 +69,8 @@ chezmoi:modify-template
         "stepfun/Step-3.5-Flash"
         "tencent/hy4-preview"
         "thinkingmachines/inkling-small"
+        "xai/grok-4.5"
+        "xai/grok-4.6"
         "xiaomi/mimo-v2.5"
         "xiaomi/mimo-v2.5-pro"
         "z-ai/glm-5.3-flash"
@@ -81,6 +87,7 @@ chezmoi:modify-template
         "glm-5.3"
         "glm-5.3-flash"
         "kimi-k3"
+        "minimax-m3"
         "qwen3.7-max"
         "qwen3.7-plus"
         "qwen3.8-flash"
