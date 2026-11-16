@@ -251,7 +251,12 @@ $global:__dotfiles_profile_loaded = $true
                     if ($interpreter -notlike '*.exe') { $interpreter = "$interpreter.exe" }
                     $funcName = "script_handler_" + ($path.ToLower() -replace '[^a-zA-Z0-9]', '_')
                     if (-not (Get-Command -Name $funcName -CommandType Function -ErrorAction SilentlyContinue)) {
-                        $scriptBlock = [scriptblock]::Create("& '$interpreter' '$path' `$args")
+                        # The scriptblock is built by interpolation, so a single
+                        # quote in either string (Windows allows one in a user
+                        # name) has to be doubled to stay inside the literal.
+                        $quotedPath = $path -replace "'", "''"
+                        $quotedInterpreter = $interpreter -replace "'", "''"
+                        $scriptBlock = [scriptblock]::Create("& '$quotedInterpreter' '$quotedPath' `$args")
                         Set-Item -Path "function:global:$funcName" -Value $scriptBlock
                     }
                     $LookupArgs.Command = Get-Command $funcName
