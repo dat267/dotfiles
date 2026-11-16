@@ -27,6 +27,10 @@ import threading
 import urllib.parse
 
 DEFAULT_PORT = 8000
+# A connection that sends nothing, or stops mid-request, is dropped after this
+# many seconds: without it each such client held a thread for the life of the
+# socket, and the server makes a thread per connection.
+DEFAULT_TIMEOUT = 30
 PORT_TRIES = 20
 
 # A listener bound to every interface is reachable from the LAN, so an upload
@@ -69,14 +73,17 @@ class _ReusableHTTPServer(http.server.ThreadingHTTPServer):
     allow_reuse_address = os.name != "nt"
 
 
-def make_server(root, host="0.0.0.0", port=DEFAULT_PORT, upload=False, token=None, once=False, only=None):
+def make_server(root, host="0.0.0.0", port=DEFAULT_PORT, upload=False, token=None, once=False, only=None,
+                request_timeout=DEFAULT_TIMEOUT):
     """Build a ThreadingHTTPServer serving `root`; port 0 picks any free port.
 
     `only` restricts sharing to one filename inside `root`, so serving a single
-    file never exposes its siblings.
+    file never exposes its siblings. `request_timeout` bounds every read and
+    write on a connection, so an idle client cannot pin its thread.
     """
     root = os.path.realpath(root)
-    handler = _make_handler(root, upload=upload, token=token, only=only)
+    handler = _make_handler(root, upload=upload, token=token, only=only,
+                            request_timeout=request_timeout)
     server = _ReusableHTTPServer((host, port), handler)
     server.exit_after_request = once
     return server
@@ -93,10 +100,14 @@ def bind_server(root, host="0.0.0.0", port=DEFAULT_PORT, tries=1, **kwargs):
     raise last_error
 
 
-def _make_handler(root, upload=False, token=None, only=None):
+def _make_handler(root, upload=False, token=None, only=None, request_timeout=DEFAULT_TIMEOUT):
     class Handler(http.server.SimpleHTTPRequestHandler):
         server_version = "serve/1.0"
         protocol_version = "HTTP/1.1"
+        # StreamRequestHandler applies this to the connection socket, and
+        # BaseHTTPRequestHandler turns the resulting timeout into a closed
+        # connection instead of an endless read.
+        timeout = request_timeout
 
         def log_message(self, fmt, *args):
             eprint(f"  {self.address_string()} {fmt % args}")
@@ -364,6 +375,8 @@ def parse_args(argv=None):
     parser.add_argument("--once", action="store_true", help="exit after the first completed transfer")
     parser.add_argument("--token", nargs="?", const="", default=None, help="require a token; value generated when omitted")
     parser.add_argument("--no-qr", action="store_true", help="do not print a QR code")
+    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT,
+                        help=f"seconds before an idle connection is dropped (default {DEFAULT_TIMEOUT})")
     return parser.parse_args(argv)
 
 
@@ -395,7 +408,8 @@ def main(argv=None):
     tries = 1 if args.port is not None else PORT_TRIES
     start = args.port if args.port is not None else DEFAULT_PORT
     try:
-        server = bind_server(root, args.bind, start, tries=tries, upload=args.upload, token=token, once=args.once, only=only)
+        server = bind_server(root, args.bind, start, tries=tries, upload=args.upload, token=token,
+                            once=args.once, only=only, request_timeout=args.timeout)
     except OSError as exc:
         eprint(f"serve: cannot bind {args.bind}:{start} ({exc})")
         return 1

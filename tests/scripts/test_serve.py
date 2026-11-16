@@ -580,5 +580,46 @@ class TestHelpers(unittest.TestCase):
             finally:
                 blocker.close()
 
+    def test_default_timeout_is_a_sane_bound(self):
+        server = self.mod.make_server(root=tempfile.gettempdir(), host="127.0.0.1", port=0)
+        try:
+            self.assertEqual(server.RequestHandlerClass.timeout, self.mod.DEFAULT_TIMEOUT)
+            self.assertGreater(self.mod.DEFAULT_TIMEOUT, 0)
+        finally:
+            server.server_close()
+
+    def test_timeout_flag_reaches_the_handler(self):
+        self.assertEqual(self.mod.parse_args(["--timeout", "5"]).timeout, 5)
+
+
+class TestRequestTimeout(unittest.TestCase):
+    """An idle or half-sent request must not hold its thread forever."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = _loader.load("serve")
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.server = cls.mod.make_server(
+            root=cls.tmp.name, host="127.0.0.1", port=0, request_timeout=0.3
+        )
+        cls.port = cls.server.server_address[1]
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.tmp.cleanup()
+
+    def test_a_client_that_stops_mid_request_is_cut_off(self):
+        with socket.create_connection(("127.0.0.1", self.port), timeout=5) as sock:
+            # Headers without the blank line: the server blocks reading them.
+            sock.sendall(b"GET /hello.txt HTTP/1.1\r\nHost: x\r\n")
+            sock.settimeout(5)
+            # The server closes the connection once its own timeout fires, so
+            # the read returns EOF instead of hanging for the life of the socket.
+            self.assertEqual(sock.recv(1024), b"")
+
 
 
