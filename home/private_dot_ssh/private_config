@@ -1,11 +1,16 @@
 Host *
   ConnectTimeout 30
-  StrictHostKeyChecking no
-  UserKnownHostsFile=/dev/null
+  StrictHostKeyChecking accept-new
   LogLevel ERROR
   ServerAliveInterval 30
   ServerAliveCountMax 3
   AddKeysToAgent yes
+# The three tailnet machines keep no host key: their keys change on rebuild,
+# and the prompt stops an unattended session. Everywhere else the wildcard
+# above applies, so ~/.ssh/known_hosts is written and checked again.
+Host nexus citadel outpost
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
 Host nexus
   User root
   Hostname 100.64.0.3
@@ -15,4 +20,3 @@ Host citadel
 Host outpost
   User dat
   Hostname 100.64.0.2
-
