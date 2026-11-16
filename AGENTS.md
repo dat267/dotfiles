@@ -40,7 +40,7 @@ Notable source → deployed mappings:
 | `dot_pi/private_agent/exact_skills/` | `~/.pi/agent/skills/` |
 | `dot_pi/private_agent/private_APPEND_SYSTEM.md` | `~/.pi/agent/APPEND_SYSTEM.md` (mode 0600) |
 | `dot_pi/private_agent/modify_private_settings.json` | `~/.pi/agent/settings.json` (merged, mode 0600) |
-| `dot_pi/private_agent/modify_private_models.json` | `~/.pi/agent/models.json` (merged, mode 0600). Caps every model whose catalog advertises more than 256k at 256k by exact ID; `tests/repo/test_pi_models.py` fails when a catalog gains an unlisted one |
+| `dot_pi/private_agent/modify_private_models.json` | `~/.pi/agent/models.json` (merged, mode 0600). Caps every model above 256k by exact ID. The test derives that set from the provider catalogs, so the opencode-go and deepseek IDs, which live only in pi, have to be rechecked against `pi --list-models` by hand |
 | `dot_config/opencode/private_opencode.json` | `~/.config/opencode/opencode.json` |
 
 ```
