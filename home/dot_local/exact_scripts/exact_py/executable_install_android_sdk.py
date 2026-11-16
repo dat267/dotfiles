@@ -223,11 +223,9 @@ def _android_path(sdk_root):
     return p
 
 
-def _yes():
-    return subprocess.Popen(
-        ["echo", "y"] if os.name == "posix" else ["cmd", "/c", "echo y"],
-        stdout=subprocess.PIPE,
-    )
+def _accept_every_prompt():
+    """Answers for sdkmanager, which asks one y/N question per licence."""
+    return "y\n" * 128
 
 
 def run_android_sdk(sdk_root, components):
@@ -236,29 +234,22 @@ def run_android_sdk(sdk_root, components):
     env["ANDROID_HOME"] = sdk_root
     env["JAVA_HOME"] = os.environ.get("JAVA_HOME", "")
 
-    lic_pipe = _yes()
     subprocess.run(
         [android, "sdk", "--licenses"],
-        env=env, stdin=lic_pipe.stdout,
+        env=env, input=_accept_every_prompt(), text=True,
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
-    lic_pipe.stdout.close()
-    lic_pipe.wait()
 
     log("Installing SDK components (this may take a while)...", "cyan")
     for component in components:
         log(f"  {component}", "yellow")
 
     cmd = [android, "sdk", "install"] + components
-    install_pipe = _yes()
     try:
-        subprocess.run(cmd, env=env, stdin=install_pipe.stdout, check=True)
+        subprocess.run(cmd, env=env, input=_accept_every_prompt(), text=True, check=True)
     except subprocess.CalledProcessError as e:
         log(f"Error: 'android sdk install' failed with exit code {e.returncode}", "red")
         sys.exit(1)
-    finally:
-        install_pipe.stdout.close()
-        install_pipe.wait()
 
     log("SDK components installed successfully.", "green")
 

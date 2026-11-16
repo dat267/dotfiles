@@ -413,4 +413,37 @@ class TestTermuxNerdFont(unittest.TestCase):
         self.assertTrue(os.path.exists(dest))
 
 
+class TestAndroidLicencePrompts(unittest.TestCase):
+    """sdkmanager asks one y/N question per licence.
 
+    The install step only succeeds for packages whose licences were accepted,
+    so a single "y" on stdin accepts one licence and leaves the rest, and the
+    run then fails with a licence error rather than installing anything.
+    """
+
+    def prompts_used(self):
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append((cmd, kwargs))
+            return mock.Mock(returncode=0)
+
+        with mock.patch.object(sdk, "_android_path", return_value="android"), \
+                mock.patch.object(sdk.subprocess, "run", side_effect=fake_run):
+            sdk.run_android_sdk("/sdk", ["platform-tools"])
+        return calls
+
+    def test_both_sdkmanager_calls_answer_every_prompt(self):
+        calls = self.prompts_used()
+        self.assertEqual(len(calls), 2)
+        for cmd, kwargs in calls:
+            with self.subTest(cmd=cmd):
+                self.assertTrue(kwargs.get("input"), "stdin carries no answers")
+                self.assertGreaterEqual(kwargs["input"].count("y"), 10)
+
+    def test_no_extra_process_is_spawned_for_stdin(self):
+        with mock.patch.object(sdk, "_android_path", return_value="android"), \
+                mock.patch.object(sdk.subprocess, "run", return_value=mock.Mock(returncode=0)), \
+                mock.patch.object(sdk.subprocess, "Popen") as popen:
+            sdk.run_android_sdk("/sdk", ["platform-tools"])
+        popen.assert_not_called()
