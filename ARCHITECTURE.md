@@ -24,10 +24,7 @@ Linux, Windows, and Android (Termux) share most of the configuration. Templates 
 
 The extensions register the Command Code, ClinePass and hyper providers, sync each session onto the default model, draw the footer, push a notification when Pi settles, and shorten compaction for DeepSeek models by replaying the previous provider request so the server's prefix cache covers the history.
 
-Two files merge into Pi's own state instead of replacing it, so settings Pi or the user wrote survive:
-
-- `modify_private_settings.json` merges the managed settings into `settings.json` and keeps it at 0600, the mode Pi writes.
-- `modify_private_models.json` merges into `models.json` a 128k `contextWindow` cap for every model whose catalog advertises more than 128k; `tests/repo/test_pi_models.py` derives that set from the provider catalogs.
+`modify_private_settings.json` merges the managed settings into `settings.json` instead of replacing it, so settings Pi or the user wrote survive, and keeps the file at 0600, the mode Pi writes. `models.json` is not managed: every model keeps the context window its provider catalog advertises.
 
 The `flat` theme is the default: it paints no panel backgrounds and is written in 256-color indices and terminal defaults, so it follows the terminal's palette. `system` is still selectable.
 
