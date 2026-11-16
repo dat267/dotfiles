@@ -260,15 +260,47 @@ def plan_runtime_mounts(profile, env=None, exists=os.path.exists, isdir=os.path.
 
 def plan_host_masks(exists=os.path.exists, isdir=os.path.isdir):
     """Mask the host IPC endpoints that drive the session or the system."""
+    directories = masked_directories(isdir=isdir)
     masks = []
     for path in HOST_MASKS:
         if not exists(path):
             continue
-        if isdir(path):
+        if path in directories:
             masks += ["--tmpfs", path]
         else:
             masks += ["--bind-try", "/dev/null", path]
     return masks
+
+
+def masked_directories(isdir=os.path.isdir):
+    """The host IPC endpoints that are directories, so a tmpfs hides them."""
+    return [path for path in HOST_MASKS if isdir(path)]
+
+
+def masked_roots(profile, env=None, isdir=os.path.isdir, ssh_config_dir=None):
+    """Every directory a mount replaces wholesale, in mount order."""
+    env = os.environ if env is None else env
+    roots = []
+    runtime = env.get("XDG_RUNTIME_DIR")
+    if runtime and isdir(runtime):
+        roots.append(os.path.normpath(runtime))
+    if ssh_config_dir:
+        roots.append(ssh_config_dir)
+    return roots + masked_directories(isdir=isdir)
+
+
+def workspace_shadow(workspace, roots):
+    """The masked root that would hide the workspace, or None.
+
+    A tmpfs over a directory empties the whole tree, and bwrap applies it
+    after the writable binds, so a workspace inside one has no directory left
+    for --chdir: bwrap aborts with "Can't chdir to ...". The mount that hides
+    the workspace is deliberate, so the launch is refused instead.
+    """
+    for root in roots:
+        if workspace == root or workspace.startswith(root.rstrip(os.sep) + os.sep):
+            return root
+    return None
 
 
 def is_termux(env=None):
@@ -384,6 +416,14 @@ def main(profile, argv=None, env=None, execvp=os.execvp, which=shutil.which,
     runtime_mounts = plan_runtime_mounts(profile, env=env, exists=exists, isdir=isdir)
     host_masks = plan_host_masks(exists=exists, isdir=isdir)
     env_extra = remote_env(profile, env=env, exists=exists)
+
+    shadow = workspace_shadow(workspace, masked_roots(profile, env=env, isdir=isdir,
+                                                     ssh_config_dir=ssh_config_dir))
+    if shadow:
+        warn(profile, f"workspace is inside {shadow}, which the sandbox replaces with an "
+                      "empty tmpfs; run from another directory", quiet=False)
+        return 2
+
     bwrap_argv = build_bwrap_argv(bwrap, tool, argv, workspace, writable, ssh_config_dir,
                                   runtime_mounts, host_masks, env_extra)
 

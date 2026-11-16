@@ -72,6 +72,9 @@ pi runs directly, with a warning, when bwrap is missing, the platform is not
 Linux, the sandbox probe fails (for example user namespaces are disabled),
 PI_SANDBOX_MODE=fa, or PI_SANDBOX_DISABLE=1. A nested launch (PI_BWRAP=1) also
 runs directly instead of stacking a second sandbox.
+A launch from inside a directory the sandbox masks (the runtime dir, a host
+IPC directory) is refused with exit 2: the tmpfs there would leave no
+workspace to enter.
 
 Maintenance subcommands (install, remove, uninstall, update, list, config,
 auth, mcp) always run directly: they maintain pi itself, which lives outside

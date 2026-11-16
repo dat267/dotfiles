@@ -659,6 +659,35 @@ class MainTest(unittest.TestCase):
 
         self.each(check)
 
+    def test_workspace_inside_a_masked_tree_is_refused(self):
+        """A tmpfs over the runtime dir leaves no directory to chdir into."""
+
+        def check(profile):
+            runtime = "/run/user/1000"
+            for workspace in (runtime, os.path.join(runtime, "proj")):
+                with self.subTest(workspace=workspace):
+                    self.calls.clear()
+                    env = {profile.var("WORKSPACE"): workspace, "XDG_RUNTIME_DIR": runtime}
+                    with contextlib.redirect_stderr(io.StringIO()) as err:
+                        rc = self.run_main(profile, env=env)
+                    self.assertEqual(rc, 2)
+                    self.assertEqual(self.calls, [])
+                    self.assertIn(runtime, err.getvalue())
+
+        self.each(check)
+
+    def test_workspace_inside_a_host_mask_is_refused(self):
+        def check(profile):
+            masked = sandbox.HOST_MASKS[-1]
+            env = {profile.var("WORKSPACE"): os.path.join(masked, "proj")}
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                rc = self.run_main(profile, env=env)
+            self.assertEqual(rc, 2)
+            self.assertEqual(self.calls, [])
+            self.assertIn(masked, err.getvalue())
+
+        self.each(check)
+
     def test_dry_run_prints_command(self):
         def check(profile):
             buf = io.StringIO()

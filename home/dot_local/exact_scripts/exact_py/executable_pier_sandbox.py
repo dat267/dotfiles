@@ -64,6 +64,9 @@ ICE cookies live in the runtime dir that is now masked.
 Pier runs directly, with a warning, if bwrap is unavailable, Linux namespaces
 cannot be created, PIER_SANDBOX_MODE=fa, or PIER_SANDBOX_DISABLE=1. Nested
 launches marked with PI_BWRAP=1 run directly rather than stacking sandboxes.
+A launch from inside a directory the sandbox masks (the runtime dir, a host
+IPC directory) is refused with exit 2: the tmpfs there would leave no
+workspace to enter.
 
 The update and auth subcommands run directly. Update replaces the Pier binary,
 which is outside the writable allowlist. Other arguments pass through
