@@ -106,6 +106,8 @@ node --test                                   # per extension dir: runs every *.
 
 A test module imports `_loader` from `tests/`, so running one directly fails at import: tests run only through `discover`.
 
+A test that needs a temporary directory calls `_loader.tempdir()` (Python) or `testlib/temp-dir.ts`'s `tempDir()` (extensions). Both remove it when the process exits; a raw `tempfile.mkdtemp()` or `mkdtempSync()` leaves one behind per run, and the suite had accumulated thousands in `TMPDIR`.
+
 Before reporting done, run the checks for the area you changed:
 
 - `exact_py`, `tools/`, the shell profile, hooks, or Pi and Yazi config: the Python tests.
